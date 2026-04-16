@@ -318,7 +318,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
         }
       }
       const query = params.toString();
-      router.replace(query ? `${pathname}?${query}` : pathname);
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
     },
     [pathname, router, searchParams]
   );
