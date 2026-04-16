@@ -1,0 +1,55 @@
+[
+  {
+    "event_code": "2024RMUC",
+    "season": 2024,
+    "league": "RMUC",
+    "event_title": "RoboMaster 2024超级对抗赛",
+    "sources": {
+      "schedule.json": "https://raw.githubusercontent.com/scutrobotlab/rm-schedule/main/internal/static/season_2024/schedule.json",
+      "group_rank_info.json": "https://raw.githubusercontent.com/scutrobotlab/rm-schedule/main/internal/static/season_2024/group_rank_info.json",
+      "rank_score.json": "https://raw.githubusercontent.com/scutrobotlab/rm-schedule/main/internal/static/season_2024/rank_score.json"
+    },
+    "outputs": {
+      "teams.csv": 168,
+      "matches.csv": 350,
+      "group_rank.csv": 168,
+      "rank_score.csv": 213
+    }
+  },
+  {
+    "event_code": "2025RMUC",
+    "season": 2025,
+    "league": "RMUC",
+    "event_title": "RoboMaster 2025 超级对抗赛",
+    "sources": {
+      "schedule.json": "https://raw.githubusercontent.com/scutrobotlab/rm-schedule/main/internal/static/season_2025/schedule.json",
+      "group_rank_info.json": "https://raw.githubusercontent.com/scutrobotlab/rm-schedule/main/internal/static/season_2025/group_rank_info.json",
+      "rank_score.json": "https://raw.githubusercontent.com/scutrobotlab/rm-schedule/main/internal/static/season_2025/rank_score.json",
+      "robot_data.json": "https://raw.githubusercontent.com/scutrobotlab/rm-schedule/main/internal/static/season_2025/robot_data.json"
+    },
+    "outputs": {
+      "teams.csv": 154,
+      "matches.csv": 400,
+      "group_rank.csv": 154,
+      "robot_data.csv": 1162,
+      "rank_score.csv": 240
+    }
+  },
+  {
+    "event_code": "2026RMUL",
+    "season": 2026,
+    "league": "RMUL",
+    "event_title": "RoboMaster 2026 高校联盟赛-3V3对抗赛",
+    "sources": {
+      "schedule.json": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/live_json/schedule.json",
+      "group_rank_info.json": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/live_json/group_rank_info.json",
+      "robot_data.json": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/live_json/robot_data.json"
+    },
+    "outputs": {
+      "teams.csv": 266,
+      "matches.csv": 510,
+      "group_rank.csv": 266,
+      "robot_data.csv": 1659
+    }
+  }
+]

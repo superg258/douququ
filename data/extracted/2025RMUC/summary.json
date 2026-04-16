@@ -1,0 +1,19 @@
+{
+  "event_code": "2025RMUC",
+  "season": 2025,
+  "league": "RMUC",
+  "event_title": "RoboMaster 2025 超级对抗赛",
+  "sources": {
+    "schedule.json": "https://raw.githubusercontent.com/scutrobotlab/rm-schedule/main/internal/static/season_2025/schedule.json",
+    "group_rank_info.json": "https://raw.githubusercontent.com/scutrobotlab/rm-schedule/main/internal/static/season_2025/group_rank_info.json",
+    "rank_score.json": "https://raw.githubusercontent.com/scutrobotlab/rm-schedule/main/internal/static/season_2025/rank_score.json",
+    "robot_data.json": "https://raw.githubusercontent.com/scutrobotlab/rm-schedule/main/internal/static/season_2025/robot_data.json"
+  },
+  "outputs": {
+    "teams.csv": 154,
+    "matches.csv": 400,
+    "group_rank.csv": 154,
+    "robot_data.csv": 1162,
+    "rank_score.csv": 240
+  }
+}

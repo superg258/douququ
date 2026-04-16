@@ -1,0 +1,5832 @@
+{
+  "zones": [
+    {
+      "zoneName": "东部赛区",
+      "zoneId": "498",
+      "groups": [
+        {
+          "groupName": "A组",
+          "groupPlayers": [
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "浙江大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1532425365935-logo_blue_800x800.png",
+                  "teamName": "Hello World"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 2095
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 5416
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "太原理工大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/bcceed5a-13b9-4a19-8236-56b2bb40b58b",
+                  "teamName": "TRoMaC"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -2
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 856
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 59
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4159
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "首都师范大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/a061e111-f402-4e01-884e-0b5c95f7ab5e",
+                  "teamName": "PIE"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 7
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 375
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -20
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3941
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "南京航空航天大学金城学院",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/37ffc1d5-bfaa-472a-8584-2158ca7aa8d5",
+                  "teamName": "Born of Fire"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 5
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 160
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 204
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4041
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "天津大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525667950468-logo_blue_800x800.png",
+                  "teamName": "北洋机甲"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 1236
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 149
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 5070
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "上海工程技术大学",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/42a2f807-035c-49bc-9e1d-782239209b82",
+                  "teamName": "木鸢Birdiebot"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 544
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 213
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4770
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "齐鲁工业大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/4c4f28ef-93a7-4df1-ada4-5c0ad826f07d",
+                  "teamName": "Adam"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -4
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -557
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -179
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2983
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "西交利物浦大学&利物浦大学",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/74abd7b1-ddfa-4939-a552-cdfff066afb8",
+                  "teamName": "GMaster"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -5
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 1329
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 2
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4367
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "同济大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525665507590-logo_blue_800x800.png",
+                  "teamName": "SuperPower"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -907
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 83
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2960
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "辽宁科技大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525667029196-logo_blue_800x800.png",
+                  "teamName": "COD"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -367
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2971
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "山东理工大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/cd7bb6a9-f1cf-4f8d-9275-0f919de56a07",
+                  "teamName": "齐奇"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -397
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 355
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3178
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "上海科技大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/2b477b2a-e4af-4632-9716-362ce888bc6c",
+                  "teamName": "Magician"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -2
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1226
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -112
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2423
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "华北理工大学",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/db3b1cbb-32c6-4d09-82ea-7de69d71fcb4",
+                  "teamName": "Horizon"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 8
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1046
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -89
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2497
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "东北大学秦皇岛分校",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/84e03632-7d92-498b-9150-24d51a28a8d4",
+                  "teamName": "征龙凌沧"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -801
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -517
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2076
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "中国石油大学（北京）",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/536194b1-d052-480f-b5b9-fbd2ef9d6dc8",
+                  "teamName": "SPR"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -847
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2621
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "合肥工业大学(宣城校区)",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/6b928c7e-4ab6-48ab-8a5a-39836fd182c7",
+                  "teamName": "WDR"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1362
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -643
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 1272
+              }
+            ]
+          ]
+        },
+        {
+          "groupName": "B组",
+          "groupPlayers": [
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "哈尔滨工业大学（威海）",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/496f97c0-f329-4457-ae1e-1476c467ff94",
+                  "teamName": "HERO"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 1703
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 187
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 6065
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "广东工业大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/ed0ca377-9bbc-4d6d-b5d1-8dd2d09bdbaf",
+                  "teamName": "DynamicX"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -3
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 1504
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 375
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 6347
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "吉林大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/422493a0-1f3c-4f00-8c95-7ad1f9e1df2c",
+                  "teamName": "TARS_Go"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 4
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 2132
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 44
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 6488
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "东南大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525665086212-logo_yellow_800x800.png",
+                  "teamName": "3SE"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 1210
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4998
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "上海交通大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525660725241-logo_red_800x800.png",
+                  "teamName": "交龙"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 820
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 132
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 6237
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "中国科学技术大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/c3c27ffa-22a3-438d-b9c6-3e46caff042c",
+                  "teamName": "RoboWalker"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -166
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 151
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4425
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "杭州电子科技大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/e8350b30-12fc-4a44-a049-638d5f14d72b",
+                  "teamName": "PHOENIX"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -2
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -887
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4130
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "华东理工大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/bbd1ecfe-4c6a-4b6d-927f-c13e4782d613",
+                  "teamName": "起源"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -3
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 356
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4244
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "中国矿业大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525667804487-logo_blue_800x800.png",
+                  "teamName": "CUBOT"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 5
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1505
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 4
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3915
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "浙江纺织服装职业技术学院",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525676616592-logo_red_800x800.png",
+                  "teamName": "RoboFuture"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -295
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -164
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4629
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "西北工业大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525674854703-logo_blue_800x800.png",
+                  "teamName": "WMJ"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -630
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -38
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3721
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "中北大学",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/545f6aae-fcc7-4094-85e0-ea6f30596d73",
+                  "teamName": "606"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -3
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -309
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 108
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3560
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "陆军勤务学院",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/7c7e25cd-42c7-4419-bbbb-68743f068f6b",
+                  "teamName": "陆擎"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 4
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -2451
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -263
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 1558
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "东华大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/951ba744-0a29-48c8-8ddd-cfd2f1ab959f",
+                  "teamName": "DIODE"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1749
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -919
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 1214
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "沈阳理工大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/be475077-4807-4b5d-b452-f007b66de8f2",
+                  "teamName": "Ambition"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1750
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -265
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 1873
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "常州大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/e8a579bb-264e-4eee-88b7-ccc1a64b4729",
+                  "teamName": "Climber"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -540
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2830
+              }
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "zoneName": "中部赛区",
+      "zoneId": "499",
+      "groups": [
+        {
+          "groupName": "A组",
+          "groupPlayers": [
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "南昌大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525699199414-logo_blue_800x800.png",
+                  "teamName": "Passion"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -2
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 967
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 6135
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "南方科技大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525665910623-logo_orange_800x800.png",
+                  "teamName": "ARTINX"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -3
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 698
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 321
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3967
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "北京理工大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525667569344-logo_green_800x800.png",
+                  "teamName": "追梦"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 8
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 1207
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -182
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 5319
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "桂林信息科技学院",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/432392cd-dff4-4b78-aa00-68641f3da5ee",
+                  "teamName": "GIRT"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 1111
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 273
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 5174
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "华中科技大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525675209294-logo_blue_800x800.png",
+                  "teamName": "狼牙"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -450
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -25
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4469
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "哈尔滨工程大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525665837757-logo_blue_800x800.png",
+                  "teamName": "创梦之翼"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -3
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -417
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 41
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3750
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "沈阳航空航天大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525668135842-logo_blue_800x800.png",
+                  "teamName": "TUP"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -5
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -170
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 179
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4748
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "太原工业学院",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/c7de86e0-a829-4d6d-9329-3228f57ded92",
+                  "teamName": "火线"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -7
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 609
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 242
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4306
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "合肥工业大学",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/6b928c7e-4ab6-48ab-8a5a-39836fd182c7",
+                  "teamName": "苍穹"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 8
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -733
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 95
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4023
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "山东科技大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525675697079-logo_blue_800x800.png",
+                  "teamName": "SmartRobot"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 6
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -160
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -107
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4439
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "青岛大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/a5fece37-9a43-40a6-89a7-154a35a20ffb",
+                  "teamName": "未来"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -765
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 121
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2319
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "东北林业大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525678704382-logo_green_800x800.png",
+                  "teamName": "Ares"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -4
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -143
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 191
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3125
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "河北科技大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525678437924-logo_blue_800x800.png",
+                  "teamName": "Actor&Thinker"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 7
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -900
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -299
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 1854
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "燕山大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525676163698-logo_blue_800x800.png",
+                  "teamName": "燕鹰"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 4
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -150
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -286
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 1980
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "长安大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525678187820-logo_bule_800x800.png",
+                  "teamName": "VGD"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1220
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -443
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 1576
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "西安理工大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525666732892-logo_purple_800x800.png",
+                  "teamName": "NEXT E"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -433
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -847
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 1321
+              }
+            ]
+          ]
+        },
+        {
+          "groupName": "B组",
+          "groupPlayers": [
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "西安电子科技大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525676832533-logo_red_800x800.png",
+                  "teamName": "IRobot"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 1823
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 5570
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "华南理工大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/b81c5a92-dc8f-479d-97b4-d531a39ce70b",
+                  "teamName": "华南虎"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 1917
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 39
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 5499
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "哈尔滨工业大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/830c2cbd-31e5-4fea-9015-cb6ec9fa5224",
+                  "teamName": "I Hiter"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 6
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 542
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 201
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 5982
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "华北科技学院",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525674748988-logo_blue_800x800.png",
+                  "teamName": "风暴"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 5
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 54
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 335
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4304
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "南京理工大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525665364632-logo_purple_800x800.png",
+                  "teamName": "Alliance"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -211
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 147
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2583
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "太原科技大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525680043036-log_blue_800x800.png",
+                  "teamName": "NewMaker"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -244
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 90
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4290
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "东莞理工学院",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/ef8c032e-9c30-467d-afc0-81ee5475cfe3",
+                  "teamName": "ACE"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -4
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -116
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 26
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3956
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "中国石油大学（华东）",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/ca37313c-d7ce-4887-a872-fe558d3e39bd",
+                  "teamName": "RPS"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -5
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 768
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 91
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4993
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "武汉工程大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/a413c7fa-e03f-4b01-922a-fc05d46aba6f",
+                  "teamName": "Nautilus"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 4
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 74
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 93
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4016
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "厦门大学嘉庚学院",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/74fa4796-2b58-4d72-8b60-2150168b72fe",
+                  "teamName": "TCR"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1101
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -13
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 1899
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "西南石油大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/d54803f3-1758-4597-b85d-9db75b9a37e7",
+                  "teamName": "铁人"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -431
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -319
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2416
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "重庆三峡学院",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/866d186e-2c2c-440b-a549-1c9614fba738",
+                  "teamName": "LionHeart"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -2
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -687
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -219
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2297
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "四川大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525667988074-logo_red_800x800.png",
+                  "teamName": "火锅"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 8
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -2512
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2812
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "成都大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/3b03a9b4-d828-472c-9fd1-69e7087800af",
+                  "teamName": "Ultra"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1107
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -296
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 1893
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "福建理工大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/2e4a88a1-9d5b-4d21-bae7-1a528564acda",
+                  "teamName": "苍侠"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1029
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -63
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2524
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "内蒙古科技大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/4e59c288-b5e4-4ed5-a221-3be0377641e1",
+                  "teamName": "雷霆"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -82
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -356
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 1865
+              }
+            ]
+          ]
+        },
+        {
+          "groupName": "邀请赛-C组",
+          "groupPlayers": [
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "常熟理工学院",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/8ab48d69-1e80-40e3-aa02-0b2c3f4a9705",
+                  "teamName": "R&A"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/1/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -2
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 301
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 557
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2093
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "湖北工业大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525667615591-logo_blue_800x800.png",
+                  "teamName": "力创RM"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/1/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -51
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -409
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 1541
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "武汉科技大学",
+                  "collegeLogo": "https://terra-us-pro-rm-prod-pub-us.s3.amazonaws.com/da84bc27e35640e4b9feecd839639d57/78b59460-7dcf-4450-94c6-bab768080cb4",
+                  "teamName": "崇实"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -250
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -148
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 1511
+              }
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "zoneName": "南部赛区",
+      "zoneId": "500",
+      "groups": [
+        {
+          "groupName": "A组",
+          "groupPlayers": [
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "深圳大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525667668942-logo_red_800x800.png",
+                  "teamName": "RobotPilots"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 5
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 2822
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 50
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 6789
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "西安交通大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525666415627-logo_red_800x800.png",
+                  "teamName": "笃行"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -6
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 4053
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 455
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 7919
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "五邑大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525678640816-logo_glod_800x800.png",
+                  "teamName": "IMCA"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 6
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -195
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -43
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4596
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "深圳职业技术大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/c4e80f93-0bbb-49b4-b391-0b6671351c1b",
+                  "teamName": "RCIA"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 6
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -753
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 13
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3701
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "中南大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525676967503-logo_blue_800x800.png",
+                  "teamName": "FYT"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 1906
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 303
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 5792
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "桂林电子科技大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525673879563-logo_blue_800x800.png",
+                  "teamName": "Evolution"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 524
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 236
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 5300
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "华南农业大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/c1b63e9f-b50d-47f2-aa0d-c6517e3b4666",
+                  "teamName": "Taurus"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -4
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 1968
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 6236
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "北京理工大学珠海学院",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525675650813-logo_green_800x800.png",
+                  "teamName": "毅恒"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -4
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -516
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 84
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3375
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "湖南大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/c1c73843-9165-4eb0-bb8e-ee01da2afb00",
+                  "teamName": "跃鹿"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 7
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1835
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 48
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3990
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "佛山大学",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/1742c9f4-c40b-4f18-b084-57b70c27aa6c",
+                  "teamName": "醒狮"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1088
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -13
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3560
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "西南交通大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/ba554754-e072-434f-93df-41dcb53ce29b",
+                  "teamName": "Helios"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1109
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 11
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4434
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "南华大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/3a47924a-603f-4784-a891-9d35a89b2f72",
+                  "teamName": "MA"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -4
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -613
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 163
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2568
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "桂林电子科技大学北海校区",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/27b1115d-8e7d-4195-a1b4-faafffefb68f",
+                  "teamName": "破浪笃行"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 4
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -2048
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -809
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2037
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "河北工业大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/41eef11b-8cc7-483e-88e0-900af812a330",
+                  "teamName": "山海Mas"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 4
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -2287
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -1165
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 1111
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "桂林理工大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525675274637-logo_blue_800x800.png",
+                  "teamName": "群星"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 279
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3573
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "北京科技大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525666158923-logo_blue_800x800.png",
+                  "teamName": "Reborn"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -2252
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -15
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2716
+              }
+            ]
+          ]
+        },
+        {
+          "groupName": "B组",
+          "groupPlayers": [
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "哈尔滨工业大学（深圳）",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/e67c1d7c-25e6-4491-9f63-58c7bdba727e",
+                  "teamName": "南工骁鹰"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 1912
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 6005
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "电子科技大学中山学院",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/6784aac0-42fc-4ffd-9e1c-cc27427022e3",
+                  "teamName": "RoboBraver"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 3479
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 254
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 7638
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "国防科技大学",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/03e913cf-3ec6-412f-aa15-2fda6027f715",
+                  "teamName": "军临"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 6
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -365
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 433
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4071
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "大连理工大学",
+                  "collegeLogo": "https://rm-static.djicdn.com/tem/19806/1f076093d63e91576572667729907724.png",
+                  "teamName": "凌BUG"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 1353
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 214
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 5701
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "东北大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525667139708-logo_blue_800x800.png",
+                  "teamName": "TDT"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 2139
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 432
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 6379
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "重庆大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525667252663-logo_blue_800x800.png",
+                  "teamName": "千里"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -126
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 423
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3329
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "广州城市理工学院",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/9365936c-3c07-449d-8e0e-2ed9e050e0f3",
+                  "teamName": "野狼"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -2
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 81
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -153
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3448
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "南京航空航天大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525679454590-logo_purple_800x800.png",
+                  "teamName": "长空御风"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -5
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 1469
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 47
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4687
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "华南师范大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/fd62886a-35c8-43d9-a0dc-d941a1dcc554",
+                  "teamName": "PIONEER"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 5
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -2609
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -150
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2852
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "厦门大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/04926f4b-2f6d-4691-b45d-502cc1e11f34",
+                  "teamName": "RCS"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1672
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -34
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2369
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "北京信息科技大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/532bbb76-84d6-44d8-807d-4047f77027f6",
+                  "teamName": "星辰"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1091
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -188
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2112
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "厦门理工学院",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525679388670-logo_red_800x800.png",
+                  "teamName": "PFA"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -5
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -330
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 177
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2810
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "深圳技术大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/d6d0f220-ef43-4e8b-9805-bf5d2e516b06",
+                  "teamName": "悍匠"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 5
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -852
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -55
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3041
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "福建师范大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/e1a05fca-da24-477e-af25-33ce70650b17",
+                  "teamName": "Pikachu"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1100
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -409
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2187
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "湘潭大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/6ee9d64c-9844-47d0-bfa7-4e428fc6d025",
+                  "teamName": "逐曦"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1164
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -750
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 1634
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "安徽信息工程学院",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525668159005-logo_blue_800x800.png",
+                  "teamName": "Artisans"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -2007
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -614
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 1882
+              }
+            ]
+          ]
+        },
+        {
+          "groupName": "邀请赛-C组",
+          "groupPlayers": [
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "仲恺农业工程学院",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525667218422-logo_green_800x800.png",
+                  "teamName": "奇点"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -2
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 1060
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 696
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3513
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "宁波工程学院",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/d2aac8c4-b7af-4a5f-9cca-911beea0bb71",
+                  "teamName": "New Legends"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/1/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -6
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 191
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 719
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 1769
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "北京邮电大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/7ebc0748-d36b-4872-a789-c5d80274d972",
+                  "teamName": "鸿雁"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/1/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 6
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -893
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -968
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 403
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "云南大学",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/1be57e6f-a974-4a97-83cf-8a5f900a7bb5",
+                  "teamName": "Future"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -309
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 646
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2264
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "宁波诺丁汉大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/fac211ba-fd60-4ca8-9a90-65d5f1f3cd9a",
+                  "teamName": "AIM"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -50
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -1094
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 798
+              }
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "zoneName": "港澳台及海外赛区&复活赛第一赛段",
+      "zoneId": "524",
+      "groups": [
+        {
+          "groupName": "Q组",
+          "groupPlayers": [
+            [
+              {
+                "itemName": "排名",
+                "itemValue": 1
+              },
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "香港科技大学",
+                  "collegeLogo": "https://terra-us-pro-rm-prod-pub-us.s3.amazonaws.com/da84bc27e35640e4b9feecd839639d57/b3b3847d-535c-47a4-bc43-b694cb2d7ca9",
+                  "teamName": "ENTERPRIZE"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 6
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 3050
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 1149
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 6685
+              }
+            ],
+            [
+              {
+                "itemName": "排名",
+                "itemValue": 2
+              },
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "关东联合大学",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/2cbe894a-9d37-403b-a40c-89f2a7d302f9",
+                  "teamName": "OOEDO SAMURAI"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1700
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -399
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2626
+              }
+            ],
+            [
+              {
+                "itemName": "排名",
+                "itemValue": 3
+              },
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "德州农工大学",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/e570e2eb-c79e-4e45-b97f-119c634add33",
+                  "teamName": "Texas Aimbots"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1350
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -750
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 1539
+              }
+            ]
+          ]
+        },
+        {
+          "groupName": "W组",
+          "groupPlayers": [
+            [
+              {
+                "itemName": "排名",
+                "itemValue": 1
+              },
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "香港大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/73fe762f-f39a-4cd2-afd5-ea154a877077",
+                  "teamName": "HerKules"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 6
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 233
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 598
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 2902
+              }
+            ],
+            [
+              {
+                "itemName": "排名",
+                "itemValue": 2
+              },
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "新潟联合大学",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/d2947eee-10e3-4d28-9a9c-93c622bb3cd2",
+                  "teamName": "Phoenix Robots"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/1/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -282
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 1516
+              }
+            ],
+            [
+              {
+                "itemName": "排名",
+                "itemValue": 3
+              },
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "五大湖联合大学",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/41a01899-0d78-494f-a9b3-9d679cfeeb5c",
+                  "teamName": "The Great Lakes"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/1/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -233
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -317
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 1497
+              }
+            ]
+          ]
+        },
+        {
+          "groupName": "A组",
+          "groupPlayers": [
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "中国石油大学（华东）",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/ca37313c-d7ce-4887-a872-fe558d3e39bd",
+                  "teamName": "RPS"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 3321
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 186
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 9097
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "天津大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525667950468-logo_blue_800x800.png",
+                  "teamName": "北洋机甲"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 4
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 78
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 5875
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "南京航空航天大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525679454590-logo_purple_800x800.png",
+                  "teamName": "长空御风"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 1067
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 12
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 7015
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "华北科技学院",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525674748988-logo_blue_800x800.png",
+                  "teamName": "风暴"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -4
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 51
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 16
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 5544
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "南京航空航天大学金城学院",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/37ffc1d5-bfaa-472a-8584-2158ca7aa8d5",
+                  "teamName": "Born of Fire"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 4
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1625
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -183
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 5683
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "哈尔滨工程大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525665837757-logo_blue_800x800.png",
+                  "teamName": "创梦之翼"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -496
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 6
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 6223
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "重庆大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525667252663-logo_blue_800x800.png",
+                  "teamName": "千里"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -2942
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -73
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3421
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "广州城市理工学院",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/9365936c-3c07-449d-8e0e-2ed9e050e0f3",
+                  "teamName": "野狼"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1300
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -29
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3828
+              }
+            ]
+          ]
+        },
+        {
+          "groupName": "B组",
+          "groupPlayers": [
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "齐鲁工业大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/4c4f28ef-93a7-4df1-ada4-5c0ad826f07d",
+                  "teamName": "Adam"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 255
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -79
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4990
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "深圳职业技术大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/c4e80f93-0bbb-49b4-b391-0b6671351c1b",
+                  "teamName": "RCIA"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 6
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 391
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -4
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4547
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "上海工程技术大学",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/42a2f807-035c-49bc-9e1d-782239209b82",
+                  "teamName": "木鸢Birdiebot"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 507
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 5968
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "中国科学技术大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/c3c27ffa-22a3-438d-b9c6-3e46caff042c",
+                  "teamName": "RoboWalker"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -3
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 460
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 5645
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "大连理工大学",
+                  "collegeLogo": "https://rm-static.djicdn.com/tem/19806/1f076093d63e91576572667729907724.png",
+                  "teamName": "凌BUG"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -2
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -30
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 3
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 5395
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "南京理工大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525665364632-logo_purple_800x800.png",
+                  "teamName": "Alliance"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -2
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1147
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4661
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "国防科技大学",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/03e913cf-3ec6-412f-aa15-2fda6027f715",
+                  "teamName": "军临"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 6
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 28
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 93
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 5258
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "东莞理工学院",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/ef8c032e-9c30-467d-afc0-81ee5475cfe3",
+                  "teamName": "ACE"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -2
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1085
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4241
+              }
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "zoneName": "复活赛第二赛段",
+      "zoneId": "525",
+      "groups": [
+        {
+          "groupName": "C组",
+          "groupPlayers": [
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "上海工程技术大学",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/42a2f807-035c-49bc-9e1d-782239209b82",
+                  "teamName": "木鸢Birdiebot"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -3
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 2516
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 9076
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "南京航空航天大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525679454590-logo_purple_800x800.png",
+                  "teamName": "长空御风"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 5
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 1197
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 7763
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "华北科技学院",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525674748988-logo_blue_800x800.png",
+                  "teamName": "风暴"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -3
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 2214
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 71
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 7153
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "香港科技大学",
+                  "collegeLogo": "https://terra-us-pro-rm-prod-pub-us.s3.amazonaws.com/da84bc27e35640e4b9feecd839639d57/b3b3847d-535c-47a4-bc43-b694cb2d7ca9",
+                  "teamName": "ENTERPRIZE"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -7
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 1430
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 7199
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "中国科学技术大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/c3c27ffa-22a3-438d-b9c6-3e46caff042c",
+                  "teamName": "RoboWalker"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 9
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -928
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 5792
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "深圳职业技术大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/c4e80f93-0bbb-49b4-b391-0b6671351c1b",
+                  "teamName": "RCIA"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1973
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 38
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4606
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "天津大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525667950468-logo_blue_800x800.png",
+                  "teamName": "北洋机甲"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 8
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -3172
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 5243
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "香港大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/73fe762f-f39a-4cd2-afd5-ea154a877077",
+                  "teamName": "HerKules"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -3835
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -183
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3038
+              }
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "zoneName": "全国赛",
+      "zoneId": "526",
+      "groups": [
+        {
+          "groupName": "A组",
+          "groupPlayers": [
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "中国石油大学（华东）",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/ca37313c-d7ce-4887-a872-fe558d3e39bd",
+                  "teamName": "RPS"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 3316
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 8699
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "西安交通大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525666415627-logo_red_800x800.png",
+                  "teamName": "笃行"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 4161
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 135
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 9730
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "浙江大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1532425365935-logo_blue_800x800.png",
+                  "teamName": "Hello World"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 7
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 437
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 7512
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "桂林电子科技大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525673879563-logo_blue_800x800.png",
+                  "teamName": "Evolution"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 1580
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 94
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 8119
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "华南农业大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/c1b63e9f-b50d-47f2-aa0d-c6517e3b4666",
+                  "teamName": "Taurus"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 563
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 30
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 6674
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "北京理工大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525667569344-logo_green_800x800.png",
+                  "teamName": "追梦"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 7
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -213
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -101
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 6465
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "东南大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525665086212-logo_yellow_800x800.png",
+                  "teamName": "3SE"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 144
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 6762
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "南京航空航天大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525679454590-logo_purple_800x800.png",
+                  "teamName": "长空御风"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -12
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 1094
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 7
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 7380
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "南方科技大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525665910623-logo_orange_800x800.png",
+                  "teamName": "ARTINX"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/3"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 7
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -855
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -75
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 6298
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "电子科技大学中山学院",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/6784aac0-42fc-4ffd-9e1c-cc27427022e3",
+                  "teamName": "RoboBraver"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/3"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -745
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 6023
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "桂林信息科技学院",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/432392cd-dff4-4b78-aa00-68641f3da5ee",
+                  "teamName": "GIRT"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/3"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -4
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1868
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 14
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4970
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "哈尔滨工业大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/830c2cbd-31e5-4fea-9015-cb6ec9fa5224",
+                  "teamName": "I Hiter"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/3"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 5
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -767
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -13
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 5829
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "上海工程技术大学",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/42a2f807-035c-49bc-9e1d-782239209b82",
+                  "teamName": "木鸢Birdiebot"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/3"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -4
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1601
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 6430
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "西安电子科技大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525676832533-logo_red_800x800.png",
+                  "teamName": "IRobot"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/3"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -6
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -968
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 6330
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "哈尔滨工业大学（深圳）",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/e67c1d7c-25e6-4491-9f63-58c7bdba727e",
+                  "teamName": "南工骁鹰"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/3"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -2
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1310
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 6171
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "哈尔滨工业大学（威海）",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/496f97c0-f329-4457-ae1e-1476c467ff94",
+                  "teamName": "HERO"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/3"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -3
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1515
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -30
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4971
+              }
+            ]
+          ]
+        },
+        {
+          "groupName": "B组",
+          "groupPlayers": [
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "上海交通大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525660725241-logo_red_800x800.png",
+                  "teamName": "交龙"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 3140
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 158
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 8385
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "华南理工大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/b81c5a92-dc8f-479d-97b4-d531a39ce70b",
+                  "teamName": "华南虎"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -3
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 3684
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 10169
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "太原理工大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/bcceed5a-13b9-4a19-8236-56b2bb40b58b",
+                  "teamName": "TRoMaC"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 735
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 11
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 6683
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "深圳大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525667668942-logo_red_800x800.png",
+                  "teamName": "RobotPilots"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -4
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 2150
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 251
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 8476
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "太原工业学院",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/c7de86e0-a829-4d6d-9329-3228f57ded92",
+                  "teamName": "火线"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/1"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -10
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 1886
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 86
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 8150
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "东北大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525667139708-logo_blue_800x800.png",
+                  "teamName": "TDT"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 6
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 1310
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 130
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 7489
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "广东工业大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/ed0ca377-9bbc-4d6d-b5d1-8dd2d09bdbaf",
+                  "teamName": "DynamicX"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 730
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 8101
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "南昌大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525699199414-logo_blue_800x800.png",
+                  "teamName": "Passion"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "3/0/2"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 3
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -9
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 316
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 7340
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "首都师范大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/a061e111-f402-4e01-884e-0b5c95f7ab5e",
+                  "teamName": "PIE"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/3"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 13
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1261
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 5592
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "中南大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525676967503-logo_blue_800x800.png",
+                  "teamName": "FYT"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/3"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 6
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 36
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -8
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 6566
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "吉林大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/422493a0-1f3c-4f00-8c95-7ad1f9e1df2c",
+                  "teamName": "TARS_Go"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "2/0/3"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 2
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -2
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -641
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 79
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 5297
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "齐鲁工业大学",
+                  "collegeLogo": "https://terra-cn-oss-cdn-public-pro.oss-cn-hangzhou.aliyuncs.com/b2a076471c6c4b72b574a977334d3e05/4c4f28ef-93a7-4df1-ada4-5c0ad826f07d",
+                  "teamName": "Adam"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/3"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 6
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -2984
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -577
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3218
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "华中科技大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525675209294-logo_blue_800x800.png",
+                  "teamName": "狼牙"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/3"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -1223
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 243
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 5340
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "五邑大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525678640816-logo_glod_800x800.png",
+                  "teamName": "IMCA"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "1/0/3"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 1
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -14
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -2159
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -425
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3020
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "北京理工大学珠海学院",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525675650813-logo_green_800x800.png",
+                  "teamName": "毅恒"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/3"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 7
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -2976
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": -26
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 4101
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "太原科技大学",
+                  "collegeLogo": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/teams/1525680043036-log_blue_800x800.png",
+                  "teamName": "NewMaker"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/3"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": -6
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": -2727
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 3674
+              }
+            ]
+          ]
+        },
+        {
+          "groupName": "明星组",
+          "groupPlayers": [
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "创新者",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/aea22131-7d9e-43e9-acb3-0598e6ef3b72",
+                  "teamName": "INNOVATOR"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 0
+              }
+            ],
+            [
+              {
+                "itemName": "战队",
+                "itemValue": {
+                  "collegeName": "缔造者",
+                  "collegeLogo": "https://rm-static.djicdn.com/games-backend/13583e4a-c3cc-45fd-b05a-27cd2ca3a335",
+                  "teamName": "CREATOR"
+                }
+              },
+              {
+                "itemName": "胜/平/负",
+                "itemValue": "0/0/0"
+              },
+              {
+                "itemName": "积分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "对手分",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总基地净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均总前哨站净胜血量",
+                "itemValue": 0
+              },
+              {
+                "itemName": "局均全队总伤害血量",
+                "itemValue": 0
+              }
+            ]
+          ]
+        }
+      ]
+    }
+  ]
+}

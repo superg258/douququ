@@ -1,0 +1,84 @@
+{
+  "season_dir": "2025RMUC",
+  "source_dir": "/home/winx/whowillwin/data/extracted/2025RMUC",
+  "cleaned_dir": "/home/winx/whowillwin/data/cleaned/2025RMUC",
+  "files": {
+    "teams.csv": {
+      "rows": 128,
+      "source_rows": 154,
+      "filtered_rows": 128,
+      "dropped_columns": [
+        "college_logo",
+        "event_title",
+        "group_id",
+        "player_id",
+        "player_name",
+        "zone_id",
+        "zone_type"
+      ]
+    },
+    "matches.csv": {
+      "rows": 298,
+      "source_rows": 400,
+      "filtered_rows": 298,
+      "dropped_columns": [
+        "blue_college_logo",
+        "blue_fill_status",
+        "blue_player_id",
+        "blue_player_name",
+        "blue_player_rank",
+        "blue_player_score",
+        "blue_prepared_status",
+        "blue_side_id",
+        "event_title",
+        "group_id",
+        "loser_placehold_name",
+        "red_college_logo",
+        "red_fill_status",
+        "red_player_id",
+        "red_player_name",
+        "red_player_rank",
+        "red_player_score",
+        "red_prepared_status",
+        "red_side_id",
+        "slug",
+        "slug_name",
+        "status",
+        "winner_placehold_name",
+        "zone_id",
+        "zone_type"
+      ]
+    },
+    "group_rank.csv": {
+      "rows": 128,
+      "source_rows": 154,
+      "filtered_rows": 128,
+      "dropped_columns": [
+        "college_logo",
+        "metrics_json",
+        "points",
+        "rank",
+        "total_robot_hp_remaining",
+        "total_team_damage",
+        "total_victory_point_diff",
+        "zone_id"
+      ]
+    },
+    "robot_data.csv": {
+      "rows": 966,
+      "source_rows": 1162,
+      "filtered_rows": 966,
+      "dropped_columns": [
+        "college_logo",
+        "robot_id",
+        "zone_id"
+      ]
+    },
+    "rank_score.csv": {
+      "rows": 91,
+      "source_rows": 240,
+      "filtered_rows": 91,
+      "dropped_columns": []
+    }
+  }
+}

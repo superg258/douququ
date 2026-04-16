@@ -1,0 +1,72 @@
+{
+  "region": "南部赛区",
+  "region_slug": "south_region",
+  "iterations_per_seed": 6000,
+  "seed_count": 5,
+  "effective_iterations": 30000,
+  "seeds": [
+    20260414,
+    20260421,
+    20260428,
+    20260505,
+    20260512
+  ],
+  "ratings_csv": "D:\\code\\douququ\\data\\derived\\2026_rmuc_elo\\preseason_ratings.csv",
+  "pair_probability_samples": 4000,
+  "aggregation_mode": "mean_of_seed_runs",
+  "aggregate_checks": {
+    "sum_round_of_16_rate": 16.0,
+    "sum_quarterfinal_rate": 8.0,
+    "sum_semifinal_rate": 4.000002,
+    "sum_final_rate": 2.0,
+    "sum_champion_rate": 1.000001,
+    "sum_national_rate": 10.000001,
+    "sum_repechage_rate": 4.0
+  },
+  "average_slot_counts_per_run": {
+    "national_slots": 10.0,
+    "repechage_slots": 4.0
+  },
+  "top_champion_probabilities": [
+    {
+      "college_name": "上海交通大学",
+      "champion_rate": 0.388067
+    },
+    {
+      "college_name": "华南农业大学",
+      "champion_rate": 0.135567
+    },
+    {
+      "college_name": "华南理工大学",
+      "champion_rate": 0.123934
+    },
+    {
+      "college_name": "武汉工程大学",
+      "champion_rate": 0.122767
+    },
+    {
+      "college_name": "广东工业大学",
+      "champion_rate": 0.098933
+    },
+    {
+      "college_name": "太原理工大学",
+      "champion_rate": 0.0623
+    },
+    {
+      "college_name": "五邑大学",
+      "champion_rate": 0.017167
+    },
+    {
+      "college_name": "深圳大学",
+      "champion_rate": 0.0128
+    },
+    {
+      "college_name": "电子科技大学中山学院",
+      "champion_rate": 0.0086
+    },
+    {
+      "college_name": "中南大学",
+      "champion_rate": 0.0077
+    }
+  ]
+}

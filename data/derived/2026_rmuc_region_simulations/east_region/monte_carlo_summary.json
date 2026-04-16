@@ -1,0 +1,39 @@
+{
+  "region": "东部赛区",
+  "region_slug": "east_region",
+  "iterations": 12,
+  "seed": 88,
+  "ratings_csv": "D:\\code\\douququ\\data\\derived\\2026_rmuc_elo\\preseason_ratings.csv",
+  "pair_probability_samples": 200,
+  "aggregate_checks": {
+    "sum_round_of_16_rate": 15.999997,
+    "sum_quarterfinal_rate": 7.999999,
+    "sum_semifinal_rate": 3.999998,
+    "sum_final_rate": 2.0,
+    "sum_champion_rate": 1.0,
+    "sum_national_rate": 7.999999,
+    "sum_repechage_rate": 5.999999
+  },
+  "average_slot_counts_per_run": {
+    "national_slots": 8.0,
+    "repechage_slots": 6.0
+  },
+  "top_champion_probabilities": [
+    {
+      "college_name": "中国石油大学（华东）",
+      "champion_rate": 0.416667
+    },
+    {
+      "college_name": "浙江大学",
+      "champion_rate": 0.333333
+    },
+    {
+      "college_name": "中国科学技术大学",
+      "champion_rate": 0.166667
+    },
+    {
+      "college_name": "南方科技大学",
+      "champion_rate": 0.083333
+    }
+  ]
+}

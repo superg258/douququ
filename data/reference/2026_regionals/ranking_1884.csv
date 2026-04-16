@@ -1,0 +1,269 @@
+rank,college_name,english_name,score
+1,上海交通大学,Shanghai Jiao Tong University,25.0
+2,华南理工大学,South China University of Technology,23.3
+3,东北大学,Northeastern University,22.7
+4,浙江大学,Zhejiang University,21.1
+5,华南农业大学,South China Agricultural University,20.1
+6,广东工业大学,Guangdong University of Technology,20.0
+6,深圳大学,Shenzhen University,20.0
+8,南京航空航天大学,Nanjing University of Aeronautics and Astronautics,19.7
+9,哈尔滨工业大学,Harbin Institute of Technology,19.3
+10,西安交通大学,Xi'an Jiaotong University,18.8
+11,中国石油大学（华东）,China University of Petroleum (East China),18.72
+12,南方科技大学,Southern University of Science and Technology,18.4
+13,太原理工大学,Taiyuan University of Technology,18.04
+14,东南大学,Southeast University,17.94
+15,哈尔滨工业大学（威海）,Harbin Institute of Technology (Weihai),17.2
+16,大连理工大学,Dalian University of Technology,17.18
+17,太原工业学院,Taiyuan Institute of Technology,17.0
+17,五邑大学,Wuyi University,17.0
+19,中国科学技术大学,University of Science and Technology of China,16.86
+20,电子科技大学中山学院,"University of Electronic Science and Technology of China, Zhongshan Institute",16.64
+21,南昌大学,Nanchang University,15.7
+22,中南大学,Central South University,15.5
+23,吉林大学,Jilin University,14.9
+24,山东科技大学,Shandong University of Science and Technology,14.8
+25,哈尔滨工程大学,Harbin Engineering University,14.78
+26,南京航空航天大学金城学院,Nanhang Jincheng College,14.6
+27,同济大学,Tongji University,14.4
+28,桂林电子科技大学,Guilin University of Electronic Technology,14.365
+29,武汉工程大学,Wuhan Institute of Technology,14.3
+30,中国矿业大学,China University of Mining and Technology,13.6
+31,上海工程技术大学,Shanghai University of Engineering Science,13.565
+32,哈尔滨工业大学（深圳）,Harbin Institute of Technology (Shenzhen),13.535
+33,华中科技大学,Huazhong University of Science and Technology,13.34
+34,桂林信息科技学院,Guilin Institute of Information Technology,12.975
+35,西安电子科技大学,Xidian University,12.965
+36,西北工业大学,Northwestern Polytechnical University,12.5
+37,佛山大学,Foshan University,12.32
+38,首都师范大学,Capital Normal University,12.235
+39,中国石油大学（北京）,China University of Petroleum (Beijing),12.17
+40,北京理工大学珠海学院,"Beijing Institute of Technology, Zhuhai",12.055
+41,东北林业大学,Northeast Forestry University,11.535
+42,南京理工大学,Nanjing University of Science and Technology,11.415
+43,北京理工大学,Beijing Institute of Technology,11.3
+44,华北科技学院,North China Institute of Science and Technology,11.28
+45,北方工业大学,North China University of Technology,11.0
+46,天津大学,Tianjin University,10.86
+47,北京科技大学,University of Science and Technology Beijing,10.785
+48,齐鲁工业大学,Qilu University of Technology,10.615
+49,国防科技大学,National University of Defense Technology,10.56
+50,四川大学,Sichuan University,9.85
+51,沈阳理工大学,Shenyang Ligong University,9.505
+52,广州城市理工学院,Guangzhou City University of Technology,9.465
+53,西南石油大学,Southwest Petroleum University,9.335
+54,辽宁科技大学,University of Science and Technology Liaoning,9.305
+55,香港科技大学,Hong Kong University of Science and Technology,9.25
+56,厦门大学嘉庚学院,Jiageng College of Xiamen University,9.235
+57,合肥工业大学,Hefei University of Technology,8.665
+57,西南交通大学,Southwest Jiaotong University,8.665
+57,中北大学,North University of China,8.665
+60,重庆大学,Chongqing University,8.65
+61,东莞理工学院,Dongguan University of Technology,8.61
+62,浙江纺织服装职业技术学院,Zhejiang Textile and Clothing Vocational and Technical College,8.565
+63,东北大学秦皇岛分校,Northeastern University at Qinhuangdao,8.515
+63,燕山大学,Yanshan University,8.515
+65,安徽信息工程学院,Anhui Institute of Information Engineering,8.415
+65,福建理工大学,Fujian University of Technology,8.415
+65,合肥工业大学(宣城校区),Hefei University Of Technology Xuancheng Campus,8.415
+68,成都大学,Chengdu University,8.265
+69,桂林理工大学,Guilin University of Technology,8.25
+70,深圳职业技术大学,Shenzhen Polytechnic University,8.23
+71,华东理工大学,East China University of Science and Technology,8.215
+72,长安大学,Changan University,8.17
+73,沈阳航空航天大学,Shenyang Aerospace University,8.13
+74,北京信息科技大学,Beijing Information Science and Technology University,8.07
+75,湖南大学,Hunan University,8.0
+75,太原科技大学,Taiyuan University of Science and Technology,8.0
+77,南华大学,Nanhua University,7.9
+77,山东理工大学,Shandong University of Technology,7.9
+79,河北科技大学,Hebei University of Science and Technology,7.85
+79,深圳技术大学,Shenzhen University of Technology,7.85
+79,新潟联合大学,Niigata Universities Alliance,7.85
+82,成都信息工程大学,Chengdu University of Information Technology,7.775
+83,上海科技大学,ShanghaiTech University,7.65
+84,华北理工大学,North China University of Science and Technology,7.6
+85,福建师范大学,Fujian Normal University,7.375
+86,河北工业大学,Hebei University of Technology,7.35
+87,西安理工大学,Xi'an University of Technology,7.334
+88,香港大学,The University of Hong Kong,7.275
+89,成都工业学院,Chengdu Institute of Technology,7.175
+90,青岛大学,Qingdao University,7.1
+91,北京工业大学,Beijing University Of Technology,6.9
+92,湘潭大学,Xiangtan University,6.85
+93,桂林电子科技大学北海校区,Guilin University of Electronic Technology Beihai Campus,6.459
+94,青岛理工大学,Qingdao Technological University,6.375
+95,茅台学院,Moutai College,6.348
+96,西交利物浦大学,Xi'an Jiaotong-Liverpool University,6.28
+97,火箭军工程大学,Rocket Force University of Engineering,6.268
+98,浙江理工大学,Zhejiang Sci-Tech University,6.25
+99,常州大学,Changzhou University,6.225
+100,仲恺农业工程学院,Zhongkai University of Agriculture Engineering,6.165
+101,西南民族大学,Southwest University for Nationalities,6.098
+102,东华大学,Donghua University,6.0
+102,浙江师范大学,Zhejiang Normal University,6.0
+102,中国民航大学,Civil Aviation University of China,6.0
+105,长沙理工大学,Changsha University of Science and Technology,5.975
+106,湖北工业大学,Hubei University of Technology,5.905
+107,防灾科技学院,School of Disaster Prevention Technology,5.9
+108,福建农林大学,Fujian Agriculture and Forestry University,5.85
+109,陆军勤务学院,"Engineering University of the Joint Logistics Support Force, PLA",5.825
+110,沈阳建筑大学,Shenyang Jianzhu University,5.8
+111,文华学院,Wenhua College,5.725
+111,云南大学,Yunnan University,5.725
+113,北京林业大学,Beijing Forestry University,5.695
+114,华南师范大学,South China Normal University,5.6
+114,江苏大学,Jiangsu University,5.6
+114,宁波工程学院,Ningbo Institute of Technology,5.6
+117,电子科技大学成都学院,Chengdu University of Electronic Science and Technology of China,5.575
+118,内蒙古科技大学,Inner Mongolia University of Science and Technology,5.575
+119,重庆三峡学院,Chongqing Three Gorges University,5.475
+120,广西大学,Guangxi University,5.425
+120,香港科技大学（广州）,Hong Kong University of Science and Technology (Guangzhou),5.425
+122,北部湾大学,North Bay University,5.424
+123,大连民族大学,Dalian Minzu University,5.35
+123,深圳信息职业技术学院,Shenzhen Institute of Information Technology,5.35
+123,武汉理工大学,Wuhan University of Technology,5.35
+126,江西理工大学,Jiangxi University of Science and Technology,5.275
+126,上海电力大学,Shanghai University of Electric Power,5.275
+128,重庆理工大学,Chongqing University of Technology,5.25
+128,广州铁路职业技术学院,Guangzhou Railway Polytechnic,5.25
+128,南京理工大学江阴校区,Nanjing University of Science and Technology Jiangyin Campus,5.25
+131,同济大学浙江学院,Zhejiang College of Tongji University,5.15
+132,中国人民警察大学,Chinese People's Police University,5.109
+133,河南科技大学,Henan University of Science and Technology,5.1
+134,安徽理工大学,Anhui University of Science and Technology,5.025
+134,大连大学,Dalian University,5.025
+134,集美大学,Jimei University,5.025
+134,辽宁石油化工大学,Liaoning University of Petroleum and Chemical Technology,5.025
+134,西南石油大学南充校区,Southwest Petroleum University Nanchong Campus,5.025
+134,新疆工程学院,Xinjiang Institute of Technology,5.025
+140,江苏航空职业技术学院,Jiangsu Aviation Vocational and Technical College,4.975
+140,中国科学院大学,University of Chinese Academy of Sciences,4.975
+142,河北师范大学,Hebei Normal University,4.95
+143,北京邮电大学,Beijing University of Posts and Telecommunications,4.875
+143,海南大学,Hainan University,4.875
+143,江苏开放大学,Jiangsu Open University,4.875
+143,宁波诺丁汉大学,University of Nottingham Ningbo China,4.875
+143,南通理工学院,Nantong Institute of Technology,4.875
+143,内蒙古师范大学,Inner Mongolia Normal University,4.875
+149,西北农林科技大学,Northwest A&F University,4.768
+150,南昌航空大学,Nanchang Hangkong University,4.75
+151,闽江学院,Minjiang College,4.725
+152,广州航海学院,Guangzhou Maritime University,4.65
+152,贵州师范大学,Guizhou Normal University,4.65
+152,陆军装甲兵学院,Army Academy of Armoured Forces,4.65
+152,武汉科技大学,Wuhan University of Science and Technology,4.65
+156,内蒙古大学,Inner Mongolia University,4.634
+157,深圳北理莫斯科大学,Shenzhen MSU-BIT University,4.625
+158,常熟理工学院,Changshu Institute of Technology,4.5
+158,济宁学院,Jining College,4.5
+158,济南大学,Jinan Universty,4.5
+158,山东大学（威海）,"Shandong University , Weihai",4.5
+158,浙江大学伊利诺伊大学厄巴纳香槟校区联合学院,Zhejiang University-University of Illinois Urbana-Champaign,4.5
+163,杭州电子科技大学,Hangzhou University of Electronic Science and Technology,4.48
+164,宜宾学院,Yibin University,4.425
+165,广州南方学院,Nanfang College Guangzhou,4.4
+165,贵阳人文科技学院,The College of Humanities and Science of Guizhou Minzu University,4.4
+165,哈尔滨理工大学,Harbin University of Science and Technology,4.4
+165,南昌理工学院,Nanchang University of Technology,4.4
+165,上海理工大学,University of Shanghai for Science and Technology,4.4
+165,石家庄铁道大学,Shijiazhuang Railway University,4.4
+165,天津工业大学,Tiangong University,4.4
+172,南通大学,Nantong University,4.35
+172,郑州大学,Zhengzhou University,4.35
+174,广东交通职业技术学院,Guangdong Transportation Vocational and Technical College,4.25
+174,三江学院,Sanjiang University,4.25
+174,山东石油化工学院,Shandong Institute of Petroleum and Chemical Technology,4.25
+174,陕西科技大学,Shaanxi University of Science and Technology,4.25
+174,沈阳工学院,Shenyang Institute of Technology,4.25
+174,枣庄学院,Zaozhuang University,4.25
+174,珠海科技学院,Zhuhai College of Science and Technology,4.25
+181,大连交通大学,Dalian Jiaotong University,4.2
+182,黑河学院,Heihe University,4.175
+182,华南师范大学（佛山校区）,South China Normal University Foshan Campus,4.175
+182,南京工业大学,Nanjing Tech University,4.175
+185,武汉大学,Wuhan University,4.13
+186,重庆第二师范学院,Chongqing University of Education,4.1
+187,福州大学,Fuzhou University,4.025
+187,惠州学院,Huizhou University,4.025
+187,沈阳化工大学,Shenyang University of Chemical Technology,4.025
+190,厦门理工学院,Xiamen University of Technology,4.0
+191,上海大学,Shanghai University,3.975
+192,昆明理工大学津桥学院,"Kunming University of Science and Technology, Jinqiao College",3.949
+193,厦门大学,Xiamen University,3.9
+194,北京交通大学,Beijing Jiaotong University,3.8
+194,北师香港浸会大学,Beijing Normal–Hong Kong Baptist University,3.8
+194,长江大学,Yangtze University,3.8
+194,黑龙江大学,Heilongjiang University,3.8
+194,集美大学诚毅学院,"Chengyi College, Jimei University",3.8
+194,香港中文大学（深圳）,The Chinese University of Hong Kong (Shenzhen),3.8
+200,安徽大学,Anhui University,3.775
+200,北京航空航天大学,Beijing University of Aeronautics and Astronautics,3.775
+200,长春理工大学,Changchun University of Science and Technology,3.775
+200,浙大城市学院,Hangzhou City University,3.775
+204,伊利诺伊大学厄巴纳香槟分校,University of Illinois Urbana-Champaign,3.75
+205,广东海洋大学,Guangdong Ocean University,3.65
+205,湖北第二师范学院,Hubei University of Education,3.65
+205,华东交通大学,East China Jiaotong University,3.65
+205,盐城师范学院,Yancheng Teachers University,3.65
+209,呼伦贝尔学院,Hulunbuir University,3.55
+209,苏州大学应用技术学院,Applied Technology College of Soochow University,3.55
+209,潍坊科技学院,Weifang Institute of Technology,3.55
+209,浙江工业大学,Zhejiang University of Technology,3.55
+213,长春工业大学,Changchun University of Technology,3.4
+213,广东轻工职业技术大学,Guangdong Industry Polytechnic University,3.4
+213,广州工商学院,Guangzhou College of Technology and Business,3.4
+213,山西机电职业技术学院,Shanxi Institute of Mechanical and Electrical Engineering,3.4
+213,西安科技大学,Xi'an University of Science and Technology,3.4
+213,西南大学,Southwest University,3.4
+219,华侨大学,Huaqiao University,3.15
+220,复旦大学,Fudan University,3.125
+220,江南大学霞客湾校区,"Jiangnan University, Xiakewan Campus",3.125
+222,新乡学院,Xinxiang College,2.975
+223,常州工学院,Changzhou Institute of Technology,2.75
+223,河北大学,Hebei University,2.75
+223,湖南工学院,Hunan Institute of Technology,2.75
+226,天津理工大学,Tianjin University of Technology,2.6
+227,北京石油化工学院,Beijing Institute of Petrochemical Technology,2.375
+227,成都理工大学工程技术学院,The Engineering&Technical College of Chengdu University of Technology,2.375
+227,重庆邮电大学,Chongqing University of Posts and Telecommunications,2.375
+227,广东工商职业技术大学,Guangdong University of Business and Technology,2.375
+227,海军大连舰艇学院,PLA Dalian Naval Academy,2.375
+227,湖南工程学院,Hunan Institute of Engineering,2.375
+227,武汉华夏理工学院,Wuhan Huaxia Institute of Technology,2.375
+227,西南林业大学,Southwest Forestry University,2.375
+227,西浦创业家学院（太仓）,"Xi'an Jiaotong-Liverpool University, Entrepreneur College (Taicang)",2.375
+227,新疆大学,Xinjiang University,2.375
+237,陆军边海防学院,Army Academy of Border and Coastal Defense,2.359
+238,华北电力大学,North China Electric Power University,2.275
+238,吉利学院,Geely University of China,2.275
+238,江苏科技大学,Jiangsu University of Science and Technology,2.275
+238,西安工业大学,Xi'an Technological University,2.275
+242,德州农工大学,Texas A&M University,2.25
+242,弗吉尼亚理工大学,Virginia Tech,2.25
+242,关东联合大学,Kanto Universities Alliance,2.25
+242,麦克马斯特大学,McMaster University,2.25
+242,普渡大学,Purdue University,2.25
+247,河北建筑工程学院,Hebei University of Architecture,2.225
+248,重庆交通大学,Chongqing Jiaotong University,2.125
+248,广西师范大学,Guangxi Normal University,2.125
+248,湖北科技学院,Hubei University of Science and Technology,2.125
+248,江苏海洋大学,Jiangsu Ocean University,2.125
+248,江西工程学院,Jiangxi University of Engineering,2.125
+248,南京航空航天大学（天目湖校区）,"Nanjing University of Aeronautics and Astronautics, Tianmuhu Campus",2.125
+248,南京邮电大学,Nanjing University of Posts and Telecommunications,2.125
+248,沈阳工业大学,Shenyang University of Technology,2.125
+248,沈阳工业大学辽阳分校,"Shenyang University of Technology, Liaoyang Campus",2.125
+248,石河子大学,Shihezi University,2.125
+248,台州学院,Taizhou University,2.125
+259,陆军边海防学院昆明校区,"Army Border and Coastal Defense Academ, Kunming Campus",1.824
+260,柳州工学院,Liuzhou Institute of Technology,1.725
+261,长春大学,Changchun University,1.275
+262,北京交通大学（威海校区）,Beijing Jiaotong University Weihai Campus,0.95
+262,淮阴工学院,Huaiyin Institute of Technology,0.95
+264,江西冶金职业技术学院,Jiangxi Metallurgical Vocational and Technical College,0.85
+264,宁波大学,Ningbo University,0.85
+264,青海大学,Qinghai University,0.85
+264,山东大学,Shan Dong University,0.85
+264,中原工学院,Zhongyuan University of Technology,0.85

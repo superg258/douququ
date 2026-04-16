@@ -1,0 +1,17 @@
+{
+  "event_code": "2026RMUL",
+  "season": 2026,
+  "league": "RMUL",
+  "event_title": "RoboMaster 2026 高校联盟赛-3V3对抗赛",
+  "sources": {
+    "schedule.json": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/live_json/schedule.json",
+    "group_rank_info.json": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/live_json/group_rank_info.json",
+    "robot_data.json": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/live_json/robot_data.json"
+  },
+  "outputs": {
+    "teams.csv": 266,
+    "matches.csv": 510,
+    "group_rank.csv": 266,
+    "robot_data.csv": 1659
+  }
+}

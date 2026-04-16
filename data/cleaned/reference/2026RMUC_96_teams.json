@@ -1,0 +1,487 @@
+{
+  "source_url": "https://www.robomaster.com/zh-CN/resource/pages/announcement/1909",
+  "source_date": "2026-04-01",
+  "count": 96,
+  "teams": [
+    {
+      "rank": 1,
+      "school_name": "西安交通大学",
+      "team_name": "笃行"
+    },
+    {
+      "rank": 2,
+      "school_name": "东莞理工学院",
+      "team_name": "ACE"
+    },
+    {
+      "rank": 3,
+      "school_name": "华南农业大学",
+      "team_name": "Taurus"
+    },
+    {
+      "rank": 4,
+      "school_name": "五邑大学",
+      "team_name": "IMCA"
+    },
+    {
+      "rank": 5,
+      "school_name": "太原科技大学",
+      "team_name": "NewMaker"
+    },
+    {
+      "rank": 6,
+      "school_name": "华北科技学院",
+      "team_name": "风暴"
+    },
+    {
+      "rank": 7,
+      "school_name": "哈尔滨工业大学（深圳）",
+      "team_name": "南工骁鹰"
+    },
+    {
+      "rank": 8,
+      "school_name": "东北大学",
+      "team_name": "TDT"
+    },
+    {
+      "rank": 9,
+      "school_name": "西北工业大学",
+      "team_name": "WMJ"
+    },
+    {
+      "rank": 10,
+      "school_name": "中国石油大学（华东）",
+      "team_name": "RPS"
+    },
+    {
+      "rank": 11,
+      "school_name": "北京理工大学",
+      "team_name": "追梦"
+    },
+    {
+      "rank": 12,
+      "school_name": "华南理工大学",
+      "team_name": "华南虎"
+    },
+    {
+      "rank": 13,
+      "school_name": "太原工业学院",
+      "team_name": "火线"
+    },
+    {
+      "rank": 14,
+      "school_name": "武汉工程大学",
+      "team_name": "Nautilus"
+    },
+    {
+      "rank": 15,
+      "school_name": "仲恺农业工程学院",
+      "team_name": "奇点"
+    },
+    {
+      "rank": 16,
+      "school_name": "华东理工大学",
+      "team_name": "起源"
+    },
+    {
+      "rank": 17,
+      "school_name": "长安大学",
+      "team_name": "VGD"
+    },
+    {
+      "rank": 18,
+      "school_name": "同济大学",
+      "team_name": "SuperPower"
+    },
+    {
+      "rank": 19,
+      "school_name": "南京理工大学",
+      "team_name": "Alliance"
+    },
+    {
+      "rank": 20,
+      "school_name": "中国科学技术大学",
+      "team_name": "RoboWalker"
+    },
+    {
+      "rank": 21,
+      "school_name": "中南大学",
+      "team_name": "FYT"
+    },
+    {
+      "rank": 22,
+      "school_name": "江南大学霞客湾校区",
+      "team_name": "SHARK"
+    },
+    {
+      "rank": 23,
+      "school_name": "哈尔滨工业大学",
+      "team_name": "I Hiter"
+    },
+    {
+      "rank": 24,
+      "school_name": "沈阳理工大学",
+      "team_name": "Ambition"
+    },
+    {
+      "rank": 25,
+      "school_name": "深圳大学",
+      "team_name": "RobotPilots"
+    },
+    {
+      "rank": 26,
+      "school_name": "合肥工业大学（宣城校区）",
+      "team_name": "WDR"
+    },
+    {
+      "rank": 27,
+      "school_name": "广州城市理工学院",
+      "team_name": "野狼"
+    },
+    {
+      "rank": 28,
+      "school_name": "哈尔滨工业大学（威海）",
+      "team_name": "HERO"
+    },
+    {
+      "rank": 29,
+      "school_name": "华北理工大学",
+      "team_name": "Horizon"
+    },
+    {
+      "rank": 30,
+      "school_name": "太原理工大学",
+      "team_name": "TRoMaC"
+    },
+    {
+      "rank": 31,
+      "school_name": "北方工业大学",
+      "team_name": "DreamTeam"
+    },
+    {
+      "rank": 32,
+      "school_name": "桂林电子科技大学",
+      "team_name": "Evolution"
+    },
+    {
+      "rank": 33,
+      "school_name": "合肥工业大学",
+      "team_name": "苍穹"
+    },
+    {
+      "rank": 34,
+      "school_name": "安徽信息工程学院",
+      "team_name": "Artisans"
+    },
+    {
+      "rank": 35,
+      "school_name": "武汉科技大学",
+      "team_name": "崇实"
+    },
+    {
+      "rank": 36,
+      "school_name": "广东工业大学",
+      "team_name": "DynamicX"
+    },
+    {
+      "rank": 37,
+      "school_name": "电子科技大学中山学院",
+      "team_name": "RoboBraver"
+    },
+    {
+      "rank": 38,
+      "school_name": "首都师范大学",
+      "team_name": "PIE"
+    },
+    {
+      "rank": 39,
+      "school_name": "河北科技大学",
+      "team_name": "Actor&Thinker"
+    },
+    {
+      "rank": 40,
+      "school_name": "东南大学",
+      "team_name": "3SE"
+    },
+    {
+      "rank": 41,
+      "school_name": "大连理工大学",
+      "team_name": "凌BUG"
+    },
+    {
+      "rank": 42,
+      "school_name": "浙江大学",
+      "team_name": "Hello World"
+    },
+    {
+      "rank": 43,
+      "school_name": "山东理工大学",
+      "team_name": "齐奇"
+    },
+    {
+      "rank": 44,
+      "school_name": "香港科技大学（广州）",
+      "team_name": "PnX"
+    },
+    {
+      "rank": 45,
+      "school_name": "东北大学秦皇岛分校",
+      "team_name": "征龙凌沧"
+    },
+    {
+      "rank": 46,
+      "school_name": "上海交通大学",
+      "team_name": "交龙"
+    },
+    {
+      "rank": 47,
+      "school_name": "江苏大学",
+      "team_name": "Aurora"
+    },
+    {
+      "rank": 48,
+      "school_name": "南华大学",
+      "team_name": "MA"
+    },
+    {
+      "rank": 49,
+      "school_name": "复旦大学",
+      "team_name": "星云EGA"
+    },
+    {
+      "rank": 50,
+      "school_name": "成都信息工程大学",
+      "team_name": "风信子"
+    },
+    {
+      "rank": 51,
+      "school_name": "长沙理工大学",
+      "team_name": "云嵌"
+    },
+    {
+      "rank": 52,
+      "school_name": "哈尔滨工程大学",
+      "team_name": "创梦之翼"
+    },
+    {
+      "rank": 53,
+      "school_name": "山东科技大学",
+      "team_name": "SmartRobot"
+    },
+    {
+      "rank": 54,
+      "school_name": "国防科技大学",
+      "team_name": "军临"
+    },
+    {
+      "rank": 55,
+      "school_name": "杭州电子科技大学",
+      "team_name": "PHOENIX"
+    },
+    {
+      "rank": 56,
+      "school_name": "吉林大学",
+      "team_name": "TARS Go"
+    },
+    {
+      "rank": 57,
+      "school_name": "广西大学",
+      "team_name": "ROBOTZ"
+    },
+    {
+      "rank": 58,
+      "school_name": "桂林理工大学",
+      "team_name": "群星"
+    },
+    {
+      "rank": 59,
+      "school_name": "深圳技术大学",
+      "team_name": "悍匠"
+    },
+    {
+      "rank": 60,
+      "school_name": "广州航海学院",
+      "team_name": "ICBK破冰船"
+    },
+    {
+      "rank": 61,
+      "school_name": "中北大学",
+      "team_name": "606"
+    },
+    {
+      "rank": 62,
+      "school_name": "南昌大学",
+      "team_name": "Passion"
+    },
+    {
+      "rank": 63,
+      "school_name": "天津大学",
+      "team_name": "北洋机甲"
+    },
+    {
+      "rank": 64,
+      "school_name": "上海大学",
+      "team_name": "SRM"
+    },
+    {
+      "rank": 65,
+      "school_name": "成都大学",
+      "team_name": "Ultra"
+    },
+    {
+      "rank": 66,
+      "school_name": "齐鲁工业大学",
+      "team_name": "Adam"
+    },
+    {
+      "rank": 67,
+      "school_name": "西安电子科技大学",
+      "team_name": "IRobot"
+    },
+    {
+      "rank": 68,
+      "school_name": "桂林信息科技学院",
+      "team_name": "GIRT"
+    },
+    {
+      "rank": 69,
+      "school_name": "上海工程技术大学",
+      "team_name": "木鸢Birdiebot"
+    },
+    {
+      "rank": 70,
+      "school_name": "厦门大学",
+      "team_name": "RCS"
+    },
+    {
+      "rank": 71,
+      "school_name": "湘潭大学",
+      "team_name": "逐曦"
+    },
+    {
+      "rank": 72,
+      "school_name": "香港科技大学",
+      "team_name": "ENTERPRIZE"
+    },
+    {
+      "rank": 73,
+      "school_name": "四川大学",
+      "team_name": "火锅"
+    },
+    {
+      "rank": 74,
+      "school_name": "厦门大学嘉庚学院",
+      "team_name": "TCR"
+    },
+    {
+      "rank": 75,
+      "school_name": "青岛大学",
+      "team_name": "未来"
+    },
+    {
+      "rank": 76,
+      "school_name": "中国石油大学（北京）",
+      "team_name": "SPR"
+    },
+    {
+      "rank": 77,
+      "school_name": "南京航空航天大学金城学院",
+      "team_name": "Born of Fire"
+    },
+    {
+      "rank": 78,
+      "school_name": "华中科技大学",
+      "team_name": "狼牙"
+    },
+    {
+      "rank": 79,
+      "school_name": "西交利物浦大学",
+      "team_name": "GMaster"
+    },
+    {
+      "rank": 80,
+      "school_name": "内蒙古科技大学",
+      "team_name": "雷霆"
+    },
+    {
+      "rank": 81,
+      "school_name": "华南师范大学",
+      "team_name": "PIONEER"
+    },
+    {
+      "rank": 82,
+      "school_name": "辽宁石油化工大学",
+      "team_name": "TCN"
+    },
+    {
+      "rank": 83,
+      "school_name": "南京理工大学江阴校区",
+      "team_name": "Combat"
+    },
+    {
+      "rank": 84,
+      "school_name": "西南交通大学",
+      "team_name": "Helios"
+    },
+    {
+      "rank": 85,
+      "school_name": "中国矿业大学",
+      "team_name": "CUBOT"
+    },
+    {
+      "rank": 86,
+      "school_name": "香港大学",
+      "team_name": "HerKules"
+    },
+    {
+      "rank": 87,
+      "school_name": "厦门理工学院",
+      "team_name": "PFA"
+    },
+    {
+      "rank": 88,
+      "school_name": "福建师范大学",
+      "team_name": "PKA"
+    },
+    {
+      "rank": 89,
+      "school_name": "华南师范大学（佛山校区）",
+      "team_name": "VANGUARD"
+    },
+    {
+      "rank": 90,
+      "school_name": "重庆理工大学",
+      "team_name": "士继DREAMER"
+    },
+    {
+      "rank": 91,
+      "school_name": "北京理工大学（珠海）",
+      "team_name": "毅恒"
+    },
+    {
+      "rank": 92,
+      "school_name": "常州大学",
+      "team_name": "Climber"
+    },
+    {
+      "rank": 93,
+      "school_name": "北京信息科技大学",
+      "team_name": "星辰"
+    },
+    {
+      "rank": 94,
+      "school_name": "南方科技大学",
+      "team_name": "ARTINX"
+    },
+    {
+      "rank": 95,
+      "school_name": "武汉大学",
+      "team_name": "珞珈狐"
+    },
+    {
+      "rank": 96,
+      "school_name": "福建理工大学",
+      "team_name": "苍侠"
+    }
+  ]
+}

@@ -1,0 +1,241 @@
+season,event_code,league,rank,school_chinese,school_english,score
+2025,2025RMUC,RMUC,1,上海交通大学,Shanghai Jiao Tong University,22.88
+2025,2025RMUC,RMUC,2,华南理工大学,South China University of Technology,21.78
+2025,2025RMUC,RMUC,3,东北大学,Northeastern University,21.58
+2025,2025RMUC,RMUC,4,浙江大学,Zhejiang University,19.88
+2025,2025RMUC,RMUC,5,深圳大学,Shenzhen University,19.68
+2025,2025RMUC,RMUC,6,南京航空航天大学,Nanjing University of Aeronautics and Astronautics,18.86
+2025,2025RMUC,RMUC,7,华南农业大学,South China Agricultural University,18.66
+2025,2025RMUC,RMUC,8,桂林电子科技大学,Guilin University of Electronic Technology,18.38
+2025,2025RMUC,RMUC,9,西安交通大学,Xi'an Jiaotong University,18.26
+2025,2025RMUC,RMUC,10,南昌大学,Nanchang University,17.84
+2025,2025RMUC,RMUC,11,广东工业大学,Guangdong University of Technology,17.5
+2025,2025RMUC,RMUC,12,哈尔滨工业大学,Harbin Institute of Technology,17.36
+2025,2025RMUC,RMUC,13,上海工程技术大学,Shanghai University Of Engineering Science,16.76
+2025,2025RMUC,RMUC,14,南方科技大学,Southern University of Science and Technology,16.6
+2025,2025RMUC,RMUC,15,中国石油大学（华东）,China University of Petroleum (East China),16.26
+2025,2025RMUC,RMUC,16,哈尔滨工业大学（深圳）,Harbin Institute of Technology (Shenzhen),15.98
+2025,2025RMUC,RMUC,17,太原理工大学,Taiyuan University of Technology,15.78
+2025,2025RMUC,RMUC,18,西安电子科技大学,Xidian University,15.54
+2025,2025RMUC,RMUC,19,五邑大学,Wuyi University,15.52
+2025,2025RMUC,RMUC,20,桂林信息科技学院,Guilin Institute of Information Technology,15.24
+2025,2025RMUC,RMUC,21,太原科技大学,Taiyuan University of Science and Technology,15.04
+2025,2025RMUC,RMUC,22,哈尔滨工业大学（威海）,Harbin Institute of Technology (Weihai),15.02
+2025,2025RMUC,RMUC,23,太原工业学院,Taiyuan Institute of Technology,14.81
+2025,2025RMUC,RMUC,24,东南大学,Southeast University,14.46
+2025,2025RMUC,RMUC,25,华中科技大学,Huazhong University of Science and Technology,14.42
+2025,2025RMUC,RMUC,26,电子科技大学中山学院,Zhongshan College of University of Electronic Science and Technology of China,14.28
+2025,2025RMUC,RMUC,27,中南大学,Central South University,13.64
+2025,2025RMUC,RMUC,28,北京理工大学,Beijing Institute of Technology,13.4
+2025,2025RMUC,RMUC,29,北京理工大学（珠海）,"Beijing Institute of Technology, Zhuhai",13.12
+2025,2025RMUC,RMUC,30,首都师范大学,Capital Normal University,13.03
+2025,2025RMUC,RMUC,31,吉林大学,Jilin University,12.85
+2025,2025RMUC,RMUC,32,哈尔滨工程大学,Harbin Engineering University,12.78
+2025,2025RMUC,RMUC,33,西交利物浦大学,Xi'an Jiaotong-Liverpool University,12.46
+2025,2025RMUC,RMUC,34,大连理工大学,Dalian University of Technology,12.1
+2025,2025RMUC,RMUC,35,国防科技大学,National University of Defense Technology,12
+2025,2025RMUC,RMUC,36,山东科技大学,Shandong University of Science and Technology,11.98
+2025,2025RMUC,RMUC,37,东北林业大学,Northeast Forestry University,11.94
+2025,2025RMUC,RMUC,38,南京理工大学,Nanjing University of Science and Technology,11.84
+2025,2025RMUC,RMUC,39,华南师范大学,South China Normal University,11.36
+2025,2025RMUC,RMUC,40,武汉工程大学,Wuhan Institute of Technology,11.34
+2025,2025RMUC,RMUC,41,南京航空航天大学金城学院,Nanhang Jincheng College,10.88
+2025,2025RMUC,RMUC,42,齐鲁工业大学,Qilu University of Technology,10.7125
+2025,2025RMUC,RMUC,43,广州城市理工学院,Guangzhou City Institute of Technology,10.56
+2025,2025RMUC,RMUC,44,中国矿业大学,China University of Mining and Technology,10.4
+2025,2025RMUC,RMUC,44,华北科技学院,North China Institute of Science & Technology,10.4
+2025,2025RMUC,RMUC,46,天津大学,Tianjin University,10.09
+2025,2025RMUC,RMUC,47,北京科技大学,University of Science and Technology Beijing,10.05
+2025,2025RMUC,RMUC,48,杭州电子科技大学,Hangzhou Dianzi University,9.44
+2025,2025RMUC,RMUC,49,佛山大学,Foshan University of Science and Technology,9.12
+2025,2025RMUC,RMUC,50,西南石油大学,Southwest Petroleum University,8.96
+2025,2025RMUC,RMUC,51,辽宁科技大学,University of Science and Technology Liaoning,8.96
+2025,2025RMUC,RMUC,52,中国科学技术大学,University of Science and Technology of China,8.9387
+2025,2025RMUC,RMUC,53,大连交通大学,Dalian Jiaotong University,8.86
+2025,2025RMUC,RMUC,54,浙江纺织服装职业技术学院,Zhejiang Fashion Institute of Technology,8.81
+2025,2025RMUC,RMUC,55,深圳职业技术大学,Shenzhen Polytechnic University,8.7
+2025,2025RMUC,RMUC,56,沈阳航空航天大学,Shenyang Aerospace University,8.65
+2025,2025RMUC,RMUC,57,西南交通大学,Southwest Jiaotong University,8.64
+2025,2025RMUC,RMUC,58,中国石油大学（北京）,China University of Petroleum(Beijing),8.55
+2025,2025RMUC,RMUC,59,重庆大学,Chongqing University,8.4225
+2025,2025RMUC,RMUC,60,西北工业大学,Northwestern Polytechnical University,8.32
+2025,2025RMUC,RMUC,61,长安大学,Chang'an University,8.13
+2025,2025RMUC,RMUC,62,厦门理工学院,Xiamen University of Technology,8
+2025,2025RMUC,RMUC,62,合肥工业大学,Hefei University of Technology,8
+2025,2025RMUC,RMUC,64,湖南大学,Hunan University,7.9
+2025,2025RMUC,RMUC,64,中北大学,North University of China,7.9
+2025,2025RMUC,RMUC,66,上海科技大学,ShanghaiTech University,7.85
+2025,2025RMUC,RMUC,67,北京信息科技大学,Beijing Information Science and Technology University,7.8432
+2025,2025RMUC,RMUC,68,华北理工大学,North China University of Technology,7.75
+2025,2025RMUC,RMUC,68,同济大学,Tongji University,7.75
+2025,2025RMUC,RMUC,68,南华大学,Nanhua University,7.75
+2025,2025RMUC,RMUC,68,厦门大学,Xiamen University,7.75
+2025,2025RMUC,RMUC,68,山东理工大学,Shandong University of Technology,7.75
+2025,2025RMUC,RMUC,73,四川大学,Sichuan University,7.65
+2025,2025RMUC,RMUC,73,燕山大学,Yanshan University,7.65
+2025,2025RMUC,RMUC,73,常州大学,Changzhou University,7.65
+2025,2025RMUC,RMUC,73,东北大学秦皇岛分校,Northeastern University at Qinhuangdao,7.65
+2025,2025RMUC,RMUC,73,深圳技术大学,Shenzhen University of Technology,7.65
+2025,2025RMUC,RMUC,78,桂林电子科技大学北海校区,Guilin University of Electronic Technology Beihai Campus,7.6354
+2025,2025RMUC,RMUC,79,安徽信息工程学院,Anhui Institute of Information Engineering,7.6
+2025,2025RMUC,RMUC,79,福建理工大学,Fujian University of Technology,7.6
+2025,2025RMUC,RMUC,79,合肥工业大学(宣城校区),Hefei University Of Technology Xuancheng Campus,7.6
+2025,2025RMUC,RMUC,82,福建师范大学,Fujian Normal University,7.5
+2025,2025RMUC,RMUC,83,东莞理工学院,Dongguan University of Technology,7.1
+2025,2025RMUC,RMUC,84,重庆三峡学院,Chongqing Three Gorges University,7.025
+2025,2025RMUC,RMUC,85,江西理工大学,Jiangxi University of Science and Technology,6.92
+2025,2025RMUC,RMUC,86,成都大学,Chengdu University,6.8704
+2025,2025RMUC,RMUC,87,陆军勤务学院,Army Service Academy,6.8675
+2025,2025RMUC,RMUC,88,桂林理工大学,Guilin University of Technology,6.75
+2025,2025RMUC,RMUC,89,青岛大学,Qingdao University,6.7214
+2025,2025RMUC,RMUC,90,沈阳理工大学,Shenyang Ligong University,6.63
+2025,2025RMUC,RMUC,91,防灾科技学院,Institute of Disaster Prevention,6.6
+2025,2025RMUC,RMUC,92,茅台学院,Moutai College,6.535
+2025,2025RMUC,RMUC,93,北京工业大学,Beijing University of Technology,6.5
+2025,2025RMUC,RMUC,93,华侨大学,Huaqiao University,6.5
+2025,2025RMUC,RMUC,95,西安理工大学,Xi'an University of Technology,6.3326
+2025,2025RMUC,RMUC,96,湘潭大学,Xiangtan University,6.3013
+2025,2025RMUC,RMUC,97,湖北工业大学,Hubei University of Technology,6.3
+2025,2025RMUC,RMUC,98,厦门大学嘉庚学院,Jiageng College of Xiamen University,6.25
+2025,2025RMUC,RMUC,99,河北科技大学,Hebei University of Science and Technology,6.15
+2025,2025RMUC,RMUC,100,内蒙古科技大学,Inner Mongolia University of Science and Technology,6.085
+2025,2025RMUC,RMUC,101,中国民航大学,Civil Aviation University of China,6.035
+2025,2025RMUC,RMUC,102,西南民族大学,Southwest Minzu University,5.855
+2025,2025RMUC,RMUC,103,闽江学院,Minjiang College,5.775
+2025,2025RMUC,RMUC,104,大连民族大学,Dalian Minzu University,5.715
+2025,2025RMUC,RMUC,105,北部湾大学,Beibu Gulf University,5.705
+2025,2025RMUC,RMUC,106,北京林业大学,Beijing Forestry University,5.63
+2025,2025RMUC,RMUC,107,电子科技大学成都学院,Chengdu College of University of Electronic Science and Technology of China,5.5
+2025,2025RMUC,RMUC,108,火箭军工程大学,Rocket Force University of Engineering,5.4381
+2025,2025RMUC,RMUC,109,河北工业大学,Hebei University Of Technology,5.4
+2025,2025RMUC,RMUC,110,天津理工大学,Tianjin University of Technology,5.3642
+2025,2025RMUC,RMUC,111,东华大学,Donghua University,5.35
+2025,2025RMUC,RMUC,112,成都信息工程大学,Chengdu University of Information Technology,5.3165
+2025,2025RMUC,RMUC,113,同济大学浙江学院,Zhejiang College of Tongji University,5.2725
+2025,2025RMUC,RMUC,114,南京理工大学江阴校区,Nanjing University of Science and Technology Jiangyin Campus,5.2678
+2025,2025RMUC,RMUC,115,武汉科技大学,Wuhan University of Science and Technology,5.2477
+2025,2025RMUC,RMUC,116,沈阳建筑大学,Shenyang Jianzhu University,5.155
+2025,2025RMUC,RMUC,117,西北农林科技大学,Northwest A&F University,5.1345
+2025,2025RMUC,RMUC,118,江苏航空职业技术学院,Jiangsu Aviation Technical College,5.0575
+2025,2025RMUC,RMUC,119,宁波诺丁汉大学,University of Nottingham Ningbo China,4.94
+2025,2025RMUC,RMUC,120,浙江理工大学,Zhejiang Sci-Tech University,4.89
+2025,2025RMUC,RMUC,121,深圳北理莫斯科大学,Shenzhen MSU-BIT University,4.8825
+2025,2025RMUC,RMUC,122,华东理工大学,East China University of Science and Technology,4.8
+2025,2025RMUC,RMUC,123,云南大学,Yunnan University,4.795
+2025,2025RMUC,RMUC,124,郑州大学,Zhengzhou University,4.7794
+2025,2025RMUC,RMUC,125,青岛理工大学,Qingdao University of Technology,4.775
+2025,2025RMUC,RMUC,125,文华学院,Wenhua College,4.775
+2025,2025RMUC,RMUC,127,辽宁石油化工大学,Liaoning Shihua University,4.6924
+2025,2025RMUC,RMUC,128,济南大学,Jinan Universty,4.6525
+2025,2025RMUC,RMUC,129,西南林业大学,Southwest Forestry University,4.6375
+2025,2025RMUC,RMUC,130,广州南方学院,Guangzhou Nanfang College,4.633
+2025,2025RMUC,RMUC,131,成都工业学院,Chengdu Technology University,4.6278
+2025,2025RMUC,RMUC,132,江苏科技大学,Jiangsu University of Science and Technology,4.6198
+2025,2025RMUC,RMUC,133,陆军边海防学院,Army Academy of Border and Coastal Defense,4.601
+2025,2025RMUC,RMUC,134,吉利学院,Geely University of China,4.5775
+2025,2025RMUC,RMUC,135,南昌航空大学,Nanchang Hangkong University,4.575
+2025,2025RMUC,RMUC,136,大连大学,Dalian University,4.5525
+2025,2025RMUC,RMUC,137,河北师范大学,Hebei Normal University,4.55
+2025,2025RMUC,RMUC,138,广州航海学院,Guangzhou Maritime University,4.5275
+2025,2025RMUC,RMUC,139,南昌理工学院,Nanchang Institute of Technology,4.52
+2025,2025RMUC,RMUC,140,深圳信息职业技术学院,Shenzhen Institute of Information Technology,4.45
+2025,2025RMUC,RMUC,141,河北建筑工程学院,Hebei University of Architecture,4.44
+2025,2025RMUC,RMUC,142,中国科学院大学,University of Chinese Academy of Sciences,4.4175
+2025,2025RMUC,RMUC,143,贵阳人文科技学院,College of Humanities and Science of Guizhou Minzu University,4.4
+2025,2025RMUC,RMUC,143,福建农林大学,Fujian Agriculture and Forestry University,4.4
+2025,2025RMUC,RMUC,143,河南科技大学,Henan University of Science and Technology,4.4
+2025,2025RMUC,RMUC,146,宁波工程学院,Ningbo University of Technology,4.32
+2025,2025RMUC,RMUC,147,陕西科技大学,Shaanxi University of Science and Technology,4.2975
+2025,2025RMUC,RMUC,148,南通理工学院,Nantong Institute of Technology,4.2875
+2025,2025RMUC,RMUC,149,山东石油化工学院,Shandong Institute of Petrochemical Technology,4.275
+2025,2025RMUC,RMUC,150,仲恺农业工程学院,Zhongkai University of Agriculture and Engineering,4.27
+2025,2025RMUC,RMUC,151,三江学院,Sanjiang University,4.225
+2025,2025RMUC,RMUC,152,珠海科技学院,Zhuhai College of Jilin University,4.175
+2025,2025RMUC,RMUC,152,武汉理工大学,Wuhan University of Technology,4.175
+2025,2025RMUC,RMUC,154,重庆理工大学,Chongqing University of Technology,4.17
+2025,2025RMUC,RMUC,155,江苏开放大学,Jiangsu City Vocational College,4.025
+2025,2025RMUC,RMUC,155,贵州师范大学,Guizhou Normal University,4.025
+2025,2025RMUC,RMUC,155,上海电力大学,Shanghai University of Electric Power,4.025
+2025,2025RMUC,RMUC,155,北方工业大学,North China University of Science and Technology,4.025
+2025,2025RMUC,RMUC,155,广州铁路职业技术学院,Guangzhou Railway Polytechnic,4.025
+2025,2025RMUC,RMUC,160,内蒙古大学,Inner Mongolia University,4.001
+2025,2025RMUC,RMUC,161,江苏大学,Jiangsu University,4
+2025,2025RMUC,RMUC,162,上海大学,Shanghai University,3.9
+2025,2025RMUC,RMUC,163,成都理工大学工程技术学院,Engineering&Technical College of Chengdu University of Technology,3.8
+2025,2025RMUC,RMUC,163,浙江师范大学,Zhejiang Normal University,3.8
+2025,2025RMUC,RMUC,165,浙江大学伊利诺伊大学厄巴纳香槟校区联合学院,Zhejiang University-University of Illinois at Urbana-Champaign Institute,3.775
+2025,2025RMUC,RMUC,166,中国人民警察大学,Chinese People's Police University,3.751
+2025,2025RMUC,RMUC,167,宜宾学院,Yibin University,3.675
+2025,2025RMUC,RMUC,168,哈尔滨理工大学,Harbin University of Science and Technology,3.65
+2025,2025RMUC,RMUC,168,西安工业大学,Xi'an Technological University,3.65
+2025,2025RMUC,RMUC,168,西南石油大学南充校区,Southwest Petroleum University Nanchong Campus,3.65
+2025,2025RMUC,RMUC,168,上海理工大学,University of Shanghai for Science and Technology,3.65
+2025,2025RMUC,RMUC,168,安徽理工大学,Anhui University of Science and Technology,3.65
+2025,2025RMUC,RMUC,168,华北电力大学,North China Electric Power University,3.65
+2025,2025RMUC,RMUC,168,集美大学,Jimei University,3.65
+2025,2025RMUC,RMUC,168,陆军装甲兵学院,Army Academy of Armored Forces,3.65
+2025,2025RMUC,RMUC,168,天津工业大学,Tiangong University,3.65
+2025,2025RMUC,RMUC,168,新疆工程学院,Xinjiang Institute of Technology,3.65
+2025,2025RMUC,RMUC,178,南通大学,Nantong university,3.55
+2025,2025RMUC,RMUC,178,长沙理工大学,Changsha University of Science and Technology,3.55
+2025,2025RMUC,RMUC,180,济宁学院,Jining University,3.4
+2025,2025RMUC,RMUC,180,常熟理工学院,Changshu Institute of Technology,3.4
+2025,2025RMUC,RMUC,180,广东交通职业技术学院,Guangdong Communication Polytechnic,3.4
+2025,2025RMUC,RMUC,180,北京邮电大学,Beijing University of Posts and Telecommunications,3.4
+2025,2025RMUC,RMUC,180,海南大学,Hainan unitersity,3.4
+2025,2025RMUC,RMUC,180,山东大学（威海）,Shan Dong University(Weihai),3.4
+2025,2025RMUC,RMUC,180,沈阳工学院,Shenyang Institute of Technology,3.4
+2025,2025RMUC,RMUC,180,枣庄学院,Zaozhuang University,3.4
+2025,2025RMUC,RMUC,180,内蒙古师范大学,Inner Mongolia Normal University,3.4
+2025,2025RMUC,RMUC,189,石家庄铁道大学,Shijiazhuang Railway University,3.375
+2025,2025RMUC,RMUC,190,南京工业大学,Nanjing Tech University,3.3712
+2025,2025RMUC,RMUC,191,惠州学院,Huizhou University,3.2004
+2025,2025RMUC,RMUC,192,陆军边海防学院昆明校区,Army Academy of Border and Coastal Defense（Kunming）,3.04
+2025,2025RMUC,RMUC,192,昆明理工大学津桥学院,Kunming University of Science and Technology Oxbridge College,3.04
+2025,2025RMUC,RMUC,194,西南大学,Southwest University,3.005
+2025,2025RMUC,RMUC,195,新乡学院,Xinxiang University,2.875
+2025,2025RMUC,RMUC,195,重庆第二师范学院,Chongqing University of Education,2.875
+2025,2025RMUC,RMUC,195,柳州工学院,Liuzhou Institute of Technology,2.875
+2025,2025RMUC,RMUC,198,北京航空航天大学,Beijing University of Aeronautics and Astronautics,2.75
+2025,2025RMUC,RMUC,198,安徽大学,Anhui University,2.75
+2025,2025RMUC,RMUC,198,福州大学,Fuzhou University,2.75
+2025,2025RMUC,RMUC,198,沈阳化工大学,Shenyang University of Chemical Technology,2.75
+2025,2025RMUC,RMUC,198,长春理工大学,Changchun University of Science and Technology,2.75
+2025,2025RMUC,RMUC,198,浙大城市学院,Hangzhou City University,2.75
+2025,2025RMUC,RMUC,204,淮阴工学院,Huaiyin Institute of Technology,2.375
+2025,2025RMUC,RMUC,204,集美大学诚毅学院,"Chengyi University College, Jimei University",2.375
+2025,2025RMUC,RMUC,204,潍坊科技学院,Weifang University of Science and Technology,2.375
+2025,2025RMUC,RMUC,204,黑河学院,Heihe University,2.375
+2025,2025RMUC,RMUC,204,黑龙江大学,Heilongjiang University,2.375
+2025,2025RMUC,RMUC,204,浙江工业大学,Zhejiang University of Technology,2.375
+2025,2025RMUC,RMUC,204,北京交通大学,Beijing Jiaotong University,2.375
+2025,2025RMUC,RMUC,204,广西大学,Guangxi University,2.375
+2025,2025RMUC,RMUC,204,呼伦贝尔学院,Hulunbuir University,2.375
+2025,2025RMUC,RMUC,204,武汉大学,Wuhan University,2.375
+2025,2025RMUC,RMUC,204,长江大学,Yangtze University,2.375
+2025,2025RMUC,RMUC,204,香港中文大学(深圳),"The Chinese University of Hong Kong, Shenzhen",2.375
+2025,2025RMUC,RMUC,204,北京师范大学-香港浸会大学联合国际学院,Beijing Normal University & Hong Kong Baptist University United International College,2.375
+2025,2025RMUC,RMUC,204,香港科技大学（广州）,The Hong Kong University of Science and Technology (Guangzhou),2.375
+2025,2025RMUC,RMUC,204,苏州大学应用技术学院,Applied Technology College of Soochow University,2.375
+2025,2025RMUC,RMUC,204,华南师范大学（佛山校区）,South China Normal University Foshan Campus,2.375
+2025,2025RMUC,RMUC,220,山东大学,Shan Dong University,2.2646
+2025,2025RMUC,RMUC,221,广东海洋大学,Guangdong Ocean University,2.125
+2025,2025RMUC,RMUC,221,湖北第二师范学院,Hubei University of Education,2.125
+2025,2025RMUC,RMUC,221,华东交通大学,East China Jiaotong University,2.125
+2025,2025RMUC,RMUC,221,山西机电职业技术学院,Shanxi Institute of Mechanical and Electrical Engineering,2.125
+2025,2025RMUC,RMUC,221,西安科技大学,Xi'an University of Science and Technology,2.125
+2025,2025RMUC,RMUC,221,长春大学,Changchun University,2.125
+2025,2025RMUC,RMUC,221,长春工业大学,Changchun University of Technology,2.125
+2025,2025RMUC,RMUC,221,盐城师范学院,Yancheng Teachers University,2.125
+2025,2025RMUC,RMUC,221,广东轻工职业技术学院,Guangdong Industry Polytechnic,2.125
+2025,2025RMUC,RMUC,221,广州工商学院,Guangdong Business and Technology University,2.125
+2025,2025RMUC,RMUC,231,贵州师范学院,Guizhou Education University,1.6
+2025,2025RMUC,RMUC,232,北京交通大学（威海校区）,Beijing Jiaotong University(Weihai),1.425
+2025,2025RMUC,RMUC,233,青海大学,Qinghai University,1.275
+2025,2025RMUC,RMUC,233,宁波大学,Ningbo University,1.275
+2025,2025RMUC,RMUC,233,中原工学院,Zhongyuan University of Technology,1.275
+2025,2025RMUC,RMUC,233,江西冶金职业技术学院,Jiangxi Metallurgical Vocational and Technical College,1.275
+2025,2025RMUC,RMUC,237,江西机电职业技术学院,Jiangxi Vocational College of Mechanical & Electrical Technology,1.1222
+2025,2025RMUC,RMUC,238,大连海事大学,Dalian Maritime University,1.016
+2025,2025RMUC,RMUC,239,中南民族大学,South-Central Minzu University,0.9075
+2025,2025RMUC,RMUC,240,遵义师范学院,Zunyi Normal University,0.86

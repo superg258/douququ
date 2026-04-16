@@ -1,0 +1,50 @@
+# Local tooling
+/.codex
+/.vscode
+
+# Python
+/.pytest_cache
+/.venv
+/.venv-win
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Node / Next.js
+/frontend/node_modules
+/frontend/.next
+/frontend/tsconfig.tsbuildinfo
+
+# Local environment files
+/.env
+/.env.*
+!/.env.example
+/backend/.env
+/backend/.env.*
+!/backend/.env.example
+/frontend/.env
+/frontend/.env.*
+!/frontend/.env.example
+
+# Logs and temporary local artifacts
+*.log
+/frontend/*.png
+/tmp-*.png
+/output/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Generated analysis artifacts not required for runtime
+/data/derived/2026_rmuc_elo/evaluation_summary.json
+/data/derived/2026_rmuc_elo/global_school_elo.csv
+/data/derived/2026_rmuc_elo/ranking_current_96.csv
+/data/derived/2026_rmuc_elo/robot_feature_diagnostics.csv
+/data/derived/2026_rmuc_elo/source_features.csv
+/data/derived/2026_rmuc_elo/walk_forward_predictions.csv
+/data/derived/2026_rmuc_region_simulations/*/region_final_rankings.csv
+/data/derived/2026_rmuc_region_simulations/*/region_match_results.csv
+/data/derived/2026_rmuc_region_simulations/*/region_slot_assignments.csv
+/data/derived/2026_rmuc_region_simulations/*/region_summary.json

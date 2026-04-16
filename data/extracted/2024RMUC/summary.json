@@ -1,0 +1,17 @@
+{
+  "event_code": "2024RMUC",
+  "season": 2024,
+  "league": "RMUC",
+  "event_title": "RoboMaster 2024超级对抗赛",
+  "sources": {
+    "schedule.json": "https://raw.githubusercontent.com/scutrobotlab/rm-schedule/main/internal/static/season_2024/schedule.json",
+    "group_rank_info.json": "https://raw.githubusercontent.com/scutrobotlab/rm-schedule/main/internal/static/season_2024/group_rank_info.json",
+    "rank_score.json": "https://raw.githubusercontent.com/scutrobotlab/rm-schedule/main/internal/static/season_2024/rank_score.json"
+  },
+  "outputs": {
+    "teams.csv": 168,
+    "matches.csv": 350,
+    "group_rank.csv": 168,
+    "rank_score.csv": 213
+  }
+}

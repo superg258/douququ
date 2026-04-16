@@ -1,0 +1,1442 @@
+[
+  {
+    "rank": 1,
+    "schoolChinese": "上海交通大学",
+    "schoolEnglish": "Shanghai Jiao Tong University",
+    "score": 22.88
+  },
+  {
+    "rank": 2,
+    "schoolChinese": "华南理工大学",
+    "schoolEnglish": "South China University of Technology",
+    "score": 21.78
+  },
+  {
+    "rank": 3,
+    "schoolChinese": "东北大学",
+    "schoolEnglish": "Northeastern University",
+    "score": 21.58
+  },
+  {
+    "rank": 4,
+    "schoolChinese": "浙江大学",
+    "schoolEnglish": "Zhejiang University",
+    "score": 19.88
+  },
+  {
+    "rank": 5,
+    "schoolChinese": "深圳大学",
+    "schoolEnglish": "Shenzhen University",
+    "score": 19.68
+  },
+  {
+    "rank": 6,
+    "schoolChinese": "南京航空航天大学",
+    "schoolEnglish": "Nanjing University of Aeronautics and Astronautics",
+    "score": 18.86
+  },
+  {
+    "rank": 7,
+    "schoolChinese": "华南农业大学",
+    "schoolEnglish": "South China Agricultural University",
+    "score": 18.66
+  },
+  {
+    "rank": 8,
+    "schoolChinese": "桂林电子科技大学",
+    "schoolEnglish": "Guilin University of Electronic Technology",
+    "score": 18.38
+  },
+  {
+    "rank": 9,
+    "schoolChinese": "西安交通大学",
+    "schoolEnglish": "Xi'an Jiaotong University",
+    "score": 18.26
+  },
+  {
+    "rank": 10,
+    "schoolChinese": "南昌大学",
+    "schoolEnglish": "Nanchang University",
+    "score": 17.84
+  },
+  {
+    "rank": 11,
+    "schoolChinese": "广东工业大学",
+    "schoolEnglish": "Guangdong University of Technology",
+    "score": 17.5
+  },
+  {
+    "rank": 12,
+    "schoolChinese": "哈尔滨工业大学",
+    "schoolEnglish": "Harbin Institute of Technology",
+    "score": 17.36
+  },
+  {
+    "rank": 13,
+    "schoolChinese": "上海工程技术大学",
+    "schoolEnglish": "Shanghai University Of Engineering Science",
+    "score": 16.76
+  },
+  {
+    "rank": 14,
+    "schoolChinese": "南方科技大学",
+    "schoolEnglish": "Southern University of Science and Technology",
+    "score": 16.6
+  },
+  {
+    "rank": 15,
+    "schoolChinese": "中国石油大学（华东）",
+    "schoolEnglish": "China University of Petroleum (East China)",
+    "score": 16.26
+  },
+  {
+    "rank": 16,
+    "schoolChinese": "哈尔滨工业大学（深圳）",
+    "schoolEnglish": "Harbin Institute of Technology (Shenzhen)",
+    "score": 15.98
+  },
+  {
+    "rank": 17,
+    "schoolChinese": "太原理工大学",
+    "schoolEnglish": "Taiyuan University of Technology",
+    "score": 15.78
+  },
+  {
+    "rank": 18,
+    "schoolChinese": "西安电子科技大学",
+    "schoolEnglish": "Xidian University",
+    "score": 15.54
+  },
+  {
+    "rank": 19,
+    "schoolChinese": "五邑大学",
+    "schoolEnglish": "Wuyi University",
+    "score": 15.52
+  },
+  {
+    "rank": 20,
+    "schoolChinese": "桂林信息科技学院",
+    "schoolEnglish": "Guilin Institute of Information Technology",
+    "score": 15.24
+  },
+  {
+    "rank": 21,
+    "schoolChinese": "太原科技大学",
+    "schoolEnglish": "Taiyuan University of Science and Technology",
+    "score": 15.04
+  },
+  {
+    "rank": 22,
+    "schoolChinese": "哈尔滨工业大学（威海）",
+    "schoolEnglish": "Harbin Institute of Technology (Weihai)",
+    "score": 15.02
+  },
+  {
+    "rank": 23,
+    "schoolChinese": "太原工业学院",
+    "schoolEnglish": "Taiyuan Institute of Technology",
+    "score": 14.81
+  },
+  {
+    "rank": 24,
+    "schoolChinese": "东南大学",
+    "schoolEnglish": "Southeast University",
+    "score": 14.46
+  },
+  {
+    "rank": 25,
+    "schoolChinese": "华中科技大学",
+    "schoolEnglish": "Huazhong University of Science and Technology",
+    "score": 14.42
+  },
+  {
+    "rank": 26,
+    "schoolChinese": "电子科技大学中山学院",
+    "schoolEnglish": "Zhongshan College of University of Electronic Science and Technology of China",
+    "score": 14.28
+  },
+  {
+    "rank": 27,
+    "schoolChinese": "中南大学",
+    "schoolEnglish": "Central South University",
+    "score": 13.64
+  },
+  {
+    "rank": 28,
+    "schoolChinese": "北京理工大学",
+    "schoolEnglish": "Beijing Institute of Technology",
+    "score": 13.4
+  },
+  {
+    "rank": 29,
+    "schoolChinese": "北京理工大学（珠海）",
+    "schoolEnglish": "Beijing Institute of Technology, Zhuhai",
+    "score": 13.12
+  },
+  {
+    "rank": 30,
+    "schoolChinese": "首都师范大学",
+    "schoolEnglish": "Capital Normal University",
+    "score": 13.03
+  },
+  {
+    "rank": 31,
+    "schoolChinese": "吉林大学",
+    "schoolEnglish": "Jilin University",
+    "score": 12.85
+  },
+  {
+    "rank": 32,
+    "schoolChinese": "哈尔滨工程大学",
+    "schoolEnglish": "Harbin Engineering University",
+    "score": 12.78
+  },
+  {
+    "rank": 33,
+    "schoolChinese": "西交利物浦大学",
+    "schoolEnglish": "Xi'an Jiaotong-Liverpool University",
+    "score": 12.46
+  },
+  {
+    "rank": 34,
+    "schoolChinese": "大连理工大学",
+    "schoolEnglish": "Dalian University of Technology",
+    "score": 12.1
+  },
+  {
+    "rank": 35,
+    "schoolChinese": "国防科技大学",
+    "schoolEnglish": "National University of Defense Technology",
+    "score": 12
+  },
+  {
+    "rank": 36,
+    "schoolChinese": "山东科技大学",
+    "schoolEnglish": "Shandong University of Science and Technology",
+    "score": 11.98
+  },
+  {
+    "rank": 37,
+    "schoolChinese": "东北林业大学",
+    "schoolEnglish": "Northeast Forestry University",
+    "score": 11.94
+  },
+  {
+    "rank": 38,
+    "schoolChinese": "南京理工大学",
+    "schoolEnglish": "Nanjing University of Science and Technology",
+    "score": 11.84
+  },
+  {
+    "rank": 39,
+    "schoolChinese": "华南师范大学",
+    "schoolEnglish": "South China Normal University",
+    "score": 11.36
+  },
+  {
+    "rank": 40,
+    "schoolChinese": "武汉工程大学",
+    "schoolEnglish": "Wuhan Institute of Technology",
+    "score": 11.34
+  },
+  {
+    "rank": 41,
+    "schoolChinese": "南京航空航天大学金城学院",
+    "schoolEnglish": "Nanhang Jincheng College",
+    "score": 10.88
+  },
+  {
+    "rank": 42,
+    "schoolChinese": "齐鲁工业大学",
+    "schoolEnglish": "Qilu University of Technology",
+    "score": 10.7125
+  },
+  {
+    "rank": 43,
+    "schoolChinese": "广州城市理工学院",
+    "schoolEnglish": "Guangzhou City Institute of Technology",
+    "score": 10.56
+  },
+  {
+    "rank": 44,
+    "schoolChinese": "中国矿业大学",
+    "schoolEnglish": "China University of Mining and Technology",
+    "score": 10.4
+  },
+  {
+    "rank": 44,
+    "schoolChinese": "华北科技学院",
+    "schoolEnglish": "North China Institute of Science & Technology",
+    "score": 10.4
+  },
+  {
+    "rank": 46,
+    "schoolChinese": "天津大学",
+    "schoolEnglish": "Tianjin University",
+    "score": 10.09
+  },
+  {
+    "rank": 47,
+    "schoolChinese": "北京科技大学",
+    "schoolEnglish": "University of Science and Technology Beijing",
+    "score": 10.05
+  },
+  {
+    "rank": 48,
+    "schoolChinese": "杭州电子科技大学",
+    "schoolEnglish": "Hangzhou Dianzi University",
+    "score": 9.44
+  },
+  {
+    "rank": 49,
+    "schoolChinese": "佛山大学",
+    "schoolEnglish": "Foshan University of Science and Technology",
+    "score": 9.12
+  },
+  {
+    "rank": 50,
+    "schoolChinese": "西南石油大学",
+    "schoolEnglish": "Southwest Petroleum University",
+    "score": 8.96
+  },
+  {
+    "rank": 51,
+    "schoolChinese": "辽宁科技大学",
+    "schoolEnglish": "University of Science and Technology Liaoning",
+    "score": 8.96
+  },
+  {
+    "rank": 52,
+    "schoolChinese": "中国科学技术大学",
+    "schoolEnglish": "University of Science and Technology of China",
+    "score": 8.9387
+  },
+  {
+    "rank": 53,
+    "schoolChinese": "大连交通大学",
+    "schoolEnglish": "Dalian Jiaotong University",
+    "score": 8.86
+  },
+  {
+    "rank": 54,
+    "schoolChinese": "浙江纺织服装职业技术学院",
+    "schoolEnglish": "Zhejiang Fashion Institute of Technology",
+    "score": 8.81
+  },
+  {
+    "rank": 55,
+    "schoolChinese": "深圳职业技术大学",
+    "schoolEnglish": "Shenzhen Polytechnic University",
+    "score": 8.7
+  },
+  {
+    "rank": 56,
+    "schoolChinese": "沈阳航空航天大学",
+    "schoolEnglish": "Shenyang Aerospace University",
+    "score": 8.65
+  },
+  {
+    "rank": 57,
+    "schoolChinese": "西南交通大学",
+    "schoolEnglish": "Southwest Jiaotong University",
+    "score": 8.64
+  },
+  {
+    "rank": 58,
+    "schoolChinese": "中国石油大学（北京）",
+    "schoolEnglish": "China University of Petroleum(Beijing)",
+    "score": 8.55
+  },
+  {
+    "rank": 59,
+    "schoolChinese": "重庆大学",
+    "schoolEnglish": "Chongqing University",
+    "score": 8.4225
+  },
+  {
+    "rank": 60,
+    "schoolChinese": "西北工业大学",
+    "schoolEnglish": "Northwestern Polytechnical University",
+    "score": 8.32
+  },
+  {
+    "rank": 61,
+    "schoolChinese": "长安大学",
+    "schoolEnglish": "Chang'an University",
+    "score": 8.13
+  },
+  {
+    "rank": 62,
+    "schoolChinese": "厦门理工学院",
+    "schoolEnglish": "Xiamen University of Technology",
+    "score": 8
+  },
+  {
+    "rank": 62,
+    "schoolChinese": "合肥工业大学",
+    "schoolEnglish": "Hefei University of Technology",
+    "score": 8
+  },
+  {
+    "rank": 64,
+    "schoolChinese": "湖南大学",
+    "schoolEnglish": "Hunan University",
+    "score": 7.9
+  },
+  {
+    "rank": 64,
+    "schoolChinese": "中北大学",
+    "schoolEnglish": "North University of China",
+    "score": 7.9
+  },
+  {
+    "rank": 66,
+    "schoolChinese": "上海科技大学",
+    "schoolEnglish": "ShanghaiTech University",
+    "score": 7.85
+  },
+  {
+    "rank": 67,
+    "schoolChinese": "北京信息科技大学",
+    "schoolEnglish": "Beijing Information Science and Technology University",
+    "score": 7.8432
+  },
+  {
+    "rank": 68,
+    "schoolChinese": "华北理工大学",
+    "schoolEnglish": "North China University of Technology",
+    "score": 7.75
+  },
+  {
+    "rank": 68,
+    "schoolChinese": "同济大学",
+    "schoolEnglish": "Tongji University",
+    "score": 7.75
+  },
+  {
+    "rank": 68,
+    "schoolChinese": "南华大学",
+    "schoolEnglish": "Nanhua University",
+    "score": 7.75
+  },
+  {
+    "rank": 68,
+    "schoolChinese": "厦门大学",
+    "schoolEnglish": "Xiamen University",
+    "score": 7.75
+  },
+  {
+    "rank": 68,
+    "schoolChinese": "山东理工大学",
+    "schoolEnglish": "Shandong University of Technology",
+    "score": 7.75
+  },
+  {
+    "rank": 73,
+    "schoolChinese": "四川大学",
+    "schoolEnglish": "Sichuan University",
+    "score": 7.65
+  },
+  {
+    "rank": 73,
+    "schoolChinese": "燕山大学",
+    "schoolEnglish": "Yanshan University",
+    "score": 7.65
+  },
+  {
+    "rank": 73,
+    "schoolChinese": "常州大学",
+    "schoolEnglish": "Changzhou University",
+    "score": 7.65
+  },
+  {
+    "rank": 73,
+    "schoolChinese": "东北大学秦皇岛分校",
+    "schoolEnglish": "Northeastern University at Qinhuangdao",
+    "score": 7.65
+  },
+  {
+    "rank": 73,
+    "schoolChinese": "深圳技术大学",
+    "schoolEnglish": "Shenzhen University of Technology",
+    "score": 7.65
+  },
+  {
+    "rank": 78,
+    "schoolChinese": "桂林电子科技大学北海校区",
+    "schoolEnglish": "Guilin University of Electronic Technology Beihai Campus",
+    "score": 7.6354
+  },
+  {
+    "rank": 79,
+    "schoolChinese": "安徽信息工程学院",
+    "schoolEnglish": "Anhui Institute of Information Engineering",
+    "score": 7.6
+  },
+  {
+    "rank": 79,
+    "schoolChinese": "福建理工大学",
+    "schoolEnglish": "Fujian University of Technology",
+    "score": 7.6
+  },
+  {
+    "rank": 79,
+    "schoolChinese": "合肥工业大学(宣城校区)",
+    "schoolEnglish": "Hefei University Of Technology Xuancheng Campus",
+    "score": 7.6
+  },
+  {
+    "rank": 82,
+    "schoolChinese": "福建师范大学",
+    "schoolEnglish": "Fujian Normal University",
+    "score": 7.5
+  },
+  {
+    "rank": 83,
+    "schoolChinese": "东莞理工学院",
+    "schoolEnglish": "Dongguan University of Technology",
+    "score": 7.1
+  },
+  {
+    "rank": 84,
+    "schoolChinese": "重庆三峡学院",
+    "schoolEnglish": "Chongqing Three Gorges University",
+    "score": 7.025
+  },
+  {
+    "rank": 85,
+    "schoolChinese": "江西理工大学",
+    "schoolEnglish": "Jiangxi University of Science and Technology",
+    "score": 6.92
+  },
+  {
+    "rank": 86,
+    "schoolChinese": "成都大学",
+    "schoolEnglish": "Chengdu University",
+    "score": 6.8704
+  },
+  {
+    "rank": 87,
+    "schoolChinese": "陆军勤务学院",
+    "schoolEnglish": "Army Service Academy",
+    "score": 6.8675
+  },
+  {
+    "rank": 88,
+    "schoolChinese": "桂林理工大学",
+    "schoolEnglish": "Guilin University of Technology",
+    "score": 6.75
+  },
+  {
+    "rank": 89,
+    "schoolChinese": "青岛大学",
+    "schoolEnglish": "Qingdao University",
+    "score": 6.7214
+  },
+  {
+    "rank": 90,
+    "schoolChinese": "沈阳理工大学",
+    "schoolEnglish": "Shenyang Ligong University",
+    "score": 6.63
+  },
+  {
+    "rank": 91,
+    "schoolChinese": "防灾科技学院",
+    "schoolEnglish": "Institute of Disaster Prevention",
+    "score": 6.6
+  },
+  {
+    "rank": 92,
+    "schoolChinese": "茅台学院",
+    "schoolEnglish": "Moutai College",
+    "score": 6.535
+  },
+  {
+    "rank": 93,
+    "schoolChinese": "北京工业大学",
+    "schoolEnglish": "Beijing University of Technology",
+    "score": 6.5
+  },
+  {
+    "rank": 93,
+    "schoolChinese": "华侨大学",
+    "schoolEnglish": "Huaqiao University",
+    "score": 6.5
+  },
+  {
+    "rank": 95,
+    "schoolChinese": "西安理工大学",
+    "schoolEnglish": "Xi'an University of Technology",
+    "score": 6.3326
+  },
+  {
+    "rank": 96,
+    "schoolChinese": "湘潭大学",
+    "schoolEnglish": "Xiangtan University",
+    "score": 6.3013
+  },
+  {
+    "rank": 97,
+    "schoolChinese": "湖北工业大学",
+    "schoolEnglish": "Hubei University of Technology",
+    "score": 6.3
+  },
+  {
+    "rank": 98,
+    "schoolChinese": "厦门大学嘉庚学院",
+    "schoolEnglish": "Jiageng College of Xiamen University",
+    "score": 6.25
+  },
+  {
+    "rank": 99,
+    "schoolChinese": "河北科技大学",
+    "schoolEnglish": "Hebei University of Science and Technology",
+    "score": 6.15
+  },
+  {
+    "rank": 100,
+    "schoolChinese": "内蒙古科技大学",
+    "schoolEnglish": "Inner Mongolia University of Science and Technology",
+    "score": 6.085
+  },
+  {
+    "rank": 101,
+    "schoolChinese": "中国民航大学",
+    "schoolEnglish": "Civil Aviation University of China",
+    "score": 6.035
+  },
+  {
+    "rank": 102,
+    "schoolChinese": "西南民族大学",
+    "schoolEnglish": "Southwest Minzu University",
+    "score": 5.855
+  },
+  {
+    "rank": 103,
+    "schoolChinese": "闽江学院",
+    "schoolEnglish": "Minjiang College",
+    "score": 5.775
+  },
+  {
+    "rank": 104,
+    "schoolChinese": "大连民族大学",
+    "schoolEnglish": "Dalian Minzu University",
+    "score": 5.715
+  },
+  {
+    "rank": 105,
+    "schoolChinese": "北部湾大学",
+    "schoolEnglish": "Beibu Gulf University",
+    "score": 5.705
+  },
+  {
+    "rank": 106,
+    "schoolChinese": "北京林业大学",
+    "schoolEnglish": "Beijing Forestry University",
+    "score": 5.63
+  },
+  {
+    "rank": 107,
+    "schoolChinese": "电子科技大学成都学院",
+    "schoolEnglish": "Chengdu College of University of Electronic Science and Technology of China",
+    "score": 5.5
+  },
+  {
+    "rank": 108,
+    "schoolChinese": "火箭军工程大学",
+    "schoolEnglish": "Rocket Force University of Engineering",
+    "score": 5.4381
+  },
+  {
+    "rank": 109,
+    "schoolChinese": "河北工业大学",
+    "schoolEnglish": "Hebei University Of Technology",
+    "score": 5.4
+  },
+  {
+    "rank": 110,
+    "schoolChinese": "天津理工大学",
+    "schoolEnglish": "Tianjin University of Technology",
+    "score": 5.3642
+  },
+  {
+    "rank": 111,
+    "schoolChinese": "东华大学",
+    "schoolEnglish": "Donghua University",
+    "score": 5.35
+  },
+  {
+    "rank": 112,
+    "schoolChinese": "成都信息工程大学",
+    "schoolEnglish": "Chengdu University of Information Technology",
+    "score": 5.3165
+  },
+  {
+    "rank": 113,
+    "schoolChinese": "同济大学浙江学院",
+    "schoolEnglish": "Zhejiang College of Tongji University",
+    "score": 5.2725
+  },
+  {
+    "rank": 114,
+    "schoolChinese": "南京理工大学江阴校区",
+    "schoolEnglish": "Nanjing University of Science and Technology Jiangyin Campus",
+    "score": 5.2678
+  },
+  {
+    "rank": 115,
+    "schoolChinese": "武汉科技大学",
+    "schoolEnglish": "Wuhan University of Science and Technology",
+    "score": 5.2477
+  },
+  {
+    "rank": 116,
+    "schoolChinese": "沈阳建筑大学",
+    "schoolEnglish": "Shenyang Jianzhu University",
+    "score": 5.155
+  },
+  {
+    "rank": 117,
+    "schoolChinese": "西北农林科技大学",
+    "schoolEnglish": "Northwest A&F University",
+    "score": 5.1345
+  },
+  {
+    "rank": 118,
+    "schoolChinese": "江苏航空职业技术学院",
+    "schoolEnglish": "Jiangsu Aviation Technical College",
+    "score": 5.0575
+  },
+  {
+    "rank": 119,
+    "schoolChinese": "宁波诺丁汉大学",
+    "schoolEnglish": "University of Nottingham Ningbo China",
+    "score": 4.94
+  },
+  {
+    "rank": 120,
+    "schoolChinese": "浙江理工大学",
+    "schoolEnglish": "Zhejiang Sci-Tech University",
+    "score": 4.89
+  },
+  {
+    "rank": 121,
+    "schoolChinese": "深圳北理莫斯科大学",
+    "schoolEnglish": "Shenzhen MSU-BIT University",
+    "score": 4.8825
+  },
+  {
+    "rank": 122,
+    "schoolChinese": "华东理工大学",
+    "schoolEnglish": "East China University of Science and Technology",
+    "score": 4.8
+  },
+  {
+    "rank": 123,
+    "schoolChinese": "云南大学",
+    "schoolEnglish": "Yunnan University",
+    "score": 4.795
+  },
+  {
+    "rank": 124,
+    "schoolChinese": "郑州大学",
+    "schoolEnglish": "Zhengzhou University",
+    "score": 4.7794
+  },
+  {
+    "rank": 125,
+    "schoolChinese": "青岛理工大学",
+    "schoolEnglish": "Qingdao University of Technology",
+    "score": 4.775
+  },
+  {
+    "rank": 125,
+    "schoolChinese": "文华学院",
+    "schoolEnglish": "Wenhua College",
+    "score": 4.775
+  },
+  {
+    "rank": 127,
+    "schoolChinese": "辽宁石油化工大学",
+    "schoolEnglish": "Liaoning Shihua University",
+    "score": 4.6924
+  },
+  {
+    "rank": 128,
+    "schoolChinese": "济南大学",
+    "schoolEnglish": "Jinan Universty",
+    "score": 4.6525
+  },
+  {
+    "rank": 129,
+    "schoolChinese": "西南林业大学",
+    "schoolEnglish": "Southwest Forestry University",
+    "score": 4.6375
+  },
+  {
+    "rank": 130,
+    "schoolChinese": "广州南方学院",
+    "schoolEnglish": "Guangzhou Nanfang College",
+    "score": 4.633
+  },
+  {
+    "rank": 131,
+    "schoolChinese": "成都工业学院",
+    "schoolEnglish": "Chengdu Technology University",
+    "score": 4.6278
+  },
+  {
+    "rank": 132,
+    "schoolChinese": "江苏科技大学",
+    "schoolEnglish": "Jiangsu University of Science and Technology",
+    "score": 4.6198
+  },
+  {
+    "rank": 133,
+    "schoolChinese": "陆军边海防学院",
+    "schoolEnglish": "Army Academy of Border and Coastal Defense",
+    "score": 4.601
+  },
+  {
+    "rank": 134,
+    "schoolChinese": "吉利学院",
+    "schoolEnglish": "Geely University of China",
+    "score": 4.5775
+  },
+  {
+    "rank": 135,
+    "schoolChinese": "南昌航空大学",
+    "schoolEnglish": "Nanchang Hangkong University",
+    "score": 4.575
+  },
+  {
+    "rank": 136,
+    "schoolChinese": "大连大学",
+    "schoolEnglish": "Dalian University",
+    "score": 4.5525
+  },
+  {
+    "rank": 137,
+    "schoolChinese": "河北师范大学",
+    "schoolEnglish": "Hebei Normal University",
+    "score": 4.55
+  },
+  {
+    "rank": 138,
+    "schoolChinese": "广州航海学院",
+    "schoolEnglish": "Guangzhou Maritime University",
+    "score": 4.5275
+  },
+  {
+    "rank": 139,
+    "schoolChinese": "南昌理工学院",
+    "schoolEnglish": "Nanchang Institute of Technology",
+    "score": 4.52
+  },
+  {
+    "rank": 140,
+    "schoolChinese": "深圳信息职业技术学院",
+    "schoolEnglish": "Shenzhen Institute of Information Technology",
+    "score": 4.45
+  },
+  {
+    "rank": 141,
+    "schoolChinese": "河北建筑工程学院",
+    "schoolEnglish": "Hebei University of Architecture",
+    "score": 4.44
+  },
+  {
+    "rank": 142,
+    "schoolChinese": "中国科学院大学",
+    "schoolEnglish": "University of Chinese Academy of Sciences",
+    "score": 4.4175
+  },
+  {
+    "rank": 143,
+    "schoolChinese": "贵阳人文科技学院",
+    "schoolEnglish": "College of Humanities and Science of Guizhou Minzu University",
+    "score": 4.4
+  },
+  {
+    "rank": 143,
+    "schoolChinese": "福建农林大学",
+    "schoolEnglish": "Fujian Agriculture and Forestry University",
+    "score": 4.4
+  },
+  {
+    "rank": 143,
+    "schoolChinese": "河南科技大学",
+    "schoolEnglish": "Henan University of Science and Technology",
+    "score": 4.4
+  },
+  {
+    "rank": 146,
+    "schoolChinese": "宁波工程学院",
+    "schoolEnglish": "Ningbo University of Technology",
+    "score": 4.32
+  },
+  {
+    "rank": 147,
+    "schoolChinese": "陕西科技大学",
+    "schoolEnglish": "Shaanxi University of Science and Technology",
+    "score": 4.2975
+  },
+  {
+    "rank": 148,
+    "schoolChinese": "南通理工学院",
+    "schoolEnglish": "Nantong Institute of Technology",
+    "score": 4.2875
+  },
+  {
+    "rank": 149,
+    "schoolChinese": "山东石油化工学院",
+    "schoolEnglish": "Shandong Institute of Petrochemical Technology",
+    "score": 4.275
+  },
+  {
+    "rank": 150,
+    "schoolChinese": "仲恺农业工程学院",
+    "schoolEnglish": "Zhongkai University of Agriculture and Engineering",
+    "score": 4.27
+  },
+  {
+    "rank": 151,
+    "schoolChinese": "三江学院",
+    "schoolEnglish": "Sanjiang University",
+    "score": 4.225
+  },
+  {
+    "rank": 152,
+    "schoolChinese": "珠海科技学院",
+    "schoolEnglish": "Zhuhai College of Jilin University",
+    "score": 4.175
+  },
+  {
+    "rank": 152,
+    "schoolChinese": "武汉理工大学",
+    "schoolEnglish": "Wuhan University of Technology",
+    "score": 4.175
+  },
+  {
+    "rank": 154,
+    "schoolChinese": "重庆理工大学",
+    "schoolEnglish": "Chongqing University of Technology",
+    "score": 4.17
+  },
+  {
+    "rank": 155,
+    "schoolChinese": "江苏开放大学",
+    "schoolEnglish": "Jiangsu City Vocational College",
+    "score": 4.025
+  },
+  {
+    "rank": 155,
+    "schoolChinese": "贵州师范大学",
+    "schoolEnglish": "Guizhou Normal University",
+    "score": 4.025
+  },
+  {
+    "rank": 155,
+    "schoolChinese": "上海电力大学",
+    "schoolEnglish": "Shanghai University of Electric Power",
+    "score": 4.025
+  },
+  {
+    "rank": 155,
+    "schoolChinese": "北方工业大学",
+    "schoolEnglish": "North China University of Science and Technology",
+    "score": 4.025
+  },
+  {
+    "rank": 155,
+    "schoolChinese": "广州铁路职业技术学院",
+    "schoolEnglish": "Guangzhou Railway Polytechnic",
+    "score": 4.025
+  },
+  {
+    "rank": 160,
+    "schoolChinese": "内蒙古大学",
+    "schoolEnglish": "Inner Mongolia University",
+    "score": 4.001
+  },
+  {
+    "rank": 161,
+    "schoolChinese": "江苏大学",
+    "schoolEnglish": "Jiangsu University",
+    "score": 4
+  },
+  {
+    "rank": 162,
+    "schoolChinese": "上海大学",
+    "schoolEnglish": "Shanghai University",
+    "score": 3.9
+  },
+  {
+    "rank": 163,
+    "schoolChinese": "成都理工大学工程技术学院",
+    "schoolEnglish": "Engineering&Technical College of Chengdu University of Technology",
+    "score": 3.8
+  },
+  {
+    "rank": 163,
+    "schoolChinese": "浙江师范大学",
+    "schoolEnglish": "Zhejiang Normal University",
+    "score": 3.8
+  },
+  {
+    "rank": 165,
+    "schoolChinese": "浙江大学伊利诺伊大学厄巴纳香槟校区联合学院",
+    "schoolEnglish": "Zhejiang University-University of Illinois at Urbana-Champaign Institute",
+    "score": 3.775
+  },
+  {
+    "rank": 166,
+    "schoolChinese": "中国人民警察大学",
+    "schoolEnglish": "Chinese People's Police University",
+    "score": 3.751
+  },
+  {
+    "rank": 167,
+    "schoolChinese": "宜宾学院",
+    "schoolEnglish": "Yibin University",
+    "score": 3.675
+  },
+  {
+    "rank": 168,
+    "schoolChinese": "哈尔滨理工大学",
+    "schoolEnglish": "Harbin University of Science and Technology",
+    "score": 3.65
+  },
+  {
+    "rank": 168,
+    "schoolChinese": "西安工业大学",
+    "schoolEnglish": "Xi'an Technological University",
+    "score": 3.65
+  },
+  {
+    "rank": 168,
+    "schoolChinese": "西南石油大学南充校区",
+    "schoolEnglish": "Southwest Petroleum University Nanchong Campus",
+    "score": 3.65
+  },
+  {
+    "rank": 168,
+    "schoolChinese": "上海理工大学",
+    "schoolEnglish": "University of Shanghai for Science and Technology",
+    "score": 3.65
+  },
+  {
+    "rank": 168,
+    "schoolChinese": "安徽理工大学",
+    "schoolEnglish": "Anhui University of Science and Technology",
+    "score": 3.65
+  },
+  {
+    "rank": 168,
+    "schoolChinese": "华北电力大学",
+    "schoolEnglish": "North China Electric Power University",
+    "score": 3.65
+  },
+  {
+    "rank": 168,
+    "schoolChinese": "集美大学",
+    "schoolEnglish": "Jimei University",
+    "score": 3.65
+  },
+  {
+    "rank": 168,
+    "schoolChinese": "陆军装甲兵学院",
+    "schoolEnglish": "Army Academy of Armored Forces",
+    "score": 3.65
+  },
+  {
+    "rank": 168,
+    "schoolChinese": "天津工业大学",
+    "schoolEnglish": "Tiangong University",
+    "score": 3.65
+  },
+  {
+    "rank": 168,
+    "schoolChinese": "新疆工程学院",
+    "schoolEnglish": "Xinjiang Institute of Technology",
+    "score": 3.65
+  },
+  {
+    "rank": 178,
+    "schoolChinese": "南通大学",
+    "schoolEnglish": "Nantong university",
+    "score": 3.55
+  },
+  {
+    "rank": 178,
+    "schoolChinese": "长沙理工大学",
+    "schoolEnglish": "Changsha University of Science and Technology",
+    "score": 3.55
+  },
+  {
+    "rank": 180,
+    "schoolChinese": "济宁学院",
+    "schoolEnglish": "Jining University",
+    "score": 3.4
+  },
+  {
+    "rank": 180,
+    "schoolChinese": "常熟理工学院",
+    "schoolEnglish": "Changshu Institute of Technology",
+    "score": 3.4
+  },
+  {
+    "rank": 180,
+    "schoolChinese": "广东交通职业技术学院",
+    "schoolEnglish": "Guangdong Communication Polytechnic",
+    "score": 3.4
+  },
+  {
+    "rank": 180,
+    "schoolChinese": "北京邮电大学",
+    "schoolEnglish": "Beijing University of Posts and Telecommunications",
+    "score": 3.4
+  },
+  {
+    "rank": 180,
+    "schoolChinese": "海南大学",
+    "schoolEnglish": "Hainan unitersity",
+    "score": 3.4
+  },
+  {
+    "rank": 180,
+    "schoolChinese": "山东大学（威海）",
+    "schoolEnglish": "Shan Dong University(Weihai)",
+    "score": 3.4
+  },
+  {
+    "rank": 180,
+    "schoolChinese": "沈阳工学院",
+    "schoolEnglish": "Shenyang Institute of Technology",
+    "score": 3.4
+  },
+  {
+    "rank": 180,
+    "schoolChinese": "枣庄学院",
+    "schoolEnglish": "Zaozhuang University",
+    "score": 3.4
+  },
+  {
+    "rank": 180,
+    "schoolChinese": "内蒙古师范大学",
+    "schoolEnglish": "Inner Mongolia Normal University",
+    "score": 3.4
+  },
+  {
+    "rank": 189,
+    "schoolChinese": "石家庄铁道大学",
+    "schoolEnglish": "Shijiazhuang Railway University",
+    "score": 3.375
+  },
+  {
+    "rank": 190,
+    "schoolChinese": "南京工业大学",
+    "schoolEnglish": "Nanjing Tech University",
+    "score": 3.3712
+  },
+  {
+    "rank": 191,
+    "schoolChinese": "惠州学院",
+    "schoolEnglish": "Huizhou University",
+    "score": 3.2004
+  },
+  {
+    "rank": 192,
+    "schoolChinese": "陆军边海防学院昆明校区",
+    "schoolEnglish": "Army Academy of Border and Coastal Defense（Kunming）",
+    "score": 3.04
+  },
+  {
+    "rank": 192,
+    "schoolChinese": "昆明理工大学津桥学院",
+    "schoolEnglish": "Kunming University of Science and Technology Oxbridge College",
+    "score": 3.04
+  },
+  {
+    "rank": 194,
+    "schoolChinese": "西南大学",
+    "schoolEnglish": "Southwest University",
+    "score": 3.005
+  },
+  {
+    "rank": 195,
+    "schoolChinese": "新乡学院",
+    "schoolEnglish": "Xinxiang University",
+    "score": 2.875
+  },
+  {
+    "rank": 195,
+    "schoolChinese": "重庆第二师范学院",
+    "schoolEnglish": "Chongqing University of Education",
+    "score": 2.875
+  },
+  {
+    "rank": 195,
+    "schoolChinese": "柳州工学院",
+    "schoolEnglish": "Liuzhou Institute of Technology",
+    "score": 2.875
+  },
+  {
+    "rank": 198,
+    "schoolChinese": "北京航空航天大学",
+    "schoolEnglish": "Beijing University of Aeronautics and Astronautics",
+    "score": 2.75
+  },
+  {
+    "rank": 198,
+    "schoolChinese": "安徽大学",
+    "schoolEnglish": "Anhui University",
+    "score": 2.75
+  },
+  {
+    "rank": 198,
+    "schoolChinese": "福州大学",
+    "schoolEnglish": "Fuzhou University",
+    "score": 2.75
+  },
+  {
+    "rank": 198,
+    "schoolChinese": "沈阳化工大学",
+    "schoolEnglish": "Shenyang University of Chemical Technology",
+    "score": 2.75
+  },
+  {
+    "rank": 198,
+    "schoolChinese": "长春理工大学",
+    "schoolEnglish": "Changchun University of Science and Technology",
+    "score": 2.75
+  },
+  {
+    "rank": 198,
+    "schoolChinese": "浙大城市学院",
+    "schoolEnglish": "Hangzhou City University",
+    "score": 2.75
+  },
+  {
+    "rank": 204,
+    "schoolChinese": "淮阴工学院",
+    "schoolEnglish": "Huaiyin Institute of Technology",
+    "score": 2.375
+  },
+  {
+    "rank": 204,
+    "schoolChinese": "集美大学诚毅学院",
+    "schoolEnglish": "Chengyi University College, Jimei University",
+    "score": 2.375
+  },
+  {
+    "rank": 204,
+    "schoolChinese": "潍坊科技学院",
+    "schoolEnglish": "Weifang University of Science and Technology",
+    "score": 2.375
+  },
+  {
+    "rank": 204,
+    "schoolChinese": "黑河学院",
+    "schoolEnglish": "Heihe University",
+    "score": 2.375
+  },
+  {
+    "rank": 204,
+    "schoolChinese": "黑龙江大学",
+    "schoolEnglish": "Heilongjiang University",
+    "score": 2.375
+  },
+  {
+    "rank": 204,
+    "schoolChinese": "浙江工业大学",
+    "schoolEnglish": "Zhejiang University of Technology",
+    "score": 2.375
+  },
+  {
+    "rank": 204,
+    "schoolChinese": "北京交通大学",
+    "schoolEnglish": "Beijing Jiaotong University",
+    "score": 2.375
+  },
+  {
+    "rank": 204,
+    "schoolChinese": "广西大学",
+    "schoolEnglish": "Guangxi University",
+    "score": 2.375
+  },
+  {
+    "rank": 204,
+    "schoolChinese": "呼伦贝尔学院",
+    "schoolEnglish": "Hulunbuir University",
+    "score": 2.375
+  },
+  {
+    "rank": 204,
+    "schoolChinese": "武汉大学",
+    "schoolEnglish": "Wuhan University",
+    "score": 2.375
+  },
+  {
+    "rank": 204,
+    "schoolChinese": "长江大学",
+    "schoolEnglish": "Yangtze University",
+    "score": 2.375
+  },
+  {
+    "rank": 204,
+    "schoolChinese": "香港中文大学(深圳)",
+    "schoolEnglish": "The Chinese University of Hong Kong, Shenzhen",
+    "score": 2.375
+  },
+  {
+    "rank": 204,
+    "schoolChinese": "北京师范大学-香港浸会大学联合国际学院",
+    "schoolEnglish": "Beijing Normal University & Hong Kong Baptist University United International College",
+    "score": 2.375
+  },
+  {
+    "rank": 204,
+    "schoolChinese": "香港科技大学（广州）",
+    "schoolEnglish": "The Hong Kong University of Science and Technology (Guangzhou)",
+    "score": 2.375
+  },
+  {
+    "rank": 204,
+    "schoolChinese": "苏州大学应用技术学院",
+    "schoolEnglish": "Applied Technology College of Soochow University",
+    "score": 2.375
+  },
+  {
+    "rank": 204,
+    "schoolChinese": "华南师范大学（佛山校区）",
+    "schoolEnglish": "South China Normal University Foshan Campus",
+    "score": 2.375
+  },
+  {
+    "rank": 220,
+    "schoolChinese": "山东大学",
+    "schoolEnglish": "Shan Dong University",
+    "score": 2.2646
+  },
+  {
+    "rank": 221,
+    "schoolChinese": "广东海洋大学",
+    "schoolEnglish": "Guangdong Ocean University",
+    "score": 2.125
+  },
+  {
+    "rank": 221,
+    "schoolChinese": "湖北第二师范学院",
+    "schoolEnglish": "Hubei University of Education",
+    "score": 2.125
+  },
+  {
+    "rank": 221,
+    "schoolChinese": "华东交通大学",
+    "schoolEnglish": "East China Jiaotong University",
+    "score": 2.125
+  },
+  {
+    "rank": 221,
+    "schoolChinese": "山西机电职业技术学院",
+    "schoolEnglish": "Shanxi Institute of Mechanical and Electrical Engineering",
+    "score": 2.125
+  },
+  {
+    "rank": 221,
+    "schoolChinese": "西安科技大学",
+    "schoolEnglish": "Xi'an University of Science and Technology",
+    "score": 2.125
+  },
+  {
+    "rank": 221,
+    "schoolChinese": "长春大学",
+    "schoolEnglish": "Changchun University",
+    "score": 2.125
+  },
+  {
+    "rank": 221,
+    "schoolChinese": "长春工业大学",
+    "schoolEnglish": "Changchun University of Technology",
+    "score": 2.125
+  },
+  {
+    "rank": 221,
+    "schoolChinese": "盐城师范学院",
+    "schoolEnglish": "Yancheng Teachers University",
+    "score": 2.125
+  },
+  {
+    "rank": 221,
+    "schoolChinese": "广东轻工职业技术学院",
+    "schoolEnglish": "Guangdong Industry Polytechnic",
+    "score": 2.125
+  },
+  {
+    "rank": 221,
+    "schoolChinese": "广州工商学院",
+    "schoolEnglish": "Guangdong Business and Technology University",
+    "score": 2.125
+  },
+  {
+    "rank": 231,
+    "schoolChinese": "贵州师范学院",
+    "schoolEnglish": "Guizhou Education University",
+    "score": 1.6
+  },
+  {
+    "rank": 232,
+    "schoolChinese": "北京交通大学（威海校区）",
+    "schoolEnglish": "Beijing Jiaotong University(Weihai)",
+    "score": 1.425
+  },
+  {
+    "rank": 233,
+    "schoolChinese": "青海大学",
+    "schoolEnglish": "Qinghai University",
+    "score": 1.275
+  },
+  {
+    "rank": 233,
+    "schoolChinese": "宁波大学",
+    "schoolEnglish": "Ningbo University",
+    "score": 1.275
+  },
+  {
+    "rank": 233,
+    "schoolChinese": "中原工学院",
+    "schoolEnglish": "Zhongyuan University of Technology",
+    "score": 1.275
+  },
+  {
+    "rank": 233,
+    "schoolChinese": "江西冶金职业技术学院",
+    "schoolEnglish": "Jiangxi Metallurgical Vocational and Technical College",
+    "score": 1.275
+  },
+  {
+    "rank": 237,
+    "schoolChinese": "江西机电职业技术学院",
+    "schoolEnglish": "Jiangxi Vocational College of Mechanical & Electrical Technology",
+    "score": 1.1222
+  },
+  {
+    "rank": 238,
+    "schoolChinese": "大连海事大学",
+    "schoolEnglish": "Dalian Maritime University",
+    "score": 1.016
+  },
+  {
+    "rank": 239,
+    "schoolChinese": "中南民族大学",
+    "schoolEnglish": "South-Central Minzu University",
+    "score": 0.9075
+  },
+  {
+    "rank": 240,
+    "schoolChinese": "遵义师范学院",
+    "schoolEnglish": "Zunyi Normal University",
+    "score": 0.86
+  }
+]
