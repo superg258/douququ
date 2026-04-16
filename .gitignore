@@ -6,6 +6,7 @@
 /.pytest_cache
 /.venv
 /.venv-win
+/.venv312
 __pycache__/
 *.pyc
 *.pyo
