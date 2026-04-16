@@ -8,7 +8,7 @@ import PinyinMatch from "pinyin-match";
 import { WorkspaceStageView } from "@/components/workspace-stage";
 import { getOverview, getSimulation } from "@/lib/api";
 import { buildWorkspaceStage } from "@/lib/canvas-builders";
-import { formatRankingResultLabel, translateStageLabel } from "@/lib/display";
+import { formatRankingResultLabel, translateConfidenceLabel, translateDestinationLabel, translateStageLabel } from "@/lib/display";
 import { buildRegionHref, getOrCreateSessionSeed, parseSeed, REGION_LABELS, REGION_VIEWS } from "@/lib/region-config";
 import type {
   InspectorSelection,
@@ -83,7 +83,7 @@ function SearchModal({
       <aside className="search-modal">
         <div className="search-modal-head">
           <div>
-            <p className="module-eyebrow">队伍检索</p>
+            <p className="module-eyebrow">全站检索</p>
             <h3>{title}</h3>
           </div>
           <button type="button" onClick={onClose}>
@@ -144,7 +144,7 @@ function InspectorPanel({
         </section>
 
         <section className="inspector-card">
-          <h4>当前模拟结果</h4>
+          <h4>本次模拟结果</h4>
           <p>{formatRankingResultLabel(selectedRanking.rank, selectedRanking.finalBucket, selectedRanking.advancement)}</p>
           <div className="inspector-path-list">
             {selectedPath.map((match) => {
@@ -192,15 +192,15 @@ function InspectorPanel({
             <span>蓝方系列赛 {percent(selectedMatch.pSeriesBlue)}</span>
             <span>红方单局 {percent(selectedMatch.pGameRed)}</span>
             <span>蓝方单局 {percent(selectedMatch.pGameBlue)}</span>
-            <span>H2H {selectedMatch.deltaH2H.toFixed(3)}</span>
-            <span>置信度 {selectedMatch.confidenceLabel}</span>
+            <span>对位差 {selectedMatch.deltaH2H.toFixed(3)}</span>
+            <span>结果把握 {translateConfidenceLabel(selectedMatch.confidenceLabel)}</span>
           </div>
         </section>
 
         <section className="inspector-card">
-          <h4>去向</h4>
-          <p>胜者去向：{selectedMatch.winnerNext}</p>
-          <p>败者去向：{selectedMatch.loserNext}</p>
+          <h4>下一步去向</h4>
+          <p>胜者：{translateDestinationLabel(selectedMatch.winnerNext)}</p>
+          <p>败者：{translateDestinationLabel(selectedMatch.loserNext)}</p>
           <div className="inspector-inline-actions">
             <button type="button" onClick={() => onTeamOpen(selectedMatch.redTeam.teamKey)}>
               查看红方
@@ -218,9 +218,9 @@ function InspectorPanel({
     <div className="inspector-stack">
       <div className="inspector-head">
         <div>
-          <p className="module-eyebrow">工作区说明</p>
-          <h3>{regionOverview?.regionName ?? "赛区工作区"}</h3>
-          <p>选择队伍或比赛后，右侧会切到详细检查器。</p>
+          <p className="module-eyebrow">当前视图</p>
+          <h3>{regionOverview?.regionName ?? "赛区看板"}</h3>
+          <p>点击队伍或比赛后，这里会显示战绩、路径和下一步去向。</p>
         </div>
       </div>
 
@@ -233,7 +233,7 @@ function InspectorPanel({
       </section>
 
       <section className="inspector-card">
-        <h4>快速锁定强队</h4>
+        <h4>快速查看热门队伍</h4>
         <div className="quick-team-list">
           {regionOverview?.teams.slice(0, 6).map((team) => (
             <button key={team.teamKey} type="button" className="quick-team-button" onClick={() => onTeamOpen(team.teamKey)}>
@@ -410,7 +410,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
       <header className="workspace-topbar">
         <div className="workspace-topbar-main">
           <div className="workspace-topbar-copy-block">
-            <p className="toolbar-kicker">RMUC 赛区总控台</p>
+            <p className="toolbar-kicker">RMUC 2026 / 赛区看板</p>
             <h1>{REGION_LABELS[regionSlug]}</h1>
             <p className="workspace-copy">{viewMeta.description}</p>
           </div>
@@ -436,7 +436,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
             </select>
           </label>
           <label>
-            随机种子
+            模拟种子
             <input
               name="seed"
               type="text"
@@ -449,7 +449,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
             />
           </label>
           <button type="button" className="simulate-button" onClick={applySeedDraft}>
-            重新模拟
+            刷新模拟
           </button>
         </div>
 
@@ -470,15 +470,15 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
             <span>{regionOverview?.teams.length ?? 0} 支队伍</span>
             <span>国赛 {regionOverview?.nationalSlots ?? 0}</span>
             <span>复活赛 {regionOverview?.repechageSlots ?? 0}</span>
-            <span>种子 {seed}</span>
+            <span>本次种子 {seed}</span>
           </div>
         </div>
       </header>
 
       <section className="workspace-grid">
         <div className="workspace-canvas-column">
-          {error ? <div className="error-panel dark">接口请求失败：{error}</div> : null}
-          {!stage ? <div className="loading-panel workspace-loading">正在装配赛程画布…</div> : null}
+          {error ? <div className="error-panel dark">数据加载失败：{error}</div> : null}
+          {!stage ? <div className="loading-panel workspace-loading">正在生成当前赛程…</div> : null}
           {stage ? (
             <WorkspaceStageView
               stage={stage}
@@ -527,13 +527,13 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
         </section>
       ) : null}
 
-      <SearchModal open={searchOpen} title="跨赛区搜索队伍" onClose={() => setSearchOpen(false)}>
+      <SearchModal open={searchOpen} title="搜索全部赛区队伍" onClose={() => setSearchOpen(false)}>
         <div className="search-panel">
           <input
             name="team-search"
             type="search"
             autoComplete="off"
-            placeholder="输入学校名、队伍名或拼音"
+            placeholder="输入学校、队名或拼音"
             value={searchText}
             onChange={(event) => setSearchText(event.target.value)}
           />
@@ -547,7 +547,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
                 </small>
               </button>
             ))}
-            {searchResults.length === 0 ? <div className="empty-state">没有匹配队伍。</div> : null}
+            {searchResults.length === 0 ? <div className="empty-state">没有找到匹配的队伍。</div> : null}
           </div>
         </div>
       </SearchModal>

@@ -76,50 +76,50 @@ const SWISS_STAGE_COLUMNS: Array<{ id: SwissStageColumnId; x: number; sections: 
   {
     id: "round1",
     x: 64,
-    sections: [{ kind: "matches", id: "r1-0-0", round: 1, bucket: "0-0", title: "R1 · 0-0", y: 184, tone: "cyan" }],
+    sections: [{ kind: "matches", id: "r1-0-0", round: 1, bucket: "0-0", title: "第 1 轮 · 0-0 组", y: 184, tone: "cyan" }],
   },
   {
     id: "round2",
     x: 448,
     sections: [
-      { kind: "matches", id: "r2-1-0", round: 2, bucket: "1-0", title: "R2 · 1-0", y: 92, tone: "cyan" },
-      { kind: "matches", id: "r2-0-1", round: 2, bucket: "0-1", title: "R2 · 0-1", y: 700, tone: "cyan" },
+      { kind: "matches", id: "r2-1-0", round: 2, bucket: "1-0", title: "第 2 轮 · 1-0 组", y: 92, tone: "cyan" },
+      { kind: "matches", id: "r2-0-1", round: 2, bucket: "0-1", title: "第 2 轮 · 0-1 组", y: 700, tone: "cyan" },
     ],
   },
   {
     id: "round3",
     x: 832,
     sections: [
-      { kind: "matches", id: "r3-2-0", round: 3, bucket: "2-0", title: "R3 · 2-0", y: 44, tone: "cyan" },
-      { kind: "matches", id: "r3-1-1", round: 3, bucket: "1-1", title: "R3 · 1-1", y: 468, tone: "cyan" },
-      { kind: "matches", id: "r3-0-2", round: 3, bucket: "0-2", title: "R3 · 0-2", y: 1032, tone: "cyan" },
+      { kind: "matches", id: "r3-2-0", round: 3, bucket: "2-0", title: "第 3 轮 · 2-0 组", y: 44, tone: "cyan" },
+      { kind: "matches", id: "r3-1-1", round: 3, bucket: "1-1", title: "第 3 轮 · 1-1 组", y: 468, tone: "cyan" },
+      { kind: "matches", id: "r3-0-2", round: 3, bucket: "0-2", title: "第 3 轮 · 0-2 组", y: 1032, tone: "cyan" },
     ],
   },
   {
     id: "round4-band",
     x: 1216,
     sections: [
-      { kind: "summary", id: "qualified-3-0", summaryId: "qualified-3-0", title: "晋级 · 3-0", y: 44, tone: "amber" },
-      { kind: "matches", id: "r4-2-1", round: 4, bucket: "2-1", title: "R4 · 2-1", y: 330, tone: "cyan" },
-      { kind: "matches", id: "r4-1-2", round: 4, bucket: "1-2", title: "R4 · 1-2", y: 772, tone: "cyan" },
-      { kind: "summary", id: "eliminated-0-3", summaryId: "eliminated-0-3", title: "淘汰 · 0-3", y: 1230, tone: "steel" },
+      { kind: "summary", id: "qualified-3-0", summaryId: "qualified-3-0", title: "3-0 晋级", y: 44, tone: "amber" },
+      { kind: "matches", id: "r4-2-1", round: 4, bucket: "2-1", title: "第 4 轮 · 2-1 组", y: 330, tone: "cyan" },
+      { kind: "matches", id: "r4-1-2", round: 4, bucket: "1-2", title: "第 4 轮 · 1-2 组", y: 772, tone: "cyan" },
+      { kind: "summary", id: "eliminated-0-3", summaryId: "eliminated-0-3", title: "0-3 淘汰", y: 1230, tone: "steel" },
     ],
   },
   {
     id: "round5-band",
     x: 1600,
     sections: [
-      { kind: "summary", id: "qualified-3-1", summaryId: "qualified-3-1", title: "晋级 · 3-1", y: 132, tone: "amber" },
-      { kind: "matches", id: "r5-2-2", round: 5, bucket: "2-2", title: "R5 · 2-2", y: 546, tone: "cyan" },
-      { kind: "summary", id: "eliminated-1-3", summaryId: "eliminated-1-3", title: "淘汰 · 1-3", y: 1018, tone: "steel" },
+      { kind: "summary", id: "qualified-3-1", summaryId: "qualified-3-1", title: "3-1 晋级", y: 132, tone: "amber" },
+      { kind: "matches", id: "r5-2-2", round: 5, bucket: "2-2", title: "第 5 轮 · 2-2 组", y: 546, tone: "cyan" },
+      { kind: "summary", id: "eliminated-1-3", summaryId: "eliminated-1-3", title: "1-3 淘汰", y: 1018, tone: "steel" },
     ],
   },
   {
     id: "final-band",
     x: 1984,
     sections: [
-      { kind: "summary", id: "qualified-3-2", summaryId: "qualified-3-2", title: "晋级 · 3-2", y: 300, tone: "amber" },
-      { kind: "summary", id: "eliminated-2-3", summaryId: "eliminated-2-3", title: "淘汰 · 2-3", y: 780, tone: "steel" },
+      { kind: "summary", id: "qualified-3-2", summaryId: "qualified-3-2", title: "3-2 晋级", y: 300, tone: "amber" },
+      { kind: "summary", id: "eliminated-2-3", summaryId: "eliminated-2-3", title: "2-3 淘汰", y: 780, tone: "steel" },
     ],
   },
 ];
@@ -570,7 +570,7 @@ function buildSlotsStage(simulation: SimulationResponse): WorkspaceStage {
       x,
       y: 82,
       width: 380,
-      title: `${groupName} 组抽签布位`,
+      title: `${groupName} 组抽签落位`,
       subtitle: `${slots.length} 支队伍`,
       tone: "steel",
     });
@@ -594,9 +594,9 @@ function buildSlotsStage(simulation: SimulationResponse): WorkspaceStage {
 
   return {
     id: "slots",
-    label: "抽签布位",
-    title: "小组落位与种子站位",
-    description: "从两组抽签位快速定位种子层级、Elo 顺位与组内布位。",
+    label: "抽签落位",
+    title: "小组抽签落位",
+    description: "先看两组抽签位置、种子档位与 Elo 顺位，再进入后续赛程。",
     width: 1160,
     height: 1040,
     headers,
@@ -630,7 +630,7 @@ function buildSwissStage(groupName: "A" | "B", simulation: SimulationResponse, v
           y: sectionY,
           width: MATCH_CARD_WIDTH,
           title: section.title,
-          subtitle: `${groupName} 组 / ${matchLabels.length} 场`,
+          subtitle: `${matchLabels.length} 场对阵`,
           tone: section.tone,
         };
         headers.push(header);
@@ -669,7 +669,7 @@ function buildSwissStage(groupName: "A" | "B", simulation: SimulationResponse, v
         y: sectionY,
         width: DETAIL_TEAM_CARD_WIDTH,
         title: section.title,
-        subtitle: `${groupName} 组 / ${rows.length} 队`,
+        subtitle: `${rows.length} 支队伍`,
         tone: section.tone,
       };
       headers.push(header);
@@ -715,8 +715,8 @@ function buildSwissStage(groupName: "A" | "B", simulation: SimulationResponse, v
   return {
     id: view,
     label: `${groupName} 组瑞士轮`,
-    title: `${groupName} 组瑞士轮演进`,
-    description: "按轮次展开对阵，并在第三轮后即时标出晋级与淘汰去向，优先保证队名、比分和出线状态可读。",
+    title: `${groupName} 组瑞士轮`,
+    description: "从首轮一路看到出线与出局节点，每轮结束后都会即时标出下一步去向。",
     width: 2398,
     height: Math.max(1560, maxBottom + 116),
     viewport: {
@@ -780,8 +780,8 @@ function buildPlayoffStage(_regionSlug: RegionSlug, simulation: SimulationRespon
       x: 80,
       y: y.bandMain,
       width: 1772,
-      title: "主淘汰赛",
-      subtitle: "16 进 8 -> 8 进 4 -> 半决赛 -> 冠军战 / 季军战",
+      title: "主淘汰链",
+      subtitle: "从 16 进 8 一路打到冠军战与季军战",
       tone: "cyan",
     },
     {
@@ -789,8 +789,8 @@ function buildPlayoffStage(_regionSlug: RegionSlug, simulation: SimulationRespon
       x: x.r16,
       y: y.headerMain,
       width: PLAYOFF_MATCH_CARD_WIDTH,
-      title: "16 进 8 淘汰赛",
-      subtitle: `${stageGroups.round_of_16.length} 场 / 负者转入资格赛页`,
+      title: "16 进 8",
+      subtitle: `${stageGroups.round_of_16.length} 场 / 败者转入资格赛`,
       tone: "cyan",
     },
     {
@@ -798,8 +798,8 @@ function buildPlayoffStage(_regionSlug: RegionSlug, simulation: SimulationRespon
       x: x.qf,
       y: y.headerMain,
       width: PLAYOFF_MATCH_CARD_WIDTH,
-      title: "8 进 4 淘汰赛",
-      subtitle: `${stageGroups.quarterfinal.length} 场 / 负者直通国赛`,
+      title: "8 进 4",
+      subtitle: `${stageGroups.quarterfinal.length} 场 / 败者锁定国赛席位`,
       tone: "cyan",
     },
     {
@@ -808,7 +808,7 @@ function buildPlayoffStage(_regionSlug: RegionSlug, simulation: SimulationRespon
       y: y.headerMain,
       width: PLAYOFF_MATCH_CARD_WIDTH,
       title: "半决赛",
-      subtitle: `${stageGroups.semifinal.length} 场 / 分流冠军战与季军战`,
+      subtitle: `${stageGroups.semifinal.length} 场 / 胜者进冠军战，败者进季军战`,
       tone: "cyan",
     },
     {
@@ -816,8 +816,8 @@ function buildPlayoffStage(_regionSlug: RegionSlug, simulation: SimulationRespon
       x: x.finals,
       y: y.finalHeader,
       width: PLAYOFF_MATCH_CARD_WIDTH,
-      title: "冠军争夺战",
-      subtitle: "半决赛胜者",
+      title: "冠军战",
+      subtitle: "半决赛胜者会师",
       tone: "amber",
     },
     {
@@ -825,8 +825,8 @@ function buildPlayoffStage(_regionSlug: RegionSlug, simulation: SimulationRespon
       x: x.finals,
       y: y.thirdHeader,
       width: PLAYOFF_MATCH_CARD_WIDTH,
-      title: "季军争夺战",
-      subtitle: "半决赛败者",
+      title: "季军战",
+      subtitle: "半决赛败者再战",
       tone: "amber",
     }
   );
@@ -858,9 +858,9 @@ function buildPlayoffStage(_regionSlug: RegionSlug, simulation: SimulationRespon
 
   return {
     id: "playoff",
-    label: "淘汰赛",
-    title: "主淘汰赛总览",
-    description: "只保留主淘汰链与冠军战、季军战，资格赛已经拆到独立页面。",
+    label: "主淘汰赛",
+    title: "主淘汰赛",
+    description: "这里只保留主淘汰链，方便连续查看每一轮晋级走势；资格赛请切到上方资格赛页签查看。",
     width: 1938,
     height: Math.max(1240, maxBottom + 140),
     viewport: {
@@ -960,28 +960,28 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
   const connectors: Array<CanvasConnector | null> = [];
   let maxBottom = 0;
 
-  addHeader("qualification-band", 80, 82, 1322, "资格赛", "单独查看名额分流，明确每支队伍进入国赛、复活赛还是止步资格赛。", "emerald");
+  addHeader("qualification-band", 80, 82, 1322, "资格赛去向", "每一轮结束后都会即时标出继续前进、转入复活赛或就此止步的队伍。", "emerald");
 
   if (regionSlug === "east_region") {
     const q1RepechageRows = pickQualificationRows(outcomeRows, "repechage", "qual-1");
     const q2RepechageRows = pickQualificationRows(outcomeRows, "repechage", "qual-2");
     const q2EliminatedRows = pickQualificationRows(outcomeRows, "eliminated", "qual-2");
-    const q1 = addMatchSection("qualification-q1", x.left, 198, "资格赛第一轮", "4 场 / 胜者直接进入复活赛，负者落入第二轮", "emerald", qualificationRound1);
+    const q1 = addMatchSection("qualification-q1", x.left, 198, "资格赛第一轮", "4 场 / 胜者先拿到复活赛席位，败者进入第二轮", "emerald", qualificationRound1);
     const q1Repechage = addOutcomeSection(
       "qualification-q1-repechage",
       x.middle,
       198,
-      "晋级复活赛",
+      "拿到复活赛席位",
       "emerald",
       q1RepechageRows,
-      `${q1RepechageRows.length} 队 / 资格赛一轮胜者`
+      `${q1RepechageRows.length} 队 / 来自资格赛第一轮胜者`
     );
     const q2 = addMatchSection(
       "qualification-q2",
       x.middle,
       Math.max(514, q1Repechage.bottom + 96),
       "资格赛第二轮",
-      "2 场 / 本轮决出复活赛与淘汰",
+      "2 场 / 决出剩余复活赛席位与止步队伍",
       "emerald",
       qualificationRound2
     );
@@ -989,19 +989,19 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
       "qualification-q2-repechage",
       x.right,
       198,
-      "晋级复活赛",
+      "拿到复活赛席位",
       "emerald",
       q2RepechageRows,
-      `${q2RepechageRows.length} 队 / 资格赛二轮胜者`
+      `${q2RepechageRows.length} 队 / 来自资格赛第二轮胜者`
     );
     const q2Eliminated = addOutcomeSection(
       "qualification-q2-eliminated",
       x.right,
       Math.max(518, q2Repechage.bottom + 86),
-      "淘汰出局",
+      "本站止步",
       "steel",
       q2EliminatedRows,
-      `${q2EliminatedRows.length} 队 / 资格赛二轮负者`
+      `${q2EliminatedRows.length} 队 / 来自资格赛第二轮败者`
     );
 
     connectors.push(
@@ -1026,22 +1026,22 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
     const q1RepechageRows = pickQualificationRows(outcomeRows, "repechage", "qual-1");
     const q2NationalRows = pickQualificationRows(outcomeRows, "national", "qual-2");
     const q2RepechageRows = pickQualificationRows(outcomeRows, "repechage", "qual-2");
-    const q1 = addMatchSection("qualification-q1", x.left, 198, "资格赛第一轮", "4 场 / 负者直接进入复活赛，胜者继续争夺国赛", "emerald", qualificationRound1);
+    const q1 = addMatchSection("qualification-q1", x.left, 198, "资格赛第一轮", "4 场 / 败者先进入复活赛，胜者继续争夺国赛", "emerald", qualificationRound1);
     const q1Repechage = addOutcomeSection(
       "qualification-q1-repechage",
       x.middle,
       198,
-      "晋级复活赛",
+      "拿到复活赛席位",
       "emerald",
       q1RepechageRows,
-      `${q1RepechageRows.length} 队 / 资格赛一轮负者`
+      `${q1RepechageRows.length} 队 / 来自资格赛第一轮败者`
     );
     const q2 = addMatchSection(
       "qualification-q2",
       x.middle,
       Math.max(514, q1Repechage.bottom + 96),
       "资格赛第二轮",
-      "2 场 / 本轮决出国赛与复活赛",
+      "2 场 / 直接分出国赛与复活赛",
       "amber",
       qualificationRound2
     );
@@ -1049,19 +1049,19 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
       "qualification-q2-national",
       x.right,
       198,
-      "晋级全国赛",
+      "拿到国赛席位",
       "amber",
       q2NationalRows,
-      `${q2NationalRows.length} 队 / 资格赛二轮胜者`
+      `${q2NationalRows.length} 队 / 来自资格赛第二轮胜者`
     );
     const q2Repechage = addOutcomeSection(
       "qualification-q2-repechage",
       x.right,
       Math.max(518, q2National.bottom + 86),
-      "晋级复活赛",
+      "拿到复活赛席位",
       "emerald",
       q2RepechageRows,
-      `${q2RepechageRows.length} 队 / 资格赛二轮负者`
+      `${q2RepechageRows.length} 队 / 来自资格赛第二轮败者`
     );
 
     connectors.push(
@@ -1092,35 +1092,35 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
       x.left,
       198,
       "资格赛第一轮",
-      "4 场 / 胜者进入国赛名额争夺，负者进入复活赛名额争夺",
+      "4 场 / 胜者去争国赛，败者去争复活赛",
       "emerald",
       qualificationRound1
     );
-    const q2 = addMatchSection("qualification-q2", x.middle, 198, "全国赛名额争夺", "2 场 / 本轮决出国赛与复活赛", "amber", qualificationRound2);
+    const q2 = addMatchSection("qualification-q2", x.middle, 198, "国赛席位战", "2 场 / 胜者拿到国赛，败者转入复活赛", "amber", qualificationRound2);
     const q2National = addOutcomeSection(
       "qualification-q2-national",
       x.right,
       198,
-      "晋级全国赛",
+      "拿到国赛席位",
       "amber",
       q2NationalRows,
-      `${q2NationalRows.length} 队 / 全国赛名额争夺胜者`
+      `${q2NationalRows.length} 队 / 来自国赛席位战胜者`
     );
     const q2Repechage = addOutcomeSection(
       "qualification-q2-repechage",
       x.right,
       Math.max(518, q2National.bottom + 86),
-      "晋级复活赛",
+      "拿到复活赛席位",
       "emerald",
       q2RepechageRows,
-      `${q2RepechageRows.length} 队 / 全国赛名额争夺负者`
+      `${q2RepechageRows.length} 队 / 来自国赛席位战败者`
     );
     const qualr = addMatchSection(
       "qualification-qualr",
       x.middle,
       Math.max(894, q2.bottom + 120),
-      "复活赛名额争夺",
-      "2 场 / 本轮决出复活赛与淘汰",
+      "复活赛席位战",
+      "2 场 / 胜者保留希望，败者就此止步",
       "emerald",
       qualificationRepechage
     );
@@ -1128,19 +1128,19 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
       "qualification-qualr-repechage",
       x.right,
       Math.max(972, q2Repechage.bottom + 160),
-      "晋级复活赛",
+      "拿到复活赛席位",
       "emerald",
       qualrRepechageRows,
-      `${qualrRepechageRows.length} 队 / 复活赛名额争夺胜者`
+      `${qualrRepechageRows.length} 队 / 来自复活赛席位战胜者`
     );
     const qualrEliminated = addOutcomeSection(
       "qualification-qualr-eliminated",
       x.right,
       Math.max(1292, qualrRepechage.bottom + 86),
-      "淘汰出局",
+      "本站止步",
       "steel",
       qualrEliminatedRows,
-      `${qualrEliminatedRows.length} 队 / 复活赛名额争夺负者`
+      `${qualrEliminatedRows.length} 队 / 来自复活赛席位战败者`
     );
 
     connectors.push(
@@ -1178,8 +1178,8 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
   return {
     id: "qualification",
     label: "资格赛",
-    title: "资格赛与名额分流",
-    description: "独立查看资格赛流向，明确谁通过资格赛进入全国赛、复活赛，谁在这里被淘汰。",
+    title: "资格赛去向",
+    description: "逐轮看清资格赛的名额变化，谁直通国赛，谁转入复活赛，谁在这里止步。",
     width: stageWidth,
     height: Math.max(1460, maxBottom + 140),
     viewport: {
@@ -1197,10 +1197,10 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
 function buildFinalRankingsStage(simulation: SimulationResponse): WorkspaceStage {
   const cards: CanvasCard[] = [];
   const headers: WorkspaceStageHeader[] = [
-    { id: "final-podium", x: 80, y: 82, width: DETAIL_TEAM_CARD_WIDTH, title: "奖台", subtitle: "前四顺位", tone: "amber" },
-    { id: "final-national", x: 520, y: 82, width: DETAIL_TEAM_CARD_WIDTH, title: "国赛席位", subtitle: "直通名单", tone: "amber" },
-    { id: "final-repechage", x: 960, y: 82, width: DETAIL_TEAM_CARD_WIDTH, title: "复活赛席位", subtitle: "冲刺名单", tone: "emerald" },
-    { id: "final-tail", x: 1400, y: 82, width: DETAIL_TEAM_CARD_WIDTH, title: "尾部排名", subtitle: "其余队伍", tone: "steel" },
+    { id: "final-podium", x: 80, y: 82, width: DETAIL_TEAM_CARD_WIDTH, title: "领奖台", subtitle: "前四名次", tone: "amber" },
+    { id: "final-national", x: 520, y: 82, width: DETAIL_TEAM_CARD_WIDTH, title: "国赛名单", subtitle: "直接晋级队伍", tone: "amber" },
+    { id: "final-repechage", x: 960, y: 82, width: DETAIL_TEAM_CARD_WIDTH, title: "复活赛名单", subtitle: "保留希望队伍", tone: "emerald" },
+    { id: "final-tail", x: 1400, y: 82, width: DETAIL_TEAM_CARD_WIDTH, title: "其余名次", subtitle: "未晋级队伍", tone: "steel" },
   ];
 
   const podiumRows = simulation.finalRankings.filter((row) => row.rank <= 4);
@@ -1242,9 +1242,9 @@ function buildFinalRankingsStage(simulation: SimulationResponse): WorkspaceStage
 
   return {
     id: "final-rankings",
-    label: "结果回看",
-    title: "最终结果与晋级落点",
-    description: "按照最终顺位、瑞士轮战绩与晋级去向回看本次模拟结果。",
+    label: "最终排名",
+    title: "最终排名",
+    description: "把本次模拟的最终名次、瑞士轮战绩和晋级去向放在同一页回看。",
     width: 1842,
     height: Math.max(1120, maxBottom + 140),
     viewport: {

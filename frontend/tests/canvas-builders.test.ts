@@ -199,7 +199,7 @@ describe("buildWorkspaceStage", () => {
     expect(stage.cards.some((card) => card.kind === "match" && card.match.matchLabel === "QUAL-R-1")).toBe(true);
     expect(stage.cards.some((card) => card.kind === "match" && card.match.matchLabel === "FINAL-1")).toBe(false);
     expect(stage.connectors.some((connector) => connector.id === "qualification-q1-split")).toBe(true);
-    expect(stage.headers.some((header) => header.title === "复活赛名额争夺")).toBe(true);
+    expect(stage.headers.some((header) => header.title === "复活赛席位战")).toBe(true);
   });
 
   it("builds slot stage cards from slot assignments", () => {
@@ -224,7 +224,7 @@ describe("buildWorkspaceStage", () => {
     ];
     const stage = buildWorkspaceStage("swiss-a", "east_region", makeSimulation("east_region", swissLabels));
 
-    expect(stage.headers.some((header) => header.title === "R1 · 0-0")).toBe(true);
+    expect(stage.headers.some((header) => header.title === "第 1 轮 · 0-0 组")).toBe(true);
     expect(stage.cards.some((card) => card.kind === "match" && card.orderLabel === "1")).toBe(true);
     expect(stage.width).toBeGreaterThan(2000);
   });
@@ -233,7 +233,7 @@ describe("buildWorkspaceStage", () => {
     const stage = buildWorkspaceStage("final-rankings", "east_region", makeSimulation("east_region", []));
     const firstTeamCard = stage.cards.find((card) => card.kind === "team");
 
-    expect(stage.headers.map((header) => header.title)).toEqual(["奖台", "国赛席位", "复活赛席位", "尾部排名"]);
+    expect(stage.headers.map((header) => header.title)).toEqual(["领奖台", "国赛名单", "复活赛名单", "其余名次"]);
     expect(stage.cards.some((card) => card.kind === "team" && card.orderLabel === "1")).toBe(true);
     expect(stage.cards.some((card) => card.kind === "team" && card.teamKey === "TAIL9")).toBe(true);
     expect(firstTeamCard && "statLine" in firstTeamCard ? firstTeamCard.statLine : "").toContain("瑞士轮");

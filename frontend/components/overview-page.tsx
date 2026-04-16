@@ -28,7 +28,7 @@ function numberWithComma(value: number) {
 }
 
 function holdLabel(value: number) {
-  return `守线把握 ${pct(value)}`;
+  return `守位概率 ${pct(value)}`;
 }
 
 function chaseGapLabel(value: number) {
@@ -42,21 +42,21 @@ function regionHref(regionSlug: RegionSlug, view: WorkspaceView, highlight?: str
 function aggregationLabel(mode: string) {
   switch (mode) {
     case "mean_of_seed_runs":
-      return "多种子平均";
+      return "多组种子综合";
     case "single_seed":
-      return "单种子";
+      return "单组种子";
     default:
-      return "自定义聚合";
+      return "自定义方式";
   }
 }
 
 function RaceTeamChips({ teams }: { teams: OverviewTeam[] }) {
   if (teams.length === 0) {
-    return <p className="race-team-empty">当前追赶组尚未拉开。</p>;
+    return <p className="race-team-empty">暂时还没形成明确的追赶集团。</p>;
   }
 
   return (
-    <div className="race-team-list" aria-label="追赶队伍">
+    <div className="race-team-list" aria-label="追赶集团">
       {teams.map((team) => (
         <span key={team.teamKey} className="race-team-chip">
           {team.collegeName}
@@ -68,11 +68,11 @@ function RaceTeamChips({ teams }: { teams: OverviewTeam[] }) {
 
 function LockTeamList({ teams }: { teams: OverviewTeam[] }) {
   if (teams.length === 0) {
-    return <p className="race-team-empty">当前还没有达到稳进国赛线的队伍。</p>;
+    return <p className="race-team-empty">目前还没有队伍提前锁定国赛席位。</p>;
   }
 
   return (
-    <div className="lock-team-list" aria-label="国赛稳进名单">
+    <div className="lock-team-list" aria-label="国赛锁定名单">
       {teams.map((team) => (
         <span key={team.teamKey} className="lock-team-chip">
           {team.collegeName}
@@ -139,11 +139,11 @@ function UltraWideHeroLayer({
           <span className="ultra-stage-title-cn">赛程模拟总控台</span>
         </div>
         <p className="ultra-stage-lead">
-          首页改为赛事中心型总控：先统一进入三赛区资格赛、主淘汰赛和最终排名，再对比争冠集团、赛区深度与出线分档。具体对阵链路仍在赛区画布内展开。
+          从这里进入三大赛区，先看资格赛去向、主淘汰赛对阵与最终排名，再横向比较争冠热度、赛区深度和国赛门槛。
         </p>
         <div className="ultra-stage-actions">
           <Link href={regionHref("east_region", "playoff")} className="ultra-stage-cta">
-            进入赛区工作区
+            进入赛区画布
           </Link>
           <Link href="/elo-rankings" className="hero-secondary-link">
             查看 Elo 总览
@@ -153,9 +153,9 @@ function UltraWideHeroLayer({
       </div>
 
       <aside className="ultra-stage-panel">
-        <p className="ultra-stage-panel-kicker">三赛区总入口</p>
-        <strong className="ultra-stage-panel-title">直接切入资格赛、主淘汰赛与最终排名</strong>
-        <p className="ultra-stage-panel-copy">超宽屏下改用独立顶层渲染，保留赛区入口、头号争冠与席位结构，但不再依赖首屏原始 Hero 容器绘制。</p>
+        <p className="ultra-stage-panel-kicker">三赛区直达</p>
+        <strong className="ultra-stage-panel-title">资格赛、主淘汰赛与最终排名一键直达</strong>
+        <p className="ultra-stage-panel-copy">每张赛区卡都会先交代头号热门、席位数量和常用入口，方便先锁定赛区，再深入查看完整赛程。</p>
         <div className="ultra-stage-list">
           {regions.map((region) => (
             <article key={region.regionSlug} className="ultra-stage-card">
@@ -206,14 +206,14 @@ function RegionCommandCard({ region }: { region: RegionDashboardCard }) {
           <h3>{region.favorite.collegeName}</h3>
         </div>
         <Link href={regionHref(region.regionSlug, "playoff")} className="region-enter-link">
-          打开画布
+          进入赛区
         </Link>
       </div>
       <div className="command-region-grid">
         <span>队伍 {region.teamCount}</span>
         <span>国赛 {region.nationalSlots}</span>
         <span>复活赛 {region.repechageSlots}</span>
-        <span>Top8 Elo {elo(region.avgTop8Elo)}</span>
+        <span>前 8 Elo {elo(region.avgTop8Elo)}</span>
       </div>
       <RegionQuickLinks regionSlug={region.regionSlug} />
       <div className="region-summary-block">
@@ -243,31 +243,31 @@ function RegionCommandCard({ region }: { region: RegionDashboardCard }) {
         </div>
         <div className="favorite-cluster muted region-data-cluster region-lock-cluster">
           <div className="region-cluster-head">
-            <small>国赛稳进名单</small>
+            <small>国赛锁定名单</small>
             <span className="region-race-chip qualified">
-              {region.nationalLocks.length > 0 ? `稳进 ${region.nationalLocks.length} 队` : "暂未形成"}
+              {region.nationalLocks.length > 0 ? `锁定 ${region.nationalLocks.length} 队` : "暂未锁定"}
             </span>
           </div>
-          <strong>{region.nationalLocks.length > 0 ? `${region.regionName}锁定组` : "名单待定"}</strong>
+          <strong>{region.nationalLocks.length > 0 ? `${region.regionName}锁定名单` : "仍在争夺中"}</strong>
           <p>
             {region.nationalLocks.length > 0
-              ? "这些队伍当前已经基本脱离国赛卡位战，首页直接列出稳进名单。"
-              : "当前还没有队伍把国赛资格稳稳握在手里。"}
+              ? "这些队伍已经把国赛门票握得比较稳，可以直接从名单里追踪。"
+              : "目前还没有队伍提前锁定国赛席位。"}
           </p>
           <LockTeamList teams={region.nationalLocks} />
         </div>
         <div className="favorite-cluster muted region-data-cluster region-race-cluster">
           <div className="region-cluster-head">
-            <small>国赛争夺带</small>
+            <small>国赛卡位线</small>
             <span className="region-race-chip">
-              {region.nationalRace.locksCount > 0 ? `稳进 ${region.nationalRace.locksCount} 队` : "暂无稳进队"}
+              {region.nationalRace.locksCount > 0 ? `锁定 ${region.nationalRace.locksCount} 队` : "尚无锁定"}
             </span>
           </div>
           <strong>{region.nationalRace.cutoffTeam?.collegeName ?? "待定"}</strong>
           <p>
             {region.nationalRace.cutoffTeam
-              ? `${region.nationalRace.cutoffTeam.teamName} 当前守在最后一张国赛票`
-              : "当前还没有稳定的国赛分界。"}
+              ? `${region.nationalRace.cutoffTeam.teamName} 正守在最后一张国赛席位上。`
+              : "最后一张国赛席位仍在频繁变化。"}
           </p>
           <RaceTeamChips teams={region.nationalRace.chasingTeams} />
           <div className="region-data-rows">
@@ -277,16 +277,16 @@ function RegionCommandCard({ region }: { region: RegionDashboardCard }) {
         </div>
         <div className="favorite-cluster muted region-data-cluster secondary region-race-cluster">
           <div className="region-cluster-head">
-            <small>复活赛争夺带</small>
+            <small>复活赛卡位线</small>
             <span className="region-race-chip secondary">
-              {region.repechageRace.locksCount > 0 ? `大概率 ${region.repechageRace.locksCount} 队` : "暂无稳进队"}
+              {region.repechageRace.locksCount > 0 ? `占先 ${region.repechageRace.locksCount} 队` : "仍在拉锯"}
             </span>
           </div>
           <strong>{region.repechageRace.cutoffTeam?.collegeName ?? "待定"}</strong>
           <p>
             {region.repechageRace.cutoffTeam
-              ? `${region.repechageRace.cutoffTeam.teamName} 当前守在最后一张复活赛票`
-              : "当前还没有稳定的复活赛分界。"}
+              ? `${region.repechageRace.cutoffTeam.teamName} 正守在最后一张复活赛席位上。`
+              : "最后一张复活赛席位仍未站稳。"}
           </p>
           <RaceTeamChips teams={region.repechageRace.chasingTeams} />
           <div className="region-data-rows">
@@ -367,11 +367,11 @@ export function OverviewPage() {
             <span>赛程模拟总控台</span>
           </h1>
           <p className="hero-lead">
-            首页改为赛事中心型总控：先统一进入三赛区资格赛、主淘汰赛和最终排名，再对比争冠集团、赛区深度与出线分档。具体对阵链路仍在赛区画布内展开。
+            从这里进入三大赛区，先看资格赛去向、主淘汰赛对阵与最终排名，再横向比较争冠热度、赛区深度和国赛门槛。
           </p>
           <div className="hero-actions">
             <Link href={regionHref("east_region", "playoff")} className="hero-primary-link">
-              进入赛区工作区
+              进入赛区画布
             </Link>
             <Link href="/elo-rankings" className="hero-secondary-link">
               查看 Elo 总览
@@ -382,9 +382,9 @@ export function OverviewPage() {
 
         <aside className="hero-command-panel">
           <div className="hero-command-panel-head">
-            <small>三赛区总入口</small>
-            <strong>直接切入资格赛、主淘汰赛与最终排名</strong>
-            <p>保留赛事中心入口角色，不再用单队预警占据首屏。每张赛区卡固定展示头号争冠、席位结构与快捷跳转。</p>
+            <small>三赛区直达</small>
+            <strong>资格赛、主淘汰赛与最终排名一键直达</strong>
+            <p>每张赛区卡都会先交代头号热门、席位数量和常用入口，方便先锁定赛区，再深入查看完整赛程。</p>
           </div>
           <div className="hero-command-list">
             {dashboard?.regions.map((region) => (
@@ -403,16 +403,16 @@ export function OverviewPage() {
         </div>
       </section>
 
-      {error ? <section className="error-panel">接口请求失败：{error}</section> : null}
+      {error ? <section className="error-panel">数据加载失败：{error}</section> : null}
 
       {dashboard ? (
         <>
           <OverviewModule
             meta={{
               id: "regions",
-              eyebrow: "Region Command",
+              eyebrow: "赛区入口",
               title: "赛区快速进入",
-              description: "每张卡同时承担入口和赛区画像：在一张卡里讲清争冠格局、国赛争夺带和复活赛争夺带。",
+              description: "每张卡先概括这个赛区的热门队伍、席位数量和出线门槛，再继续进入对应赛区画布。",
               tone: "cyan",
             }}
           >
@@ -426,9 +426,9 @@ export function OverviewPage() {
           <OverviewModule
             meta={{
               id: "contenders",
-              eyebrow: "Title Group",
+              eyebrow: "争冠梯队",
               title: "全局争冠梯队",
-              description: "Top3 抬高视觉优先级，4-8 名压缩成列表，仍支持直接跳转到高亮深链。",
+              description: "先看全站最热的三支争冠队，再顺着榜单继续追踪其余热门队伍。",
               tone: "amber",
             }}
           >
@@ -449,9 +449,9 @@ export function OverviewPage() {
           <OverviewModule
             meta={{
               id: "strength",
-              eyebrow: "Strength Matrix",
+              eyebrow: "赛区对比",
               title: "赛区强度对比",
-              description: "综合评分优先看头部火力与整体深度，争冠格局保留为补充观察，不再使用单一 Top4 Elo + 冠军份额。",
+              description: "把三大赛区放到同一把尺子下，看头部强度、整体深度和争冠悬念的差别。",
               tone: "steel",
             }}
           >
@@ -463,14 +463,14 @@ export function OverviewPage() {
                       <p>{row.regionName}</p>
                       <strong>综合评分 {row.powerIndex}</strong>
                     </div>
-                    <span className="strength-badge">PWR {row.powerIndex}</span>
+                    <span className="strength-badge">评分 {row.powerIndex}</span>
                   </div>
                   <div className="strength-metric-groups">
                     <section className="strength-group">
                       <h3>头部火力</h3>
                       <div className="strength-group-grid">
-                        <span>Top4 Elo {elo(row.top4AverageElo)}</span>
-                        <span>Top8 Elo {elo(row.top8AverageElo)}</span>
+                        <span>前 4 Elo {elo(row.top4AverageElo)}</span>
+                        <span>前 8 Elo {elo(row.top8AverageElo)}</span>
                       </div>
                     </section>
                     <section className="strength-group">
@@ -483,7 +483,7 @@ export function OverviewPage() {
                     <section className="strength-group">
                       <h3>争冠格局</h3>
                       <div className="strength-group-grid">
-                        <span>Top3 份额 {pct(row.top3ChampionShare)}</span>
+                        <span>前三份额 {pct(row.top3ChampionShare)}</span>
                         <span>头二差值 {pct(row.titleGap)}</span>
                       </div>
                     </section>
@@ -496,9 +496,9 @@ export function OverviewPage() {
           <OverviewModule
             meta={{
               id: "simulation-spec",
-              eyebrow: "Simulation Spec",
+              eyebrow: "模拟说明",
               title: "模拟口径与赛制总览",
-              description: "把首页统计的 Monte Carlo 聚合方式、席位结构和生成时间说清楚，首页更像赛事中心而不是提醒流。",
+              description: "说明每个赛区用了多少组种子、多少次模拟，以及国赛和复活赛席位如何分配。",
               tone: "emerald",
             }}
           >
@@ -539,7 +539,7 @@ export function OverviewPage() {
           </OverviewModule>
         </>
       ) : (
-        <section className="loading-panel">正在组装总控首页…</section>
+        <section className="loading-panel">正在载入首页总览…</section>
       )}
     </main>
   );

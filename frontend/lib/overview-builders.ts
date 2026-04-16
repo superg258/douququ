@@ -115,7 +115,7 @@ function determineTitleShape(titleGap: number, top2ChampionShare: number) {
   if (titleGap < 0.06 && top2ChampionShare >= 0.65) {
     return "双强并跑";
   }
-  return "多人混战";
+  return "群雄混战";
 }
 
 function pickMaxCard(cards: RegionDashboardCard[], selector: (card: RegionDashboardCard) => number) {
@@ -153,10 +153,10 @@ function buildProfileTags(cards: RegionDashboardCard[]) {
   const openWinner = pickMinCard(cards, (card) => card.titleGap);
   const crowdWinner = pickMinCard(cards, (card) => card.nationalRace.gap);
 
-  pushProfileTag(tagMap, headWinner.regionSlug, "头部最强");
-  pushProfileTag(tagMap, depthWinner.regionSlug, "整体最厚");
-  pushProfileTag(tagMap, openWinner.regionSlug, "争冠最开放");
-  pushProfileTag(tagMap, crowdWinner.regionSlug, "国赛卡位最卷");
+  pushProfileTag(tagMap, headWinner.regionSlug, "头部火力最强");
+  pushProfileTag(tagMap, depthWinner.regionSlug, "整体深度最佳");
+  pushProfileTag(tagMap, openWinner.regionSlug, "争冠悬念最大");
+  pushProfileTag(tagMap, crowdWinner.regionSlug, "国赛门槛最紧");
 
   return tagMap;
 }
@@ -167,14 +167,14 @@ function buildSummarySentence(card: RegionDashboardCard) {
   const chasingCount = card.nationalRace.chasingTeams.length;
 
   if (cutoffCollege && chasingCount > 0) {
-    return `${card.regionName}${intro}；${card.nationalRace.locksCount}队稳进国赛，${cutoffCollege}守在最后一张国赛票，后方还有${chasingCount}队紧追。`;
+    return `${card.regionName}${intro}，已有${card.nationalRace.locksCount}队基本锁定国赛，${cutoffCollege}正守在最后一张国赛席位上，身后还有${chasingCount}队继续追赶。`;
   }
 
   if (cutoffCollege) {
-    return `${card.regionName}${intro}；${card.nationalRace.locksCount}队稳进国赛，${cutoffCollege}当前守在最后一张国赛票附近。`;
+    return `${card.regionName}${intro}，已有${card.nationalRace.locksCount}队基本锁定国赛，${cutoffCollege}仍在守住最后一张国赛席位。`;
   }
 
-  return `${card.regionName}${intro}；当前出线形势仍在汇总，首页以争冠格局和赛区厚度为主。`;
+  return `${card.regionName}${intro}，国赛门槛仍在变化，先重点看争冠热度与整体深度。`;
 }
 
 function buildRegionCards(regions: OverviewRegion[]): RegionDashboardCard[] {
@@ -321,7 +321,7 @@ function buildHeroMetrics(overview: OverviewResponse): OverviewMetric[] {
     { label: "国赛席位", value: `${totalNationalSlots} 个` },
     { label: "复活赛席位", value: `${totalRepechageSlots} 个` },
     {
-      label: "模拟口径",
+      label: "模拟规模",
       value: monteCarlo ? `${monteCarlo.seedCount} 组种子 / ${monteCarlo.effectiveIterations.toLocaleString("zh-CN")} 次` : "待生成",
     },
     { label: "最近更新", value: formatGeneratedLabel(overview.generatedAt) },

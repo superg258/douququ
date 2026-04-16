@@ -1,12 +1,12 @@
 const STAGE_LABELS: Record<string, string> = {
   swiss: "瑞士轮",
-  round_of_16: "16 进 8 淘汰赛",
-  quarterfinal: "8 进 4 淘汰赛",
-  qualification_round1: "资格赛一轮",
-  qualification_round2: "资格赛二轮",
+  round_of_16: "16 进 8",
+  quarterfinal: "8 进 4",
+  qualification_round1: "资格赛第一轮",
+  qualification_round2: "资格赛第二轮",
   semifinal: "半决赛",
-  final: "冠军争夺战",
-  third_place: "季军争夺战",
+  final: "冠军战",
+  third_place: "季军战",
 };
 
 const FINAL_BUCKET_LABELS: Record<string, string> = {
@@ -31,7 +31,15 @@ const ADVANCEMENT_LABELS: Record<string, string> = {
   national_qualified: "晋级国赛",
   repechage_qualified: "晋级复活赛",
   eliminated: "淘汰",
-  group_eliminated: "小组赛淘汰",
+  group_eliminated: "止步小组赛",
+};
+
+const CONFIDENCE_LABELS: Record<string, string> = {
+  very_high: "极高",
+  high: "高",
+  medium: "中",
+  low: "低",
+  very_low: "较低",
 };
 
 function fallbackLabel(value: string) {
@@ -59,10 +67,30 @@ export function translateAdvancementLabel(advancement: string) {
   return ADVANCEMENT_LABELS[advancement] ?? fallbackLabel(advancement);
 }
 
+export function translateDestinationLabel(destination: string) {
+  if (ADVANCEMENT_LABELS[destination]) {
+    return translateAdvancementLabel(destination);
+  }
+  if (FINAL_BUCKET_LABELS[destination]) {
+    return translateFinalBucket(destination);
+  }
+  if (STAGE_LABELS[destination]) {
+    return `进入${translateStageLabel(destination)}`;
+  }
+  if (destination === "next") {
+    return "进入下一阶段";
+  }
+  return fallbackLabel(destination);
+}
+
+export function translateConfidenceLabel(confidence: string) {
+  return CONFIDENCE_LABELS[confidence] ?? fallbackLabel(confidence);
+}
+
 export function formatSwissRecordLabel(wins: number, losses: number) {
   return `瑞士轮 ${wins}-${losses}`;
 }
 
 export function formatRankingResultLabel(rank: number, finalBucket: string, advancement: string) {
-  return `最终 #${rank} / ${translateFinalBucket(finalBucket)} / ${translateAdvancementLabel(advancement)}`;
+  return `最终排名 #${rank} · ${translateFinalBucket(finalBucket)} · ${translateAdvancementLabel(advancement)}`;
 }

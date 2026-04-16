@@ -89,13 +89,13 @@ export function EloRankingsPage() {
     <main className="control-home elo-rankings-page">
       <section className="control-hero elo-rankings-hero">
         <div className="control-hero-copy">
-          <p className="hero-eyebrow">Elo Rankings / Region Control</p>
+          <p className="hero-eyebrow">三赛区 Elo 对照</p>
           <h1 className="elo-rankings-title">
             <span>赛区 Elo</span>
             <span>并列总览</span>
           </h1>
           <p className="hero-lead">
-            桌面端把南部、东部、北部三赛区并排放在同一视野里；每支队伍只保留排名、学校、队名和四项关键指标，减少翻页和来回扫视成本。
+            把南部、东部、北部三大赛区放在同一页对照，快速比较强队位置、国赛概率和争冠热度。
           </p>
           <div className="hero-actions">
             <Link href="/" className="hero-primary-link">
@@ -108,8 +108,8 @@ export function EloRankingsPage() {
         <aside className="hero-command-panel elo-rankings-panel">
           <div className="hero-command-panel-head">
             <small>三赛区总览</small>
-            <strong>先看头号 Elo，再直接落到并列榜单</strong>
-            <p>桌面端三列同步对照，移动端按南部、东部、北部顺序压缩堆叠。每队点击后仍会跳到对应赛区主淘汰赛。</p>
+            <strong>先看各赛区头号 Elo，再向下对照完整榜单</strong>
+            <p>每支队伍都保留排名、学校、队名和关键概率，点开后可直接跳到对应赛区画布继续追踪。</p>
           </div>
           <div className="elo-rankings-rail">
             {dashboard?.sections.map((section) => (
@@ -119,7 +119,7 @@ export function EloRankingsPage() {
                     <p>{section.regionName}</p>
                     <strong>{section.topTeam?.collegeName ?? "待生成"}</strong>
                   </div>
-                  <span>Top8 {elo(section.top8AverageElo)}</span>
+                  <span>前 8 Elo {elo(section.top8AverageElo)}</span>
                 </div>
                 <div className="elo-brief-metrics">
                   <span>队伍 {section.teamCount}</span>
@@ -140,15 +140,15 @@ export function EloRankingsPage() {
         </aside>
       </section>
 
-      {error ? <section className="error-panel">接口请求失败：{error}</section> : null}
+      {error ? <section className="error-panel">数据加载失败：{error}</section> : null}
 
       {dashboard ? (
         <OverviewModule
           meta={{
             id: "elo-parallel-board",
-            eyebrow: "Parallel Region Board",
+            eyebrow: "并列榜单",
             title: "三赛区并列 Elo 榜单",
-            description: "桌面端三列并排；移动端顺序堆叠。每行压缩成排名、队伍和四项关键指标，优先减少无效留白和滚动长度。",
+            description: "把三大赛区队伍放到同一页对照，优先保留排名、学校、队名与关键概率。",
             tone: "steel",
           }}
         >
@@ -168,7 +168,7 @@ export function EloRankingsPage() {
 
                 <div className="elo-region-summary">
                   <span>队伍 {section.teamCount}</span>
-                  <span>Top8 {elo(section.top8AverageElo)}</span>
+                  <span>前 8 Elo {elo(section.top8AverageElo)}</span>
                   <span>头号复活赛 {section.topTeam ? pct(section.topTeam.probabilities.repechage) : "--"}</span>
                   <span>头号国赛 {section.topTeam ? pct(section.topTeam.probabilities.national) : "--"}</span>
                 </div>
@@ -183,7 +183,7 @@ export function EloRankingsPage() {
           </div>
         </OverviewModule>
       ) : (
-        <section className="loading-panel">正在汇总三赛区 Elo 排名…</section>
+        <section className="loading-panel">正在载入三赛区 Elo 榜单…</section>
       )}
     </main>
   );

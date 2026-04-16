@@ -15,8 +15,8 @@ const techFont = Rajdhani({
 });
 
 export const metadata: Metadata = {
-  title: "RMUC RoboMaster Control Console",
-  description: "RoboMaster 风格的 RMUC 三赛区赛程模拟总控台与单赛区画布工作区",
+  title: "RMUC 2026 赛程模拟总控台",
+  description: "查看三大赛区的资格赛、主淘汰赛、最终排名与 Elo 对照。",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
