@@ -11,15 +11,17 @@ function clamp(value: number, min: number, max: number) {
 }
 
 function fitViewport(stage: WorkspaceStage, width: number, height: number) {
-  const paddingX = stage.viewport?.paddingX ?? 72;
-  const paddingY = stage.viewport?.paddingY ?? 72;
-  const fittedScale = Math.min((width - paddingX) / stage.width, (height - paddingY) / stage.height, 1);
+  const requestedPaddingX = stage.viewport?.paddingX ?? 72;
+  const requestedPaddingY = stage.viewport?.paddingY ?? 72;
+  const gutterX = clamp(Math.min(requestedPaddingX, width * 0.045), 18, 36);
+  const gutterY = clamp(Math.min(requestedPaddingY, height * 0.055), 18, 34);
+  const fittedScale = Math.min((width - gutterX * 2) / stage.width, (height - gutterY * 2) / stage.height, 1);
   const scale = clamp(Math.max(fittedScale, stage.viewport?.minScale ?? 0.56), 0.56, 1);
   const align = stage.viewport?.align ?? "center";
   return {
     scale,
-    x: align === "left" ? 28 : Math.max(28, (width - stage.width * scale) / 2),
-    y: Math.max(28, (height - stage.height * scale) / 2),
+    x: align === "left" ? gutterX : Math.max(gutterX, (width - stage.width * scale) / 2),
+    y: Math.max(gutterY, (height - stage.height * scale) / 2),
   };
 }
 

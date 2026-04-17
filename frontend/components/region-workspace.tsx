@@ -121,7 +121,7 @@ function InspectorPanel({
     return (
       <div className="inspector-stack">
         <div className="inspector-head">
-          <div>
+          <div className="inspector-head-copy">
             <p className="module-eyebrow">队伍详情</p>
             <h3>{selectedOverviewTeam.collegeName}</h3>
             <p>{selectedOverviewTeam.teamName}</p>
@@ -170,7 +170,7 @@ function InspectorPanel({
     return (
       <div className="inspector-stack">
         <div className="inspector-head">
-          <div>
+          <div className="inspector-head-copy">
             <p className="module-eyebrow">比赛详情</p>
             <h3>{selectedMatch.matchLabel}</h3>
             <p>{translateStageLabel(selectedMatch.stage)}</p>
@@ -217,7 +217,7 @@ function InspectorPanel({
   return (
     <div className="inspector-stack">
       <div className="inspector-head">
-        <div>
+        <div className="inspector-head-copy">
           <p className="module-eyebrow">当前视图</p>
           <h3>{regionOverview?.regionName ?? "赛区看板"}</h3>
           <p>点击队伍或比赛后，这里会显示战绩、路径和下一步去向。</p>
@@ -262,6 +262,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   const [simulation, setSimulation] = useState<SimulationResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [sessionSeed, setSessionSeed] = useState<number | null>(null);
   const seed = parsedSeed ?? sessionSeed;
@@ -274,6 +275,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
 
   useEffect(() => {
     setSelection(highlightedTeamKey ? { kind: "team", teamKey: highlightedTeamKey } : null);
+    setInspectorOpen(Boolean(highlightedTeamKey));
   }, [highlightedTeamKey]);
 
   useEffect(() => {
@@ -368,23 +370,27 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
 
   const openTeam = (teamKey: string) => {
     setSelection({ kind: "team", teamKey });
+    setInspectorOpen(true);
     updateQuery({ highlight: teamKey });
   };
 
   const openMatch = (match: MatchRow) => {
     setSelection({ kind: "match", matchLabel: match.matchLabel });
+    setInspectorOpen(true);
   };
 
   const closeInspector = () => {
     if (selection?.kind === "team") {
       updateQuery({ highlight: null });
     }
+    setInspectorOpen(false);
     setSelection(null);
   };
 
   const chooseSearchTeam = (team: OverviewTeam) => {
     setSearchOpen(false);
     setSearchText("");
+    setInspectorOpen(true);
     router.push(buildRegionHref(team.regionSlug, view, { seed: resolveSeed(), highlight: team.teamKey }));
     setSelection({ kind: "team", teamKey: team.teamKey });
   };
@@ -397,9 +403,13 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   };
 
   const onRegionChange = (nextRegion: RegionSlug) => {
+    setInspectorOpen(false);
     setSelection(null);
     router.push(buildRegionHref(nextRegion, view, { seed: resolveSeed() }));
   };
+
+  const inspectorVisible = inspectorOpen || Boolean(selection);
+  const inspectorToggleLabel = selection?.kind === "team" ? "队伍情报" : selection?.kind === "match" ? "比赛情报" : "赛区情报";
 
   return (
     <main className={`workspace-shell view-${view}`}>
@@ -408,74 +418,93 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
       <div className="workspace-ambient-glow glow-two" />
 
       <header className="workspace-topbar">
-        <div className="workspace-topbar-main">
+        <div className="workspace-topbar-main workspace-title-bar">
           <div className="workspace-topbar-copy-block">
             <p className="toolbar-kicker">RMUC 2026 / 赛区看板</p>
             <h1>{REGION_LABELS[regionSlug]}</h1>
             <p className="workspace-copy">{viewMeta.description}</p>
           </div>
           <div className="toolbar-actions workspace-topbar-actions">
-            <Link href="/" className="toolbar-link">
-              返回总控首页
-            </Link>
+            <button
+              type="button"
+              className={inspectorVisible ? "workspace-panel-toggle is-active" : "workspace-panel-toggle"}
+              onClick={() => {
+                if (inspectorVisible) {
+                  closeInspector();
+                  return;
+                }
+                setInspectorOpen(true);
+              }}
+            >
+              {inspectorVisible ? "收起" : "打开"}{inspectorToggleLabel}
+            </button>
             <button type="button" onClick={() => setSearchOpen(true)}>
               搜索队伍
             </button>
+            <Link href="/" className="toolbar-link">
+              返回总控首页
+            </Link>
           </div>
         </div>
 
-        <div className="workspace-control-strip">
-          <label>
-            赛区
-            <select name="region" value={regionSlug} onChange={(event) => onRegionChange(event.target.value as RegionSlug)}>
-              {overview?.regions.map((region) => (
-                <option key={region.regionSlug} value={region.regionSlug}>
-                  {region.regionName}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            模拟种子
-            <input
-              name="seed"
-              type="text"
-              autoComplete="off"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              spellCheck={false}
-              value={seedDraft}
-              onChange={(event) => setSeedDraft(sanitizeSeedInput(event.target.value))}
-            />
-          </label>
-          <button type="button" className="simulate-button" onClick={applySeedDraft}>
-            刷新模拟
-          </button>
-        </div>
+        <div className="workspace-command-deck">
+          <div className="workspace-control-strip">
+            <label>
+              赛区
+              <select name="region" value={regionSlug} onChange={(event) => onRegionChange(event.target.value as RegionSlug)}>
+                {overview?.regions.map((region) => (
+                  <option key={region.regionSlug} value={region.regionSlug}>
+                    {region.regionName}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              模拟种子
+              <input
+                name="seed"
+                type="text"
+                autoComplete="off"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                spellCheck={false}
+                value={seedDraft}
+                onChange={(event) => setSeedDraft(sanitizeSeedInput(event.target.value))}
+              />
+            </label>
+            <button type="button" className="simulate-button" onClick={applySeedDraft}>
+              刷新模拟
+            </button>
+          </div>
 
-        <div className="workspace-stage-strip">
-          <nav className="view-tabs">
-            {REGION_VIEWS.map((item) => (
-              <button
-                type="button"
-                key={item.id}
-                className={item.id === view ? "view-tab is-active" : "view-tab"}
-                onClick={() => updateQuery({ view: item.id })}
-              >
-                {item.label}
-              </button>
-            ))}
-          </nav>
-          <div className="toolbar-meta">
-            <span>{regionOverview?.teams.length ?? 0} 支队伍</span>
-            <span>国赛 {regionOverview?.nationalSlots ?? 0}</span>
-            <span>复活赛 {regionOverview?.repechageSlots ?? 0}</span>
-            <span>本次种子 {seed}</span>
+          <div className="workspace-stage-strip">
+            <nav className="view-tabs">
+              {REGION_VIEWS.map((item) => (
+                <button
+                  type="button"
+                  key={item.id}
+                  className={item.id === view ? "view-tab is-active" : "view-tab"}
+                  onClick={() => updateQuery({ view: item.id })}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </nav>
+            <div className="toolbar-meta">
+              <span>{regionOverview?.teams.length ?? 0} 支队伍</span>
+              <span>国赛 {regionOverview?.nationalSlots ?? 0}</span>
+              <span>复活赛 {regionOverview?.repechageSlots ?? 0}</span>
+              <span>本次种子 {seed}</span>
+            </div>
           </div>
         </div>
       </header>
 
-      <section className="workspace-grid">
+      {inspectorVisible ? (
+        <button type="button" className="inspector-overlay-backdrop" onClick={closeInspector} aria-label="关闭情报面板" />
+      ) : null}
+
+      <section className={inspectorVisible ? "workspace-grid is-inspector-open" : "workspace-grid"}>
         <div className="workspace-canvas-column">
           {error ? <div className="error-panel dark">数据加载失败：{error}</div> : null}
           {!stage ? <div className="loading-panel workspace-loading">正在生成当前赛程…</div> : null}
@@ -496,36 +525,22 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
           ) : null}
         </div>
 
-        <aside className="workspace-inspector">
-          <InspectorPanel
-            selection={selection}
-            regionOverview={regionOverview}
-            selectedOverviewTeam={selectedOverviewTeam}
-            selectedRanking={selectedRanking}
-            selectedPath={selectedPath}
-            selectedMatch={selectedMatch}
-            onMatchOpen={openMatch}
-            onTeamOpen={openTeam}
-            onClose={closeInspector}
-          />
-        </aside>
+        {inspectorVisible ? (
+          <aside className="workspace-inspector-panel is-open">
+            <InspectorPanel
+              selection={selection}
+              regionOverview={regionOverview}
+              selectedOverviewTeam={selectedOverviewTeam}
+              selectedRanking={selectedRanking}
+              selectedPath={selectedPath}
+              selectedMatch={selectedMatch}
+              onMatchOpen={openMatch}
+              onTeamOpen={openTeam}
+              onClose={closeInspector}
+            />
+          </aside>
+        ) : null}
       </section>
-
-      {selection ? (
-        <section className="workspace-inspector-drawer">
-          <InspectorPanel
-            selection={selection}
-            regionOverview={regionOverview}
-            selectedOverviewTeam={selectedOverviewTeam}
-            selectedRanking={selectedRanking}
-            selectedPath={selectedPath}
-            selectedMatch={selectedMatch}
-            onMatchOpen={openMatch}
-            onTeamOpen={openTeam}
-            onClose={closeInspector}
-          />
-        </section>
-      ) : null}
 
       <SearchModal open={searchOpen} title="搜索全部赛区队伍" onClose={() => setSearchOpen(false)}>
         <div className="search-panel">
