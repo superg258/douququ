@@ -8,7 +8,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-import build_rmuc_elo as elo_model
+import build_rmuc_elo as legacy_elo
 import simulate_region as region_sim
 
 
@@ -19,22 +19,12 @@ DEFAULT_BASE_SEED = 20260414
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run Monte Carlo regional simulations and aggregate team advancement rates.")
+    parser = argparse.ArgumentParser(description="Run Monte Carlo regional simulations with native TS2 ratings.")
     parser.add_argument("--region", default=DEFAULT_REGION, choices=sorted(region_sim.REGION_CONFIGS), help="Region to simulate.")
     parser.add_argument("--iterations", type=int, default=DEFAULT_ITERATIONS, help="Number of tournament simulations.")
     parser.add_argument("--seed", type=int, default=DEFAULT_BASE_SEED, help="Base random seed.")
-    parser.add_argument(
-        "--ratings-csv",
-        type=Path,
-        default=region_sim.DEFAULT_RATINGS_CSV,
-        help="Path to preseason_ratings.csv.",
-    )
-    parser.add_argument(
-        "--pair-samples",
-        type=int,
-        default=DEFAULT_PAIR_SAMPLES,
-        help="Monte Carlo samples used once when precomputing each pairwise matchup probability.",
-    )
+    parser.add_argument("--ratings-csv", type=Path, default=region_sim.DEFAULT_RATINGS_CSV, help="Path to TS2 preseason_ratings.csv.")
+    parser.add_argument("--pair-samples", type=int, default=DEFAULT_PAIR_SAMPLES, help="Monte Carlo samples used when precomputing each pairwise matchup probability.")
     return parser.parse_args()
 
 
@@ -49,7 +39,6 @@ def build_pair_probability_cache(
     pair_samples: int,
     seed: int,
 ) -> dict[tuple[str, str, int], dict[str, Any]]:
-    head_to_head_index = region_sim.predictor.load_head_to_head_index()
     cache: dict[tuple[str, str, int], dict[str, Any]] = {}
     for red_team in teams:
         for blue_team in teams:
@@ -64,7 +53,7 @@ def build_pair_probability_cache(
                     best_of=best_of,
                     samples=pair_samples,
                     match_seed=match_seed,
-                    head_to_head_index=head_to_head_index,
+                    head_to_head_index={},
                 )
     return cache
 
@@ -150,31 +139,29 @@ def build_team_probability_rows(
     for team in teams:
         counter = counters[team.college_name]
         average_final_rank = counter["average_final_rank_total"] / iterations
-        row = {
-            "college_name": team.college_name,
-            "team_name": team.team_name,
-            "seed_tier": team.seed_tier,
-            "seed_rank_in_region": team.seed_rank_in_region,
-            "mu0": round(team.mu0, 6),
-            "sigma0": round(team.sigma0, 6),
-            "round_of_16_rate": round(counter["round_of_16_count"] / iterations, 6),
-            "quarterfinal_rate": round(counter["quarterfinal_count"] / iterations, 6),
-            "semifinal_rate": round(counter["semifinal_count"] / iterations, 6),
-            "final_rate": round(counter["final_count"] / iterations, 6),
-            "champion_rate": round(counter["champion_count"] / iterations, 6),
-            "runner_up_rate": round(counter["runner_up_count"] / iterations, 6),
-            "third_place_rate": round(counter["third_place_count"] / iterations, 6),
-            "national_rate": round(counter["national_count"] / iterations, 6),
-            "repechage_rate": round(counter["repechage_count"] / iterations, 6),
-            "repechage_or_better_rate": round(
-                (counter["national_count"] + counter["repechage_count"]) / iterations,
-                6,
-            ),
-            "group_eliminated_rate": round(counter["group_eliminated_count"] / iterations, 6),
-            "qualification_eliminated_rate": round(counter["qualification_eliminated_count"] / iterations, 6),
-            "average_final_rank": round(average_final_rank, 6),
-        }
-        rows.append(row)
+        rows.append(
+            {
+                "college_name": team.college_name,
+                "team_name": team.team_name,
+                "seed_tier": team.seed_tier,
+                "seed_rank_in_region": team.seed_rank_in_region,
+                "mu0": round(team.mu0, 6),
+                "sigma0": round(team.sigma0, 6),
+                "round_of_16_rate": round(counter["round_of_16_count"] / iterations, 6),
+                "quarterfinal_rate": round(counter["quarterfinal_count"] / iterations, 6),
+                "semifinal_rate": round(counter["semifinal_count"] / iterations, 6),
+                "final_rate": round(counter["final_count"] / iterations, 6),
+                "champion_rate": round(counter["champion_count"] / iterations, 6),
+                "runner_up_rate": round(counter["runner_up_count"] / iterations, 6),
+                "third_place_rate": round(counter["third_place_count"] / iterations, 6),
+                "national_rate": round(counter["national_count"] / iterations, 6),
+                "repechage_rate": round(counter["repechage_count"] / iterations, 6),
+                "repechage_or_better_rate": round((counter["national_count"] + counter["repechage_count"]) / iterations, 6),
+                "group_eliminated_rate": round(counter["group_eliminated_count"] / iterations, 6),
+                "qualification_eliminated_rate": round(counter["qualification_eliminated_count"] / iterations, 6),
+                "average_final_rank": round(average_final_rank, 6),
+            }
+        )
     rows.sort(
         key=lambda row: (
             -float(row["national_rate"]),
@@ -202,8 +189,8 @@ def run_region_monte_carlo(
     payload_builder = make_cached_payload_builder(pair_cache)
     counters: dict[str, dict[str, float]] = defaultdict(empty_team_counters)
 
-    national_rate_sums: list[float] = []
-    repechage_rate_sums: list[float] = []
+    national_slot_counts: list[float] = []
+    repechage_slot_counts: list[float] = []
     champion_names: list[str] = []
 
     for simulation_index in range(iterations):
@@ -217,8 +204,8 @@ def run_region_monte_carlo(
         )
         summary = simulation["summary"]
         accumulate_simulation_counts(counters, summary["final_rankings"])
-        national_rate_sums.append(float(len(summary["national_qualifiers"])))
-        repechage_rate_sums.append(float(len(summary["repechage_qualifiers"])))
+        national_slot_counts.append(float(len(summary["national_qualifiers"])))
+        repechage_slot_counts.append(float(len(summary["repechage_qualifiers"])))
         champion_names.append(summary["champion"]["college_name"])
 
     probability_rows = build_team_probability_rows(template_teams, counters, iterations=iterations)
@@ -226,7 +213,6 @@ def run_region_monte_carlo(
     for name in champion_names:
         champion_counter[name] += 1
     top_champion_rows = sorted(champion_counter.items(), key=lambda item: (-item[1], item[0]))[:10]
-
     summary = {
         "region": region,
         "region_slug": region_sim.REGION_CONFIGS[region]["slug"],
@@ -234,6 +220,7 @@ def run_region_monte_carlo(
         "seed": seed,
         "ratings_csv": str(ratings_csv),
         "pair_probability_samples": pair_samples,
+        "aggregation_mode": "single_seed",
         "aggregate_checks": {
             "sum_round_of_16_rate": round(sum(float(row["round_of_16_rate"]) for row in probability_rows), 6),
             "sum_quarterfinal_rate": round(sum(float(row["quarterfinal_rate"]) for row in probability_rows), 6),
@@ -244,19 +231,15 @@ def run_region_monte_carlo(
             "sum_repechage_rate": round(sum(float(row["repechage_rate"]) for row in probability_rows), 6),
         },
         "average_slot_counts_per_run": {
-            "national_slots": round(statistics.fmean(national_rate_sums), 6) if national_rate_sums else 0.0,
-            "repechage_slots": round(statistics.fmean(repechage_rate_sums), 6) if repechage_rate_sums else 0.0,
+            "national_slots": round(statistics.fmean(national_slot_counts), 6) if national_slot_counts else 0.0,
+            "repechage_slots": round(statistics.fmean(repechage_slot_counts), 6) if repechage_slot_counts else 0.0,
         },
         "top_champion_probabilities": [
             {"college_name": college_name, "champion_rate": round(count / iterations, 6)}
             for college_name, count in top_champion_rows
         ],
     }
-    return {
-        "region": region,
-        "probability_rows": probability_rows,
-        "summary": summary,
-    }
+    return {"region": region, "probability_rows": probability_rows, "summary": summary}
 
 
 def write_region_monte_carlo_outputs(result: dict[str, Any]) -> dict[str, Path]:
@@ -266,7 +249,7 @@ def write_region_monte_carlo_outputs(result: dict[str, Any]) -> dict[str, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     csv_path = output_dir / "monte_carlo_team_rates.csv"
     json_path = output_dir / "monte_carlo_summary.json"
-    elo_model.write_csv(
+    legacy_elo.write_csv(
         csv_path,
         result["probability_rows"],
         fieldnames=[
@@ -292,30 +275,8 @@ def write_region_monte_carlo_outputs(result: dict[str, Any]) -> dict[str, Path]:
             "average_final_rank",
         ],
     )
-    elo_model.write_json(json_path, result["summary"])
-    return {
-        "output_dir": output_dir,
-        "csv_path": csv_path,
-        "json_path": json_path,
-    }
-
-
-def render_summary(result: dict[str, Any]) -> str:
-    rows = result["probability_rows"][:10]
-    lines = [
-        f"Region: {result['summary']['region']}",
-        f"Iterations: {result['summary']['iterations']}",
-        "Top 10 by national_rate:",
-    ]
-    for row in rows:
-        lines.append(
-            (
-                f"{row['mc_rank']}. {row['college_name']} | 国赛率 {float(row['national_rate']):.2%} | "
-                f"复活赛率 {float(row['repechage_rate']):.2%} | 冠军率 {float(row['champion_rate']):.2%} | "
-                f"平均名次 {float(row['average_final_rank']):.2f}"
-            )
-        )
-    return "\n".join(lines)
+    legacy_elo.write_json(json_path, result["summary"])
+    return {"output_dir": output_dir, "csv_path": csv_path, "json_path": json_path}
 
 
 def main() -> None:
@@ -328,8 +289,8 @@ def main() -> None:
         pair_samples=args.pair_samples,
     )
     paths = write_region_monte_carlo_outputs(result)
-    print(render_summary(result))
-    print(f"Outputs: {paths['output_dir']}")
+    print(paths["csv_path"])
+    print(paths["json_path"])
 
 
 if __name__ == "__main__":

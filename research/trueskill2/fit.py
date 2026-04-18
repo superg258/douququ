@@ -60,6 +60,7 @@ def _regional_pre_config(config: dict[str, Any] | None) -> RegionalPreModelConfi
         rho_2024=float(payload.get("rho_2024", 0.25)),
         rho_terminal=float(payload.get("rho_terminal", 0.15)),
         recent_season_retention=float(payload.get("recent_season_retention", 0.35)),
+        recent_season_carry_retention=float(payload.get("recent_season_carry_retention", 0.20)),
         terminal_season_retention=float(payload.get("terminal_season_retention", 0.10)),
         regional_prior_ridge=float(payload.get("regional_prior_ridge", payload.get("prior_ridge", 0.25))),
         regional_prior_train_terminal_weight=float(
@@ -85,9 +86,10 @@ def _regional_pre_config(config: dict[str, Any] | None) -> RegionalPreModelConfi
         shape_evidence_scale=float(payload.get("shape_evidence_scale", 0.90)),
         rmul_finish_scale=float(payload.get("rmul_finish_scale", 1.00)),
         station_calibration_scale=float(payload.get("station_calibration_scale", 0.12)),
-        prior_delta_cap_min=float(payload.get("prior_delta_cap_min", 0.12)),
-        prior_delta_cap_max=float(payload.get("prior_delta_cap_max", 0.60)),
-        history_cap_curve=float(payload.get("history_cap_curve", 1.10)),
+        prior_delta_cap_min=float(payload.get("prior_delta_cap_min", 0.22)),
+        prior_delta_cap_max=float(payload.get("prior_delta_cap_max", 0.90)),
+        history_cap_curve=float(payload.get("history_cap_curve", 0.80)),
+        online_live_update_scale=float(payload.get("online_live_update_scale", 0.50)),
     )
 
 
@@ -112,6 +114,18 @@ def _build_recent_rmuc_match_count_map(canonical_matches: Any) -> dict[tuple[str
     return count_map
 
 
+def _split_recent_season_values(
+    season_values: Any,
+    previous_season_values: Any,
+    rho_values: Any,
+) -> tuple[Any, Any]:
+    if previous_season_values is None:
+        return season_values, np.zeros_like(season_values)
+    inherited_values = np.asarray(rho_values, dtype=float) * np.asarray(previous_season_values, dtype=float)
+    innovation_values = np.asarray(season_values, dtype=float) - inherited_values
+    return innovation_values, inherited_values
+
+
 def _build_rmuc_long_term_base_snapshot(
     posterior: dict[str, Any],
     report: dict[str, Any],
@@ -123,6 +137,7 @@ def _build_rmuc_long_term_base_snapshot(
     school_key_to_index = {key: idx for idx, key in enumerate(report["school_keys"])}
     season_team_to_index = {key: idx for idx, key in enumerate(report["season_team_keys"])}
     u_school = posterior["u_school"]
+    rho_samples = np.asarray(posterior.get("rho", np.zeros(u_school.shape[0], dtype=float)), dtype=float)
     recent_match_count_map = _build_recent_rmuc_match_count_map(canonical_matches)
     base_rows = []
     for school_key in report["school_keys"]:
@@ -151,7 +166,12 @@ def _build_rmuc_long_term_base_snapshot(
             if age == 2:
                 terminal_terms.append((season_weight, season_values))
             else:
-                recent_terms.append((season_weight, season_values))
+                previous_values = None
+                previous_season_team_key = f"{season - 1}:{school_key}"
+                previous_season_index = season_team_to_index.get(previous_season_team_key)
+                if previous_season_index is not None:
+                    previous_values = posterior["u_season"][:, previous_season_index]
+                recent_terms.append((season_weight, season_values, previous_values))
 
         latest_historical_season = max(source_seasons) if source_seasons else None
         latest_match_count = int(season_match_counts.get(target_year - 1, 0))
@@ -175,12 +195,37 @@ def _build_rmuc_long_term_base_snapshot(
         school_values = alpha_effective * school_samples
         if season_terms:
             recent_values_raw = (
-                sum(weight * values for weight, values in recent_terms) if recent_terms else np.zeros_like(school_values)
+                sum(
+                    weight
+                    * _split_recent_season_values(
+                        values,
+                        previous_values,
+                        rho_samples,
+                    )[0]
+                    for weight, values, previous_values in recent_terms
+                )
+                if recent_terms
+                else np.zeros_like(school_values)
+            )
+            recent_carry_values_raw = (
+                sum(
+                    weight
+                    * _split_recent_season_values(
+                        values,
+                        previous_values,
+                        rho_samples,
+                    )[1]
+                    for weight, values, previous_values in recent_terms
+                )
+                if recent_terms
+                else np.zeros_like(school_values)
             )
             terminal_values_raw = (
                 sum(weight * values for weight, values in terminal_terms) if terminal_terms else np.zeros_like(school_values)
             )
-            recent_values = config.recent_season_retention * recent_values_raw
+            recent_innovation_values = config.recent_season_retention * recent_values_raw
+            recent_carry_values = config.recent_season_carry_retention * recent_carry_values_raw
+            recent_values = recent_innovation_values + recent_carry_values
             terminal_values = config.terminal_season_retention * terminal_values_raw
             season_values = recent_values + terminal_values
             latest_season: int | None = latest_historical_season
@@ -190,6 +235,8 @@ def _build_rmuc_long_term_base_snapshot(
         else:
             season_values = np.zeros_like(school_values)
             recent_values = np.zeros_like(school_values)
+            recent_innovation_values = np.zeros_like(school_values)
+            recent_carry_values = np.zeros_like(school_values)
             terminal_values = np.zeros_like(school_values)
             latest_season = None
             source_label = ""
@@ -210,6 +257,8 @@ def _build_rmuc_long_term_base_snapshot(
                 "rmuc_long_term_school_component_mean": float(np.mean(school_values)),
                 "rmuc_long_term_season_component_mean": float(np.mean(season_values)),
                 "rmuc_long_term_recent_season_component_mean": float(np.mean(recent_values)),
+                "rmuc_long_term_recent_innovation_component_mean": float(np.mean(recent_innovation_values)),
+                "rmuc_long_term_recent_carry_component_mean": float(np.mean(recent_carry_values)),
                 "rmuc_long_term_terminal_season_component_mean": float(np.mean(terminal_values)),
                 "rmuc_terminal_season_weight": float(terminal_weight / total_weight) if total_weight > 1e-9 else 0.0,
                 "rmuc_long_term_base_source_seasons": source_label,
@@ -234,6 +283,8 @@ def _build_rmuc_long_term_base_snapshot(
             "rmuc_long_term_school_component_mean",
             "rmuc_long_term_season_component_mean",
             "rmuc_long_term_recent_season_component_mean",
+            "rmuc_long_term_recent_innovation_component_mean",
+            "rmuc_long_term_recent_carry_component_mean",
             "rmuc_long_term_terminal_season_component_mean",
             "rmuc_terminal_season_weight",
             "rmuc_long_term_base_source_seasons",
@@ -280,6 +331,93 @@ def _train_regional_prior_model(
         training_frame = pd.DataFrame()
     model = fit_regional_prior_model(training_frame, config)
     return model, training_frame
+
+
+def _calibrate_online_live_update_scale(
+    dataset_dir: Path,
+    posterior: dict[str, Any],
+    report: dict[str, Any],
+    config: RegionalPreModelConfig,
+    canonical_matches: Any,
+    prior_model: dict[str, Any],
+    training_frame: Any,
+) -> dict[str, Any]:
+    pd, _ = require_dataframe_deps()
+    beta_perf = float(np.asarray(posterior["beta_perf"]).mean())
+    calibration_bundles: list[dict[str, Any]] = []
+    for season in (2024, 2025):
+        season_targets = training_frame[training_frame["season"] == season].copy()
+        if season_targets.empty:
+            continue
+        base_snapshot = _build_rmuc_long_term_base_snapshot(
+            posterior,
+            report,
+            config,
+            canonical_matches,
+            season,
+        )
+        preseason_frame = build_regional_pre_frame(
+            dataset_dir=dataset_dir,
+            snapshot_date=f"{season}-01-01",
+            prior_model=prior_model,
+            base_snapshot=base_snapshot,
+            config=config,
+        )
+        preseason_snapshot = build_published_preseason_snapshot(
+            snapshot=preseason_frame[
+                [
+                    "school_key",
+                    "school_name",
+                    "base_anchor_theta",
+                    "regional_prior_delta_theta",
+                ]
+            ].rename(
+                columns={
+                    "base_anchor_theta": "rmuc_long_term_base_theta_mean",
+                    "regional_prior_delta_theta": "regional_pre_offset_theta",
+                }
+            ),
+            season=season,
+            freeze_date=f"{season}-01-01",
+            rating_scale=120.0,
+        )
+        matches = canonical_matches[
+            (canonical_matches["season"] == season)
+            & (canonical_matches["ruleset_id"] == "RMUC")
+            & (canonical_matches["stage_id"].isin(["rmuc_regional_group", "rmuc_regional_knockout"]))
+        ].copy()
+        if matches.empty:
+            continue
+        targets = season_targets[
+            [
+                "school_key",
+                "regional_observed_strength_theta",
+                "training_weight",
+                "regional_match_count",
+            ]
+        ].rename(
+            columns={
+                "regional_observed_strength_theta": "target_live_state_theta",
+            }
+        )
+        targets["target_weight"] = (
+            targets["training_weight"].astype(float)
+            * targets["regional_match_count"].astype(float).clip(lower=1.0)
+        )
+        calibration_bundles.append(
+            {
+                "season": season,
+                "preseason_snapshot": preseason_snapshot,
+                "matches": matches,
+                "targets": targets[["school_key", "target_live_state_theta", "target_weight"]],
+            }
+        )
+    return calibrate_online_live_update_scale(
+        calibration_bundles=calibration_bundles,
+        beta_perf=beta_perf,
+        pre_decay_matches=int(config.pre_decay_matches),
+        default_scale=float(config.online_live_update_scale),
+    )
 
 
 def _load_regional_prior_model(model_dir: Path) -> dict[str, Any]:
@@ -465,6 +603,107 @@ def compute_published_rating(
     return 1500.0 + (float(rating_scale) * total_theta)
 
 
+def _match_actual_red_score(match_row: dict[str, Any]) -> float:
+    red_wins = match_row.get("red_wins")
+    blue_wins = match_row.get("blue_wins")
+    if red_wins is not None and blue_wins is not None:
+        try:
+            red_wins_value = float(red_wins)
+            blue_wins_value = float(blue_wins)
+        except (TypeError, ValueError):
+            red_wins_value = 0.0
+            blue_wins_value = 0.0
+        total = red_wins_value + blue_wins_value
+        if total > 0.0:
+            return red_wins_value / total
+    winner_side = str(match_row.get("winner_side", "") or "").lower()
+    if winner_side == "red":
+        return 1.0
+    if winner_side == "blue":
+        return 0.0
+    return 0.5
+
+
+def compute_online_match_live_deltas(
+    theta_red: float,
+    theta_blue: float,
+    actual_red_score: float,
+    beta_perf: float,
+    online_update_scale: float,
+) -> tuple[float, float]:
+    beta_perf = max(float(beta_perf), 1e-6)
+    probability_red = 1.0 / (1.0 + np.exp(-((float(theta_red) - float(theta_blue)) / beta_perf)))
+    delta_red = float(online_update_scale) * beta_perf * (float(actual_red_score) - float(probability_red))
+    return delta_red, -delta_red
+
+
+def calibrate_online_live_update_scale(
+    calibration_bundles: list[dict[str, Any]],
+    beta_perf: float,
+    pre_decay_matches: int,
+    default_scale: float,
+    candidate_scales: list[float] | None = None,
+) -> dict[str, Any]:
+    pd, _ = require_dataframe_deps()
+    if not calibration_bundles:
+        return {
+            "online_live_update_scale": float(default_scale),
+            "candidate_scores": [],
+            "calibration_row_count": 0,
+            "calibration_seasons": [],
+        }
+
+    scales = [float(value) for value in (candidate_scales or np.linspace(0.20, 1.00, 17).tolist())]
+    candidate_scores: list[dict[str, Any]] = []
+    best_scale = float(default_scale)
+    best_score = float("inf")
+    total_rows = 0
+
+    for scale in scales:
+        weighted_error = 0.0
+        total_weight = 0.0
+        for bundle in calibration_bundles:
+            preseason_snapshot = bundle["preseason_snapshot"]
+            matches = bundle["matches"]
+            targets = bundle["targets"]
+            total_rows += int(len(targets))
+            updates = build_published_live_state_updates(
+                preseason_snapshot=preseason_snapshot,
+                live_state_store=pd.DataFrame(),
+                new_matches=matches,
+                rating_scale=120.0,
+                pre_decay_matches=pre_decay_matches,
+                beta_perf=beta_perf,
+                online_update_scale=scale,
+            )
+            if updates.empty:
+                latest = pd.DataFrame({"school_key": preseason_snapshot["school_key"], "live_state_theta_after_match": 0.0})
+            else:
+                latest = (
+                    updates.sort_values(["match_date", "match_id"], kind="stable")
+                    .groupby("school_key", as_index=False)
+                    .tail(1)[["school_key", "live_state_theta_after_match"]]
+                )
+            merged = targets.merge(latest, on="school_key", how="left")
+            merged["live_state_theta_after_match"] = merged["live_state_theta_after_match"].fillna(0.0)
+            merged["target_weight"] = merged["target_weight"].fillna(1.0).astype(float)
+            residual = merged["live_state_theta_after_match"].astype(float) - merged["target_live_state_theta"].astype(float)
+            weighted_error += float(np.sum(merged["target_weight"].astype(float) * np.square(residual)))
+            total_weight += float(np.sum(merged["target_weight"].astype(float)))
+        score = weighted_error / max(total_weight, 1e-6)
+        candidate_scores.append({"scale": scale, "weighted_mse": float(score)})
+        if score < best_score:
+            best_score = float(score)
+            best_scale = float(scale)
+
+    return {
+        "online_live_update_scale": float(best_scale),
+        "candidate_scores": candidate_scores,
+        "calibration_row_count": int(sum(len(bundle["targets"]) for bundle in calibration_bundles)),
+        "calibration_seasons": sorted({int(bundle["season"]) for bundle in calibration_bundles}),
+    }
+
+
 def build_published_preseason_snapshot(
     snapshot: Any,
     season: int,
@@ -528,66 +767,14 @@ def _published_match_stage_family(match_row: dict[str, Any]) -> str:
     return "other"
 
 
-def _infer_live_delta_map_from_summary(
-    summary: Any,
-    canonical_matches: Any,
-    season: int,
-    snapshot_date: str,
-    base_theta_map: dict[str, float],
-) -> dict[str, dict[str, float]]:
-    if summary.empty:
-        return {}
-    pd, _ = require_dataframe_deps()
-    season_summary = summary[(summary["season"] == season) & (summary["date_bucket"] <= snapshot_date)].copy()
-    if season_summary.empty:
-        return {}
-    season_summary = season_summary.sort_values(["school_key", "date_bucket"], kind="stable").reset_index(drop=True)
-    season_summary["live_theta"] = season_summary.apply(
-        lambda row: float(row["mean"]) - float(base_theta_map.get(str(row["school_key"]), 0.0)),
-        axis=1,
-    )
-    season_summary["prev_live_theta"] = season_summary.groupby("school_key", sort=False)["live_theta"].shift(1).fillna(0.0)
-    season_summary["day_live_delta"] = season_summary["live_theta"] - season_summary["prev_live_theta"]
-
-    rmuc_matches = canonical_matches[
-        (canonical_matches["season"] == season)
-        & (canonical_matches["ruleset_id"] == "RMUC")
-        & (canonical_matches["match_date"] <= snapshot_date)
-    ].copy()
-    if rmuc_matches.empty:
-        return {}
-    day_counts: dict[tuple[str, str], int] = defaultdict(int)
-    for row in rmuc_matches[["match_id", "match_date", "red_school_key", "blue_school_key"]].to_dict(orient="records"):
-        match_date = str(row["match_date"])
-        for school_key in (str(row["red_school_key"]), str(row["blue_school_key"])):
-            day_counts[(school_key, match_date)] += 1
-
-    day_delta_map = {
-        (str(row["school_key"]), str(row["date_bucket"])): float(row["day_live_delta"])
-        for row in season_summary[["school_key", "date_bucket", "day_live_delta"]].to_dict(orient="records")
-    }
-    per_match_sequence: dict[tuple[str, str], int] = defaultdict(int)
-    live_delta_map: dict[str, dict[str, float]] = {}
-    for row in rmuc_matches.sort_values(["match_date", "match_id"], kind="stable").to_dict(orient="records"):
-        match_id = str(row["match_id"])
-        match_date = str(row["match_date"])
-        payload: dict[str, float] = {}
-        for school_key in (str(row["red_school_key"]), str(row["blue_school_key"])):
-            per_match_sequence[(school_key, match_date)] += 1
-            total = max(day_counts.get((school_key, match_date), 0), 1)
-            day_delta = day_delta_map.get((school_key, match_date), 0.0)
-            payload[school_key] = float(day_delta) / float(total)
-        live_delta_map[match_id] = payload
-    return live_delta_map
-
-
 def build_published_live_state_updates(
     preseason_snapshot: Any,
     live_state_store: Any,
     new_matches: Any,
-    live_delta_map: dict[str, dict[str, float]],
     rating_scale: float,
     pre_decay_matches: int,
+    beta_perf: float,
+    online_update_scale: float,
 ) -> Any:
     pd, _ = require_dataframe_deps()
     if new_matches.empty:
@@ -639,18 +826,53 @@ def build_published_live_state_updates(
         match_date = str(match["match_date"])
         season = int(match["season"])
         stage_family = _published_match_stage_family(match)
-        for school_key in (str(match["red_school_key"]), str(match["blue_school_key"])):
-            if (match_id, school_key) in existing_match_school:
-                continue
-            if school_key not in base_theta_map:
-                continue
-            current_live = float(current_live_map.get(school_key, 0.0))
-            delta = float(live_delta_map.get(match_id, {}).get(school_key, 0.0))
-            new_live = current_live + delta
-            current_live_map[school_key] = new_live
+        red_school_key = str(match["red_school_key"])
+        blue_school_key = str(match["blue_school_key"])
+        if (
+            red_school_key not in base_theta_map
+            or blue_school_key not in base_theta_map
+            or (match_id, red_school_key) in existing_match_school
+            or (match_id, blue_school_key) in existing_match_school
+        ):
+            continue
 
+        pre_match_decay_red = (
+            0.0
+            if stage_family in {"post_group", "repechage", "nationals"}
+            else _regional_group_decay_factor(int(current_group_count_map.get(red_school_key, 0)), pre_decay_matches)
+        )
+        pre_match_decay_blue = (
+            0.0
+            if stage_family in {"post_group", "repechage", "nationals"}
+            else _regional_group_decay_factor(int(current_group_count_map.get(blue_school_key, 0)), pre_decay_matches)
+        )
+        theta_red = (
+            float(base_theta_map.get(red_school_key, 0.0))
+            + float(current_confirmed_prior_map.get(red_school_key, 0.0))
+            + (float(prior_theta_map.get(red_school_key, 0.0)) * float(pre_match_decay_red))
+            + float(current_live_map.get(red_school_key, 0.0))
+        )
+        theta_blue = (
+            float(base_theta_map.get(blue_school_key, 0.0))
+            + float(current_confirmed_prior_map.get(blue_school_key, 0.0))
+            + (float(prior_theta_map.get(blue_school_key, 0.0)) * float(pre_match_decay_blue))
+            + float(current_live_map.get(blue_school_key, 0.0))
+        )
+        actual_red_score = _match_actual_red_score(match)
+        delta_red, delta_blue = compute_online_match_live_deltas(
+            theta_red=theta_red,
+            theta_blue=theta_blue,
+            actual_red_score=actual_red_score,
+            beta_perf=beta_perf,
+            online_update_scale=online_update_scale,
+        )
+        current_live_map[red_school_key] = float(current_live_map.get(red_school_key, 0.0)) + float(delta_red)
+        current_live_map[blue_school_key] = float(current_live_map.get(blue_school_key, 0.0)) + float(delta_blue)
+
+        for school_key in (red_school_key, blue_school_key):
             if stage_family == "regional_group":
                 current_group_count_map[school_key] = int(current_group_count_map.get(school_key, 0)) + 1
+            new_live = float(current_live_map.get(school_key, 0.0))
             decay_factor = (
                 0.0
                 if stage_family in {"post_group", "repechage", "nationals"}
@@ -788,6 +1010,9 @@ def export_published_rating_artifacts(model_dir: Path, snapshot_date: str, out_d
     report = artifact["report"]
     dataset = read_dataset(Path(report["dataset_path"]))
     rating_scale = float(report.get("rating_scale", 120.0))
+    beta_perf = float(np.asarray(artifact["posterior"]["beta_perf"]).mean())
+    regional_cfg = _regional_pre_config(_load_config(Path(report["config_path"])))
+    online_live_update_scale = float(report.get("online_live_update_scale", regional_cfg.online_live_update_scale))
     regional_pre_snapshot = _build_regional_pre_snapshot(model_dir, snapshot_date)
     season = int(snapshot_date[:4])
 
@@ -797,29 +1022,19 @@ def export_published_rating_artifacts(model_dir: Path, snapshot_date: str, out_d
         freeze_date=snapshot_date,
         rating_scale=rating_scale,
     )
-    base_theta_map = {
-        str(row["school_key"]): float(row["rmuc_program_base_theta"])
-        for row in preseason_snapshot[["school_key", "rmuc_program_base_theta"]].to_dict(orient="records")
-    }
     official_matches = dataset["canonical_matches"][
         (dataset["canonical_matches"]["season"] == season)
         & (dataset["canonical_matches"]["ruleset_id"] == "RMUC")
         & (dataset["canonical_matches"]["match_date"] <= snapshot_date)
     ].copy()
-    live_delta_map = _infer_live_delta_map_from_summary(
-        summary=artifact["summary"],
-        canonical_matches=dataset["canonical_matches"],
-        season=season,
-        snapshot_date=snapshot_date,
-        base_theta_map=base_theta_map,
-    )
     live_state_updates = build_published_live_state_updates(
         preseason_snapshot=preseason_snapshot,
         live_state_store=pd.DataFrame(),
         new_matches=official_matches,
-        live_delta_map=live_delta_map,
         rating_scale=rating_scale,
-        pre_decay_matches=int(_regional_pre_config(_load_config(Path(report["config_path"]))).pre_decay_matches),
+        pre_decay_matches=int(regional_cfg.pre_decay_matches),
+        beta_perf=beta_perf,
+        online_update_scale=online_live_update_scale,
     )
 
     current_snapshot = _build_published_current_snapshot(
@@ -910,8 +1125,8 @@ def export_published_rating_artifacts(model_dir: Path, snapshot_date: str, out_d
     carryover_seed = build_carryover_seed_snapshot(
         final_snapshot=final_snapshot,
         target_season=season + 1,
-        match_cap=float(_regional_pre_config(_load_config(Path(report["config_path"]))).recent_match_cap),
-        uncertainty_scale=float(_regional_pre_config(_load_config(Path(report["config_path"]))).history_uncertainty_scale),
+        match_cap=float(regional_cfg.recent_match_cap),
+        uncertainty_scale=float(regional_cfg.history_uncertainty_scale),
     )
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -935,7 +1150,8 @@ def export_published_rating_artifacts(model_dir: Path, snapshot_date: str, out_d
             "season": season,
             "snapshot_date": snapshot_date,
             "rating_scale": rating_scale,
-            "beta_perf": float(np.asarray(artifact["posterior"]["beta_perf"]).mean()),
+            "beta_perf": beta_perf,
+            "online_live_update_scale": online_live_update_scale,
             "source_model_dir": str(model_dir),
             "preseason_snapshot_path": str(preseason_path),
             "live_state_updates_path": str(live_updates_path),
@@ -1000,6 +1216,19 @@ def run_fit(dataset_dir: Path, config_path: Path, out_dir: Path) -> dict[str, An
         config=regional_cfg,
         canonical_matches=dataset["canonical_matches"],
     )
+    online_live_update_calibration = _calibrate_online_live_update_scale(
+        dataset_dir=dataset_dir,
+        posterior=posterior,
+        report={
+            "school_keys": prepared.school_keys,
+            "school_names": prepared.school_names,
+            "season_team_keys": prepared.season_team_keys,
+        },
+        config=regional_cfg,
+        canonical_matches=dataset["canonical_matches"],
+        prior_model=regional_prior_model,
+        training_frame=regional_prior_training,
+    )
     _save_json(regional_prior_model_path, regional_prior_model)
     _save_tabular_outputs(regional_prior_training, regional_prior_training_path)
 
@@ -1033,6 +1262,8 @@ def run_fit(dataset_dir: Path, config_path: Path, out_dir: Path) -> dict[str, An
         "regional_prior_model_path": str(regional_prior_model_path),
         "regional_prior_training_path": str(regional_prior_training_path),
         "diagnostics": diagnostics,
+        "online_live_update_scale": float(online_live_update_calibration["online_live_update_scale"]),
+        "online_live_update_calibration": online_live_update_calibration,
         "posterior_means": {
             "sigma_drift": float(np.asarray(sample_arrays["sigma_drift"]).mean()),
             "beta_perf": float(np.asarray(sample_arrays["beta_perf"]).mean()),
@@ -1493,6 +1724,8 @@ def export_ratings_snapshot(model_dir: Path, snapshot_date: str, out_path: Path,
         "rmuc_long_term_school_component_mean",
         "rmuc_long_term_season_component_mean",
         "rmuc_long_term_recent_season_component_mean",
+        "rmuc_long_term_recent_innovation_component_mean",
+        "rmuc_long_term_recent_carry_component_mean",
         "rmuc_long_term_terminal_season_component_mean",
         "rmuc_terminal_season_weight",
         "rmuc_long_term_base_source_seasons",
@@ -1605,6 +1838,8 @@ def export_ratings_snapshot(model_dir: Path, snapshot_date: str, out_path: Path,
             "rmuc_long_term_school_component_mean",
             "rmuc_long_term_season_component_mean",
             "rmuc_long_term_recent_season_component_mean",
+            "rmuc_long_term_recent_innovation_component_mean",
+            "rmuc_long_term_recent_carry_component_mean",
             "rmuc_long_term_terminal_season_component_mean",
             "rmuc_terminal_season_weight",
             "rmuc_long_term_base_source_seasons",

@@ -15,7 +15,7 @@ SCRIPTS_DIR = ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-import build_rmuc_elo as elo_model  # noqa: E402
+import build_rmuc_ts2_backend as ts2_model  # noqa: E402
 import simulate_region as region_sim  # noqa: E402
 
 
@@ -23,8 +23,8 @@ DEFAULT_SIMULATION_SAMPLES = int(os.getenv("RMUC_SIMULATION_SAMPLES", "1200"))
 REGION_SLUG_ORDER = ["south_region", "east_region", "north_region"]
 REGION_SLUG_ORDER_INDEX = {region_slug: index for index, region_slug in enumerate(REGION_SLUG_ORDER)}
 REGION_SLUG_TO_NAME = {config["slug"]: region for region, config in region_sim.REGION_CONFIGS.items()}
-PRESEASON_RATINGS_CSV = elo_model.DERIVED_DIR / "preseason_ratings.csv"
-REGION_SIM_DIR = elo_model.ROOT / "data" / "derived" / "2026_rmuc_region_simulations"
+PRESEASON_RATINGS_CSV = ts2_model.DERIVED_DIR / "preseason_ratings.csv"
+REGION_SIM_DIR = ts2_model.ROOT / "data" / "derived" / "2026_rmuc_region_simulations"
 
 
 def _read_csv(path: Path) -> list[dict[str, str]]:
@@ -55,7 +55,7 @@ def load_global_elo_rank_map() -> dict[str, int]:
 
 
 def compute_team_key(college_name: str, team_name: str) -> str:
-    return elo_model.make_team_key(college_name, team_name)
+    return ts2_model.make_team_key(college_name, team_name)
 
 
 def resolve_region_name(region_slug: str) -> str:

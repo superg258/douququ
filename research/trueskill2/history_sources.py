@@ -27,6 +27,7 @@ class RegionalPreModelConfig:
     rho_2024: float = 0.25
     rho_terminal: float = 0.15
     recent_season_retention: float = 0.35
+    recent_season_carry_retention: float = 0.20
     terminal_season_retention: float = 0.10
     regional_prior_ridge: float = 0.25
     regional_prior_train_terminal_weight: float = 0.20
@@ -50,9 +51,10 @@ class RegionalPreModelConfig:
     shape_evidence_scale: float = 0.90
     rmul_finish_scale: float = 1.00
     station_calibration_scale: float = 0.12
-    prior_delta_cap_min: float = 0.12
-    prior_delta_cap_max: float = 0.60
-    history_cap_curve: float = 1.10
+    prior_delta_cap_min: float = 0.22
+    prior_delta_cap_max: float = 0.90
+    history_cap_curve: float = 0.80
+    online_live_update_scale: float = 0.50
 
 
 def _fetch_html(url: str) -> str:
@@ -246,6 +248,7 @@ def build_selection_report_payload(config: RegionalPreModelConfig) -> dict[str, 
             "rho_2024": config.rho_2024,
             "rho_terminal": config.rho_terminal,
             "recent_season_retention": config.recent_season_retention,
+            "recent_season_carry_retention": config.recent_season_carry_retention,
             "terminal_season_retention": config.terminal_season_retention,
             "regional_prior_ridge": config.regional_prior_ridge,
             "regional_prior_train_terminal_weight": config.regional_prior_train_terminal_weight,

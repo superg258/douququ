@@ -1,0 +1,10 @@
+{
+  "snapshot_kind": "preseason",
+  "snapshot_date": "2026-04-05",
+  "source_model_dir": "runs/ts2/fit_20260417_full",
+  "rating_scale": 135.0,
+  "beta_perf": 1.8179707527160645,
+  "team_count": 96,
+  "generated_at": "2026-04-18T13:24:42.642070+00:00",
+  "ratings_csv_path": "data/derived/2026_rmuc_ts2/preseason_ratings.csv"
+}

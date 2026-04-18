@@ -12,6 +12,17 @@ import type {
 } from "@/lib/types";
 import { compareRegionOrder } from "@/lib/region-config";
 
+const NATIONAL_LOCK_THRESHOLD = 0.7;
+const REGION_STRENGTH_WEIGHTS = {
+  avgTop4Elo: 0.25,
+  favoriteChampionProbability: 0.1,
+  top3ChampionShare: 0.15,
+  avgTop8Elo: 0.2,
+  meanElo: 0.1,
+  medianElo: 0.05,
+  nationalLockCount: 0.15,
+} as const;
+
 function average(values: number[]) {
   if (values.length === 0) {
     return 0;
@@ -167,11 +178,11 @@ function buildSummarySentence(card: RegionDashboardCard) {
   const chasingCount = card.nationalRace.chasingTeams.length;
 
   if (cutoffCollege && chasingCount > 0) {
-    return `${card.regionName}${intro}，已有${card.nationalRace.locksCount}队基本锁定国赛，${cutoffCollege}正守在最后一张国赛席位上，身后还有${chasingCount}队继续追赶。`;
+    return `${card.regionName}${intro}，已有${card.nationalRace.locksCount}队稳进国赛，${cutoffCollege}正守在最后一张国赛席位上，身后还有${chasingCount}队继续追赶。`;
   }
 
   if (cutoffCollege) {
-    return `${card.regionName}${intro}，已有${card.nationalRace.locksCount}队基本锁定国赛，${cutoffCollege}仍在守住最后一张国赛席位。`;
+    return `${card.regionName}${intro}，已有${card.nationalRace.locksCount}队稳进国赛，${cutoffCollege}仍在守住最后一张国赛席位。`;
   }
 
   return `${card.regionName}${intro}，国赛门槛仍在变化，先重点看争冠热度与整体深度。`;
@@ -199,8 +210,8 @@ function buildRegionCards(regions: OverviewRegion[]): RegionDashboardCard[] {
       const top8ChampionShare = sum(championTeams.slice(0, 8).map((team) => team.probabilities.champion));
       const titleGap =
         (championTeams[0]?.probabilities.champion ?? 0) - (championTeams[1]?.probabilities.champion ?? 0);
-      const nationalLocks = buildLockTeams(region, nationalSelector);
-      const nationalRace = buildRaceBucket(region, nationalSelector, region.nationalSlots);
+      const nationalLocks = buildLockTeams(region, nationalSelector, NATIONAL_LOCK_THRESHOLD);
+      const nationalRace = buildRaceBucket(region, nationalSelector, region.nationalSlots, NATIONAL_LOCK_THRESHOLD);
       // `repechage` on the API means "exactly enters repechage". The homepage race band needs
       // the total seat line, so it uses "national or repechage" as the ordering metric.
       const repechageRace = buildRaceBucket(
@@ -261,41 +272,59 @@ function buildContenders(regions: OverviewRegion[]) {
 }
 
 function buildRegionStrength(cards: RegionDashboardCard[]): RegionStrengthRow[] {
+  const baseRows = cards.map((card) => ({
+    regionSlug: card.regionSlug,
+    regionName: card.regionName,
+    top4AverageElo: card.avgTop4Elo,
+    top8AverageElo: card.avgTop8Elo,
+    meanElo: card.meanElo,
+    medianElo: card.medianElo,
+    favoriteChampionProbability: card.favorite.probabilities.champion,
+    top3ChampionShare: card.top3ChampionShare,
+    nationalLockCount: card.nationalLocks.length,
+    titleGap: card.titleGap,
+  }));
+
   const mins = {
-    avgTop4Elo: Math.min(...cards.map((card) => card.avgTop4Elo)),
-    avgTop8Elo: Math.min(...cards.map((card) => card.avgTop8Elo)),
-    meanElo: Math.min(...cards.map((card) => card.meanElo)),
-    medianElo: Math.min(...cards.map((card) => card.medianElo)),
-    top3ChampionShare: Math.min(...cards.map((card) => card.top3ChampionShare)),
-    titleGap: Math.min(...cards.map((card) => card.titleGap)),
+    top4AverageElo: Math.min(...baseRows.map((row) => row.top4AverageElo)),
+    top8AverageElo: Math.min(...baseRows.map((row) => row.top8AverageElo)),
+    meanElo: Math.min(...baseRows.map((row) => row.meanElo)),
+    medianElo: Math.min(...baseRows.map((row) => row.medianElo)),
+    favoriteChampionProbability: Math.min(...baseRows.map((row) => row.favoriteChampionProbability)),
+    top3ChampionShare: Math.min(...baseRows.map((row) => row.top3ChampionShare)),
+    nationalLockCount: Math.min(...baseRows.map((row) => row.nationalLockCount)),
   };
   const maxs = {
-    avgTop4Elo: Math.max(...cards.map((card) => card.avgTop4Elo)),
-    avgTop8Elo: Math.max(...cards.map((card) => card.avgTop8Elo)),
-    meanElo: Math.max(...cards.map((card) => card.meanElo)),
-    medianElo: Math.max(...cards.map((card) => card.medianElo)),
-    top3ChampionShare: Math.max(...cards.map((card) => card.top3ChampionShare)),
-    titleGap: Math.max(...cards.map((card) => card.titleGap)),
+    top4AverageElo: Math.max(...baseRows.map((row) => row.top4AverageElo)),
+    top8AverageElo: Math.max(...baseRows.map((row) => row.top8AverageElo)),
+    meanElo: Math.max(...baseRows.map((row) => row.meanElo)),
+    medianElo: Math.max(...baseRows.map((row) => row.medianElo)),
+    favoriteChampionProbability: Math.max(...baseRows.map((row) => row.favoriteChampionProbability)),
+    top3ChampionShare: Math.max(...baseRows.map((row) => row.top3ChampionShare)),
+    nationalLockCount: Math.max(...baseRows.map((row) => row.nationalLockCount)),
   };
 
-  return cards
-    .map((card) => {
+  return baseRows
+    .map((row) => {
+      // Composite score blends head firepower, depth, title heat, and stable national-level thickness.
       const composite =
-        normalize(card.avgTop4Elo, mins.avgTop4Elo, maxs.avgTop4Elo) * 0.08 +
-        normalize(card.avgTop8Elo, mins.avgTop8Elo, maxs.avgTop8Elo) * 0.38 +
-        normalize(card.meanElo, mins.meanElo, maxs.meanElo) * 0.24 +
-        normalize(card.medianElo, mins.medianElo, maxs.medianElo) * 0.3;
+        normalize(row.top4AverageElo, mins.top4AverageElo, maxs.top4AverageElo) * REGION_STRENGTH_WEIGHTS.avgTop4Elo +
+        normalize(
+          row.favoriteChampionProbability,
+          mins.favoriteChampionProbability,
+          maxs.favoriteChampionProbability,
+        ) * REGION_STRENGTH_WEIGHTS.favoriteChampionProbability +
+        normalize(row.top3ChampionShare, mins.top3ChampionShare, maxs.top3ChampionShare) *
+          REGION_STRENGTH_WEIGHTS.top3ChampionShare +
+        normalize(row.top8AverageElo, mins.top8AverageElo, maxs.top8AverageElo) * REGION_STRENGTH_WEIGHTS.avgTop8Elo +
+        normalize(row.meanElo, mins.meanElo, maxs.meanElo) * REGION_STRENGTH_WEIGHTS.meanElo +
+        normalize(row.medianElo, mins.medianElo, maxs.medianElo) * REGION_STRENGTH_WEIGHTS.medianElo +
+        normalize(row.nationalLockCount, mins.nationalLockCount, maxs.nationalLockCount) *
+          REGION_STRENGTH_WEIGHTS.nationalLockCount;
 
       return {
-        regionSlug: card.regionSlug,
-        regionName: card.regionName,
+        ...row,
         powerIndex: Math.round(60 + composite * 40),
-        top4AverageElo: card.avgTop4Elo,
-        top8AverageElo: card.avgTop8Elo,
-        meanElo: card.meanElo,
-        medianElo: card.medianElo,
-        top3ChampionShare: card.top3ChampionShare,
-        titleGap: card.titleGap,
       };
     })
     .sort((left, right) => compareRegionOrder(left.regionSlug, right.regionSlug));

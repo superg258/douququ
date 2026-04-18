@@ -1,8 +1,94 @@
 from __future__ import annotations
 
 import argparse
+import os
+import subprocess
 import sys
 from pathlib import Path
+
+MINIMUM_PYTHON = (3, 11)
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _preferred_runtime_command(root: Path = REPO_ROOT) -> str:
+    preferred = root / ".venv312" / "bin" / "python"
+    if preferred.exists():
+        return f"{preferred} -m research.trueskill2.cli"
+    return "python3.12 -m research.trueskill2.cli"
+
+
+def ensure_supported_runtime(
+    version_info: tuple[int, int, int] | None = None,
+    executable: str | None = None,
+    root: Path = REPO_ROOT,
+) -> None:
+    current = version_info or sys.version_info[:3]
+    if current >= MINIMUM_PYTHON:
+        return
+
+    python_version = ".".join(str(part) for part in current)
+    command = _preferred_runtime_command(root)
+    raise RuntimeError(
+        "research.trueskill2.cli requires Python 3.11+ "
+        f"(current: {python_version} from {executable or sys.executable}). "
+        "Use the repo virtualenv instead, for example: "
+        f"`{command}`."
+    )
+
+
+def _has_visible_nvidia_gpu() -> bool:
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "-L"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return False
+    return result.returncode == 0 and "GPU " in result.stdout
+
+
+def normalize_accelerator_runtime_env(
+    environ: dict[str, str] | None = None,
+    *,
+    has_nvidia_gpu: bool | None = None,
+) -> dict[str, str]:
+    env = os.environ if environ is None else environ
+    nvidia_gpu_present = _has_visible_nvidia_gpu() if has_nvidia_gpu is None else has_nvidia_gpu
+    if not nvidia_gpu_present:
+        return {}
+
+    changes: dict[str, str] = {}
+    raw_platforms = env.get("JAX_PLATFORMS")
+    if raw_platforms:
+        platforms = [value.strip() for value in raw_platforms.split(",") if value.strip()]
+        if "rocm" in platforms:
+            filtered_platforms = [value for value in platforms if value != "rocm"]
+            if not filtered_platforms:
+                filtered_platforms = ["cuda"]
+            env["JAX_PLATFORMS"] = ",".join(filtered_platforms)
+            changes["JAX_PLATFORMS"] = env["JAX_PLATFORMS"]
+
+    if env.get("JAX_PLATFORM_NAME") == "rocm":
+        env["JAX_PLATFORM_NAME"] = "cuda"
+        changes["JAX_PLATFORM_NAME"] = "cuda"
+
+    return changes
+
+
+try:
+    ensure_supported_runtime()
+except RuntimeError as exc:
+    if __name__ == "__main__":
+        print(str(exc), file=sys.stderr)
+        raise SystemExit(2) from exc
+    raise
+
+_runtime_env_changes = normalize_accelerator_runtime_env()
+if _runtime_env_changes and __name__ == "__main__":
+    change_pairs = ", ".join(f"{key}={value}" for key, value in sorted(_runtime_env_changes.items()))
+    print(f"Adjusted JAX runtime env for NVIDIA GPU: {change_pairs}", file=sys.stderr)
 
 from .backtest import run_backtest
 from .features import build_static_features

@@ -194,7 +194,9 @@ export interface RegionStrengthRow {
   top8AverageElo: number;
   meanElo: number;
   medianElo: number;
+  favoriteChampionProbability: number;
   top3ChampionShare: number;
+  nationalLockCount: number;
   titleGap: number;
 }
 

@@ -35,6 +35,13 @@ function chaseGapLabel(value: number) {
   return `领先追兵 ${pct(value)}`;
 }
 
+export function nationalRaceChipLabel(chasingCount: number) {
+  if (chasingCount > 0) {
+    return `追赶 ${chasingCount} 队`;
+  }
+  return "卡位清晰";
+}
+
 function regionHref(regionSlug: RegionSlug, view: WorkspaceView, highlight?: string) {
   return buildRegionHref(regionSlug, view, { highlight });
 }
@@ -68,11 +75,11 @@ function RaceTeamChips({ teams }: { teams: OverviewTeam[] }) {
 
 function LockTeamList({ teams }: { teams: OverviewTeam[] }) {
   if (teams.length === 0) {
-    return <p className="race-team-empty">目前还没有队伍提前锁定国赛席位。</p>;
+    return <p className="race-team-empty">目前还没有队伍进入稳进国赛区间。</p>;
   }
 
   return (
-    <div className="lock-team-list" aria-label="国赛锁定名单">
+    <div className="lock-team-list" aria-label="国赛稳进名单">
       {teams.map((team) => (
         <span key={team.teamKey} className="lock-team-chip">
           {team.collegeName}
@@ -243,16 +250,16 @@ function RegionCommandCard({ region }: { region: RegionDashboardCard }) {
         </div>
         <div className="favorite-cluster muted region-data-cluster region-lock-cluster">
           <div className="region-cluster-head">
-            <small>国赛锁定名单</small>
+            <small>国赛稳进名单</small>
             <span className="region-race-chip qualified">
-              {region.nationalLocks.length > 0 ? `锁定 ${region.nationalLocks.length} 队` : "暂未锁定"}
+              {region.nationalLocks.length > 0 ? `稳进 ${region.nationalLocks.length} 队` : "暂无稳进"}
             </span>
           </div>
-          <strong>{region.nationalLocks.length > 0 ? `${region.regionName}锁定名单` : "仍在争夺中"}</strong>
+          <strong>{region.nationalLocks.length > 0 ? `${region.regionName}稳进名单` : "仍在争夺中"}</strong>
           <p>
             {region.nationalLocks.length > 0
-              ? "这些队伍已经把国赛门票握得比较稳，可以直接从名单里追踪。"
-              : "目前还没有队伍提前锁定国赛席位。"}
+              ? "这些队伍已经进入稳进国赛区间，可以直接从名单里追踪。"
+              : "目前还没有队伍进入稳进国赛区间。"}
           </p>
           <LockTeamList teams={region.nationalLocks} />
         </div>
@@ -260,7 +267,7 @@ function RegionCommandCard({ region }: { region: RegionDashboardCard }) {
           <div className="region-cluster-head">
             <small>国赛卡位线</small>
             <span className="region-race-chip">
-              {region.nationalRace.locksCount > 0 ? `锁定 ${region.nationalRace.locksCount} 队` : "尚无锁定"}
+              {nationalRaceChipLabel(region.nationalRace.chasingTeams.length)}
             </span>
           </div>
           <strong>{region.nationalRace.cutoffTeam?.collegeName ?? "待定"}</strong>
@@ -451,7 +458,7 @@ export function OverviewPage() {
               id: "strength",
               eyebrow: "赛区对比",
               title: "赛区强度对比",
-              description: "把三大赛区放到同一把尺子下，看头部强度、整体深度和争冠悬念的差别。",
+              description: "把三大赛区放到同一把尺子下，看头部火力、整体深度、争冠热度和稳进厚度的差别。",
               tone: "steel",
             }}
           >
@@ -470,21 +477,22 @@ export function OverviewPage() {
                       <h3>头部火力</h3>
                       <div className="strength-group-grid">
                         <span>前 4 Elo {elo(row.top4AverageElo)}</span>
-                        <span>前 8 Elo {elo(row.top8AverageElo)}</span>
+                        <span>头号争冠 {pct(row.favoriteChampionProbability)}</span>
                       </div>
                     </section>
                     <section className="strength-group">
                       <h3>整体深度</h3>
                       <div className="strength-group-grid">
+                        <span>前 8 Elo {elo(row.top8AverageElo)}</span>
                         <span>平均 Elo {elo(row.meanElo)}</span>
-                        <span>中位数 Elo {elo(row.medianElo)}</span>
+                        <span>中位 Elo {elo(row.medianElo)}</span>
                       </div>
                     </section>
                     <section className="strength-group">
-                      <h3>争冠格局</h3>
+                      <h3>热度与稳进</h3>
                       <div className="strength-group-grid">
                         <span>前三份额 {pct(row.top3ChampionShare)}</span>
-                        <span>头二差值 {pct(row.titleGap)}</span>
+                        <span>稳进队数 {row.nationalLockCount} 队</span>
                       </div>
                     </section>
                   </div>

@@ -27,7 +27,7 @@ training:
   max_train_matches:
 
 outputs:
-  rating_scale: 120.0
+  rating_scale: 135.0
 
 regional_pre_model:
   alpha: 0.50
@@ -35,6 +35,7 @@ regional_pre_model:
   rho_2024: 0.25
   rho_terminal: 0.15
   recent_season_retention: 0.85
+  recent_season_carry_retention: 0.35
   terminal_season_retention: 0.10
   regional_prior_ridge: 0.25
   regional_prior_train_terminal_weight: 0.20
@@ -55,9 +56,10 @@ regional_pre_model:
   shape_evidence_scale: 0.90
   rmul_finish_scale: 1.00
   station_calibration_scale: 0.12
-  prior_delta_cap_min: 0.12
-  prior_delta_cap_max: 0.60
-  history_cap_curve: 1.10
+  prior_delta_cap_min: 0.25
+  prior_delta_cap_max: 1.00
+  history_cap_curve: 0.80
+  online_live_update_scale: 0.50
   same_year_shape_weight: 0.40
   same_year_rmul_weight: 0.95
   same_year_consistency_weight: 0.55

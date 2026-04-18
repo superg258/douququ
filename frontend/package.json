@@ -2,9 +2,9 @@
   "name": "rmuc-results-web",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --hostname 127.0.0.1 --port 3005",
     "build": "next build",
-    "start": "next start",
+    "start": "next start --hostname 127.0.0.1 --port 3005",
     "test": "vitest run"
   },
   "dependencies": {

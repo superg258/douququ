@@ -12,6 +12,7 @@ import pandas as pd
 import numpy as np
 import yaml
 
+from research.trueskill2 import cli as trueskill2_cli
 from research.trueskill2.history_sources import RegionalPreModelConfig
 from research.trueskill2.regional_pre import (
     _augment_same_year_rank_targets,
@@ -36,10 +37,12 @@ from research.trueskill2.regional_pre import (
     compute_history_context,
 )
 from research.trueskill2.fit import (
+    _split_recent_season_values,
     _build_rmuc_long_term_base_snapshot,
     build_published_preseason_snapshot,
     compute_published_rating,
     build_published_live_state_updates,
+    calibrate_online_live_update_scale,
     build_carryover_seed_snapshot,
 )
 
@@ -57,6 +60,43 @@ def run_cli(*args: str) -> subprocess.CompletedProcess[str]:
 
 
 class TrueSkill2ResearchTests(unittest.TestCase):
+    def test_cli_exposes_runtime_guard(self) -> None:
+        self.assertTrue(callable(getattr(trueskill2_cli, "ensure_supported_runtime", None)))
+
+    def test_cli_runtime_guard_recommends_repo_venv_for_old_python(self) -> None:
+        guard = getattr(trueskill2_cli, "ensure_supported_runtime", None)
+        self.assertTrue(callable(guard))
+        with self.assertRaises(RuntimeError) as ctx:
+            guard(version_info=(3, 10, 12), executable="/usr/bin/python3")
+
+        message = str(ctx.exception)
+        self.assertIn("Python 3.11+", message)
+        self.assertIn(".venv312/bin/python", message)
+        self.assertIn("research.trueskill2.cli", message)
+
+    def test_cli_normalizes_rocm_platforms_for_nvidia_gpu(self) -> None:
+        normalize = getattr(trueskill2_cli, "normalize_accelerator_runtime_env", None)
+        self.assertTrue(callable(normalize))
+        env = {"JAX_PLATFORMS": "rocm,cuda,cpu", "JAX_PLATFORM_NAME": "rocm"}
+
+        changes = normalize(env, has_nvidia_gpu=True)
+
+        self.assertEqual(env["JAX_PLATFORMS"], "cuda,cpu")
+        self.assertEqual(env["JAX_PLATFORM_NAME"], "cuda")
+        self.assertEqual(changes["JAX_PLATFORMS"], "cuda,cpu")
+        self.assertEqual(changes["JAX_PLATFORM_NAME"], "cuda")
+
+    def test_cli_keeps_non_rocm_platforms_unchanged(self) -> None:
+        normalize = getattr(trueskill2_cli, "normalize_accelerator_runtime_env", None)
+        self.assertTrue(callable(normalize))
+        env = {"JAX_PLATFORMS": "cuda,cpu", "JAX_PLATFORM_NAME": "cuda"}
+
+        changes = normalize(env, has_nvidia_gpu=True)
+
+        self.assertEqual(changes, {})
+        self.assertEqual(env["JAX_PLATFORMS"], "cuda,cpu")
+        self.assertEqual(env["JAX_PLATFORM_NAME"], "cuda")
+
     def test_shape_bucket_widths_are_front_wide_back_narrow(self) -> None:
         widths = _shape_bucket_widths(96)
         self.assertEqual(sum(widths), 96)
@@ -272,7 +312,8 @@ class TrueSkill2ResearchTests(unittest.TestCase):
     def test_program_base_compresses_recent_season_component(self) -> None:
         posterior = {
             "u_school": np.array([[1.0], [1.0]], dtype=float),
-            "u_season": np.array([[2.0, 1.0], [2.0, 1.0]], dtype=float),
+            "u_season": np.array([[2.0, 2.5], [2.0, 2.5]], dtype=float),
+            "rho": np.array([0.5, 0.5], dtype=float),
         }
         report = {
             "school_keys": ["a"],
@@ -289,7 +330,8 @@ class TrueSkill2ResearchTests(unittest.TestCase):
             kappa=2.4,
             rho_terminal=0.15,
             recent_match_cap=12.0,
-            recent_season_retention=0.35,
+            recent_season_retention=0.80,
+            recent_season_carry_retention=0.20,
             terminal_season_retention=0.10,
         )
         base = _build_rmuc_long_term_base_snapshot(
@@ -300,8 +342,19 @@ class TrueSkill2ResearchTests(unittest.TestCase):
             target_year=2026,
         )
         row = base.iloc[0]
-        self.assertLess(float(row["rmuc_long_term_season_component_mean"]), 1.0)
-        self.assertLess(float(row["rmuc_long_term_recent_season_component_mean"]), 1.0)
+        self.assertAlmostEqual(float(row["rmuc_long_term_recent_innovation_component_mean"]), 1.2)
+        self.assertAlmostEqual(float(row["rmuc_long_term_recent_carry_component_mean"]), 0.2)
+        self.assertAlmostEqual(float(row["rmuc_long_term_recent_season_component_mean"]), 1.4)
+        self.assertAlmostEqual(float(row["rmuc_long_term_season_component_mean"]), 1.4027215386, places=6)
+
+    def test_recent_season_values_split_innovation_and_carry(self) -> None:
+        innovation, carry = _split_recent_season_values(
+            season_values=np.array([2.5, 2.5], dtype=float),
+            previous_season_values=np.array([2.0, 2.0], dtype=float),
+            rho_values=np.array([0.5, 0.5], dtype=float),
+        )
+        np.testing.assert_allclose(innovation, np.array([1.5, 1.5], dtype=float))
+        np.testing.assert_allclose(carry, np.array([1.0, 1.0], dtype=float))
 
     def test_rank_shift_target_lifts_and_drops_by_same_year_displacement(self) -> None:
         training = pd.DataFrame(
@@ -469,53 +522,108 @@ class TrueSkill2ResearchTests(unittest.TestCase):
                     "stage_family": "regional_group",
                     "red_school_key": "a",
                     "blue_school_key": "b",
+                    "red_wins": 1,
+                    "blue_wins": 0,
                     "winner_side": "red",
                 },
                 {
                     "match_id": "m2",
                     "season": 2026,
-                    "match_date": "2026-05-02",
+                    "match_date": "2026-05-01",
                     "ruleset_id": "RMUC",
                     "stage_id": "rmuc_regional_group",
                     "stage_family": "regional_group",
                     "red_school_key": "a",
-                    "blue_school_key": "b",
+                    "blue_school_key": "c",
+                    "red_wins": 0,
+                    "blue_wins": 1,
                     "winner_side": "blue",
                 },
             ]
         )
         preseason = pd.DataFrame(
             [
-                {"school_key": "a", "school_name": "Alpha", "season": 2026, "rmuc_program_base_theta": 1.0, "regional_prior_theta": 0.3},
-                {"school_key": "b", "school_name": "Beta", "season": 2026, "rmuc_program_base_theta": 0.8, "regional_prior_theta": -0.1},
+                {"school_key": "a", "school_name": "Alpha", "season": 2026, "rmuc_program_base_theta": 0.0, "regional_prior_theta": 0.3},
+                {"school_key": "b", "school_name": "Beta", "season": 2026, "rmuc_program_base_theta": 0.0, "regional_prior_theta": -0.1},
+                {"school_key": "c", "school_name": "Gamma", "season": 2026, "rmuc_program_base_theta": 0.0, "regional_prior_theta": 0.0},
             ]
         )
         state_store = pd.DataFrame(columns=["match_id", "school_key", "live_state_theta_after_match", "regional_group_matches_played", "pre_decay_factor_after_match", "published_rating_after_match"])
-        delta_map = {
-            "m1": {"a": 0.2, "b": -0.2},
-            "m2": {"a": -0.1, "b": 0.1},
-        }
 
         updates = build_published_live_state_updates(
             preseason_snapshot=preseason,
             live_state_store=state_store,
             new_matches=canonical_matches,
-            live_delta_map=delta_map,
             rating_scale=120.0,
             pre_decay_matches=3,
+            beta_perf=1.0,
+            online_update_scale=0.5,
         )
         self.assertEqual(len(updates), 4)
         first_alpha = updates[(updates["match_id"] == "m1") & (updates["school_key"] == "a")].iloc[0]
         self.assertGreater(float(first_alpha["confirmed_prior_theta_after_match"]), 0.0)
+        second_alpha = updates[(updates["match_id"] == "m2") & (updates["school_key"] == "a")].iloc[0]
+        expected_after_first = 0.5 * (1.0 - (1.0 / (1.0 + np.exp(-0.3 - 0.1))))
+        expected_second_probability = 1.0 / (1.0 + np.exp(-(0.1 + (0.3 * (2.0 / 3.0)) + expected_after_first)))
+        expected_after_second = expected_after_first - (0.5 * expected_second_probability)
+        self.assertAlmostEqual(float(first_alpha["live_state_theta_after_match"]), expected_after_first, places=6)
+        self.assertAlmostEqual(float(second_alpha["live_state_theta_after_match"]), expected_after_second, places=6)
         repeated = build_published_live_state_updates(
             preseason_snapshot=preseason,
             live_state_store=updates,
             new_matches=canonical_matches,
-            live_delta_map=delta_map,
             rating_scale=120.0,
             pre_decay_matches=3,
+            beta_perf=1.0,
+            online_update_scale=0.5,
         )
         self.assertEqual(len(repeated), 0)
+
+    def test_calibrate_online_live_update_scale_matches_historical_tempo_target(self) -> None:
+        preseason = pd.DataFrame(
+            [
+                {"school_key": "a", "school_name": "Alpha", "season": 2024, "rmuc_program_base_theta": 0.0, "regional_prior_theta": 0.0},
+                {"school_key": "b", "school_name": "Beta", "season": 2024, "rmuc_program_base_theta": 0.0, "regional_prior_theta": 0.0},
+            ]
+        )
+        matches = pd.DataFrame(
+            [
+                {
+                    "match_id": "m1",
+                    "season": 2024,
+                    "match_date": "2024-05-01",
+                    "ruleset_id": "RMUC",
+                    "stage_id": "rmuc_regional_group",
+                    "stage_family": "regional_group",
+                    "red_school_key": "a",
+                    "blue_school_key": "b",
+                    "red_wins": 1,
+                    "blue_wins": 0,
+                    "winner_side": "red",
+                }
+            ]
+        )
+        targets = pd.DataFrame(
+            [
+                {"school_key": "a", "target_live_state_theta": 0.4, "target_weight": 1.0},
+                {"school_key": "b", "target_live_state_theta": -0.4, "target_weight": 1.0},
+            ]
+        )
+        calibration = calibrate_online_live_update_scale(
+            calibration_bundles=[
+                {
+                    "season": 2024,
+                    "preseason_snapshot": preseason,
+                    "matches": matches,
+                    "targets": targets,
+                }
+            ],
+            beta_perf=1.0,
+            pre_decay_matches=3,
+            default_scale=0.5,
+            candidate_scales=[0.2, 0.5, 0.8],
+        )
+        self.assertAlmostEqual(float(calibration["online_live_update_scale"]), 0.8)
 
     def test_build_carryover_seed_snapshot_uses_only_compressed_live_state(self) -> None:
         final_snapshot = pd.DataFrame(

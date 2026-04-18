@@ -5,28 +5,28 @@
   "seed_count": 20,
   "effective_iterations": 100000,
   "seeds": [
-    20260414,
-    20260421,
-    20260428,
-    20260435,
-    20260442,
-    20260449,
-    20260456,
-    20260463,
-    20260470,
-    20260477,
-    20260484,
-    20260491,
-    20260498,
-    20260505,
-    20260512,
-    20260519,
-    20260526,
-    20260533,
-    20260540,
-    20260547
+    815250,
+    237785,
+    865789,
+    334419,
+    861400,
+    167497,
+    371815,
+    576364,
+    169606,
+    390572,
+    687116,
+    219180,
+    996209,
+    446701,
+    754936,
+    177427,
+    890241,
+    822350,
+    153974,
+    868418
   ],
-  "ratings_csv": "/home/winx/douququ/data/derived/2026_rmuc_elo/preseason_ratings.csv",
+  "ratings_csv": "/home/winx/douququ/data/derived/2026_rmuc_ts2/preseason_ratings.csv",
   "pair_probability_samples": 4000,
   "aggregation_mode": "mean_of_seed_runs",
   "aggregate_checks": {
@@ -45,43 +45,43 @@
   "top_champion_probabilities": [
     {
       "college_name": "上海交通大学",
-      "champion_rate": 0.38671
+      "champion_rate": 0.37005
     },
     {
       "college_name": "华南农业大学",
-      "champion_rate": 0.1364
-    },
-    {
-      "college_name": "华南理工大学",
-      "champion_rate": 0.12418
+      "champion_rate": 0.16206
     },
     {
       "college_name": "武汉工程大学",
-      "champion_rate": 0.12264
+      "champion_rate": 0.11188
     },
     {
-      "college_name": "广东工业大学",
-      "champion_rate": 0.0998
+      "college_name": "华南理工大学",
+      "champion_rate": 0.10324
     },
     {
       "college_name": "太原理工大学",
-      "champion_rate": 0.06413
+      "champion_rate": 0.0619
     },
     {
-      "college_name": "五邑大学",
-      "champion_rate": 0.0162
+      "college_name": "广东工业大学",
+      "champion_rate": 0.04617
     },
     {
       "college_name": "深圳大学",
-      "champion_rate": 0.01284
-    },
-    {
-      "college_name": "电子科技大学中山学院",
-      "champion_rate": 0.00864
+      "champion_rate": 0.03901
     },
     {
       "college_name": "中南大学",
-      "champion_rate": 0.00717
+      "champion_rate": 0.02095
+    },
+    {
+      "college_name": "五邑大学",
+      "champion_rate": 0.02081
+    },
+    {
+      "college_name": "东莞理工学院",
+      "champion_rate": 0.01875
     }
   ]
 }
