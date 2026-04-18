@@ -33,6 +33,7 @@ __pycache__/
 /frontend/*.png
 /tmp-*.png
 /output/
+/runs/
 
 # OS junk
 .DS_Store
