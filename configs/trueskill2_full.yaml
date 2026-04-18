@@ -1,0 +1,71 @@
+model:
+  enable_stage_effect: true
+  enable_format_effect: true
+  enable_ruleset_effect: true
+  enable_side_effect: true
+  time_bucket: day
+
+priors:
+  school_sd: 0.8
+  season_sd: 0.35
+  team_sd: 0.5
+  stage_sd: 0.3
+  format_sd: 0.3
+  ruleset_sd: 0.3
+  side_sd: 0.3
+  drift_sd: 0.15
+  perf_sd: 1.0
+  rho_alpha: 8.0
+  rho_beta: 2.0
+
+training:
+  inference_mode: svi
+  seed: 20260417
+  num_steps: 500
+  learning_rate: 0.02
+  num_samples: 256
+  max_train_matches:
+
+outputs:
+  rating_scale: 120.0
+
+regional_pre_model:
+  alpha: 0.50
+  kappa: 2.40
+  rho_2024: 0.25
+  rho_terminal: 0.15
+  recent_season_retention: 0.85
+  terminal_season_retention: 0.10
+  regional_prior_ridge: 0.25
+  regional_prior_train_terminal_weight: 0.20
+  regional_prior_target_pseudocount: 6.0
+  school_retention_floor: 0.35
+  school_uncertainty_weight: 0.35
+  school_terminal_only_penalty: 0.75
+  recent_match_cap: 12.0
+  history_uncertainty_scale: 1.0
+  pre_decay_matches: 3
+  aligned_sd_scale: 0.85
+  conflict_sd_scale: 1.25
+  blend_lambda_min: 0.20
+  blend_lambda_max: 0.75
+  blend_uncertainty_weight: 0.25
+  blend_signal_scale: 0.75
+  deviation_lambda_boost: 0.12
+  shape_evidence_scale: 0.90
+  rmul_finish_scale: 1.00
+  station_calibration_scale: 0.12
+  prior_delta_cap_min: 0.12
+  prior_delta_cap_max: 0.60
+  history_cap_curve: 1.10
+  same_year_shape_weight: 0.40
+  same_year_rmul_weight: 0.95
+  same_year_consistency_weight: 0.55
+
+backtest:
+  scheme: rolling_origin
+  seed: 20260417
+  num_steps: 250
+  num_samples: 128
+  max_train_matches:
+  max_test_matches:
