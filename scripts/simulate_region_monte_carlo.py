@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import build_rmuc_elo as legacy_elo
+import head_to_head as h2h
 import simulate_region as region_sim
 
 
@@ -38,6 +39,7 @@ def build_pair_probability_cache(
     *,
     pair_samples: int,
     seed: int,
+    head_to_head_index: dict[tuple[str, str], dict[str, Any]],
 ) -> dict[tuple[str, str, int], dict[str, Any]]:
     cache: dict[tuple[str, str, int], dict[str, Any]] = {}
     for red_team in teams:
@@ -53,7 +55,7 @@ def build_pair_probability_cache(
                     best_of=best_of,
                     samples=pair_samples,
                     match_seed=match_seed,
-                    head_to_head_index={},
+                    head_to_head_index=head_to_head_index,
                 )
     return cache
 
@@ -69,8 +71,9 @@ def make_cached_payload_builder(
         samples: int,
         match_seed: int,
         head_to_head_index: dict[tuple[str, str], dict[str, Any]],
+        **kwargs,
     ) -> dict[str, Any]:
-        del samples, match_seed, head_to_head_index
+        del samples, match_seed, head_to_head_index, kwargs
         return cache[(red_team.team_key, blue_team.team_key, best_of)]
 
     return builder
@@ -185,7 +188,13 @@ def run_region_monte_carlo(
     pair_samples: int = DEFAULT_PAIR_SAMPLES,
 ) -> dict[str, Any]:
     template_teams = region_sim.parse_team_rows(region, ratings_csv)
-    pair_cache = build_pair_probability_cache(template_teams, pair_samples=pair_samples, seed=seed)
+    head_to_head_index = h2h.load_head_to_head_index()
+    pair_cache = build_pair_probability_cache(
+        template_teams,
+        pair_samples=pair_samples,
+        seed=seed,
+        head_to_head_index=head_to_head_index,
+    )
     payload_builder = make_cached_payload_builder(pair_cache)
     counters: dict[str, dict[str, float]] = defaultdict(empty_team_counters)
 
@@ -220,6 +229,7 @@ def run_region_monte_carlo(
         "seed": seed,
         "ratings_csv": str(ratings_csv),
         "pair_probability_samples": pair_samples,
+        "head_to_head": h2h.configuration_payload(),
         "aggregation_mode": "single_seed",
         "aggregate_checks": {
             "sum_round_of_16_rate": round(sum(float(row["round_of_16_rate"]) for row in probability_rows), 6),

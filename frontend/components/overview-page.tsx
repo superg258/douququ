@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
-import { OverviewModule } from "@/components/overview-module";
 import { getOverview } from "@/lib/api";
 import { buildOverviewDashboard } from "@/lib/overview-builders";
-import { buildRegionHref } from "@/lib/region-config";
-import type { OverviewMetric, OverviewResponse, OverviewTeam, RegionDashboardCard, RegionSlug, WorkspaceView } from "@/lib/types";
+import { buildRegionHref, isRegionRealtimeEnabled } from "@/lib/region-config";
+import type { OverviewDashboard, RegionDashboardCard, WorkspaceView, OverviewTeam, RegionSlug, RegionStrengthRow } from "@/lib/types";
+import { MechCard } from "@/components/ui/mech-card";
+import { cn } from "@/lib/utils";
 
 const REGION_QUICK_VIEWS: Array<{ id: WorkspaceView; label: string }> = [
   { id: "qualification", label: "资格赛" },
@@ -23,532 +24,486 @@ function elo(value: number) {
   return value.toFixed(1);
 }
 
-function numberWithComma(value: number) {
-  return value.toLocaleString("zh-CN");
-}
-
-function holdLabel(value: number) {
-  return `守位概率 ${pct(value)}`;
-}
-
-function chaseGapLabel(value: number) {
-  return `领先追兵 ${pct(value)}`;
-}
-
-export function nationalRaceChipLabel(chasingCount: number) {
+function nationalRaceChipLabel(chasingCount: number) {
   if (chasingCount > 0) {
     return `追赶 ${chasingCount} 队`;
   }
-  return "卡位清晰";
+  return "卡位待定";
 }
 
-function regionHref(regionSlug: RegionSlug, view: WorkspaceView, highlight?: string) {
-  return buildRegionHref(regionSlug, view, { highlight });
-}
-
-function aggregationLabel(mode: string) {
-  switch (mode) {
-    case "mean_of_seed_runs":
-      return "多组种子综合";
-    case "single_seed":
-      return "单组种子";
-    default:
-      return "自定义方式";
-  }
-}
-
-function RaceTeamChips({ teams }: { teams: OverviewTeam[] }) {
-  if (teams.length === 0) {
-    return <p className="race-team-empty">暂时还没形成明确的追赶集团。</p>;
-  }
-
+function RegionHeroMetrics({ region }: { region: RegionDashboardCard }) {
   return (
-    <div className="race-team-list" aria-label="追赶集团">
-      {teams.map((team) => (
-        <span key={team.teamKey} className="race-team-chip">
-          {team.collegeName}
+    <div className="grid grid-cols-2 gap-4 mt-6">
+      <div className="flex flex-col space-y-1">
+        <span className="text-[10px] text-rm-metal-text uppercase tracking-widest font-bold">头号种子</span>
+        <span className="text-xl font-machine text-white truncate max-w-full">
+          {region.favorite.collegeName}
         </span>
-      ))}
+        <span className="text-xs text-rm-blue font-bold font-mono">
+          夺冠率 {pct(region.favorite.probabilities.champion)} / ELO {elo(region.favorite.mu0)}
+        </span>
+      </div>
+
+      <div className="flex flex-col space-y-1 justify-end">
+        <span className="text-[10px] text-rm-metal-text uppercase tracking-widest font-bold">战区数据</span>
+        <span className="text-xs text-rm-metal-text font-mono">
+          总队伍: {region.teamCount} 支
+          <br/>
+          国赛/复活赛席位: {region.nationalSlots}/{region.repechageSlots}
+        </span>
+      </div>
     </div>
   );
 }
 
 function LockTeamList({ teams }: { teams: OverviewTeam[] }) {
   if (teams.length === 0) {
-    return <p className="race-team-empty">目前还没有队伍进入稳进国赛区间。</p>;
+    return <div className="text-xs text-rm-metal-text/50 font-mono italic">未检测到稳进名单...</div>;
+  }
+  return (
+    <div className="flex flex-wrap gap-2">
+      {teams.map((team) => (
+        <span key={team.teamKey} className="px-2 py-1 border border-rm-status-safe/30 bg-rm-status-safe/10 text-rm-status-safe text-xs font-bold rounded-sm shadow-[0_0_5px_rgba(0,255,157,0.1)]">
+              {team.collegeName}
+            </span>
+          ))}
+        </div>
+  );
+}
+
+function RaceTeamChips({
+  cutoffTeam,
+  chasingTeams,
+  totalChasingCount,
+  cutoffProbability,
+  gap,
+  locksCount,
+  variant = "national",
+}: {
+  cutoffTeam: OverviewTeam | null;
+  chasingTeams: OverviewTeam[];
+  totalChasingCount: number;
+  cutoffProbability: number;
+  gap: number;
+  locksCount: number;
+  variant?: "national" | "repechage";
+}) {
+  if (!cutoffTeam) {
+    return <div className="text-xs text-rm-metal-text/50 font-mono italic">卡位分析数据不足...</div>;
   }
 
+  const chasingCount = chasingTeams.length;
+  const isSafe = cutoffProbability > 0.5 && gap > 0.05 && chasingCount === 0;
+  const isRepechage = variant === "repechage";
+  const getProb = (team: OverviewTeam) => isRepechage ? team.probabilities.repechage : team.probabilities.national;
+
   return (
-    <div className="lock-team-list" aria-label="国赛稳进名单">
-      {teams.map((team) => (
-        <span key={team.teamKey} className="lock-team-chip">
-          {team.collegeName}
-        </span>
-      ))}
+    <div className="space-y-3">
+      {/* 守门员 */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1 bg-rm-metal-dark border border-rm-metal-border p-2 flex items-center justify-between">
+          <span className="text-xs font-bold text-white max-w-full">{cutoffTeam.collegeName}</span>
+          <div className="flex flex-col items-end">
+            <span className={cn("font-machine text-xs", isRepechage ? "text-rm-status-warn" : "text-rm-red")}>
+              守位 {pct(getProb(cutoffTeam))}
+            </span>
+            <span className="font-machine text-[10px] text-rm-metal-text">
+              ELO {elo(cutoffTeam.mu0)}
+            </span>
+          </div>
+        </div>
+        <div className={cn(
+          "w-16 flex items-center justify-center text-[10px] font-bold border py-1 tracking-widest",
+          isSafe ? "bg-rm-status-safe/20 border-rm-status-safe text-rm-status-safe" : 
+            (isRepechage ? "bg-rm-status-warn/20 border-rm-status-warn text-rm-status-warn animate-pulse" : "bg-rm-red/20 border-rm-red text-rm-red animate-pulse")
+        )}>
+          {isSafe ? "门槛稳定" : nationalRaceChipLabel(totalChasingCount)}
+        </div>
+      </div>
+
+      {/* 追兵列表 */}
+      {chasingCount > 0 && (
+        <div className={cn("space-y-1 mt-2 pl-4 border-l-2 relative", isRepechage ? "border-rm-status-warn/50" : "border-rm-red/50")}>
+          <div className={cn("absolute -left-[5px] top-2 bottom-2 w-[2px] opacity-30", isRepechage ? "bg-rm-status-warn" : "bg-rm-red")}></div>
+          {chasingTeams.map((team) => (
+            <div key={team.teamKey} className="flex items-center justify-between text-[11px]">
+              <span className="text-rm-metal-text font-bold text-xs">{team.collegeName}</span>
+              <span className={cn("font-machine text-[10px] bg-rm-metal-dark px-1 border border-rm-metal-border", isRepechage ? "text-rm-status-warn" : "text-rm-red")}>
+                {pct(getProb(team))}
+              </span>
+            </div>
+          ))}
+          {totalChasingCount > 3 && (
+            <div className="flex items-center justify-between text-[11px] text-rm-metal-text/50 pl-1 mt-1">
+              <span>... 等其余 {totalChasingCount - 3} 支梯队追赶中</span>
+            </div>
+          )}
+          <div className="text-[10px] text-rm-metal-text/60 font-mono mt-1">
+            * 领先追兵概率差 {pct(gap)}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function RegionQuickLinks({
-  regionSlug,
-  className,
-}: {
-  regionSlug: RegionSlug;
-  className?: string;
-}) {
+
+function TacticalRosterGrid({ teams }: { teams: OverviewTeam[] }) {
+  const sortedTeams = [...teams].sort((a,b) => b.mu0 - a.mu0);
+  
   return (
-    <div className={className ?? "region-view-links"}>
-      {REGION_QUICK_VIEWS.map((view) => (
-        <Link key={view.id} href={regionHref(regionSlug, view.id)} className="region-view-link">
-          {view.label}
-        </Link>
-      ))}
+    <div className="flex-1 flex flex-col min-h-[160px] border-t border-rm-metal-border pt-4 px-4 bg-transparent relative z-10 w-full overflow-hidden">
+      <div className="flex items-center shrink-0 mb-4">
+        <div className="w-1.5 h-1.5 bg-rm-blue animate-pulse mr-2 box-shadow-[0_0_8px_rgba(0,163,255,1)]"></div>
+        <h4 className="text-[10px] font-bold text-rm-blue tracking-widest uppercase text-glow-blue">
+          战队战力数据矩阵
+        </h4>
+      </div>
+      
+      <div className="flex-1 overflow-y-auto no-scrollbar scroll-smooth relative pointer-events-auto h-0">
+        <table className="w-full text-left border-collapse text-xs whitespace-nowrap select-none">
+          <thead className="sticky top-0 bg-rm-metal-panel/90 backdrop-blur z-20 shadow-md">
+            <tr className="border-b border-rm-metal-border text-rm-metal-text/80 font-mono text-[9px] uppercase tracking-widest">
+              <th className="py-2.5 px-2 font-bold w-4">本区排名</th>
+              <th className="py-2.5 px-2 font-bold w-1/3">高校名称</th>
+              <th className="py-2.5 px-2 font-bold text-right w-1/4">预计战力(ELO)</th>
+              <th className="py-2.5 px-2 font-bold text-center w-1/5">晋级全国赛</th>
+              <th className="py-2.5 px-2 font-bold text-center">赛区夺冠</th>
+            </tr>
+          </thead>
+          <tbody className="font-mono divide-y divide-rm-metal-border/30">
+            {sortedTeams.map((team, idx) => {
+              const isLock = team.probabilities.national >= 0.8;
+              const isChasing = team.probabilities.national >= 0.1 && team.probabilities.national < 0.8;
+              
+              return (
+                <tr 
+                  key={team.teamKey} 
+                  className={cn(
+                    "hover:bg-rm-blue/10 transition-colors group/row cursor-default",
+                    isLock ? "text-rm-status-safe" : isChasing ? "text-rm-status-warn focus:text-rm-status-warn" : "text-rm-metal-text/50"
+                  )}
+                >
+                  <td className="py-2 px-2 text-[10px] opacity-70 group-hover/row:opacity-100 group-hover/row:text-white transition-opacity">{idx + 1}</td>
+                  <td className="py-2 px-2 font-bold font-sans tracking-wide group-hover/row:text-white transition-colors">{team.collegeName}</td>
+                  <td className="py-2 px-2 text-right">
+                    <span className="font-machine tracking-widest bg-rm-metal-dark px-1.5 py-0.5 border border-rm-metal-border/50 rounded-sm">
+                      {elo(team.mu0)}
+                    </span>
+                  </td>
+                  <td className="py-2 px-2 text-center">
+                    <div className="w-full max-w-[48px] h-1.5 bg-rm-metal-dark mx-auto overflow-hidden relative border border-rm-metal-border/50">
+                       <div className="absolute top-0 left-0 bottom-0 bg-current transition-all" style={{ width: pct(team.probabilities.national) }}></div>
+                    </div>
+                    <div className="text-[9px] mt-1 font-machine tracking-widest group-hover/row:text-glow transition-all">{pct(team.probabilities.national)}</div>
+                  </td>
+                  <td className="py-2 px-2 text-center">
+                    <span className={cn("text-[9px] font-machine tracking-widest", team.probabilities.champion > 0.05 ? "text-glow-blue text-rm-blue" : "")}>
+                      {pct(team.probabilities.champion)}
+                    </span>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
-function HeroRegionCard({ region }: { region: RegionDashboardCard }) {
+function RegionCard({ region }: { region: RegionDashboardCard }) {
+  const isLive = region.monteCarlo.effectiveIterations > 0;
+  const realtimeEnabled = isRegionRealtimeEnabled(region.regionSlug);
+  const realtimeBadge = realtimeEnabled ? "已接入" : "待接入";
+  const realtimeHint = "当前模块尚未接入真实赛中数据；此处为真实信息入口预留位，不属于赛程模拟内容。";
+  
   return (
-    <article className="hero-command-card">
-      <div className="hero-command-head">
-        <div className="hero-command-title">
-          <p>{region.regionName}</p>
-          <strong>{region.favorite.collegeName}</strong>
-        </div>
-        <span className="hero-command-signal">争冠 {pct(region.favorite.probabilities.champion)}</span>
-      </div>
-      <div className="hero-command-grid">
-        <span>队伍 {region.teamCount}</span>
-        <span>国赛 {region.nationalSlots}</span>
-        <span>复活赛 {region.repechageSlots}</span>
-        <span>头号国赛 {pct(region.favorite.probabilities.national)}</span>
-      </div>
-      <RegionQuickLinks regionSlug={region.regionSlug} className="hero-region-links" />
-    </article>
-  );
-}
-
-function UltraWideHeroLayer({
-  generatedLabel,
-  heroMetrics,
-  regions,
-}: {
-  generatedLabel: string;
-  heroMetrics: OverviewMetric[];
-  regions: RegionDashboardCard[];
-}) {
-  return (
-    <section className="ultra-stage-layer">
-      <div className="ultra-stage-copy">
-        <p className="ultra-stage-kicker">RMUC 2026 / Molten Arena</p>
-        <div className="ultra-stage-heading" aria-label="RoboMaster 赛程模拟总控台">
-          <span className="ultra-stage-title-en">RoboMaster</span>
-          <span className="ultra-stage-title-cn">赛程模拟总控台</span>
-        </div>
-        <p className="ultra-stage-lead">
-          从这里进入三大赛区，先看资格赛去向、主淘汰赛对阵与最终排名，再横向比较争冠热度、赛区深度和国赛门槛。
-        </p>
-        <div className="ultra-stage-actions">
-          <Link href={regionHref("east_region", "playoff")} className="ultra-stage-cta">
-            进入赛区画布
-          </Link>
-          <Link href="/elo-rankings" className="hero-secondary-link">
-            查看 Elo 总览
-          </Link>
-          <span className="ultra-stage-generated">最新数据 {generatedLabel}</span>
-        </div>
-      </div>
-
-      <aside className="ultra-stage-panel">
-        <p className="ultra-stage-panel-kicker">三赛区直达</p>
-        <strong className="ultra-stage-panel-title">资格赛、主淘汰赛与最终排名一键直达</strong>
-        <p className="ultra-stage-panel-copy">每张赛区卡都会先交代头号热门、席位数量和常用入口，方便先锁定赛区，再深入查看完整赛程。</p>
-        <div className="ultra-stage-list">
-          {regions.map((region) => (
-            <article key={region.regionSlug} className="ultra-stage-card">
-              <div className="ultra-stage-card-head">
-                <div className="ultra-stage-card-title">
-                  <span className="ultra-stage-card-region">{region.regionName}</span>
-                  <strong>{region.favorite.collegeName}</strong>
-                </div>
-                <span className="ultra-stage-card-signal">争冠 {pct(region.favorite.probabilities.champion)}</span>
-              </div>
-              <div className="ultra-stage-card-metrics">
-                <span>队伍 {region.teamCount}</span>
-                <span>
-                  国赛 {region.nationalSlots} / 复活赛 {region.repechageSlots}
-                </span>
-                <span>头号国赛 {pct(region.favorite.probabilities.national)}</span>
-              </div>
-              <div className="ultra-stage-links">
-                {REGION_QUICK_VIEWS.map((view) => (
-                  <Link key={view.id} href={regionHref(region.regionSlug, view.id)} className="ultra-stage-link">
-                    {view.label}
-                  </Link>
-                ))}
-              </div>
-            </article>
-          ))}
-        </div>
-      </aside>
-
-      <div className="hero-metric-rail ultra-stage-metrics">
-        {heroMetrics.map((metric) => (
-          <article key={metric.label} className="hero-metric-segment">
-            <small>{metric.label}</small>
-            <strong>{metric.value}</strong>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function RegionCommandCard({ region }: { region: RegionDashboardCard }) {
-  return (
-    <article className="command-region-card region-command-card">
-      <div className="command-region-head">
-        <div>
-          <p>{region.regionName}</p>
-          <h3>{region.favorite.collegeName}</h3>
-        </div>
-        <Link href={regionHref(region.regionSlug, "playoff")} className="region-enter-link">
-          进入赛区
-        </Link>
-      </div>
-      <div className="command-region-grid">
-        <span>队伍 {region.teamCount}</span>
-        <span>国赛 {region.nationalSlots}</span>
-        <span>复活赛 {region.repechageSlots}</span>
-        <span>前 8 Elo {elo(region.avgTop8Elo)}</span>
-      </div>
-      <RegionQuickLinks regionSlug={region.regionSlug} />
-      <div className="region-summary-block">
-        <p>{region.summarySentence}</p>
-        <div className="profile-tag-list" aria-label="赛区画像">
-          <span className="profile-tag profile-tag-shape">{region.titleShapeTag}</span>
-          {region.profileTags.map((tag) => (
-            <span key={tag} className="profile-tag">
-              {tag}
-            </span>
-          ))}
-        </div>
-      </div>
-      <div className="command-region-panels">
-        <div className="favorite-cluster region-data-cluster region-title-cluster">
-          <div className="region-cluster-head">
-            <small>争冠格局</small>
-            <span className="region-shape-chip">{region.titleShapeTag}</span>
-          </div>
-          <strong>{region.favorite.collegeName}</strong>
-          <p>{region.favorite.teamName}</p>
-          <div className="region-data-rows">
-            <span>头号争冠 {pct(region.favorite.probabilities.champion)}</span>
-            <span>前三份额 {pct(region.top3ChampionShare)}</span>
-            <span>头二差值 {pct(region.titleGap)}</span>
-          </div>
-        </div>
-        <div className="favorite-cluster muted region-data-cluster region-lock-cluster">
-          <div className="region-cluster-head">
-            <small>国赛稳进名单</small>
-            <span className="region-race-chip qualified">
-              {region.nationalLocks.length > 0 ? `稳进 ${region.nationalLocks.length} 队` : "暂无稳进"}
+    <MechCard 
+      label={`${region.regionName} / 大数据推演结果`}
+      className={cn(
+        "flex h-full flex-col group overflow-hidden",
+        isLive ? "hover:border-rm-red/50 hover:shadow-[0_0_20px_rgba(255,42,42,0.15)] transition-all" : "opacity-60"
+      )}
+    >
+      <div className="grid shrink-0 gap-4 mb-6 [grid-template-rows:minmax(128px,auto)_auto_auto_minmax(86px,auto)_minmax(72px,auto)_minmax(150px,auto)_minmax(150px,auto)]">
+        <div
+          className={cn(
+            "bg-gradient-to-r via-rm-metal-dark px-3 py-2.5 text-white",
+            realtimeEnabled
+              ? "border border-rm-status-safe/45 from-rm-status-safe/20 to-rm-blue/20"
+              : "border border-rm-status-warn/45 from-rm-status-warn/20 to-rm-blue/20",
+          )}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-col">
+              <span className="text-[9px] font-mono uppercase tracking-[0.2em] text-rm-metal-text">实时数据入口</span>
+              <span className="truncate text-sm font-bold tracking-wide">实时胜率信息</span>
+            </div>
+            <span
+              className={cn(
+                "shrink-0 border px-2 py-1 text-[10px] font-bold uppercase tracking-widest",
+                realtimeEnabled
+                  ? "border-rm-status-safe/60 bg-rm-status-safe/15 text-rm-status-safe"
+                  : "border-rm-status-warn/60 bg-rm-status-warn/15 text-rm-status-warn",
+              )}
+            >
+              {realtimeBadge}
             </span>
           </div>
-          <strong>{region.nationalLocks.length > 0 ? `${region.regionName}稳进名单` : "仍在争夺中"}</strong>
-          <p>
-            {region.nationalLocks.length > 0
-              ? "这些队伍已经进入稳进国赛区间，可以直接从名单里追踪。"
-              : "目前还没有队伍进入稳进国赛区间。"}
+          <p className="mt-2 text-[10px] font-mono text-rm-metal-text leading-relaxed">
+            {realtimeHint}
           </p>
+        </div>
+
+        <div className="flex items-center justify-between border-b-2 border-rm-metal-border pb-2">
+          <div className="flex items-center gap-2">
+            <span className={cn(
+              "h-2 w-2 rounded-full",
+              isLive ? "bg-rm-status-safe animate-pulse" : "bg-rm-status-dead"
+            )}/>
+            <span className="font-mono text-xs text-rm-metal-text tracking-wider uppercase">
+              {isLive ? `推演种子点: ${region.monteCarlo.seeds[0] || 0}` : "等待推演源数据注入"}
+            </span>
+          </div>
+          <span className="font-mono text-[10px] text-rm-metal-text/60">
+            {isLive ? `${region.monteCarlo.effectiveIterations.toLocaleString("en-US")} 场平行赛程验证` : "推演集群离线"}
+          </span>
+        </div>
+
+        <RegionHeroMetrics region={region} />
+        
+        <div className="p-3 bg-rm-metal-dark/50 border-l-2 border-rm-blue/50 text-[11px] text-rm-metal-text leading-relaxed font-mono">
+          <p className="text-white/90 mb-2 font-sans tracking-wide">
+            {region.summarySentence}
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {region.profileTags.map((tag) => (
+              <span key={tag} className="px-1.5 py-0.5 bg-rm-metal-panel/80 border border-rm-metal-border text-[9px] text-rm-blue tracking-widest break-all">
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+        
+        <div>
+          <h4 className="text-[10px] font-bold text-rm-metal-text tracking-widest uppercase mb-2 flex items-center">
+            <span className="w-1 h-3 bg-rm-status-safe mr-2"></span>稳进国赛阵容
+          </h4>
           <LockTeamList teams={region.nationalLocks} />
         </div>
-        <div className="favorite-cluster muted region-data-cluster region-race-cluster">
-          <div className="region-cluster-head">
-            <small>国赛卡位线</small>
-            <span className="region-race-chip">
-              {nationalRaceChipLabel(region.nationalRace.chasingTeams.length)}
-            </span>
-          </div>
-          <strong>{region.nationalRace.cutoffTeam?.collegeName ?? "待定"}</strong>
-          <p>
-            {region.nationalRace.cutoffTeam
-              ? `${region.nationalRace.cutoffTeam.teamName} 正守在最后一张国赛席位上。`
-              : "最后一张国赛席位仍在频繁变化。"}
-          </p>
-          <RaceTeamChips teams={region.nationalRace.chasingTeams} />
-          <div className="region-data-rows">
-            <span>{holdLabel(region.nationalRace.cutoffProbability)}</span>
-            <span>{chaseGapLabel(region.nationalRace.gap)}</span>
-          </div>
+
+        <div>
+          <h4 className="text-[10px] font-bold text-rm-metal-text tracking-widest uppercase mb-2 flex items-center">
+            <span className="w-1 h-3 bg-rm-red mr-2"></span>国赛焦点卡位战圈
+          </h4>
+          <RaceTeamChips {...region.nationalRace} />
         </div>
-        <div className="favorite-cluster muted region-data-cluster secondary region-race-cluster">
-          <div className="region-cluster-head">
-            <small>复活赛卡位线</small>
-            <span className="region-race-chip secondary">
-              {region.repechageRace.locksCount > 0 ? `占先 ${region.repechageRace.locksCount} 队` : "仍在拉锯"}
-            </span>
-          </div>
-          <strong>{region.repechageRace.cutoffTeam?.collegeName ?? "待定"}</strong>
-          <p>
-            {region.repechageRace.cutoffTeam
-              ? `${region.repechageRace.cutoffTeam.teamName} 正守在最后一张复活赛席位上。`
-              : "最后一张复活赛席位仍未站稳。"}
-          </p>
-          <RaceTeamChips teams={region.repechageRace.chasingTeams} />
-          <div className="region-data-rows">
-            <span>{holdLabel(region.repechageRace.cutoffProbability)}</span>
-            <span>{chaseGapLabel(region.repechageRace.gap)}</span>
-          </div>
+
+        <div>
+          <h4 className="text-[10px] font-bold text-rm-metal-text tracking-widest uppercase mb-2 flex items-center">
+            <span className="w-1 h-3 bg-rm-status-warn mr-2"></span>复活赛焦点卡位战圈
+          </h4>
+          <RaceTeamChips {...region.repechageRace} variant="repechage" />
         </div>
       </div>
-    </article>
+
+      <div className="flex bg-rm-metal-dark/20 flex-col h-[400px] shrink-0 -mx-4 -mb-4 mt-auto">
+        <TacticalRosterGrid teams={region.teams} />
+        {isLive && (
+          <div className="shrink-0 border-t border-rm-metal-border pt-4 px-4 pb-4 flex justify-between gap-2 overflow-x-auto no-scrollbar bg-transparent relative z-20 pointer-events-auto">
+            {REGION_QUICK_VIEWS.map((view) => (
+              <Link 
+                key={view.id} 
+                href={buildRegionHref(region.regionSlug, view.id)}
+                className="flex-none px-3 py-1.5 bg-rm-metal-dark border border-rm-metal-border text-xs font-bold text-rm-metal-text hover:text-rm-blue hover:border-rm-blue/50 transition-colors whitespace-nowrap"
+              >
+                {view.label}
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+    </MechCard>
   );
 }
 
-function FeaturedContender({ team, rank }: { team: OverviewTeam; rank: number }) {
+
+function SystemBrief() {
   return (
-    <Link href={regionHref(team.regionSlug, "playoff", team.teamKey)} className="contender-feature-card">
-      <div className="contender-feature-top">
-        <span className="contender-rank">#{rank}</span>
-        <span className="contender-region">{team.regionName}</span>
+    <MechCard label="系统简报 / 赛区监控网络简报" className="mb-6">
+      <div className="text-sm font-mono text-rm-metal-text leading-relaxed space-y-2">
+        <p className="text-white"><span className="text-rm-blue font-bold mr-2">{'>'}</span>欢迎访问 RMUC 2026 全局赛区监控网络。</p>
+        <p><span className="text-rm-metal-text/50 mr-2">{'>'}</span>这里展示基于 TrueSkill 2 算法与 Monte Carlo 蒙特卡洛预测模型推演的各赛区战局与晋级态势。</p>
+        <p><span className="text-rm-metal-text/50 mr-2">{'>'}</span>全方位分析各个赛区的「资格赛」、「主淘汰赛」分流走向，实时呈现重点梯队夺冠预测及各赛区战力指数评估。</p>
+        <p><span className="text-rm-blue/80 font-bold tracking-widest text-xs uppercase animate-pulse">{">>>"} 系统数据同步完成</span></p>
       </div>
-      <div className="contender-feature-main">
-        <strong>{team.collegeName}</strong>
-        <p>{team.teamName}</p>
-      </div>
-      <div className="contender-feature-metrics">
-        <span>争冠 {pct(team.probabilities.champion)}</span>
-        <span>国赛 {pct(team.probabilities.national)}</span>
-      </div>
-    </Link>
+    </MechCard>
   );
 }
 
-function ContenderListItem({ team }: { team: OverviewTeam }) {
+function GlobalContenders({ contenders }: { contenders: OverviewTeam[] }) {
+  if (!contenders || contenders.length === 0) return null;
+  
   return (
-    <Link href={regionHref(team.regionSlug, "playoff", team.teamKey)} className="contender-list-item">
-      <div className="contender-list-copy">
-        <strong>{team.collegeName}</strong>
-        <p>
-          {team.regionName} / 全球 Elo #{team.eloGlobalRank}
-        </p>
+    <MechCard label="全国总决赛夺冠形势预测梯队" className="mt-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {contenders.map((team, idx) => (
+          <div key={team.teamKey} className="bg-rm-metal-dark border border-rm-metal-border p-4 flex flex-col group hover:border-rm-blue/50 transition-colors relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-8 h-8 bg-rm-blue/10 transform rotate-45 translate-x-4 -translate-y-4 group-hover:bg-rm-blue/30 transition-colors" />
+            <div className="text-[10px] text-rm-metal-text font-bold mb-1 flex items-center justify-between">
+              <span className={cn(idx < 4 ? "text-rm-status-safe" : "")}>
+                {idx < 4 ? "第一梯队" : idx < 8 ? "第二梯队" : "第三梯队"} / 全国排名 {idx + 1}
+              </span>
+              <span className="text-rm-blue text-right ml-2 truncate max-w-[80px]">{team.regionName}</span>
+            </div>
+            <div className="text-lg font-bold text-white font-sans mt-1 mb-2 truncate group-hover:text-glow-white transition-all">
+              {team.collegeName}
+            </div>
+            <div className="flex justify-between items-end mt-auto pt-2 border-t border-rm-metal-border/50">
+              <div className="flex flex-col">
+                <span className="text-[9px] text-rm-metal-text tracking-widest">综述战力得分</span>
+                <span className="text-sm font-machine text-white">{elo(team.mu0)}</span>
+              </div>
+              <div className="flex flex-col items-end">
+                <span className="text-[9px] text-rm-metal-text tracking-widest">总决赛问鼎率</span>
+                <span className={cn("text-sm font-machine", team.probabilities.champion > 0.1 ? "text-rm-blue text-glow-blue" : "text-white")}>
+                  {pct(team.probabilities.champion)}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
-      <div className="contender-list-metrics">
-        <span>争冠 {pct(team.probabilities.champion)}</span>
-        <span>国赛 {pct(team.probabilities.national)}</span>
+    </MechCard>
+  );
+}
+
+function RegionComparison({ strengths }: { strengths: RegionStrengthRow[] }) {
+  if (!strengths || strengths.length === 0) return null;
+  
+  return (
+    <MechCard label="各赛区整体战备实力对比" className="mt-8 overflow-hidden">
+      <div className="overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
+        <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
+          <thead className="bg-rm-metal-panel/50">
+            <tr className="border-b flex-nowrap border-rm-metal-border text-rm-metal-text font-mono text-[10px] uppercase tracking-widest">
+              <th className="py-3 px-3 font-bold">赛区分布</th>
+              <th className="py-3 px-3 font-bold text-right">赛区强度</th>
+              <th className="py-3 px-3 font-bold text-right">四强平均战力</th>
+              <th className="py-3 px-3 font-bold text-right">八强平均战力</th>
+              <th className="py-3 px-3 font-bold text-right">中下游平均底线</th>
+              <th className="py-3 px-3 font-bold text-right">头号种子独裁率</th>
+            </tr>
+          </thead>
+          <tbody className="font-mono divide-y divide-rm-metal-border/50">
+            {strengths.map((row) => (
+              <tr key={row.regionSlug} className="hover:bg-rm-blue/5 transition-colors group cursor-default">
+                <td className="py-3 px-3 font-bold font-sans text-white text-sm">{row.regionName}</td>
+                <td className="py-3 px-3 text-right">
+                  <span className="text-rm-blue font-bold group-hover:text-glow-blue transition-all">
+                    {row.powerIndex.toFixed(1)}
+                  </span>
+                </td>
+                <td className="py-3 px-3 text-right text-white/90">{elo(row.top4AverageElo)}</td>
+                <td className="py-3 px-3 text-right text-white/70">{elo(row.top8AverageElo)}</td>
+                <td className="py-3 px-3 text-right text-rm-metal-text">{elo(row.medianElo)}</td>
+                <td className="py-3 px-3 text-right">
+                  <span className="font-machine tracking-widest border border-rm-metal-border bg-rm-metal-dark px-2 py-0.5 group-hover:border-rm-blue/50 transition-colors">
+                    {pct(row.favoriteChampionProbability)}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-    </Link>
+    </MechCard>
   );
 }
 
 export function OverviewPage() {
-  const [data, setData] = useState<OverviewResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [dashboard, setDashboard] = useState<OverviewDashboard | null>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
+    let canceled = false;
     getOverview()
-      .then((payload) => {
-        setData(payload);
-        setError(null);
+      .then((res) => {
+        if (!canceled) {
+          setDashboard(buildOverviewDashboard(res));
+        }
       })
-      .catch((err: Error) => {
-        setError(err.message);
+      .catch((err) => {
+        if (!canceled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
       });
+    return () => {
+      canceled = true;
+    };
   }, []);
 
-  const dashboard = useMemo(() => (data ? buildOverviewDashboard(data) : null), [data]);
-  const featuredContenders = dashboard?.contenders.slice(0, 3) ?? [];
-  const contenderQueue = dashboard?.contenders.slice(3) ?? [];
+  if (error) {
+    return (
+      <div className="text-rm-red p-4 border border-rm-red bg-rm-red-dim font-mono">
+        FATAL ERROR: {error}
+      </div>
+    );
+  }
+
+  if (!dashboard) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20 animate-pulse">
+        <div className="w-8 h-8 border-4 border-rm-blue border-t-transparent rounded-full animate-spin mb-4"></div>
+        <span className="font-machine text-rm-blue tracking-widest uppercase text-xs">
+          正在接入战区预测引擎节点...
+        </span>
+      </div>
+    );
+  }
+
 
   return (
-    <main className="control-home">
-      {dashboard ? <UltraWideHeroLayer generatedLabel={dashboard.generatedLabel} heroMetrics={dashboard.heroMetrics} regions={dashboard.regions} /> : null}
-
-      <section className="control-hero home-command-hero">
-        <div className="control-hero-copy">
-          <p className="hero-eyebrow">RMUC 2026 / Molten Arena</p>
-          <p className="hero-side-label">Molten Arena</p>
-          <h1>
-            <span>RoboMaster</span>
-            <span>赛程模拟总控台</span>
-          </h1>
-          <p className="hero-lead">
-            从这里进入三大赛区，先看资格赛去向、主淘汰赛对阵与最终排名，再横向比较争冠热度、赛区深度和国赛门槛。
-          </p>
-          <div className="hero-actions">
-            <Link href={regionHref("east_region", "playoff")} className="hero-primary-link">
-              进入赛区画布
-            </Link>
-            <Link href="/elo-rankings" className="hero-secondary-link">
-              查看 Elo 总览
-            </Link>
-            <span className="hero-generated">最新数据 {dashboard?.generatedLabel ?? "载入中"}</span>
-          </div>
+    <div className="space-y-8 animate-in fade-in duration-700">
+      <div className="flex items-end justify-between border-b-2 border-transparent pb-4 relative">
+        <div className="absolute bottom-0 left-0 right-1/2 h-[2px] bg-gradient-to-r from-transparent to-rm-red shadow-[0_0_10px_rgba(255,42,42,0.8)]" />
+        <div className="absolute bottom-0 right-0 left-1/2 h-[2px] bg-gradient-to-l from-transparent to-rm-blue shadow-[0_0_10px_rgba(0,229,255,0.8)]" />
+        
+        <h2 className="text-3xl font-black uppercase tracking-widest text-white flex items-center group">
+           RoboMaster 胜率预测总控台 
+           <span className="ml-4 flex gap-1">
+             <span className="w-3 h-3 bg-rm-red skew-x-[-15deg] box-shadow-[0_0_8px_rgba(255,42,42,0.8)]"></span>
+             <span className="w-3 h-3 bg-rm-blue skew-x-[15deg] box-shadow-[0_0_8px_rgba(0,229,255,0.8)]"></span>
+           </span>
+        </h2>
+        
+        <div className="flex items-center gap-4 hidden sm:flex bg-rm-metal-dark px-3 py-1 border border-rm-metal-border/50">
+          <span className="flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-rm-status-safe opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-rm-status-safe"></span>
+          </span>
+          <span className="font-mono text-[10px] text-rm-metal-text uppercase tracking-widest text-glow">
+            {dashboard.generatedLabel} / 系统运转正常
+          </span>
         </div>
+      </div>
 
-        <aside className="hero-command-panel">
-          <div className="hero-command-panel-head">
-            <small>三赛区直达</small>
-            <strong>资格赛、主淘汰赛与最终排名一键直达</strong>
-            <p>每张赛区卡都会先交代头号热门、席位数量和常用入口，方便先锁定赛区，再深入查看完整赛程。</p>
-          </div>
-          <div className="hero-command-list">
-            {dashboard?.regions.map((region) => (
-              <HeroRegionCard key={region.regionSlug} region={region} />
-            ))}
-          </div>
-        </aside>
+      <SystemBrief />
 
-        <div className="hero-metric-rail">
-          {dashboard?.heroMetrics.map((metric) => (
-            <article key={metric.label} className="hero-metric-segment">
-              <small>{metric.label}</small>
-              <strong>{metric.value}</strong>
-            </article>
-          ))}
-        </div>
-      </section>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {dashboard.regions.map((region) => (
+          <RegionCard key={region.regionSlug} region={region} />
+        ))}
+      </div>
 
-      {error ? <section className="error-panel">数据加载失败：{error}</section> : null}
-
-      {dashboard ? (
-        <>
-          <OverviewModule
-            meta={{
-              id: "regions",
-              eyebrow: "赛区入口",
-              title: "赛区快速进入",
-              description: "每张卡先概括这个赛区的热门队伍、席位数量和出线门槛，再继续进入对应赛区画布。",
-              tone: "cyan",
-            }}
-          >
-            <div className="region-deck">
-              {dashboard.regions.map((region) => (
-                <RegionCommandCard key={region.regionSlug} region={region} />
-              ))}
-            </div>
-          </OverviewModule>
-
-          <OverviewModule
-            meta={{
-              id: "contenders",
-              eyebrow: "争冠梯队",
-              title: "全局争冠梯队",
-              description: "先看全站最热的三支争冠队，再顺着榜单继续追踪其余热门队伍。",
-              tone: "amber",
-            }}
-          >
-            <div className="contender-board">
-              <div className="contender-podium">
-                {featuredContenders.map((team, index) => (
-                  <FeaturedContender key={team.teamKey} team={team} rank={index + 1} />
-                ))}
-              </div>
-              <div className="contender-queue">
-                {contenderQueue.map((team) => (
-                  <ContenderListItem key={team.teamKey} team={team} />
-                ))}
-              </div>
-            </div>
-          </OverviewModule>
-
-          <OverviewModule
-            meta={{
-              id: "strength",
-              eyebrow: "赛区对比",
-              title: "赛区强度对比",
-              description: "把三大赛区放到同一把尺子下，看头部火力、整体深度、争冠热度和稳进厚度的差别。",
-              tone: "steel",
-            }}
-          >
-            <div className="strength-compare-grid">
-              {dashboard.regionStrength.map((row) => (
-                <article key={row.regionSlug} className="strength-panel">
-                  <div className="strength-panel-head">
-                    <div>
-                      <p>{row.regionName}</p>
-                      <strong>综合评分 {row.powerIndex}</strong>
-                    </div>
-                    <span className="strength-badge">评分 {row.powerIndex}</span>
-                  </div>
-                  <div className="strength-metric-groups">
-                    <section className="strength-group">
-                      <h3>头部火力</h3>
-                      <div className="strength-group-grid">
-                        <span>前 4 Elo {elo(row.top4AverageElo)}</span>
-                        <span>头号争冠 {pct(row.favoriteChampionProbability)}</span>
-                      </div>
-                    </section>
-                    <section className="strength-group">
-                      <h3>整体深度</h3>
-                      <div className="strength-group-grid">
-                        <span>前 8 Elo {elo(row.top8AverageElo)}</span>
-                        <span>平均 Elo {elo(row.meanElo)}</span>
-                        <span>中位 Elo {elo(row.medianElo)}</span>
-                      </div>
-                    </section>
-                    <section className="strength-group">
-                      <h3>热度与稳进</h3>
-                      <div className="strength-group-grid">
-                        <span>前三份额 {pct(row.top3ChampionShare)}</span>
-                        <span>稳进队数 {row.nationalLockCount} 队</span>
-                      </div>
-                    </section>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </OverviewModule>
-
-          <OverviewModule
-            meta={{
-              id: "simulation-spec",
-              eyebrow: "模拟说明",
-              title: "模拟口径与赛制总览",
-              description: "说明每个赛区用了多少组种子、多少次模拟，以及国赛和复活赛席位如何分配。",
-              tone: "emerald",
-            }}
-          >
-            <div className="simulation-spec-grid">
-              {dashboard.regions.map((region) => (
-                <article key={region.regionSlug} className="simulation-spec-card">
-                  <div className="simulation-spec-head">
-                    <strong>{region.regionName}</strong>
-                    <span>{region.teamCount} 支队伍</span>
-                  </div>
-                  <div className="simulation-spec-list">
-                    <div>
-                      <span>席位结构</span>
-                      <strong>
-                        国赛 {region.nationalSlots} / 复活赛 {region.repechageSlots}
-                      </strong>
-                    </div>
-                    <div>
-                      <span>种子场景</span>
-                      <strong>{region.monteCarlo.seedCount} 组</strong>
-                    </div>
-                    <div>
-                      <span>有效迭代</span>
-                      <strong>{numberWithComma(region.monteCarlo.effectiveIterations)} 次</strong>
-                    </div>
-                    <div>
-                      <span>聚合方式</span>
-                      <strong>{aggregationLabel(region.monteCarlo.aggregationMode)}</strong>
-                    </div>
-                    <div>
-                      <span>最近生成</span>
-                      <strong>{dashboard.generatedLabel}</strong>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </OverviewModule>
-        </>
-      ) : (
-        <section className="loading-panel">正在载入首页总览…</section>
-      )}
-    </main>
+      <GlobalContenders contenders={dashboard.contenders} />
+      
+      <RegionComparison strengths={dashboard.regionStrength} />
+      
+      <div className="text-center font-mono text-[9px] text-rm-metal-text/40 pt-4 pb-12 tracking-widest">
+        RoboMaster 2026 机甲大师区域赛战术测算系统 / 引擎核心：基于对战历史的 TrueSkill 2 与全分组平行蒙特卡洛预测方案 //
+      </div>
+    </div>
   );
 }

@@ -104,8 +104,8 @@ def test_overview_uses_ts2_preseason_ratings() -> None:
 def test_simulation_returns_expected_shape_for_all_regions() -> None:
     expectations = {
         "east_region": {"nationalSlots": 8, "repechageSlots": 6},
-        "south_region": {"nationalSlots": 10, "repechageSlots": 4},
-        "north_region": {"nationalSlots": 10, "repechageSlots": 6},
+        "south_region": {"nationalSlots": 10, "repechageSlots": 6},
+        "north_region": {"nationalSlots": 10, "repechageSlots": 4},
     }
     for region_slug, expected in expectations.items():
         response = client.get(f"/api/regions/{region_slug}/simulation", params={"seed": 20260414})

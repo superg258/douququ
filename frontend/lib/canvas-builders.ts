@@ -29,19 +29,20 @@ interface SwissReplayArtifacts {
 }
 
 const MATCH_CARD_WIDTH = 338;
-const MATCH_CARD_HEIGHT = 120;
+const MATCH_CARD_HEIGHT = 144;
 const TEAM_CARD_WIDTH = 338;
 const TEAM_CARD_HEIGHT = 88;
-const DETAIL_TEAM_CARD_WIDTH = 362;
+const DETAIL_TEAM_CARD_WIDTH = 338;
 const DETAIL_TEAM_CARD_HEIGHT = 104;
-const SWISS_MATCH_CARD_HEIGHT = 120;
-const SWISS_MATCH_STEP = 132;
+const SWISS_MATCH_CARD_HEIGHT = 144;
+const SWISS_MATCH_STEP = 156;
 const SUMMARY_TEAM_STEP = 112;
 const STAGE_HEADER_TO_CARD_OFFSET = 92;
 const SWISS_SECTION_GAP = 78;
 const PLAYOFF_MATCH_CARD_WIDTH = 392;
 const PLAYOFF_MATCH_CARD_HEIGHT = 144;
 const PLAYOFF_MATCH_STEP = 148;
+const HEADER_CONNECTOR_ANCHOR_Y = 10;
 
 type SwissSummaryId =
   | "qualified-3-0"
@@ -183,8 +184,7 @@ function compactMatchCode(matchLabel: string) {
 }
 
 function stageMeta(match: MatchRow) {
-  const liveTag = match.isRealResult ? " / 实际赛果" : "";
-  return `${translateStageLabel(match.stage)} / BO${match.bestOf}${liveTag}`;
+  return `${translateStageLabel(match.stage)} / BO${match.bestOf}`;
 }
 
 function compareSlotOrder(left: SlotRow, right: SlotRow) {
@@ -315,9 +315,13 @@ function connectHeaderBands(
   }
 
   const sourceRight = Math.max(...sourceHeaders.map((header) => header.x + header.width));
-  const sourceY = sourceHeaders.reduce((sum, header) => sum + header.y + 39, 0) / sourceHeaders.length;
+  const sourceY =
+    sourceHeaders.reduce((sum, header) => sum + header.y + HEADER_CONNECTOR_ANCHOR_Y, 0) /
+    sourceHeaders.length;
   const targetLeft = Math.min(...targetHeaders.map((header) => header.x));
-  const targetY = targetHeaders.reduce((sum, header) => sum + header.y + 39, 0) / targetHeaders.length;
+  const targetY =
+    targetHeaders.reduce((sum, header) => sum + header.y + HEADER_CONNECTOR_ANCHOR_Y, 0) /
+    targetHeaders.length;
   const gap = Math.max(18, targetLeft - sourceRight);
 
   return {
@@ -328,7 +332,7 @@ function connectHeaderBands(
     toX: targetLeft - 12,
     toY: targetY,
     viaX: sourceRight + Math.max(18, Math.min(36, gap * 0.5)),
-    branchY: targetHeaders.map((header) => header.y + 39),
+    branchY: targetHeaders.map((header) => header.y + HEADER_CONNECTOR_ANCHOR_Y),
     tone,
     weight: tone === "amber" ? "strong" : "normal",
   };
@@ -573,7 +577,7 @@ function buildSlotsStage(simulation: SimulationResponse): WorkspaceStage {
       width: 380,
       title: `${groupName} 组抽签落位`,
       subtitle: `${slots.length} 支队伍`,
-      tone: "steel",
+      tone: "cyan",
     });
     slots.forEach((slot, index) => {
       cards.push(
@@ -587,7 +591,7 @@ function buildSlotsStage(simulation: SimulationResponse): WorkspaceStage {
           orderLabel: slot.slot ?? "--",
           subtitle: slot.teamName,
           statLine: `${slot.seedTier} / Elo #${slot.eloGlobalRank}`,
-          tone: "steel",
+          tone: "cyan",
         })
       );
     });

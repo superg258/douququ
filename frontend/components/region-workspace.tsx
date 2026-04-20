@@ -6,48 +6,35 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "rea
 import PinyinMatch from "pinyin-match";
 
 import { WorkspaceStageView } from "@/components/workspace-stage";
-import { getLiveRegionState, getOverview, getSimulation } from "@/lib/api";
+import { getOverview, getSimulation } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { buildWorkspaceStage } from "@/lib/canvas-builders";
 import { formatRankingResultLabel, translateConfidenceLabel, translateDestinationLabel, translateStageLabel } from "@/lib/display";
-import { buildLiveTimelineForTeam, findLiveMatchImpactPair } from "@/lib/live-state";
-import { buildRegionHref, getOrCreateSessionSeed, parseMode, parseSeed, REGION_LABELS, REGION_VIEWS } from "@/lib/region-config";
+import { buildRegionHref, getOrCreateSessionSeed, isRegionRealtimeEnabled, parseSeed, refreshSessionSeed, REGION_LABELS, REGION_VIEWS } from "@/lib/region-config";
+import { predictScoreline } from "@/components/canvas-card";
 import type {
   InspectorSelection,
-  LiveRegionStateResponse,
   MatchRow,
   OverviewResponse,
   OverviewTeam,
   RegionSlug,
   SimulationResponse,
-  WorkspaceMode,
   WorkspaceView,
 } from "@/lib/types";
+
+type MatchPhase = "pre" | "post";
 
 function percent(value: number) {
   return `${(value * 100).toFixed(1)}%`;
 }
 
-function rating(value: number) {
-  return value.toFixed(1);
-}
-
-function signedRating(value: number) {
-  return `${value >= 0 ? "+" : ""}${value.toFixed(1)}`;
-}
-
-function translateLiveStageFamily(stageFamily: string) {
-  switch (stageFamily) {
-    case "regional_group":
-      return "区域赛小组赛";
-    case "post_group":
-      return "区域赛淘汰赛";
-    case "repechage":
-      return "复活赛";
-    case "nationals":
-      return "国赛";
-    default:
-      return stageFamily;
-  }
+function hasMatchElo(match: MatchRow) {
+  return (
+    typeof match.redMu0 === "number" &&
+    typeof match.blueMu0 === "number" &&
+    typeof match.redDelta === "number" &&
+    typeof match.blueDelta === "number"
+  );
 }
 
 function validRegion(regionSlug: string): regionSlug is RegionSlug {
@@ -88,266 +75,404 @@ function teamPath(simulation: SimulationResponse, teamKey: string) {
     });
 }
 
-function SearchModal({
-  open,
-  title,
-  onClose,
-  children,
-}: {
-  open: boolean;
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  if (!open) {
-    return null;
-  }
+function deriveMatchPhase(match: MatchRow): MatchPhase {
+  return match.isRealResult ? "post" : "pre";
+}
+
+function phaseLabel(phase: MatchPhase) {
+  return phase === "post" ? "赛后评价" : "赛前预测";
+}
+
+function phaseClass(phase: MatchPhase) {
+  return phase === "post"
+    ? "text-rm-status-safe border-rm-status-safe/35 bg-rm-status-safe/12"
+    : "text-rm-blue border-rm-blue/35 bg-rm-blue/12";
+}
+
+function SouthSwissReplayList({ view, simulation }: { view: WorkspaceView; simulation: SimulationResponse | null }) {
+  const groupName = view === "swiss-a" ? "A" : "B";
+  const swissRows = (simulation?.matches ?? []).filter((row) => row.stage === "swiss" && row.groupName === groupName);
+  const pendingRows = swissRows
+    .filter((row) => !row.isRealResult)
+    .sort((left, right) => {
+      if (left.roundNumber !== right.roundNumber) {
+        return left.roundNumber - right.roundNumber;
+      }
+      return left.matchLabel.localeCompare(right.matchLabel);
+    });
+  const completedRows = swissRows
+    .filter((row) => row.isRealResult)
+    .sort((left, right) => {
+      if (left.roundNumber !== right.roundNumber) {
+        return left.roundNumber - right.roundNumber;
+      }
+      return left.matchLabel.localeCompare(right.matchLabel);
+    });
+  const rows = [...pendingRows, ...completedRows];
 
   return (
-    <>
-      <button type="button" className="overlay-backdrop" onClick={onClose} aria-label="关闭搜索" />
-      <aside className="search-modal">
-        <div className="search-modal-head">
-          <div>
-            <p className="module-eyebrow">全站检索</p>
-            <h3>{title}</h3>
-          </div>
-          <button type="button" onClick={onClose}>
-            关闭
-          </button>
+    <div className="h-full overflow-y-auto px-6 py-5 no-scrollbar">
+      <div className="mb-4 border border-rm-status-safe/45 bg-rm-status-safe/10 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-bold tracking-widest text-rm-status-safe">南部赛区 {groupName} 组实时赛程列表</h3>
+          <span className="text-[10px] font-mono border border-rm-status-safe/45 bg-rm-status-safe/10 px-2 py-0.5 text-rm-status-safe">
+            未完赛在前，已完赛在后
+          </span>
         </div>
-        <div className="search-modal-body">{children}</div>
-      </aside>
-    </>
+        <p className="mt-2 text-xs text-rm-metal-text">
+          已明确对局但未正式开赛/未出结果的场次优先展示；已完赛场次放在列表后半区并给出赛后分析。
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-mono">
+          <span className="border border-rm-blue/35 bg-rm-blue/10 px-2 py-0.5 text-rm-blue">待开赛/待结果 {pendingRows.length}</span>
+          <span className="border border-rm-status-safe/35 bg-rm-status-safe/10 px-2 py-0.5 text-rm-status-safe">已完赛 {completedRows.length}</span>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {rows.map((row) => {
+          const isCompleted = Boolean(row.isRealResult);
+          const expectedRed = row.pSeriesRed;
+          const expectedBlue = row.pSeriesBlue;
+          const [redGamesText, blueGamesText] = (row.scoreline || "0:0").split(":");
+          const redGames = Number(redGamesText);
+          const blueGames = Number(blueGamesText);
+          const actualWinnerName = redGames > blueGames ? row.redTeam.collegeName : row.blueTeam.collegeName;
+          
+          let predictionHit = false;
+          if (isCompleted) {
+            const expectedWinnerName = expectedRed >= expectedBlue ? row.redTeam.collegeName : row.blueTeam.collegeName;
+            predictionHit = expectedWinnerName === actualWinnerName;
+          }
+
+          const predictedScore = predictScoreline(row.pGameRed, row.pSeriesRed, row.bestOf || 3);
+          const postLine = isCompleted
+            ? (
+              predictionHit
+                ? `赛前主胜判断命中，置信等级：${translateConfidenceLabel(row.confidenceLabel)}。`
+                : `赛前主胜判断未命中，出现逆转，置信等级：${translateConfidenceLabel(row.confidenceLabel)}。`
+            )
+            : `本场尚未产生正式赛果，当前仅展示预计走向，置信等级：${translateConfidenceLabel(row.confidenceLabel)}。`;
+
+          return (
+            <article 
+              key={row.matchLabel} 
+              className={cn(
+                "relative bg-rm-metal-dark/80 px-4 py-4 clip-chamfer group overflow-hidden border transition-colors",
+                isCompleted ? "border-rm-status-safe/50 hover:border-rm-status-safe" : "border-rm-metal-border hover:border-rm-blue/50"
+              )}
+            >
+              {isCompleted && (
+                <div className="absolute inset-0 bg-gradient-to-r from-rm-status-safe/5 via-transparent to-transparent pointer-events-none" />
+              )}
+              
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-rm-metal-border/50 pb-2 relative z-10">
+                <div className="flex items-center gap-3">
+                  <span className={cn(
+                    "text-[10px] font-mono font-bold uppercase tracking-widest px-3 py-0.5 clip-chamfer border",
+                    isCompleted ? "border-rm-status-safe text-rm-status-safe bg-rm-status-safe/10 shadow-[0_0_8px_rgba(0,255,157,0.3)]" : "border-rm-blue text-rm-blue bg-rm-blue/10 shadow-[0_0_8px_rgba(0,163,255,0.3)]"
+                  )}>
+                    {isCompleted ? "已完赛" : "待开赛"}
+                  </span>
+                  <span className="text-sm font-machine tracking-widest text-white">{row.matchLabel}</span>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] font-mono">
+                  <span className="text-rm-metal-text opacity-70">第 {row.roundNumber} 轮 / BO{row.bestOf}</span>
+                  {isCompleted && <span className="bg-rm-status-safe text-black font-bold px-1.5">已出赛果</span>}
+                </div>
+              </div>
+
+              <div className="mt-5 relative z-10">
+                <div className="flex items-stretch justify-between relative bg-[#05070c] border border-rm-metal-border/50 clip-chamfer min-h-[82px]">
+                  
+                  {/* Red Team Side */}
+                  <div className={cn(
+                    "flex-[0.45] flex flex-col justify-center p-3 border-l-2 bg-gradient-to-r from-rm-red/10 to-transparent",
+                    isCompleted && actualWinnerName === row.redTeam.collegeName ? "border-rm-status-safe shadow-[inset_0_0_20px_rgba(0,255,157,0.15)]" : "border-rm-red"
+                  )}>
+                     {isCompleted && actualWinnerName === row.redTeam.collegeName && (
+                       <span className="text-[9px] font-machine text-rm-status-safe tracking-widest mb-1 animate-pulse">{">>> 胜者"}</span>
+                     )}
+                     <div 
+                       title={row.redTeam.collegeName} 
+                       className={cn("text-base font-bold tracking-widest break-normal line-clamp-2 pr-2 h-full flex items-center shadow-black drop-shadow-md", isCompleted && actualWinnerName === row.redTeam.collegeName ? "text-white text-glow-white" : "text-rm-red")}
+                     >
+                       {row.redTeam.collegeName}
+                     </div>
+                  </div>
+                  
+                  {/* Center VS */}
+                  <div className="flex-[0.1] flex flex-col items-center justify-center relative">
+                    <div className="text-3xl font-machine italic text-rm-metal-text opacity-30 select-none">对阵</div>
+                    {isCompleted ? (
+                       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#0a0a0f] border border-rm-status-safe px-4 py-2 text-2xl font-machine text-rm-status-safe shadow-[0_0_15px_rgba(0,255,157,0.4)] whitespace-nowrap z-10 text-glow">
+                         {row.scoreline}
+                       </div>
+                    ) : (
+                       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#0a0a0f] border border-rm-status-warn/50 px-2 py-1 text-xs font-machine text-rm-status-warn/80 whitespace-nowrap z-10 flex flex-col items-center shadow-[0_0_10px_rgba(255,184,46,0.2)]">
+                         <span className="-mb-0.5 mt-0.5 text-[9px] text-rm-status-warn/60 uppercase">预测</span>
+                         <span className="text-xl tracking-widest">{predictedScore.scoreline}</span>
+                       </div>
+                    )}
+                  </div>
+
+                  {/* Blue Team Side */}
+                  <div className={cn(
+                    "flex-[0.45] flex flex-col justify-center items-end p-3 border-r-2 bg-gradient-to-l from-rm-blue/10 to-transparent text-right",
+                    isCompleted && actualWinnerName === row.blueTeam.collegeName ? "border-rm-status-safe shadow-[inset_0_0_20px_rgba(0,255,157,0.15)]" : "border-rm-blue"
+                  )}>
+                     {isCompleted && actualWinnerName === row.blueTeam.collegeName && (
+                       <span className="text-[9px] font-machine text-rm-status-safe tracking-widest mb-1 animate-pulse">胜者 {"<<<"}</span>
+                     )}
+                     <div 
+                       title={row.blueTeam.collegeName} 
+                       className={cn("text-base font-bold tracking-widest break-normal line-clamp-2 pl-2 h-full flex items-center justify-end shadow-black drop-shadow-md", isCompleted && actualWinnerName === row.blueTeam.collegeName ? "text-white text-glow-white" : "text-rm-blue")}
+                     >
+                       {row.blueTeam.collegeName}
+                     </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 border border-rm-metal-border/50 bg-[#05070c] p-2.5 clip-chamfer">
+                  <div className="flex items-center justify-center text-[9px] font-mono mb-2 px-1 uppercase tracking-widest">
+                    {isCompleted ? <span className="text-rm-metal-text/60">系统预测记录</span> : <span className="text-rm-status-warn/80">实时预测信号</span>}
+                  </div>
+                  <div className="h-8 w-full relative bg-rm-metal-dark border border-rm-metal-border overflow-hidden clip-chamfer">
+                    {/* Red Bar */}
+                    <div 
+                      className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-rm-red/80 to-rm-red/90 transition-all duration-500 flex items-center justify-start pl-3 z-10"
+                      style={{ 
+                        width: `calc(${(expectedRed * 100).toFixed(1)}% + 6px)`, 
+                        clipPath: "polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%)" 
+                      }}
+                    >
+                      <span className="text-white font-machine text-xs tracking-wider drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">
+                        {(expectedRed * 100).toFixed(1)}%
+                      </span>
+                    </div>
+
+                    {/* Glowing Separator */}
+                    <div 
+                      className="absolute top-0 bottom-0 w-[3px] bg-white z-20 transition-all duration-500"
+                      style={{
+                        left: `${(expectedRed * 100).toFixed(1)}%`,
+                        marginLeft: '-1px',
+                        transform: "skewX(-20.5deg)",
+                        boxShadow: "0 0 12px 2px rgba(255,255,255,0.7)"
+                      }}
+                    />
+
+                    {/* Blue Bar */}
+                    <div 
+                      className="absolute right-0 top-0 bottom-0 bg-gradient-to-l from-rm-blue/80 to-rm-blue/90 transition-all duration-500 flex items-center justify-end pr-3 z-10"
+                      style={{ 
+                        width: `calc(${(expectedBlue * 100).toFixed(1)}% + 6px)`, 
+                        clipPath: "polygon(12px 0, 100% 0, 100% 100%, 0 100%)" 
+                      }}
+                    >
+                      <span className="text-white font-machine text-xs tracking-wider drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">
+                        {(expectedBlue * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-3 bg-rm-metal-dark/30 border-l-[3px] border-rm-blue px-3 py-2">
+                    <div className="text-[10px] text-rm-metal-text font-mono flex items-start gap-2">
+                      <span className={cn("font-bold mt-[1px]", isCompleted ? "text-rm-status-safe" : "text-rm-blue opacity-50")}>{'>'}</span>
+                      <span className="leading-relaxed flex-1">
+                        <span className={cn("font-bold mr-2", isCompleted ? "text-white" : "text-rm-metal-text")}>
+                          {isCompleted ? "赛后结论 //" : "情报摘要 //"}
+                        </span>
+                        {postLine}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
-function InspectorPanel({
-  selection,
-  workspaceMode,
-  liveStateAvailable,
-  liveStateReason,
-  regionOverview,
-  selectedOverviewTeam,
-  selectedLiveSnapshot,
-  selectedRanking,
-  selectedTimeline,
-  selectedPath,
-  selectedMatch,
-  selectedMatchImpact,
-  onMatchOpen,
-  onTeamOpen,
-  onClose,
-}: {
-  selection: InspectorSelection | null;
-  workspaceMode: WorkspaceMode;
-  liveStateAvailable: boolean;
-  liveStateReason: string | null;
-  regionOverview: OverviewResponse["regions"][number] | null;
-  selectedOverviewTeam: OverviewTeam | null;
-  selectedLiveSnapshot: LiveRegionStateResponse["currentSnapshot"][number] | null;
-  selectedRanking: SimulationResponse["finalRankings"][number] | null;
-  selectedTimeline: LiveRegionStateResponse["matchLedger"];
-  selectedPath: MatchRow[];
-  selectedMatch: MatchRow | null;
-  selectedMatchImpact: ReturnType<typeof findLiveMatchImpactPair> | null;
-  onMatchOpen: (match: MatchRow) => void;
-  onTeamOpen: (teamKey: string) => void;
-  onClose: () => void;
-}) {
-  if (selection?.kind === "team" && selectedOverviewTeam) {
-    return (
-      <div className="inspector-stack">
-        <div className="inspector-head">
-          <div className="inspector-head-copy">
-            <p className="module-eyebrow">队伍详情</p>
-            <h3>{selectedOverviewTeam.collegeName}</h3>
-            <p>{selectedOverviewTeam.teamName}</p>
-          </div>
-          <button type="button" onClick={onClose}>
-            清除
+function SearchModal({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: React.ReactNode }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+      <div className="w-full max-w-2xl bg-rm-metal-dark border border-rm-metal-border shadow-2xl flex flex-col max-h-[85vh] clip-chamfer-lg">
+        <div className="flex justify-between items-center bg-rm-metal-panel p-4 border-b border-rm-metal-border">
+          <h3 className="font-machine uppercase tracking-widest text-white">{title}</h3>
+          <button onClick={onClose} className="text-rm-metal-text hover:text-rm-red font-mono text-xs focus:outline-none">
+            [ CLOSE ]
           </button>
         </div>
+        <div className="p-4 overflow-y-auto no-scrollbar">{children}</div>
+      </div>
+    </div>
+  );
+}
 
-        <section className="inspector-card">
-          <div className="inspector-stat-grid">
-            <span>{workspaceMode === "live" && selectedLiveSnapshot ? `当前 Elo ${rating(selectedLiveSnapshot.currentPublishedRating)}` : `Elo ${selectedOverviewTeam.mu0.toFixed(1)}`}</span>
-            {workspaceMode === "live" && selectedLiveSnapshot ? (
-              <span>较赛前 {signedRating(selectedLiveSnapshot.publishedDeltaFromPreseason)}</span>
-            ) : null}
-            <span>全站 #{selectedOverviewTeam.eloGlobalRank}</span>
-            <span>赛区 #{selectedOverviewTeam.eloRegionRank}</span>
-            <span>16 强 {percent(selectedOverviewTeam.probabilities.roundOf16)}</span>
-            <span>复活赛 {percent(selectedOverviewTeam.probabilities.repechage)}</span>
-            <span>国赛 {percent(selectedOverviewTeam.probabilities.national)}</span>
-            <span>冠军 {percent(selectedOverviewTeam.probabilities.champion)}</span>
+function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selectedRanking, selectedPath, selectedMatch, onMatchOpen, onTeamOpen, onClose }: any) {
+  if (selection?.kind === "team" && selectedOverviewTeam && selectedRanking) {
+    return (
+      <div className="h-full flex flex-col bg-rm-metal-panel/95 border-l border-rm-metal-border w-80 shadow-2xl p-4 overflow-y-auto overflow-x-hidden animate-in slide-in-from-right-8 clip-chamfer-tr-bl">
+        <div className="flex justify-between items-start border-b border-rm-metal-border pb-4 mb-4">
+          <div>
+            <p className="text-[10px] text-rm-metal-text font-bold uppercase tracking-widest leading-tight">队伍情报</p>
+            
+            <h3 className="text-lg font-machine text-white truncate w-56">{selectedOverviewTeam.collegeName}</h3>
+            <p className="text-xs text-rm-blue font-mono">{selectedOverviewTeam.teamName}</p>
           </div>
-        </section>
+          <button onClick={onClose} className="text-rm-metal-text hover:text-rm-red font-mono text-[10px]">X</button>
+        </div>
+        
+        <div className="space-y-6">
+          <div className="bg-rm-metal-dark border border-rm-metal-border p-3 grid grid-cols-2 gap-2 text-[10px] font-mono">
+            <span className="text-rm-metal-text">Elo {selectedOverviewTeam.mu0.toFixed(1)}</span>
+            <span className="text-rm-metal-text">全球 #{selectedOverviewTeam.eloGlobalRank}</span>
+            <span className="col-span-2 text-rm-status-safe">国赛率 {percent(selectedOverviewTeam.probabilities.national)}</span>
+            <span className="col-span-2 text-rm-status-warn">复活赛 {percent(selectedOverviewTeam.probabilities.repechage)}</span>
+            <span className="col-span-2 text-rm-blue">夺冠率 {percent(selectedOverviewTeam.probabilities.champion)}</span>
+          </div>
 
-        {selectedRanking ? (
-          <section className="inspector-card">
-            <h4>本次模拟结果</h4>
-            <p>{formatRankingResultLabel(selectedRanking.rank, selectedRanking.finalBucket, selectedRanking.advancement)}</p>
-            <div className="inspector-path-list">
-              {selectedPath.map((match) => {
+          <div>
+            <h4 className="text-xs text-white font-bold uppercase tracking-widest mb-2 border-l-2 border-rm-blue pl-2">模拟晋级路径</h4>
+            <p className="text-[11px] text-rm-metal-text mb-3">{formatRankingResultLabel(selectedRanking.rank, selectedRanking.finalBucket, selectedRanking.advancement)}</p>
+            <div className="space-y-2">
+              {selectedPath.map((match: any) => {
                 const opponent = match.redTeam.teamKey === selectedOverviewTeam.teamKey ? match.blueTeam : match.redTeam;
-                const result = match.winnerTeamKey === selectedOverviewTeam.teamKey ? "胜" : "负";
+                const isWin = match.winnerTeamKey === selectedOverviewTeam.teamKey;
                 return (
-                  <button key={match.matchLabel} type="button" className="path-item" onClick={() => onMatchOpen(match)}>
-                    <strong>{match.matchLabel}</strong>
-                    <span>
-                      {result} {opponent.collegeName} {match.scoreline}
-                    </span>
-                    <small>{translateStageLabel(match.stage)}</small>
+                  <button key={match.matchLabel} onClick={() => onMatchOpen(match)} className="w-full flex items-center justify-between bg-rm-metal-dark border border-rm-metal-border p-2 hover:border-rm-blue transition-colors text-left group">
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <span className={`flex-none w-5 h-5 flex items-center justify-center text-[10px] font-bold ${isWin ? 'bg-rm-status-safe text-black' : 'bg-rm-metal-text border border-rm-metal-text/30 text-white'}`}>{isWin ? "W" : "L"}</span>
+                      <div className="flex flex-col overflow-hidden">
+                        <span className="text-[11px] font-bold text-white truncate">{opponent.collegeName}</span>
+                        <span className="text-[9px] text-rm-metal-text font-mono truncate">{match.scoreline} / {translateStageLabel(match.stage)}</span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-rm-metal-text font-mono opacity-0 group-hover:opacity-100 transition-opacity">V</span>
                   </button>
                 );
               })}
             </div>
-          </section>
-        ) : null}
-
-        {workspaceMode === "live" ? (
-          <section className="inspector-card">
-            <h4>逐场 Elo 时间线</h4>
-            {!liveStateAvailable ? <p>{liveStateReason ?? "当前没有可用的 live Elo 账本。"}</p> : null}
-            {liveStateAvailable && !selectedLiveSnapshot ? <p>这支队伍还没有 live Elo 快照。</p> : null}
-            {liveStateAvailable && selectedLiveSnapshot ? (
-              <>
-                <div className="inspector-stat-grid">
-                  <span>live 分量 {signedRating(selectedLiveSnapshot.liveStateRatingComponent)}</span>
-                  <span>已确认先验 {signedRating(selectedLiveSnapshot.confirmedPriorRatingComponent)}</span>
-                  <span>剩余先验 {signedRating(selectedLiveSnapshot.residualPriorRatingComponent)}</span>
-                  <span>已赛区域赛 {selectedLiveSnapshot.regionalGroupMatchesPlayed} 场</span>
-                </div>
-                <div className="inspector-path-list">
-                  {selectedTimeline.length ? (
-                    selectedTimeline.map((row) => (
-                      <div key={`${row.matchId}-${row.teamKey}`} className="path-item static">
-                        <strong>{row.matchDate} / {translateLiveStageFamily(row.stageFamily)}</strong>
-                        <span>
-                          {row.matchResult === "win" ? "胜" : "负"} {row.scoreline} / Elo {rating(row.publishedRatingBeforeMatch)} → {rating(row.publishedRatingAfterMatch)}
-                        </span>
-                        <small>
-                          总变化 {signedRating(row.publishedDeltaRating)} / live {signedRating(row.liveUpdateDeltaRating)} / 先验 {signedRating(row.priorComponentDeltaRating)}
-                        </small>
-                      </div>
-                    ))
-                  ) : (
-                    <p>当前还没有已完赛比赛的 Elo 记录。</p>
-                  )}
-                </div>
-              </>
-            ) : null}
-          </section>
-        ) : null}
+          </div>
+        </div>
       </div>
     );
   }
 
   if (selection?.kind === "match" && selectedMatch) {
+    const predictedScore = predictScoreline(selectedMatch.pGameRed, selectedMatch.pSeriesRed, selectedMatch.bestOf || 3);
+    const [redGamesText, blueGamesText] = (selectedMatch.scoreline || "0:0").split(":");
+    const redGames = Number(redGamesText);
+    const blueGames = Number(blueGamesText);
+    const actualWinnerSame = (predictedScore.scoreline[0] > predictedScore.scoreline[2]) === (redGames > blueGames);
+    const actualScoreSame = predictedScore.scoreline === selectedMatch.scoreline;
+
     return (
-      <div className="inspector-stack">
-        <div className="inspector-head">
-          <div className="inspector-head-copy">
-            <p className="module-eyebrow">比赛详情</p>
-            <h3>{selectedMatch.matchLabel}</h3>
-            <p>{translateStageLabel(selectedMatch.stage)}</p>
+      <div className="h-full flex flex-col bg-rm-metal-panel/95 border-l border-rm-metal-border w-80 shadow-2xl p-4 overflow-y-auto animate-in slide-in-from-right-8 clip-chamfer-tr-bl">
+        <div className="flex justify-between items-start border-b border-rm-metal-border pb-4 mb-4">
+          <div>
+            <p className="text-[10px] text-rm-metal-text font-bold uppercase tracking-widest leading-tight">赛事对战情报</p>
+            <h3 className="text-lg font-machine text-white">{selectedMatch.matchLabel}</h3>
+            <p className="text-xs text-rm-blue font-mono">{translateStageLabel(selectedMatch.stage)}</p>
           </div>
-          <button type="button" onClick={onClose}>
-            关闭
-          </button>
+          <button onClick={onClose} className="text-rm-metal-text hover:text-rm-red font-mono text-[10px]">X</button>
         </div>
 
-        <section className="inspector-card">
-          <h4>
-            {selectedMatch.redTeam.collegeName} vs {selectedMatch.blueTeam.collegeName}
-          </h4>
-          <p>
-            比分 {selectedMatch.scoreline} / BO{selectedMatch.bestOf}
-            {selectedMatch.isRealResult ? " / 已完赛" : " / 模拟分支"}
-          </p>
-          <div className="inspector-stat-grid">
-            <span>红方系列赛 {percent(selectedMatch.pSeriesRed)}</span>
-            <span>蓝方系列赛 {percent(selectedMatch.pSeriesBlue)}</span>
-            <span>红方单局 {percent(selectedMatch.pGameRed)}</span>
-            <span>蓝方单局 {percent(selectedMatch.pGameBlue)}</span>
-            <span>对位差 {selectedMatch.deltaH2H.toFixed(3)}</span>
-            <span>结果把握 {translateConfidenceLabel(selectedMatch.confidenceLabel)}</span>
+        <div className="space-y-6">
+          <div className="text-center font-machine text-xl text-white tracking-widest bg-rm-metal-dark border border-rm-metal-border py-4 relative overflow-hidden">
+             {selectedMatch.scoreline}
+             <div className="absolute bottom-1 right-2 text-[9px] text-rm-metal-text font-sans">实际 BO{selectedMatch.bestOf}</div>
           </div>
-        </section>
+          
+          <div className={cn("text-center font-machine text-lg tracking-widest bg-rm-metal-dark border py-3 relative overflow-hidden",
+            selectedMatch.isRealResult 
+              ? (!actualWinnerSame ? "border-[#ef4444] text-[#ef4444]" : !actualScoreSame ? "border-[#a855f7] text-[#a855f7]" : "border-rm-status-safe text-rm-status-safe")
+              : "border-rm-blue text-rm-blue"
+          )}>
+             {predictedScore.scoreline}
+             <div className="absolute bottom-1 right-2 text-[8px] opacity-70 font-sans">AI 预测</div>
+          </div>
 
-        {workspaceMode === "live" ? (
-          <section className="inspector-card">
-            <h4>实际 Elo 影响</h4>
-            {selectedMatch.isRealResult && selectedMatchImpact ? (
+          <div className="grid grid-cols-2 gap-2 text-[10px] font-mono p-3 bg-rm-metal-dark border border-rm-metal-border">
+            <span className="text-rm-red opacity-80">红方预计胜率</span>
+            <span className="text-rm-red font-bold text-right">{percent(selectedMatch.pSeriesRed)}</span>
+            <span className="text-rm-blue opacity-80">蓝方预计胜率</span>
+            <span className="text-rm-blue font-bold text-right">{percent(selectedMatch.pSeriesBlue)}</span>
+            <div className="col-span-2 border-t border-rm-metal-border my-1"></div>
+            
+            {/* Show ELO changes only for matches with an actual published result */}
+            {hasMatchElo(selectedMatch) && (
               <>
-                <div className="inspector-stat-grid">
-                  <span>红方 Elo {rating(selectedMatchImpact.red.publishedRatingBeforeMatch)} → {rating(selectedMatchImpact.red.publishedRatingAfterMatch)}</span>
-                  <span>红方总变化 {signedRating(selectedMatchImpact.red.publishedDeltaRating)}</span>
-                  <span>红方 live {signedRating(selectedMatchImpact.red.liveUpdateDeltaRating)}</span>
-                  <span>红方先验 {signedRating(selectedMatchImpact.red.priorComponentDeltaRating)}</span>
-                  <span>蓝方 Elo {rating(selectedMatchImpact.blue.publishedRatingBeforeMatch)} → {rating(selectedMatchImpact.blue.publishedRatingAfterMatch)}</span>
-                  <span>蓝方总变化 {signedRating(selectedMatchImpact.blue.publishedDeltaRating)}</span>
-                  <span>蓝方 live {signedRating(selectedMatchImpact.blue.liveUpdateDeltaRating)}</span>
-                  <span>蓝方先验 {signedRating(selectedMatchImpact.blue.priorComponentDeltaRating)}</span>
-                </div>
-                <p className="inspector-note">
-                  这里的总变化固定按 `总变化 = live update + 先验变化` 拆解，能解释“赢了但总分下降”的情况。
-                </p>
+                <span className="text-rm-red opacity-80 flex items-center justify-between col-span-2 mt-1">
+                  <span className="text-rm-red font-bold">{selectedMatch.redTeam?.collegeName || "红方 ELO"}</span>
+                  <span className="font-bold flex gap-2">
+                    <span className="text-white">{selectedMatch.redMu0?.toFixed(1)}</span>
+                    <span className={selectedMatch.redDelta > 0 ? "text-rm-status-safe" : selectedMatch.redDelta < 0 ? "text-rm-red" : "text-rm-metal-text"}>
+                      {selectedMatch.redDelta > 0 ? "+" : ""}{selectedMatch.redDelta?.toFixed(1)}
+                    </span>
+                    <span className="text-rm-red">→ {((selectedMatch.redMu0 ?? 0) + (selectedMatch.redDelta ?? 0)).toFixed(1)}</span>
+                  </span>
+                </span>
+                <span className="text-rm-blue opacity-80 flex items-center justify-between col-span-2 mt-1">
+                  <span className="text-rm-blue font-bold">{selectedMatch.blueTeam?.collegeName || "蓝方 ELO"}</span>
+                  <span className="font-bold flex gap-2">
+                    <span className="text-white">{selectedMatch.blueMu0?.toFixed(1)}</span>
+                    <span className={selectedMatch.blueDelta > 0 ? "text-rm-status-safe" : selectedMatch.blueDelta < 0 ? "text-rm-red" : "text-rm-metal-text"}>
+                      {selectedMatch.blueDelta > 0 ? "+" : ""}{selectedMatch.blueDelta?.toFixed(1)}
+                    </span>
+                    <span className="text-rm-blue">→ {((selectedMatch.blueMu0 ?? 0) + (selectedMatch.blueDelta ?? 0)).toFixed(1)}</span>
+                  </span>
+                </span>
+                <div className="col-span-2 border-t border-rm-metal-border my-1"></div>
               </>
-            ) : (
-              <p>{selectedMatch.isRealResult ? "当前找不到这场比赛对应的 live Elo 账本记录。" : "暂无实际 Elo 影响，仅显示预测概率。"}
-              </p>
             )}
-          </section>
-        ) : null}
+            {!hasMatchElo(selectedMatch) && (
+              <>
+                <span className="col-span-2 text-rm-metal-text">
+                  本场尚未产生实际赛果，不计算 Elo 变化，避免把模拟分支误当成真实总榜更新。
+                </span>
+                <div className="col-span-2 border-t border-rm-metal-border my-1"></div>
+              </>
+            )}
 
-        <section className="inspector-card">
-          <h4>下一步去向</h4>
-          <p>胜者：{translateDestinationLabel(selectedMatch.winnerNext)}</p>
-          <p>败者：{translateDestinationLabel(selectedMatch.loserNext)}</p>
-          <div className="inspector-inline-actions">
-            <button type="button" onClick={() => onTeamOpen(selectedMatch.redTeam.teamKey)}>
-              查看红方
-            </button>
-            <button type="button" onClick={() => onTeamOpen(selectedMatch.blueTeam.teamKey)}>
-              查看蓝方
-            </button>
+                      <span className="text-rm-metal-text">历史战绩修正</span>
+            <span className="text-white font-bold text-right">{selectedMatch.deltaH2H.toFixed(3)}</span>
+            <span className="text-rm-metal-text">结果置信度</span>
+            <span className="text-white font-bold text-right">{translateConfidenceLabel(selectedMatch.confidenceLabel)}</span>
           </div>
-        </section>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="inspector-stack">
-      <div className="inspector-head">
-        <div className="inspector-head-copy">
-          <p className="module-eyebrow">当前视图</p>
-          <h3>{regionOverview?.regionName ?? "赛区看板"}</h3>
-          <p>点击队伍或比赛后，这里会显示战绩、路径和下一步去向。</p>
-        </div>
+    <div className="h-full flex flex-col bg-rm-metal-panel/95 border-l border-rm-metal-border w-80 shadow-2xl p-4 overflow-y-auto animate-in slide-in-from-right-8 clip-chamfer-tr-bl">
+      <div className="border-b border-rm-metal-border pb-4 mb-4">
+            <p className="text-[10px] text-rm-metal-text font-bold uppercase tracking-widest">赛区模块</p>
+        <h3 className="text-lg font-machine text-white">{regionOverview?.regionName ?? "等待载入"}</h3>
       </div>
-
-      <section className="inspector-card">
-        <div className="inspector-stat-grid">
-          <span>{regionOverview?.teams.length ?? 0} 支队伍</span>
-          <span>国赛 {regionOverview?.nationalSlots ?? 0}</span>
-          <span>复活赛 {regionOverview?.repechageSlots ?? 0}</span>
-        </div>
-      </section>
-
-      <section className="inspector-card">
-        <h4>快速查看热门队伍</h4>
-        <div className="quick-team-list">
-          {regionOverview?.teams.slice(0, 6).map((team) => (
-            <button key={team.teamKey} type="button" className="quick-team-button" onClick={() => onTeamOpen(team.teamKey)}>
-              <strong>{team.collegeName}</strong>
-              <span>争冠 {percent(team.probabilities.champion)}</span>
-            </button>
-          ))}
-        </div>
-      </section>
+      <div className="bg-rm-metal-dark border border-rm-metal-border p-3 grid grid-cols-2 gap-2 text-[10px] font-mono mb-6">
+        <span className="text-rm-metal-text">队伍数量</span>
+        <span className="text-white font-bold text-right">{regionOverview?.teams.length ?? 0}</span>
+        <span className="text-rm-metal-text">国赛席位</span>
+        <span className="text-rm-status-safe font-bold text-right">{regionOverview?.nationalSlots ?? 0}</span>
+        <span className="text-rm-metal-text">复活赛席位</span>
+        <span className="text-rm-status-warn font-bold text-right">{regionOverview?.repechageSlots ?? 0}</span>
+      </div>
+      
+      <h4 className="text-xs text-white font-bold uppercase tracking-widest mb-3">头部竞争队</h4>
+      <div className="space-y-2">
+        {regionOverview?.teams.slice(0, 6).map((team: any) => (
+          <button key={team.teamKey} onClick={() => onTeamOpen(team.teamKey)} className="w-full flex items-center justify-between bg-rm-metal-dark border border-rm-metal-border px-3 py-2 hover:border-rm-blue transition-colors group">
+            <span className="text-xs font-bold text-white truncate w-32 text-left">{team.collegeName}</span>
+            <span className="text-[9px] font-mono text-rm-blue">{percent(team.probabilities.champion)}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -359,14 +484,17 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   const defaultView = useMemo<WorkspaceView>(() => "playoff", []);
 
   const regionSlug = validRegion(rawRegionSlug) ? rawRegionSlug : "east_region";
+  const realtimeEnabled = isRegionRealtimeEnabled(regionSlug);
   const view = validView(searchParams.get("view")) ? (searchParams.get("view") as WorkspaceView) : defaultView;
-  const workspaceMode = parseMode(searchParams.get("mode"));
+  const requestedMode = (searchParams.get("mode") === "sim" || searchParams.get("mode") === "live")
+    ? searchParams.get("mode") as "sim" | "live"
+    : "sim";
+  const mode = realtimeEnabled && requestedMode === "live" ? "live" : "sim";
   const highlightedTeamKey = searchParams.get("highlight");
   const parsedSeed = parseSeed(searchParams.get("seed"));
 
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
   const [simulation, setSimulation] = useState<SimulationResponse | null>(null);
-  const [liveState, setLiveState] = useState<LiveRegionStateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -387,7 +515,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
 
   useEffect(() => {
     setSeedDraft(seed ? String(seed) : "");
-  }, [regionSlug, seed]);
+  }, [regionSlug, seed, mode]);
 
   useEffect(() => {
     if (sessionSeed !== null) {
@@ -411,21 +539,10 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
     }
     setError(null);
     setSimulation(null);
-    getSimulation(regionSlug, seed, workspaceMode)
+    getSimulation(regionSlug, seed, mode)
       .then(setSimulation)
       .catch((err: Error) => setError(err.message));
-  }, [regionSlug, seed, workspaceMode]);
-
-  useEffect(() => {
-    if (workspaceMode !== "live") {
-      setLiveState(null);
-      return;
-    }
-    setLiveState(null);
-    getLiveRegionState(regionSlug)
-      .then(setLiveState)
-      .catch((err: Error) => setError(err.message));
-  }, [regionSlug, workspaceMode]);
+  }, [regionSlug, seed, mode]);
 
   const updateQuery = useCallback(
     (next: Partial<Record<"view" | "seed" | "highlight" | "mode", string | null>>) => {
@@ -450,6 +567,13 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
     updateQuery({ seed: String(sessionSeed) });
   }, [parsedSeed, sessionSeed, updateQuery]);
 
+  useEffect(() => {
+    if (requestedMode !== "live" || realtimeEnabled) {
+      return;
+    }
+    updateQuery({ mode: null });
+  }, [realtimeEnabled, requestedMode, updateQuery]);
+
   const viewMeta = useMemo(
     () => REGION_VIEWS.find((item) => item.id === view) ?? REGION_VIEWS.find((item) => item.id === defaultView) ?? REGION_VIEWS[0],
     [defaultView, view]
@@ -473,14 +597,6 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
     () => (simulation && selectedTeamKey ? simulation.finalRankings.find((row) => row.teamKey === selectedTeamKey) ?? null : null),
     [simulation, selectedTeamKey]
   );
-  const selectedLiveSnapshot = useMemo(
-    () => (liveState && selectedTeamKey ? liveState.currentSnapshot.find((row) => row.teamKey === selectedTeamKey) ?? null : null),
-    [liveState, selectedTeamKey]
-  );
-  const selectedTimeline = useMemo(
-    () => (liveState && selectedTeamKey ? buildLiveTimelineForTeam(selectedTeamKey, liveState.matchLedger) : []),
-    [liveState, selectedTeamKey]
-  );
   const selectedPath = useMemo(
     () => (simulation && selectedTeamKey ? teamPath(simulation, selectedTeamKey) : []),
     [simulation, selectedTeamKey]
@@ -489,14 +605,55 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
     () => (simulation && selectedMatchLabel ? simulation.matches.find((row) => row.matchLabel === selectedMatchLabel) ?? null : null),
     [simulation, selectedMatchLabel]
   );
-  const selectedMatchImpact = useMemo(
-    () => (liveState && selectedMatch ? findLiveMatchImpactPair(selectedMatch, liveState.matchLedger) : null),
-    [liveState, selectedMatch]
-  );
   const stage = useMemo(
     () => (simulation ? buildWorkspaceStage(view, regionSlug, simulation) : null),
     [simulation, view, regionSlug]
   );
+  const useFixedSouthSwissList = false; // user requested to revert back to canvas for south swiss stages
+  const matchPhaseOverview = useMemo(() => {
+    const rows = simulation?.matches ?? [];
+    const counters: Record<MatchPhase, number> = {
+      pre: 0,
+      post: 0,
+    };
+    const accuracy = { correct: 0, mismatch: 0, upset: 0 };
+
+    rows.forEach((match) => {
+      counters[deriveMatchPhase(match)] += 1;
+      
+      if (match.isRealResult) {
+        const expectedRed = match.pSeriesRed ?? match.pGameRed ?? 0.5;
+        const predictedScore = predictScoreline(match.pGameRed ?? expectedRed, expectedRed, match.bestOf || 3);
+        const [redGamesText, blueGamesText] = (match.scoreline || "0:0").split(":");
+        const redGames = Number(redGamesText);
+        const blueGames = Number(blueGamesText);
+        const predWinnerSame = (predictedScore.scoreline[0] > predictedScore.scoreline[2]) === (redGames > blueGames);
+        const predScoreSame = predictedScore.scoreline === match.scoreline;
+        
+        if (!predWinnerSame) {
+          accuracy.upset += 1;
+        } else if (!predScoreSame) {
+          accuracy.mismatch += 1;
+        } else {
+          accuracy.correct += 1;
+        }
+      }
+    });
+
+    const sortedRows = rows
+      .slice()
+      .sort((left, right) => {
+        if (left.stageOrder !== right.stageOrder) {
+          return right.stageOrder - left.stageOrder;
+        }
+        return right.matchLabel.localeCompare(left.matchLabel);
+      });
+
+    const preMatches = sortedRows.filter((match) => deriveMatchPhase(match) === "pre").slice(0, 4);
+    const postMatches = sortedRows.filter((match) => deriveMatchPhase(match) === "post").slice(0, 4);
+
+    return { counters, accuracy, preMatches, postMatches };
+  }, [simulation]);
 
   const openTeam = (teamKey: string) => {
     setSelection({ kind: "team", teamKey });
@@ -521,7 +678,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
     setSearchOpen(false);
     setSearchText("");
     setInspectorOpen(true);
-    router.push(buildRegionHref(team.regionSlug, view, { seed: resolveSeed(), highlight: team.teamKey, mode: workspaceMode }));
+    router.push(buildRegionHref(team.regionSlug, view, { seed: resolveSeed(), highlight: team.teamKey, mode }));
     setSelection({ kind: "team", teamKey: team.teamKey });
   };
 
@@ -529,181 +686,275 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
     const normalized = sanitizeSeedInput(seedDraft);
     const nextSeed = String(parseSeed(normalized) ?? resolveSeed());
     setSeedDraft(nextSeed);
-    updateQuery({ seed: nextSeed, highlight: selection?.kind === "team" ? selection.teamKey : highlightedTeamKey, mode: workspaceMode === "live" ? "live" : null });
+    updateQuery({ seed: nextSeed, highlight: selection?.kind === "team" ? selection.teamKey : highlightedTeamKey });
+  };
+
+  const refreshSimulationSeed = () => {
+    const nextSeed = refreshSessionSeed();
+    setSessionSeed(nextSeed);
+    setSeedDraft(String(nextSeed));
+    updateQuery({ seed: String(nextSeed), highlight: selection?.kind === "team" ? selection.teamKey : highlightedTeamKey });
   };
 
   const onRegionChange = (nextRegion: RegionSlug) => {
     setInspectorOpen(false);
     setSelection(null);
-    router.push(buildRegionHref(nextRegion, view, { seed: resolveSeed(), mode: workspaceMode }));
+    router.push(buildRegionHref(nextRegion, view, { seed: resolveSeed(), mode }));
   };
 
   const inspectorVisible = inspectorOpen || Boolean(selection);
   const inspectorToggleLabel = selection?.kind === "team" ? "队伍情报" : selection?.kind === "match" ? "比赛情报" : "赛区情报";
 
   return (
-    <main className={`workspace-shell view-${view}`}>
-      <div className="workspace-ambient-grid" />
-      <div className="workspace-ambient-glow glow-one" />
-      <div className="workspace-ambient-glow glow-two" />
-
-      <header className="workspace-topbar">
-        <div className="workspace-topbar-main workspace-title-bar">
-          <div className="workspace-topbar-copy-block">
-            <p className="toolbar-kicker">RMUC 2026 / 赛区看板</p>
-            <h1>{REGION_LABELS[regionSlug]}</h1>
-            <p className="workspace-copy">{viewMeta.description}</p>
-            {workspaceMode === "live" ? <p className="workspace-copy">当前为 live Elo 口径：已完赛比赛按 published artifacts 结算，未完赛分支仍显示模拟概率。</p> : null}
+    <div className="absolute inset-0 flex flex-col min-h-0 bg-[#0a0a0f] bg-red-blue-split">
+      {/* Header Panel */}
+      <header className="flex flex-col md:flex-row items-start md:items-center justify-between px-6 py-4 bg-rm-metal-panel/80 border-b border-rm-metal-border backdrop-blur-sm z-30">
+        <div className="flex flex-col">
+          <div className="text-[10px] text-rm-metal-text font-mono tracking-widest uppercase mb-1 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-rm-status-safe animate-pulse"/>
+            RMUC 2026 // {REGION_LABELS[regionSlug] ?? regionSlug}
           </div>
-          <div className="toolbar-actions workspace-topbar-actions">
-            <button
-              type="button"
-              className={inspectorVisible ? "workspace-panel-toggle is-active" : "workspace-panel-toggle"}
-              onClick={() => {
-                if (inspectorVisible) {
-                  closeInspector();
-                  return;
-                }
-                setInspectorOpen(true);
-              }}
-            >
-              {inspectorVisible ? "收起" : "打开"}{inspectorToggleLabel}
-            </button>
-            <button type="button" onClick={() => setSearchOpen(true)}>
-              搜索队伍
-            </button>
-            <Link href="/" className="toolbar-link">
-              返回总控首页
-            </Link>
-          </div>
+          <h1 className="text-2xl font-machine text-white tracking-widest uppercase text-glow-blue">{viewMeta.label}</h1>
         </div>
+        
+        <div className="flex items-center gap-4 mt-4 md:mt-0 font-mono text-xs">
+           <div className="flex bg-rm-metal-dark border border-rm-metal-border overflow-hidden">
+             <button 
+               onClick={() => {
+                 if (realtimeEnabled) {
+                   updateQuery({ mode: "live" });
+                 }
+               }}
+               disabled={!realtimeEnabled}
+               className={cn(
+                 "px-4 py-1.5 transition-colors font-bold uppercase",
+                 !realtimeEnabled
+                   ? "cursor-not-allowed text-rm-metal-text/40"
+                   : mode === "live"
+                     ? "bg-rm-status-warn text-black"
+                     : "text-rm-metal-text hover:text-white"
+               )}
+             >
+               {realtimeEnabled ? "实时预测" : "实时预测待接入"}
+             </button>
+             <button 
+               onClick={() => updateQuery({ mode: "sim" })}
+               className={cn("px-4 py-1.5 transition-colors font-bold uppercase", mode === "sim" ? "bg-rm-blue text-white" : "border-l border-rm-metal-border text-rm-metal-text hover:text-white")}
+             >
+               赛程模拟
+             </button>
+           </div>
 
-        <div className="workspace-command-deck">
-          <div className="workspace-control-strip">
-            <label>
-              赛区
-              <select name="region" value={regionSlug} onChange={(event) => onRegionChange(event.target.value as RegionSlug)}>
-                {overview?.regions.map((region) => (
-                  <option key={region.regionSlug} value={region.regionSlug}>
-                    {region.regionName}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              模拟种子
-              <input
-                name="seed"
-                type="text"
-                autoComplete="off"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                spellCheck={false}
-                value={seedDraft}
-                onChange={(event) => setSeedDraft(sanitizeSeedInput(event.target.value))}
-              />
-            </label>
-            <button type="button" className="simulate-button" onClick={applySeedDraft}>
-              刷新模拟
-            </button>
-          </div>
-
-          <div className="workspace-stage-strip">
-            <nav className="view-tabs">
-              {REGION_VIEWS.map((item) => (
-                <button
-                  type="button"
-                  key={item.id}
-                  className={item.id === view ? "view-tab is-active" : "view-tab"}
-                  onClick={() => updateQuery({ view: item.id, mode: workspaceMode === "live" ? "live" : null })}
-                >
-                  {item.label}
-                </button>
+           <select 
+              value={regionSlug} 
+              onChange={(e) => router.push(`/regions/${e.target.value}?${searchParams.toString()}`)} 
+              className="bg-rm-metal-dark border border-rm-metal-border text-white px-3 py-1.5 focus:outline-none focus:border-rm-blue"
+           >
+              {overview?.regions.map((region) => (
+                <option key={region.regionSlug} value={region.regionSlug}>{region.regionName}</option>
               ))}
-            </nav>
-            <div className="toolbar-meta">
-              <span>{regionOverview?.teams.length ?? 0} 支队伍</span>
-              <span>国赛 {regionOverview?.nationalSlots ?? 0}</span>
-              <span>复活赛 {regionOverview?.repechageSlots ?? 0}</span>
-              <span>本次种子 {seed}</span>
-              <span>{workspaceMode === "live" ? "live Elo" : "模拟 Elo"}</span>
-            </div>
-          </div>
+           </select>
+           
+           {mode === "sim" && (
+             <div className="flex items-center bg-rm-metal-dark border border-rm-metal-border overflow-hidden">
+               <div className="bg-rm-metal-panel border-r border-rm-metal-border px-2 py-1.5 text-rm-metal-text">种子</div>
+               <input
+                 type="text"
+                 value={seedDraft}
+                 onChange={(e) => setSeedDraft(sanitizeSeedInput(e.target.value))}
+                 onKeyDown={(e) => {
+                   if (e.key === "Enter") {
+                     applySeedDraft();
+                   }
+                 }}
+                 className="bg-transparent w-24 px-2 py-1.5 text-white focus:outline-none font-mono"
+               />
+               <button onClick={refreshSimulationSeed} className="bg-rm-blue/20 text-rm-blue hover:bg-rm-blue hover:text-white px-3 py-1.5 font-bold transition-colors border-l border-rm-metal-border">
+                 刷新
+               </button>
+             </div>
+           )}
+           
+           <button onClick={() => setSearchOpen(true)} className="border border-rm-metal-border bg-rm-metal-dark hover:bg-rm-metal-panel text-rm-metal-text px-3 py-1.5 transition-colors uppercase">
+             SEARCH
+           </button>
         </div>
       </header>
+      
+      {/* Subnav Panel */}
+      <div className="flex items-center gap-1 overflow-x-auto px-6 py-2 bg-rm-metal-dark border-b border-rm-metal-border z-20">
+         {REGION_VIEWS.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => updateQuery({ view: item.id })}
+              className={`px-4 py-1 flex-none text-xs font-bold uppercase tracking-widest transition-all clip-chamfer ${item.id === view ? 'bg-rm-blue text-white shadow-[0_0_10px_rgba(0,163,255,0.4)]' : 'text-rm-metal-text border border-transparent hover:border-rm-metal-border'}`}
+            >
+              {item.label}
+            </button>
+         ))}
+         
+         <div className="ml-auto opacity-0 md:opacity-100 hidden md:flex items-center gap-4 text-[10px] text-rm-metal-text font-mono font-bold">
+            <span>T-COUNT: {overview?.regions.find(r => r.regionSlug === regionSlug)?.teams.length ?? 0}</span>
+            <span>当前种子: <span className="text-white">{seed}</span></span>
+         </div>
+      </div>
 
-      {inspectorVisible ? (
-        <button type="button" className="inspector-overlay-backdrop" onClick={closeInspector} aria-label="关闭情报面板" />
+      {/* Prediction / Review Strip */}
+      <div className="flex flex-wrap items-center gap-2 px-6 py-2.5 bg-rm-metal-panel/60 border-b border-rm-metal-border z-20">
+        <div className="flex items-center gap-2 mr-4">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-rm-metal-text">图框图例</span>
+          <span className="text-[10px] font-bold border border-rm-status-safe bg-rm-status-safe/10 text-rm-status-safe px-1.5 py-0.5 shadow-[0_0_5px_rgba(0,255,157,0.3)]">精准预测</span>
+          <span className="text-[10px] font-bold border border-[#a855f7] bg-[#a855f7]/10 text-[#a855f7] px-1.5 py-0.5 shadow-[0_0_5px_rgba(168,85,247,0.3)]">比分偏离</span>
+          <span className="text-[10px] font-bold border border-[#ef4444] bg-[#ef4444]/10 text-[#ef4444] px-1.5 py-0.5 shadow-[0_0_5px_rgba(239,68,68,0.3)]">路线爆冷</span>
+          <span className="text-[10px] font-bold border border-[#facc15] bg-[#facc15]/10 text-[#facc15] px-1.5 py-0.5 shadow-[0_0_5px_rgba(250,204,21,0.3)]">确认未赛</span>
+          <span className="text-[10px] font-bold border border-rm-blue bg-rm-blue/10 text-rm-blue px-1.5 py-0.5 shadow-[0_0_5px_rgba(0,163,255,0.3)]">模拟预测</span>
+        </div>
+        <span className="text-[10px] font-mono uppercase tracking-widest text-rm-metal-text">预测与评价</span>
+        <span className="text-[10px] font-mono border border-rm-blue/35 bg-rm-blue/10 text-rm-blue px-2 py-0.5">
+          预测池 {matchPhaseOverview.counters.pre}
+        </span>
+        <div className="flex items-center text-[10px] font-mono border border-rm-status-safe/35 bg-rm-status-safe/10 text-rm-status-safe px-2 py-0.5 gap-2">
+          <span>已完赛 {matchPhaseOverview.counters.post}</span>
+          <span className="text-white/30">|</span>
+          <span className="text-rm-status-safe">{matchPhaseOverview.accuracy.correct} <span className="opacity-70">精准</span></span>
+          <span className="text-[#a855f7]">{matchPhaseOverview.accuracy.mismatch} <span className="opacity-70">偏离</span></span>
+          <span className="text-[#ef4444]">{matchPhaseOverview.accuracy.upset} <span className="opacity-70">爆冷</span></span>
+        </div>
+      </div>
+
+      {/* Prediction / Review Tape */}
+      {matchPhaseOverview.preMatches.length || matchPhaseOverview.postMatches.length ? (
+        <div className="flex items-stretch gap-2 overflow-x-auto px-6 py-2.5 bg-[#08080d]/90 border-b border-rm-metal-border z-10 no-scrollbar">
+          {[...matchPhaseOverview.preMatches, ...matchPhaseOverview.postMatches].map((match) => {
+            const phase = deriveMatchPhase(match);
+            return (
+              <button
+                key={match.matchLabel}
+                type="button"
+                onClick={() => openMatch(match)}
+                className="flex-none min-w-[220px] max-w-[260px] border border-rm-metal-border bg-rm-metal-dark/80 px-2.5 py-2 text-left hover:border-rm-blue transition-colors"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] text-rm-metal-text font-mono truncate">{translateStageLabel(match.stage)}</span>
+                  <span className={`text-[9px] font-mono border px-1.5 py-0.5 ${phaseClass(phase)}`}>
+                    {phaseLabel(phase)}
+                  </span>
+                </div>
+                <div className="mt-1.5 text-[11px] text-white font-bold truncate">{match.redTeam.collegeName}</div>
+                <div className="text-[11px] text-white font-bold truncate">{match.blueTeam.collegeName}</div>
+                <div className="mt-1 text-[10px] text-rm-blue font-mono">{match.matchLabel} / {match.scoreline || "--"}</div>
+              </button>
+            );
+          })}
+        </div>
       ) : null}
 
-      <section className={inspectorVisible ? "workspace-grid is-inspector-open" : "workspace-grid"}>
-        <div className="workspace-canvas-column">
-          {error ? <div className="error-panel dark">数据加载失败：{error}</div> : null}
-          {!stage ? <div className="loading-panel workspace-loading">正在生成当前赛程…</div> : null}
-          {stage ? (
-            <WorkspaceStageView
-              stage={stage}
-              selectedTeamKey={selectedTeamKey}
-              highlightedTeamKey={highlightedTeamKey}
-              selectedMatchLabel={selectedMatchLabel}
-              onTeamSelect={openTeam}
-              onMatchSelect={(matchLabel) => {
-                const match = simulation?.matches.find((row) => row.matchLabel === matchLabel);
-                if (match) {
-                  openMatch(match);
-                }
-              }}
-            />
+      <div className="flex-1 relative flex overflow-hidden">
+        {/* Canvas Area */}
+        <div className="flex-1 relative bg-transparent">
+          {error ? (
+            <div className="absolute inset-0 flex items-center justify-center z-50 bg-black/60 backdrop-blur-sm">
+              <div className="bg-rm-red/20 border border-rm-red text-rm-red p-6 font-mono text-sm shadow-[0_0_20px_rgba(230,0,0,0.5)]">
+                 <h2 className="text-xl font-machine mb-2">系统错误</h2>
+                 {error}
+              </div>
+            </div>
+          ) : null}
+          
+          {!stage && !error && !useFixedSouthSwissList ? (
+            <div className="absolute inset-0 flex items-center justify-center z-50">
+              <div className="flex flex-col items-center gap-4">
+                 <div className="w-10 h-10 border-4 border-rm-blue border-r-transparent rounded-full animate-spin"/>
+                 <div className="text-rm-blue font-machine tracking-widest text-sm animate-pulse">正在生成预测图谱...</div>
+              </div>
+            </div>
+          ) : null}
+
+          {useFixedSouthSwissList ? (
+            <div className="absolute inset-0">
+              <SouthSwissReplayList view={view} simulation={simulation} />
+            </div>
+          ) : null}
+
+          {stage && !useFixedSouthSwissList ? (
+            <div className="absolute inset-0">
+              <WorkspaceStageView
+                stage={stage}
+                mode={mode}
+                selectedTeamKey={selectedTeamKey}
+                highlightedTeamKey={highlightedTeamKey}
+                selectedMatchLabel={selectedMatchLabel}
+                onTeamSelect={openTeam}
+                onMatchSelect={(matchLabel) => {
+                  const match = simulation?.matches.find((row) => row.matchLabel === matchLabel);
+                  if (match) openMatch(match);
+                }}
+              />
+            </div>
           ) : null}
         </div>
+        
+        {/* Toggle Inspector Button */}
+        <div className={`absolute top-4 transition-all duration-300 z-40 ${inspectorOpen ? 'right-[336px]' : 'right-4'}`}>
+           <button 
+             onClick={() => setInspectorOpen(!inspectorOpen)}
+             className="flex flex-col gap-1 w-8 h-10 items-center justify-center bg-rm-metal-panel border border-rm-metal-border hover:border-rm-blue text-rm-metal-text clip-chamfer group transition-all"
+             title={inspectorOpen ? "收起情报面板" : "打开情报面板"}
+           >
+             <div className="w-1 h-1 bg-current group-hover:bg-rm-blue"></div>
+             <div className="w-1 h-1 bg-current group-hover:bg-rm-blue"></div>
+             <div className="w-1 h-1 bg-current group-hover:bg-rm-blue"></div>
+           </button>
+        </div>
 
-        {inspectorVisible ? (
-          <aside className="workspace-inspector-panel is-open">
-            <InspectorPanel
-              selection={selection}
-              workspaceMode={workspaceMode}
-              liveStateAvailable={liveState?.available ?? false}
-              liveStateReason={liveState?.reason ?? null}
-              regionOverview={regionOverview}
-              selectedOverviewTeam={selectedOverviewTeam}
-              selectedLiveSnapshot={selectedLiveSnapshot}
-              selectedRanking={selectedRanking}
-              selectedTimeline={selectedTimeline}
-              selectedPath={selectedPath}
-              selectedMatch={selectedMatch}
-              selectedMatchImpact={selectedMatchImpact}
-              onMatchOpen={openMatch}
-              onTeamOpen={openTeam}
-              onClose={closeInspector}
-            />
-          </aside>
-        ) : null}
-      </section>
-
-      <SearchModal open={searchOpen} title="搜索全部赛区队伍" onClose={() => setSearchOpen(false)}>
-        <div className="search-panel">
+        {/* Inspector Panel */}
+        <div className={`flex-none w-80 transform transition-transform duration-300 ease-in-out z-30 ${inspectorOpen ? 'translate-x-0' : 'translate-x-full absolute right-0 top-0 bottom-0'}`}>
+          <InspectorPanel
+            selection={selection}
+            regionOverview={regionOverview}
+            selectedOverviewTeam={selectedOverviewTeam}
+            selectedRanking={selectedRanking}
+            selectedPath={selectedPath}
+            selectedMatch={selectedMatch}
+            onMatchOpen={openMatch}
+            onTeamOpen={openTeam}
+            onClose={closeInspector}
+          />
+        </div>
+      </div>
+      
+      <SearchModal open={searchOpen} title="搜索队伍档案" onClose={() => setSearchOpen(false)}>
+        <div className="flex flex-col gap-4">
           <input
             name="team-search"
-            type="search"
+            type="text"
             autoComplete="off"
-            placeholder="输入学校、队名或拼音"
+            placeholder="输入高校名称或拼音..."
             value={searchText}
             onChange={(event) => setSearchText(event.target.value)}
+            className="bg-rm-metal-dark border-2 border-rm-metal-border focus:border-rm-blue px-4 py-3 text-white font-mono text-sm focus:outline-none transition-colors"
           />
-          <div className="search-results">
-            {searchResults.map((team) => (
-              <button key={team.teamKey} type="button" className="search-result" onClick={() => chooseSearchTeam(team)}>
-                <strong>{team.collegeName}</strong>
-                <span>{team.teamName}</span>
-                <small>
-                  {team.regionName} / 国赛 {percent(team.probabilities.national)}
-                </small>
+          <div className="flex flex-col gap-2 max-h-96 overflow-y-auto pr-2 no-scrollbar">
+            {searchResults.map((team: any) => (
+              <button 
+                key={team.teamKey} 
+                onClick={() => chooseSearchTeam(team)}
+                className="group flex flex-col items-start p-3 bg-rm-metal-panel border border-rm-metal-border hover:border-rm-blue hover:bg-rm-blue/10 text-left transition-all"
+              >
+                <div className="flex items-center justify-between w-full mb-1">
+                   <strong className="text-white font-bold group-hover:text-rm-blue transition-colors text-sm">{team.collegeName}</strong>
+                   <span className="text-[10px] text-rm-metal-text font-mono border border-rm-metal-border px-1.5">{team.regionName}</span>
+                </div>
+                <div className="flex items-center justify-between w-full mt-1">
+                   <span className="text-xs text-rm-metal-text font-mono">{team.teamName}</span>
+                   <span className="text-[10px] text-rm-status-safe font-bold font-mono">国赛率 {percent(team.probabilities.national)}</span>
+                </div>
               </button>
             ))}
-            {searchResults.length === 0 ? <div className="empty-state">没有找到匹配的队伍。</div> : null}
+            {searchResults.length === 0 ? <div className="text-rm-metal-text/50 font-mono text-xs italic p-4 text-center">未找到与“{searchText}”匹配的队伍</div> : null}
           </div>
         </div>
       </SearchModal>
-    </main>
+    </div>
   );
 }

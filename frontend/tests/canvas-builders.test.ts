@@ -186,7 +186,23 @@ describe("buildWorkspaceStage", () => {
     expect(stage.connectors.some((connector) => connector.id === "SF-1+SF-2=>FINAL-1")).toBe(true);
   });
 
-  it("builds south qualification stage with repechage split", () => {
+  it("builds north qualification stage with direct national and repechage split", () => {
+    const labels = [
+      "R16-1", "R16-2", "R16-3", "R16-4", "R16-5", "R16-6", "R16-7", "R16-8",
+      "QF-1", "QF-2", "QF-3", "QF-4",
+      "QUAL-1-1", "QUAL-1-2", "QUAL-1-3", "QUAL-1-4",
+      "QUAL-2-1", "QUAL-2-2",
+      "SF-1", "SF-2", "THIRD-1", "FINAL-1",
+    ];
+    const stage = buildWorkspaceStage("qualification", "north_region", makeSimulation("north_region", labels));
+
+    expect(stage.cards.some((card) => card.kind === "match" && card.match.matchLabel === "QUAL-R-1")).toBe(false);
+    expect(stage.cards.some((card) => card.kind === "match" && card.match.matchLabel === "FINAL-1")).toBe(false);
+    expect(stage.connectors.some((connector) => connector.id === "qualification-q1-split")).toBe(true);
+    expect(stage.headers.some((header) => header.title === "资格赛第二轮")).toBe(true);
+  });
+
+  it("builds south qualification stage with separate repechage playoff matches", () => {
     const labels = [
       "R16-1", "R16-2", "R16-3", "R16-4", "R16-5", "R16-6", "R16-7", "R16-8",
       "QF-1", "QF-2", "QF-3", "QF-4",
@@ -197,9 +213,8 @@ describe("buildWorkspaceStage", () => {
     const stage = buildWorkspaceStage("qualification", "south_region", makeSimulation("south_region", labels));
 
     expect(stage.cards.some((card) => card.kind === "match" && card.match.matchLabel === "QUAL-R-1")).toBe(true);
-    expect(stage.cards.some((card) => card.kind === "match" && card.match.matchLabel === "FINAL-1")).toBe(false);
-    expect(stage.connectors.some((connector) => connector.id === "qualification-q1-split")).toBe(true);
     expect(stage.headers.some((header) => header.title === "复活赛席位战")).toBe(true);
+    expect(stage.headers.some((header) => header.title === "国赛席位战")).toBe(true);
   });
 
   it("builds slot stage cards from slot assignments", () => {

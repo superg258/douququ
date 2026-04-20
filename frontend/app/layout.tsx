@@ -1,28 +1,55 @@
+import "./globals.css";
 import type { Metadata } from "next";
-import { Noto_Sans_SC, Rajdhani } from "next/font/google";
-import "@/app/globals.css";
-
-const bodyFont = Noto_Sans_SC({
-  variable: "--font-body",
-  weight: ["400", "500", "700", "900"],
-  preload: false,
-});
-
-const techFont = Rajdhani({
-  subsets: ["latin"],
-  variable: "--font-tech",
-  weight: ["500", "600", "700"],
-});
 
 export const metadata: Metadata = {
-  title: "RMUC 2026 赛程模拟总控台",
-  description: "查看三大赛区的资格赛、主淘汰赛、最终排名与 Elo 对照。",
+  title: "RoboMaster 赛事总控台 | 区域赛胜率侦测仪",
+  description: "机甲机位战斗胜率预测与赛程沙盘推演中控台",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="zh-CN">
-      <body className={`${bodyFont.variable} ${techFont.variable} rmuc-app`}>{children}</body>
+    <html lang="zh-CN" className="dark">
+      <body className="min-h-screen bg-rm-metal-dark text-rm-metal-text antialiased">
+          <div className="flex min-h-screen w-full flex-col">
+          {/* 机甲风雷达顶栏 (Navbar) */}
+          <header className="sticky top-0 z-50 w-full border-b border-rm-metal-border bg-rm-metal-panel/80 p-4 backdrop-blur-md">
+            <div className="mx-auto flex max-w-screen-2xl items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="flex h-8 w-8 items-center justify-center border border-rm-blue bg-rm-blue/20 text-rm-blue clip-chamfer shadow-[0_0_15px_rgba(0,163,255,0.4)]">
+                  RM
+                </div>
+                <h1 className="font-machine tracking-widest text-lg font-bold text-white uppercase text-glow-blue">
+                  赛事总控台
+                  <span className="ml-3 inline-block animate-pulse text-xs tracking-normal text-rm-status-safe">
+                    [ 在线运行 ]
+                  </span>
+                </h1>
+              </div>
+              <nav className="hidden space-x-8 md:flex">
+                <a href="/" className="text-sm font-bold uppercase tracking-widest text-rm-metal-text hover:text-white transition-colors">全景战略板</a>
+                <a href="/elo-rankings" className="text-sm font-bold uppercase tracking-widest text-rm-metal-text hover:text-white transition-colors">全局 ELO 榜</a>
+              </nav>
+            </div>
+            {/* 顶栏底部的荧光拉丝 */}
+            <div className="absolute bottom-0 left-0 h-[1px] w-full bg-gradient-to-r from-transparent via-rm-blue to-transparent opacity-50" />
+          </header>
+
+          <main className="flex-1 relative z-10 p-6 md:p-8">
+            <div className="mx-auto max-w-screen-2xl h-full">
+              {children}
+            </div>
+          </main>
+        </div>
+      </body>
     </html>
   );
 }

@@ -27,8 +27,8 @@ TOURNAMENT_MATCH_SIGMA_FLOOR = 10.0
 
 REGION_CONFIGS = {
     "东部赛区": {"slug": "east_region", "national_slots": 8, "repechage_slots": 6},
-    "南部赛区": {"slug": "south_region", "national_slots": 10, "repechage_slots": 4},
-    "北部赛区": {"slug": "north_region", "national_slots": 10, "repechage_slots": 6},
+    "南部赛区": {"slug": "south_region", "national_slots": 10, "repechage_slots": 6},
+    "北部赛区": {"slug": "north_region", "national_slots": 10, "repechage_slots": 4},
 }
 
 TIER1_SLOTS = ["A1", "A3", "A5", "A7", "B1", "B3", "B5", "B7"]
@@ -267,8 +267,15 @@ def assign_region_slots(teams: list[RegionTeam], rng: random.Random) -> list[dic
 
 
 def sample_from_distribution(distribution: dict[str, float], rng: random.Random) -> str:
-    best_scoreline = max(distribution.items(), key=lambda item: item[1])[0]
-    return best_scoreline
+    threshold = rng.random()
+    cumulative = 0.0
+    last_scoreline = ""
+    for scoreline, probability in distribution.items():
+        cumulative += probability
+        last_scoreline = scoreline
+        if threshold <= cumulative:
+            return scoreline
+    return last_scoreline
 
 
 def parse_scoreline(scoreline: str) -> tuple[int, int]:
@@ -827,7 +834,7 @@ def simulate_qualification_path(
     elif region in {"南部赛区", "北部赛区"}:
         for row in q1_rows:
             row["winner_next"] = "qualification_round2_national"
-            row["loser_next"] = "qualification_round2_repechage" if region == "南部赛区" else "repechage_qualified"
+            row["loser_next"] = "repechage_qualified" if region == "南部赛区" else "qualification_round2_repechage"
     rows.extend(q1_rows)
 
     summary: dict[str, Any] = {
@@ -893,6 +900,18 @@ def simulate_qualification_path(
         for team in national_losers:
             team.final_bucket = "repechage_from_national_playoff_loss"
             team.advancement = "repechage_qualified"
+        for team in q1_losers:
+            team.final_bucket = "repechage_direct"
+            team.advancement = "repechage_qualified"
+        summary["repechage_qualified"] = [*national_losers, *q1_losers]
+        summary["eliminated"] = []
+        summary["round2_losers"] = national_losers
+        return rows, summary
+
+    if region == "北部赛区":
+        for team in national_losers:
+            team.final_bucket = "repechage_from_national_playoff_loss"
+            team.advancement = "repechage_qualified"
         repechage_pairs = [(q1_losers[0], q1_losers[1]), (q1_losers[2], q1_losers[3])]
         repechage_winners, repechage_losers, repechage_rows = simulate_named_round(
             "qualification_round2",
@@ -918,18 +937,6 @@ def simulate_qualification_path(
         summary["round2_losers"] = national_losers
         summary["repechage_round_winners"] = repechage_winners
         summary["repechage_round_losers"] = repechage_losers
-        return rows, summary
-
-    if region == "北部赛区":
-        for team in national_losers:
-            team.final_bucket = "repechage_from_national_playoff_loss"
-            team.advancement = "repechage_qualified"
-        for team in q1_losers:
-            team.final_bucket = "repechage_direct"
-            team.advancement = "repechage_qualified"
-        summary["repechage_qualified"] = [*national_losers, *q1_losers]
-        summary["eliminated"] = []
-        summary["round2_losers"] = national_losers
         return rows, summary
 
     raise ValueError(f"Unsupported region: {region}")
@@ -997,14 +1004,7 @@ def build_final_rankings(
         )
         ordered.extend(
             sorted(
-                qualification["repechage_round_winners"],
-                key=lambda team: swiss_cross_group_key(team, teams_by_key),
-                reverse=True,
-            )
-        )
-        ordered.extend(
-            sorted(
-                qualification["repechage_round_losers"],
+                qualification["round1_losers"],
                 key=lambda team: swiss_cross_group_key(team, teams_by_key),
                 reverse=True,
             )
@@ -1026,7 +1026,14 @@ def build_final_rankings(
         )
         ordered.extend(
             sorted(
-                qualification["round1_losers"],
+                qualification["repechage_round_winners"],
+                key=lambda team: swiss_cross_group_key(team, teams_by_key),
+                reverse=True,
+            )
+        )
+        ordered.extend(
+            sorted(
+                qualification["repechage_round_losers"],
                 key=lambda team: swiss_cross_group_key(team, teams_by_key),
                 reverse=True,
             )

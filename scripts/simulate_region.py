@@ -9,6 +9,7 @@ from typing import Any
 
 import _simulate_region_core as region_core
 import build_rmuc_elo as legacy_elo
+import head_to_head as h2h
 
 import build_rmuc_ts2_backend as ts2_model
 
@@ -148,9 +149,8 @@ def build_prediction_payload(
     head_to_head_index: dict[tuple[str, str], dict[str, Any]],
     **kwargs,
 ) -> dict[str, Any]:
-    del head_to_head_index
     beta_perf = (float(getattr(red_team, "beta_perf", 0.0)) + float(getattr(blue_team, "beta_perf", 0.0))) / 2.0
-    p_game_red = _monte_carlo_single_game_probability(
+    p_game_base_red = _monte_carlo_single_game_probability(
         float(getattr(red_team, "simulation_theta", getattr(red_team, "regional_pre_theta"))),
         float(getattr(red_team, "match_sigma_theta", getattr(red_team, "pre_signal_sd_theta", 0.0))),
         float(getattr(blue_team, "simulation_theta", getattr(blue_team, "regional_pre_theta"))),
@@ -159,34 +159,27 @@ def build_prediction_payload(
         samples=samples,
         seed=match_seed,
     )
-    p_game_red = legacy_elo.clip(p_game_red, 0.05, 0.95)
-    raw_distribution = _compute_scoreline_distribution(best_of, p_game_red)
+    p_game_base_red = legacy_elo.clip(p_game_base_red, 0.05, 0.95)
+    head_to_head_summary = h2h.summarize_head_to_head(
+        red_team.college_name,
+        blue_team.college_name,
+        p_base=p_game_base_red,
+        head_to_head_index=head_to_head_index,
+    )
+    p_game_adj_red = float(head_to_head_summary["p_game_adj"])
+    raw_distribution = _compute_scoreline_distribution(best_of, p_game_adj_red)
     p_series_red = sum(
         probability
         for scoreline, probability in raw_distribution.items()
         if int(scoreline.split(":")[0]) > int(scoreline.split(":")[1])
     )
     return {
-        "p_game_base_red": p_game_red,
-        "p_game_adj_red": p_game_red,
+        "p_game_base_red": p_game_base_red,
+        "p_game_adj_red": p_game_adj_red,
         "p_series_red": p_series_red,
         "p_series_blue": 1.0 - p_series_red,
         "scoreline_distribution": raw_distribution,
-        "head_to_head_summary": {
-            "meetings_count": 0,
-            "effective_meeting_weight": 0.0,
-            "weighted_record": {
-                "school_a_weighted_wins": 0.0,
-                "school_b_weighted_wins": 0.0,
-                "weighted_ties": 0.0,
-            },
-            "sources_used": [],
-            "season_counts": {},
-            "season_weights": {},
-            "p_h2h": 0.5,
-            "reliability": 0.0,
-            "delta_h2h": 0.0,
-        },
+        "head_to_head_summary": head_to_head_summary,
         "confidence_label": _classify_confidence(red_team, blue_team),
     }
 
@@ -216,6 +209,7 @@ def simulate_region(
     teams = parse_team_rows(region, ratings_csv)
     slot_rows = region_core.assign_region_slots(teams, rng)
     assign_tournament_strengths(teams, rng)
+    head_to_head_index = h2h.load_head_to_head_index()
 
     group_rankings: dict[str, list[RegionTeam]] = {}
     match_rows: list[dict[str, Any]] = []
@@ -225,7 +219,7 @@ def simulate_region(
             group_name,
             group_teams,
             rng=rng,
-            head_to_head_index={},
+            head_to_head_index=head_to_head_index,
             samples=samples,
             payload_builder=payload_builder or build_prediction_payload,
         )
@@ -236,7 +230,7 @@ def simulate_region(
         region,
         group_rankings,
         rng=rng,
-        head_to_head_index={},
+        head_to_head_index=head_to_head_index,
         samples=samples,
         payload_builder=payload_builder or build_prediction_payload,
     )
@@ -291,6 +285,7 @@ def simulate_region(
                 "allow_rematches": True,
                 "ranking_tiebreak_proxy": ["official_opponent_score", "game_diff", "ts2_preseason_rating"],
             },
+            "head_to_head": h2h.configuration_payload(),
         },
         "champion": {"college_name": bracket_summary["champion"].college_name, "team_name": bracket_summary["champion"].team_name},
         "runner_up": {"college_name": bracket_summary["runner_up"].college_name, "team_name": bracket_summary["runner_up"].team_name},

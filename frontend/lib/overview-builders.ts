@@ -92,12 +92,19 @@ function buildRaceBucket(
   const cutoffIndex = Math.max(Math.min(cutoffRank - 1, ranked.length - 1), 0);
   const cutoffTeam = ranked[cutoffIndex] ?? null;
   const nextTeam = ranked[cutoffIndex + 1] ?? null;
-  const chasingTeams = ranked.slice(cutoffIndex + 1, cutoffIndex + 4);
+  const cutoffProb = cutoffTeam ? selector(cutoffTeam) : 0;
+  
+  const allChasing = ranked.slice(cutoffIndex + 1);
+  const validChasing = allChasing.filter(team => cutoffProb - selector(team) <= 0.20 && selector(team) > 0);
+  
+  const chasingTeams = validChasing.slice(0, 3);
+  const totalChasingCount = validChasing.length;
 
   return {
     locksCount: ranked.filter((team) => selector(team) >= lockThreshold).length,
     cutoffTeam,
     chasingTeams,
+    totalChasingCount,
     cutoffProbability: cutoffTeam ? selector(cutoffTeam) : 0,
     gap: Math.max((cutoffTeam ? selector(cutoffTeam) : 0) - (nextTeam ? selector(nextTeam) : 0), 0),
     bandSize: Math.min(1 + chasingTeams.length, 4),
@@ -212,6 +219,7 @@ function buildRegionCards(regions: OverviewRegion[]): RegionDashboardCard[] {
         (championTeams[0]?.probabilities.champion ?? 0) - (championTeams[1]?.probabilities.champion ?? 0);
       const nationalLocks = buildLockTeams(region, nationalSelector, NATIONAL_LOCK_THRESHOLD);
       const nationalRace = buildRaceBucket(region, nationalSelector, region.nationalSlots, NATIONAL_LOCK_THRESHOLD);
+      const repechageLocks = buildLockTeams(region, repechageOrBetterSelector, NATIONAL_LOCK_THRESHOLD);
       // `repechage` on the API means "exactly enters repechage". The homepage race band needs
       // the total seat line, so it uses "national or repechage" as the ordering metric.
       const repechageRace = buildRaceBucket(
@@ -234,11 +242,13 @@ function buildRegionCards(regions: OverviewRegion[]): RegionDashboardCard[] {
         top8ChampionShare,
         titleGap,
         favorite: favoriteOf(region),
+        teams: region.teams,
         monteCarlo: region.monteCarlo,
         titleShapeTag: determineTitleShape(titleGap, top2ChampionShare),
         profileTags: [],
         summarySentence: "",
         nationalLocks,
+        repechageLocks,
         nationalRace,
         repechageRace,
       };

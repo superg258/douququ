@@ -6,6 +6,7 @@
 
 - 前端位于 `D:\code\douququ\frontend`
   - Next.js App Router
+  - 仓库只保留这一套前端实现，不再维护 `frontend_new`
   - 关键入口：`app/page.tsx`、`app/regions/[region]`、`components/`、`lib/`
 - 后端位于 `D:\code\douququ\backend`
 - 赛程画布逻辑集中在 `frontend/lib/canvas-builders.ts`

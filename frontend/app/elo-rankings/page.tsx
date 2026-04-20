@@ -1,5 +1,5 @@
 import { EloRankingsPage } from "@/components/elo-rankings-page";
 
-export default function Page() {
+export default function EloPage() {
   return <EloRankingsPage />;
 }

@@ -33,6 +33,11 @@
 └── ...
 ```
 
+说明：
+
+- 仓库当前只保留 `frontend` 这一套前端源码，不再区分 `frontend_new`
+- 如果你之前在服务器上临时把服务指到 `frontend_new`，现在统一切回 `/opt/douququ/frontend`
+
 ## 2. 服务器建议
 
 推荐环境：

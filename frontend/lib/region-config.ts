@@ -1,4 +1,4 @@
-import type { RegionSlug, RegionViewConfig, WorkspaceMode, WorkspaceView } from "@/lib/types";
+import type { RegionSlug, RegionViewConfig, WorkspaceView } from "@/lib/types";
 
 export const REGION_VIEWS: RegionViewConfig[] = [
   {
@@ -62,6 +62,16 @@ export const REGION_LABELS: Record<RegionSlug, string> = {
   north_region: "北部赛区",
 };
 
+const REGION_REALTIME_AVAILABILITY: Record<RegionSlug, boolean> = {
+  east_region: false,
+  south_region: false,
+  north_region: false,
+};
+
+export function isRegionRealtimeEnabled(regionSlug: RegionSlug) {
+  return REGION_REALTIME_AVAILABILITY[regionSlug];
+}
+
 export function isValidSeed(value: number | null | undefined) {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
@@ -69,10 +79,6 @@ export function isValidSeed(value: number | null | undefined) {
 export function parseSeed(seedText: string | null) {
   const seed = Number(seedText);
   return isValidSeed(seed) ? seed : null;
-}
-
-export function parseMode(modeText: string | null): WorkspaceMode {
-  return modeText === "live" ? "live" : "sim";
 }
 
 export function createLiveSeed() {
@@ -110,24 +116,40 @@ export function getOrCreateSessionSeed() {
   }
 }
 
+export function refreshSessionSeed() {
+  const nextSeed = createLiveSeed();
+
+  if (typeof window === "undefined") {
+    return nextSeed;
+  }
+
+  try {
+    window.sessionStorage.setItem(SESSION_SEED_STORAGE_KEY, String(nextSeed));
+  } catch {
+    // Ignore storage failures and still return a fresh seed for the current refresh.
+  }
+
+  return nextSeed;
+}
+
 export function buildRegionHref(
   regionSlug: RegionSlug,
   view: WorkspaceView,
   options: {
     seed?: number | null;
     highlight?: string | null;
-    mode?: WorkspaceMode | null;
+    mode?: "sim" | "live";
   } = {}
 ) {
   const params = new URLSearchParams({ view });
   if (isValidSeed(options.seed)) {
     params.set("seed", String(options.seed));
   }
+  if (options.mode) {
+    params.set("mode", options.mode);
+  }
   if (options.highlight) {
     params.set("highlight", options.highlight);
-  }
-  if (options.mode === "live") {
-    params.set("mode", "live");
   }
   return `/regions/${regionSlug}?${params.toString()}`;
 }
