@@ -1,0 +1,27 @@
+{
+  "name": "rmuc-results-web-new",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1 --port 3005",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1 --port 3005"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "next": "^16.2.4",
+    "pinyin-match": "^1.2.10",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^3.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "autoprefixer": "^10.4.20",
+    "playwright": "^1.59.1",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.2"
+  }
+}
