@@ -1,4 +1,4 @@
-import type { RegionSlug, RegionViewConfig, WorkspaceView } from "@/lib/types";
+import type { RegionSlug, RegionViewConfig, WorkspaceMode, WorkspaceView } from "@/lib/types";
 
 export const REGION_VIEWS: RegionViewConfig[] = [
   {
@@ -71,6 +71,10 @@ export function parseSeed(seedText: string | null) {
   return isValidSeed(seed) ? seed : null;
 }
 
+export function parseMode(modeText: string | null): WorkspaceMode {
+  return modeText === "live" ? "live" : "sim";
+}
+
 export function createLiveSeed() {
   const timeComponent = Date.now().toString().slice(-9);
   let randomComponent = "000";
@@ -112,6 +116,7 @@ export function buildRegionHref(
   options: {
     seed?: number | null;
     highlight?: string | null;
+    mode?: WorkspaceMode | null;
   } = {}
 ) {
   const params = new URLSearchParams({ view });
@@ -120,6 +125,9 @@ export function buildRegionHref(
   }
   if (options.highlight) {
     params.set("highlight", options.highlight);
+  }
+  if (options.mode === "live") {
+    params.set("mode", "live");
   }
   return `/regions/${regionSlug}?${params.toString()}`;
 }

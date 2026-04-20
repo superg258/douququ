@@ -579,6 +579,92 @@ class TrueSkill2ResearchTests(unittest.TestCase):
         )
         self.assertEqual(len(repeated), 0)
 
+    def test_build_published_live_state_updates_records_match_ledger_deltas_and_win_drop_case(self) -> None:
+        canonical_matches = pd.DataFrame(
+            [
+                {
+                    "match_id": "m_live",
+                    "season": 2026,
+                    "match_date": "2026-05-02",
+                    "ruleset_id": "RMUC",
+                    "event_code": "2026RMUC_SOUTH",
+                    "stage_id": "rmuc_regional_group",
+                    "stage_family": "regional_group",
+                    "red_school_key": "a",
+                    "blue_school_key": "b",
+                    "red_school_name": "Alpha",
+                    "blue_school_name": "Beta",
+                    "red_wins": 2,
+                    "blue_wins": 0,
+                    "winner_side": "red",
+                }
+            ]
+        )
+        preseason = pd.DataFrame(
+            [
+                {"school_key": "a", "school_name": "Alpha", "season": 2026, "rmuc_program_base_theta": 0.0, "regional_prior_theta": 0.9},
+                {"school_key": "b", "school_name": "Beta", "season": 2026, "rmuc_program_base_theta": 0.0, "regional_prior_theta": 0.0},
+            ]
+        )
+        existing = pd.DataFrame(
+            [
+                {
+                    "match_id": "m_prev",
+                    "match_date": "2026-05-01",
+                    "season": 2026,
+                    "school_key": "a",
+                    "school_name": "Alpha",
+                    "stage_family": "regional_group",
+                    "opponent_school_key": "z",
+                    "opponent_school_name": "Zeta",
+                    "scoreline": "0:2",
+                    "match_result": "loss",
+                    "live_state_theta_before_match": 0.0,
+                    "live_state_theta_after_match": -0.5,
+                    "live_update_delta_theta": -0.5,
+                    "confirmed_prior_theta_before_match": 0.0,
+                    "confirmed_prior_theta_after_match": 0.0,
+                    "residual_prior_theta_before_match": 0.9,
+                    "residual_prior_theta_after_match": 0.6,
+                    "published_rating_before_match": 1608.0,
+                    "published_rating_after_match": 1512.0,
+                    "published_delta_rating": -96.0,
+                    "live_update_delta_rating": -60.0,
+                    "prior_component_delta_rating": -36.0,
+                    "regional_group_matches_played": 1,
+                    "pre_decay_factor_before_match": 1.0,
+                    "pre_decay_factor_after_match": 2.0 / 3.0,
+                }
+            ]
+        )
+
+        updates = build_published_live_state_updates(
+            preseason_snapshot=preseason,
+            live_state_store=existing,
+            new_matches=canonical_matches,
+            rating_scale=120.0,
+            pre_decay_matches=3,
+            beta_perf=1.0,
+            online_update_scale=0.5,
+        )
+
+        alpha = updates[(updates["match_id"] == "m_live") & (updates["school_key"] == "a")].iloc[0]
+        self.assertEqual(str(alpha["scoreline"]), "2:0")
+        self.assertEqual(str(alpha["match_result"]), "win")
+        self.assertGreater(float(alpha["live_update_delta_rating"]), 0.0)
+        self.assertLess(float(alpha["prior_component_delta_rating"]), 0.0)
+        self.assertLess(float(alpha["published_delta_rating"]), 0.0)
+        self.assertAlmostEqual(
+            float(alpha["published_rating_after_match"]) - float(alpha["published_rating_before_match"]),
+            float(alpha["published_delta_rating"]),
+        )
+        self.assertAlmostEqual(
+            float(alpha["published_delta_rating"]),
+            float(alpha["live_update_delta_rating"]) + float(alpha["prior_component_delta_rating"]),
+        )
+        self.assertEqual(str(alpha["opponent_school_key"]), "b")
+        self.assertIn("region_slug", updates.columns)
+
     def test_calibrate_online_live_update_scale_matches_historical_tempo_target(self) -> None:
         preseason = pd.DataFrame(
             [
@@ -1084,6 +1170,127 @@ class TrueSkill2ResearchTests(unittest.TestCase):
             self.assertIn("source_columns", feature_manifest)
             self.assertIn("ranking_1884", feature_manifest["source_columns"])
 
+    def test_partial_2026_rmuc_south_pipeline_exports_nonempty_published_live_ledger(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            dataset_dir = root / "dataset_v1"
+            fit_dir = root / "fit_v1"
+            published_export_path = root / "published_ratings.parquet"
+            config_path = root / "config.yaml"
+
+            build_result = run_cli(
+                "build-dataset",
+                "--from",
+                "2024RMUC",
+                "2025RMUC",
+                "2026RMUL",
+                "2026RMUC",
+                "--out",
+                str(dataset_dir),
+            )
+            self.assertEqual(build_result.returncode, 0, msg=build_result.stderr)
+
+            manifest = json.loads((dataset_dir / "dataset_manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(set(manifest["event_codes"]), {"2024RMUC", "2025RMUC", "2026RMUL", "2026RMUC"})
+
+            canonical = pd.read_parquet(dataset_dir / "canonical_matches.parquet")
+            south_partial = canonical[canonical["event_code"] == "2026RMUC"].copy()
+            self.assertEqual(len(south_partial), 32)
+            self.assertEqual(set(south_partial["stage_id"].tolist()), {"rmuc_regional_group"})
+            self.assertEqual(set(south_partial["ruleset_id"].tolist()), {"RMUC"})
+            self.assertEqual(set(south_partial["season"].tolist()), {2026})
+            self.assertEqual(len(set(south_partial["red_school_key"]).union(set(south_partial["blue_school_key"]))), 32)
+
+            config = {
+                "model": {
+                    "enable_stage_effect": True,
+                    "enable_format_effect": True,
+                    "enable_ruleset_effect": True,
+                    "enable_side_effect": True,
+                    "time_bucket": "day",
+                },
+                "priors": {
+                    "school_sd": 0.8,
+                    "team_sd": 0.5,
+                    "stage_sd": 0.3,
+                    "format_sd": 0.3,
+                    "ruleset_sd": 0.3,
+                    "side_sd": 0.3,
+                    "season_sd": 0.35,
+                    "drift_sd": 0.15,
+                    "perf_sd": 1.0,
+                    "rho_alpha": 8.0,
+                    "rho_beta": 2.0,
+                },
+                "training": {
+                    "inference_mode": "svi",
+                    "seed": 7,
+                    "num_steps": 8,
+                    "learning_rate": 0.03,
+                    "num_samples": 8,
+                    "max_train_matches": 96,
+                },
+            }
+            config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+
+            fit_result = run_cli(
+                "fit",
+                "--dataset",
+                str(dataset_dir),
+                "--config",
+                str(config_path),
+                "--out",
+                str(fit_dir),
+            )
+            self.assertEqual(fit_result.returncode, 0, msg=fit_result.stderr)
+            self.assertTrue((fit_dir / "model_report.json").exists())
+
+            published_export_result = run_cli(
+                "export-ratings",
+                "--model",
+                str(fit_dir),
+                "--date",
+                "2026-11-12",
+                "--mode",
+                "published",
+                "--out",
+                str(published_export_path),
+            )
+            self.assertEqual(published_export_result.returncode, 0, msg=published_export_result.stderr)
+
+            published_dir = published_export_path.parent / "published_2026"
+            ledger = pd.read_parquet(published_dir / "live_match_ledger.parquet")
+            south_ledger = ledger[
+                (ledger["region_slug"] == "south_region")
+                & (ledger["stage_family"] == "regional_group")
+                & (ledger["match_date"] <= "2026-11-12")
+            ].copy()
+            self.assertEqual(len(south_ledger), 64)
+            self.assertEqual(set(south_ledger["region_slug"].tolist()), {"south_region"})
+            self.assertEqual(set(south_ledger["stage_family"].tolist()), {"regional_group"})
+            self.assertEqual(len(set(south_ledger["school_key"].tolist())), 32)
+            self.assertLess(
+                float(
+                    (
+                        south_ledger["published_rating_after_match"]
+                        - south_ledger["published_rating_before_match"]
+                        - south_ledger["live_update_delta_rating"]
+                        - south_ledger["prior_component_delta_rating"]
+                    ).abs().max()
+                ),
+                1e-6,
+            )
+
+            current_snapshot = pd.read_parquet(published_dir / "current_snapshot.parquet")
+            self.assertEqual(len(current_snapshot), 308)
+            south_keys = set(south_ledger["school_key"].tolist())
+            south_live = current_snapshot[
+                (current_snapshot["school_key"].isin(south_keys))
+                & (current_snapshot["regional_group_matches_played"] > 0)
+            ]
+            self.assertEqual(len(south_live), 32)
+            self.assertLessEqual(int(south_live["regional_group_matches_played"].max()), 2)
+
     def test_fit_predict_export_and_backtest_pipeline(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -1246,6 +1453,7 @@ class TrueSkill2ResearchTests(unittest.TestCase):
             self.assertTrue(published_export_path.exists())
             self.assertTrue((published_export_path.parent / "published_2026" / "preseason_snapshot.parquet").exists())
             self.assertTrue((published_export_path.parent / "published_2026" / "published_manifest.json").exists())
+            self.assertTrue((published_export_path.parent / "published_2026" / "live_match_ledger.parquet").exists())
             self.assertTrue((published_export_path.parent / "published_2027" / "carryover_seed.parquet").exists())
 
             import pandas as pd

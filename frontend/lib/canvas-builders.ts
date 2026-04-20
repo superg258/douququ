@@ -183,7 +183,8 @@ function compactMatchCode(matchLabel: string) {
 }
 
 function stageMeta(match: MatchRow) {
-  return `${translateStageLabel(match.stage)} / BO${match.bestOf}`;
+  const liveTag = match.isRealResult ? " / 实际赛果" : "";
+  return `${translateStageLabel(match.stage)} / BO${match.bestOf}${liveTag}`;
 }
 
 function compareSlotOrder(left: SlotRow, right: SlotRow) {

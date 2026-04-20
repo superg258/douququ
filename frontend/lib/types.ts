@@ -1,5 +1,6 @@
 export type RegionSlug = "east_region" | "south_region" | "north_region";
 export type WorkspaceView = "slots" | "swiss-a" | "swiss-b" | "qualification" | "playoff" | "final-rankings";
+export type WorkspaceMode = "sim" | "live";
 export type CanvasTone = "cyan" | "amber" | "steel" | "emerald";
 
 export interface OverviewTeam {
@@ -75,6 +76,8 @@ export interface MatchRow {
   roundNumber: number;
   groupName: string;
   bestOf: number;
+  isRealResult?: boolean;
+  isConfirmedMatchup?: boolean;
   redTeam: TeamRef;
   blueTeam: TeamRef;
   scoreline: string;
@@ -85,6 +88,10 @@ export interface MatchRow {
   pSeriesRed: number;
   pSeriesBlue: number;
   deltaH2H: number;
+  redMu0?: number | null;
+  blueMu0?: number | null;
+  redDelta?: number | null;
+  blueDelta?: number | null;
   confidenceLabel: string;
   winnerNext: string;
   loserNext: string;
@@ -126,6 +133,63 @@ export interface SimulationResponse {
     repechageQualifiers: string[];
     matchCountByStage: Record<string, number>;
   };
+}
+
+export interface LiveTeamSnapshot {
+  teamKey: string;
+  schoolKey: string;
+  collegeName: string;
+  teamName: string;
+  currentPublishedRating: number;
+  preseasonPublishedRating: number;
+  publishedDeltaFromPreseason: number;
+  liveStateRatingComponent: number;
+  confirmedPriorRatingComponent: number;
+  residualPriorRatingComponent: number;
+  regionalGroupMatchesPlayed: number;
+  currentStageFamily: string;
+  latestMatchId: string | null;
+  latestMatchDate: string | null;
+}
+
+export interface LiveMatchImpactRow {
+  matchId: string;
+  matchDate: string;
+  regionSlug: RegionSlug;
+  stageFamily: string;
+  teamKey: string;
+  opponentTeamKey: string;
+  teamSide: "red" | "blue";
+  scoreline: string;
+  matchResult: "win" | "loss";
+  publishedRatingBeforeMatch: number;
+  publishedRatingAfterMatch: number;
+  publishedDeltaRating: number;
+  liveUpdateDeltaRating: number;
+  priorComponentDeltaRating: number;
+  confirmedPriorRatingAfterMatch: number;
+  residualPriorRatingAfterMatch: number;
+}
+
+export interface LiveTeamIndexEntry {
+  teamKey: string;
+  schoolKey: string;
+  collegeName: string;
+  teamName: string;
+  regionSlug: RegionSlug;
+  regionName: string;
+}
+
+export interface LiveRegionStateResponse {
+  available: boolean;
+  reason: string | null;
+  regionSlug: RegionSlug;
+  regionName: string;
+  generatedAt: string | null;
+  season: number | null;
+  currentSnapshot: LiveTeamSnapshot[];
+  matchLedger: LiveMatchImpactRow[];
+  teamIndex: Record<string, LiveTeamIndexEntry>;
 }
 
 export interface RegionViewConfig {

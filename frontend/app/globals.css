@@ -1363,6 +1363,17 @@ main {
   color: var(--text-faint);
 }
 
+.path-item.static {
+  display: block;
+  cursor: default;
+}
+
+.inspector-note {
+  margin-top: 10px;
+  color: var(--text-faint);
+  line-height: 1.5;
+}
+
 .overlay-backdrop {
   position: fixed;
   inset: 0;

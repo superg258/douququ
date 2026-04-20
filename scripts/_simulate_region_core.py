@@ -115,6 +115,7 @@ class RegionTeam:
     robot_stage_reliability: float
     simulation_mu: float
     match_sigma: float
+    display_mu: float | None = None
     slot: str = ""
     group_name: str = ""
     draw_box: str = ""
@@ -129,6 +130,7 @@ class RegionTeam:
     final_bucket: str = ""
     advancement: str = ""
     final_rank: int | None = None
+    dependent_on_prediction: bool = False
 
     @property
     def swiss_status(self) -> str:
@@ -141,6 +143,9 @@ class RegionTeam:
     @property
     def swiss_game_diff(self) -> int:
         return self.swiss_game_wins - self.swiss_game_losses
+
+    def current_display_mu(self) -> float:
+        return self.mu0 if self.display_mu is None else self.display_mu
 
 
 PayloadBuilder = Callable[..., dict[str, Any]]
@@ -262,15 +267,8 @@ def assign_region_slots(teams: list[RegionTeam], rng: random.Random) -> list[dic
 
 
 def sample_from_distribution(distribution: dict[str, float], rng: random.Random) -> str:
-    threshold = rng.random()
-    cumulative = 0.0
-    last_score = ""
-    for scoreline, probability in distribution.items():
-        cumulative += probability
-        last_score = scoreline
-        if threshold <= cumulative:
-            return scoreline
-    return last_score
+    best_scoreline = max(distribution.items(), key=lambda item: item[1])[0]
+    return best_scoreline
 
 
 def parse_scoreline(scoreline: str) -> tuple[int, int]:
@@ -326,6 +324,7 @@ def build_prediction_payload(
     samples: int,
     match_seed: int,
     head_to_head_index: dict[tuple[str, str], dict[str, Any]],
+    **kwargs,
 ) -> dict[str, Any]:
     p_game_base_red = predictor.monte_carlo_single_game_probability(
         red_team.simulation_mu,
@@ -401,8 +400,18 @@ def simulate_series(
         samples=samples,
         match_seed=match_seed,
         head_to_head_index=head_to_head_index,
+        stage=stage,
+        round_number=round_number,
+        match_label=match_label,
     )
-    scoreline = sample_from_distribution(payload["scoreline_distribution"], rng)
+    forced_scoreline = payload.get("fixed_scoreline")
+    scoreline = forced_scoreline if forced_scoreline else sample_from_distribution(payload["scoreline_distribution"], rng)
+    
+    is_confirmed_matchup = not (red_team.dependent_on_prediction or blue_team.dependent_on_prediction)
+    if not forced_scoreline:
+        red_team.dependent_on_prediction = True
+        blue_team.dependent_on_prediction = True
+
     red_games, blue_games = parse_scoreline(scoreline)
     winner = red_team if red_games > blue_games else blue_team
     loser = blue_team if winner is red_team else red_team
@@ -423,6 +432,8 @@ def simulate_series(
         "head_to_head_summary": payload["head_to_head_summary"],
         "confidence_label": payload["confidence_label"],
         "scoreline": scoreline,
+        "is_actual_result": bool(forced_scoreline),
+        "is_confirmed_matchup": is_confirmed_matchup,
         "red_games": red_games,
         "blue_games": blue_games,
         "winner": winner,
@@ -440,7 +451,29 @@ def match_row(
     blue_team: RegionTeam = result["blue_team"]
     winner: RegionTeam = result["winner"]
     loser: RegionTeam = result["loser"]
-    return {
+
+    red_wins, blue_wins = 0, 0
+    if ":" in result["scoreline"]:
+        rw, bw = result["scoreline"].split(":")
+        red_wins = int(rw)
+        blue_wins = int(bw)
+
+    is_actual_result = bool(result.get("is_actual_result", False))
+    red_mu_before = red_team.current_display_mu()
+    blue_mu_before = blue_team.current_display_mu()
+    update: dict[str, float] | None = None
+    if is_actual_result:
+        update = elo_model.average_ordered_series_update(
+            red_mu_before,
+            blue_mu_before,
+            red_wins,
+            blue_wins,
+            64.0,  # Dynamic stage weight proxy K=64.0
+        )
+        red_team.display_mu = red_mu_before + update["red_delta"]
+        blue_team.display_mu = blue_mu_before + update["blue_delta"]
+
+    row = {
         "stage": result["stage"],
         "stage_order": result["stage_order"],
         "round_number": result["round_number"],
@@ -466,7 +499,15 @@ def match_row(
         "winner_next": winner_next,
         "loser_next": loser_next,
         "confidence_label": result["confidence_label"],
+        "is_actual_result": is_actual_result,
+        "is_confirmed_matchup": bool(result.get("is_confirmed_matchup", False)),
     }
+    if update is not None:
+        row["red_mu0"] = round(red_mu_before, 1)
+        row["blue_mu0"] = round(blue_mu_before, 1)
+        row["red_delta"] = round(update["red_delta"], 1)
+        row["blue_delta"] = round(update["blue_delta"], 1)
+    return row
 
 
 def update_swiss_team_state(team: RegionTeam, *, won: bool, own_games: int, opp_games: int, opponent_key: str, round_number: int) -> None:
@@ -1216,6 +1257,10 @@ def write_simulation_outputs(simulation: dict[str, Any]) -> dict[str, Path]:
             "p_series_red",
             "p_series_blue",
             "delta_h2h",
+            "red_mu0",
+            "blue_mu0",
+            "red_delta",
+            "blue_delta",
             "scoreline",
             "winner_college_name",
             "winner_team_name",

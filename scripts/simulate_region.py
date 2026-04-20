@@ -146,6 +146,7 @@ def build_prediction_payload(
     samples: int,
     match_seed: int,
     head_to_head_index: dict[tuple[str, str], dict[str, Any]],
+    **kwargs,
 ) -> dict[str, Any]:
     del head_to_head_index
     beta_perf = (float(getattr(red_team, "beta_perf", 0.0)) + float(getattr(blue_team, "beta_perf", 0.0))) / 2.0

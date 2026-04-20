@@ -1,0 +1,64 @@
+{
+  "season_dir": "2026RMUC",
+  "source_dir": "/home/winx/douququ/data/extracted/2026RMUC",
+  "cleaned_dir": "/home/winx/douququ/data/cleaned/2026RMUC",
+  "files": {
+    "teams.csv": {
+      "rows": 32,
+      "source_rows": 32,
+      "filtered_rows": 32,
+      "dropped_columns": [
+        "college_logo",
+        "event_title",
+        "group_id",
+        "player_id",
+        "player_name",
+        "zone_id",
+        "zone_type"
+      ]
+    },
+    "matches.csv": {
+      "rows": 32,
+      "source_rows": 32,
+      "filtered_rows": 32,
+      "dropped_columns": [
+        "blue_college_logo",
+        "blue_fill_status",
+        "blue_player_id",
+        "blue_player_name",
+        "blue_player_rank",
+        "blue_player_score",
+        "blue_prepared_status",
+        "blue_side_id",
+        "event_title",
+        "group_id",
+        "loser_placehold_name",
+        "red_college_logo",
+        "red_fill_status",
+        "red_player_id",
+        "red_player_name",
+        "red_player_rank",
+        "red_player_score",
+        "red_prepared_status",
+        "red_side_id",
+        "slug",
+        "slug_name",
+        "status",
+        "winner_placehold_name",
+        "zone_id",
+        "zone_type"
+      ]
+    },
+    "group_rank.csv": {
+      "rows": 32,
+      "source_rows": 32,
+      "filtered_rows": 32,
+      "dropped_columns": [
+        "college_logo",
+        "metrics_json",
+        "zone_id"
+      ]
+    }
+  },
+  "note": "Synthetic south-region snapshot through Swiss round 2."
+}

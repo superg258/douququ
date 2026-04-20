@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import csv
+from functools import lru_cache
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -10,7 +12,7 @@ import numpy as np
 
 from . import schemas
 from .history_sources import RegionalPreModelConfig, build_selection_report_payload
-from .ingest import RMUL_FINAL_DATE, read_dataset, require_dataframe_deps, resolve_school_identifier
+from .ingest import RMUL_FINAL_DATE, read_dataset, require_dataframe_deps, resolve_school_identifier, school_key
 from .model import (
     PreparedData,
     build_prediction_frame,
@@ -25,6 +27,14 @@ from .regional_pre import (
     compute_regional_prior_runtime_components,
     fit_regional_prior_model,
 )
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+REGION_NAME_TO_SLUG = {
+    "东部赛区": "east_region",
+    "南部赛区": "south_region",
+    "北部赛区": "north_region",
+}
 
 
 def _save_npz(path: Path, arrays: dict[str, Any]) -> None:
@@ -46,6 +56,20 @@ def _save_tabular_outputs(frame: Any, out_path: Path) -> Path:
         encoding="utf-8",
     )
     return out_path
+
+
+@lru_cache(maxsize=1)
+def _load_2026_region_slug_map() -> dict[str, str]:
+    participants_path = REPO_ROOT / "data" / "reference" / "2026_regionals" / "participants_1912.csv"
+    if not participants_path.exists():
+        return {}
+    with participants_path.open(encoding="utf-8-sig", newline="") as handle:
+        rows = csv.DictReader(handle)
+        return {
+            school_key(str(row["college_name"])): REGION_NAME_TO_SLUG.get(str(row.get("admitted_region", "")).strip(), "")
+            for row in rows
+            if row.get("college_name")
+        }
 
 
 def _serializable_state_rows(state_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -777,19 +801,39 @@ def build_published_live_state_updates(
     online_update_scale: float,
 ) -> Any:
     pd, _ = require_dataframe_deps()
+    team_region_slug_map = _load_2026_region_slug_map()
     if new_matches.empty:
         return pd.DataFrame(
             columns=[
                 "match_id",
                 "match_date",
                 "season",
+                "region_slug",
                 "school_key",
                 "school_name",
+                "opponent_school_key",
+                "opponent_school_name",
+                "team_side",
+                "scoreline",
+                "match_result",
                 "stage_family",
+                "live_state_theta_before_match",
                 "live_state_theta_after_match",
+                "live_update_delta_theta",
+                "confirmed_prior_theta_before_match",
+                "confirmed_prior_theta_after_match",
+                "residual_prior_theta_before_match",
+                "residual_prior_theta_after_match",
                 "regional_group_matches_played",
+                "pre_decay_factor_before_match",
                 "pre_decay_factor_after_match",
+                "published_rating_before_match",
                 "published_rating_after_match",
+                "published_delta_rating",
+                "live_update_delta_rating",
+                "prior_component_delta_rating",
+                "confirmed_prior_rating_after_match",
+                "residual_prior_rating_after_match",
             ]
         )
 
@@ -866,10 +910,30 @@ def build_published_live_state_updates(
             beta_perf=beta_perf,
             online_update_scale=online_update_scale,
         )
+        scoreline = f"{int(match.get('red_wins', 0))}:{int(match.get('blue_wins', 0))}"
+        update_delta_map = {
+            red_school_key: float(delta_red),
+            blue_school_key: float(delta_blue),
+        }
+        before_live_map = {
+            red_school_key: float(current_live_map.get(red_school_key, 0.0)),
+            blue_school_key: float(current_live_map.get(blue_school_key, 0.0)),
+        }
+        before_confirmed_map = {
+            red_school_key: float(current_confirmed_prior_map.get(red_school_key, 0.0)),
+            blue_school_key: float(current_confirmed_prior_map.get(blue_school_key, 0.0)),
+        }
+        before_decay_map = {
+            red_school_key: float(pre_match_decay_red),
+            blue_school_key: float(pre_match_decay_blue),
+        }
         current_live_map[red_school_key] = float(current_live_map.get(red_school_key, 0.0)) + float(delta_red)
         current_live_map[blue_school_key] = float(current_live_map.get(blue_school_key, 0.0)) + float(delta_blue)
 
         for school_key in (red_school_key, blue_school_key):
+            opponent_school_key = blue_school_key if school_key == red_school_key else red_school_key
+            opponent_school_name = school_name_map.get(opponent_school_key, opponent_school_key)
+            team_side = "red" if school_key == red_school_key else "blue"
             if stage_family == "regional_group":
                 current_group_count_map[school_key] = int(current_group_count_map.get(school_key, 0)) + 1
             new_live = float(current_live_map.get(school_key, 0.0))
@@ -884,27 +948,67 @@ def build_published_live_state_updates(
                 decay_factor=float(decay_factor),
             )
             current_confirmed_prior_map[school_key] = float(confirmed_prior_theta)
+            prior_theta = float(prior_theta_map.get(school_key, 0.0))
+            before_live = float(before_live_map.get(school_key, 0.0))
+            before_confirmed = float(before_confirmed_map.get(school_key, 0.0))
+            before_decay_factor = float(before_decay_map.get(school_key, 0.0))
+            before_residual = prior_theta * before_decay_factor
+            published_before = compute_published_rating(
+                program_base_theta=float(base_theta_map.get(school_key, 0.0)),
+                prior_theta=prior_theta,
+                confirmed_prior_theta=before_confirmed,
+                decay_factor=before_decay_factor,
+                live_state_theta=before_live,
+                rating_scale=float(rating_scale),
+            )
+            published_after = compute_published_rating(
+                program_base_theta=float(base_theta_map.get(school_key, 0.0)),
+                prior_theta=prior_theta,
+                confirmed_prior_theta=float(confirmed_prior_theta),
+                decay_factor=float(decay_factor),
+                live_state_theta=float(new_live),
+                rating_scale=float(rating_scale),
+            )
+            prior_component_before_theta = before_confirmed + before_residual
+            prior_component_after_theta = float(confirmed_prior_theta) + float(residual_prior_theta)
+            published_delta_rating = float(published_after) - float(published_before)
+            live_update_delta_rating = float(rating_scale) * float(update_delta_map.get(school_key, 0.0))
+            prior_component_delta_rating = float(rating_scale) * (prior_component_after_theta - prior_component_before_theta)
+            if school_key == red_school_key:
+                match_result = "win" if int(match.get("red_wins", 0)) > int(match.get("blue_wins", 0)) else "loss"
+            else:
+                match_result = "win" if int(match.get("blue_wins", 0)) > int(match.get("red_wins", 0)) else "loss"
             update_rows.append(
                 {
                     "match_id": match_id,
                     "match_date": match_date,
                     "season": season,
+                    "region_slug": team_region_slug_map.get(school_key, ""),
                     "school_key": school_key,
                     "school_name": school_name_map.get(school_key, school_key),
+                    "opponent_school_key": opponent_school_key,
+                    "opponent_school_name": opponent_school_name,
+                    "team_side": team_side,
+                    "scoreline": scoreline if team_side == "red" else f"{int(match.get('blue_wins', 0))}:{int(match.get('red_wins', 0))}",
+                    "match_result": match_result,
                     "stage_family": stage_family,
+                    "live_state_theta_before_match": before_live,
                     "live_state_theta_after_match": new_live,
+                    "live_update_delta_theta": float(update_delta_map.get(school_key, 0.0)),
+                    "confirmed_prior_theta_before_match": before_confirmed,
                     "confirmed_prior_theta_after_match": float(confirmed_prior_theta),
+                    "residual_prior_theta_before_match": float(before_residual),
                     "residual_prior_theta_after_match": float(residual_prior_theta),
                     "regional_group_matches_played": int(current_group_count_map.get(school_key, 0)),
+                    "pre_decay_factor_before_match": before_decay_factor,
                     "pre_decay_factor_after_match": float(decay_factor),
-                    "published_rating_after_match": compute_published_rating(
-                        program_base_theta=float(base_theta_map.get(school_key, 0.0)),
-                        prior_theta=float(prior_theta_map.get(school_key, 0.0)),
-                        confirmed_prior_theta=float(confirmed_prior_theta),
-                        decay_factor=float(decay_factor),
-                        live_state_theta=float(new_live),
-                        rating_scale=float(rating_scale),
-                    ),
+                    "published_rating_before_match": float(published_before),
+                    "published_rating_after_match": float(published_after),
+                    "published_delta_rating": float(published_delta_rating),
+                    "live_update_delta_rating": float(live_update_delta_rating),
+                    "prior_component_delta_rating": float(prior_component_delta_rating),
+                    "confirmed_prior_rating_after_match": float(rating_scale) * float(confirmed_prior_theta),
+                    "residual_prior_rating_after_match": float(rating_scale) * float(residual_prior_theta),
                 }
             )
     return pd.DataFrame.from_records(update_rows)
@@ -1132,6 +1236,7 @@ def export_published_rating_artifacts(model_dir: Path, snapshot_date: str, out_d
     out_dir.mkdir(parents=True, exist_ok=True)
     preseason_path = out_dir / "preseason_snapshot.parquet"
     live_updates_path = out_dir / "live_state_updates.parquet"
+    live_match_ledger_path = out_dir / "live_match_ledger.parquet"
     rating_history_path = out_dir / "published_rating_history.parquet"
     current_snapshot_path = out_dir / "current_snapshot.parquet"
     final_path = out_dir / "final_2026_snapshot.parquet"
@@ -1140,6 +1245,7 @@ def export_published_rating_artifacts(model_dir: Path, snapshot_date: str, out_d
 
     _save_tabular_outputs(preseason_snapshot, preseason_path)
     _save_tabular_outputs(live_state_updates, live_updates_path)
+    _save_tabular_outputs(live_state_updates, live_match_ledger_path)
     _save_tabular_outputs(published_rating_history, rating_history_path)
     _save_tabular_outputs(current_snapshot, current_snapshot_path)
     _save_tabular_outputs(final_snapshot, final_path)
@@ -1155,6 +1261,7 @@ def export_published_rating_artifacts(model_dir: Path, snapshot_date: str, out_d
             "source_model_dir": str(model_dir),
             "preseason_snapshot_path": str(preseason_path),
             "live_state_updates_path": str(live_updates_path),
+            "live_match_ledger_path": str(live_match_ledger_path),
             "published_rating_history_path": str(rating_history_path),
             "current_snapshot_path": str(current_snapshot_path),
             "final_snapshot_path": str(final_path),
@@ -1164,6 +1271,7 @@ def export_published_rating_artifacts(model_dir: Path, snapshot_date: str, out_d
     return {
         "preseason_snapshot_path": preseason_path,
         "live_state_updates_path": live_updates_path,
+        "live_match_ledger_path": live_match_ledger_path,
         "published_rating_history_path": rating_history_path,
         "current_snapshot_path": current_snapshot_path,
         "final_snapshot_path": final_path,

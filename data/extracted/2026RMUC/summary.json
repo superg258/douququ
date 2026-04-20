@@ -1,0 +1,17 @@
+{
+  "event_code": "2026RMUC",
+  "season": 2026,
+  "league": "RMUC",
+  "event_title": "RoboMaster 2026 超级对抗赛",
+  "sources": {
+    "participants.csv": "data/reference/2026_regionals/participants_1912.csv",
+    "live_schedule_seed": "south_region?mode=live&seed=20261111",
+    "actual_scorelines": "backend/app/south_actual_schedule.py"
+  },
+  "outputs": {
+    "teams.csv": 32,
+    "matches.csv": 32,
+    "group_rank.csv": 32
+  },
+  "note": "Synthetic south-region snapshot through Swiss round 2 generated from the live simulation schedule."
+}

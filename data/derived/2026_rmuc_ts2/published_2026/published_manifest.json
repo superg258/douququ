@@ -1,0 +1,15 @@
+{
+  "season": 2026,
+  "snapshot_date": "2026-11-12",
+  "rating_scale": 135.0,
+  "beta_perf": 1.8865294456481934,
+  "online_live_update_scale": 0.5,
+  "source_model_dir": "data/derived/2026_rmuc_ts2/model_fit_20260420_full",
+  "preseason_snapshot_path": "data/derived/2026_rmuc_ts2/published_2026/preseason_snapshot.parquet",
+  "live_state_updates_path": "data/derived/2026_rmuc_ts2/published_2026/live_state_updates.parquet",
+  "live_match_ledger_path": "data/derived/2026_rmuc_ts2/published_2026/live_match_ledger.parquet",
+  "published_rating_history_path": "data/derived/2026_rmuc_ts2/published_2026/published_rating_history.parquet",
+  "current_snapshot_path": "data/derived/2026_rmuc_ts2/published_2026/current_snapshot.parquet",
+  "final_snapshot_path": "data/derived/2026_rmuc_ts2/published_2026/final_2026_snapshot.parquet",
+  "carryover_seed_path": "data/derived/2026_rmuc_ts2/published_2027/carryover_seed.parquet"
+}
