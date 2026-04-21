@@ -1,3 +1,7 @@
 fastapi>=0.115,<1.0
 uvicorn>=0.30,<1.0
 httpx>=0.27,<1.0
+# Backend startup imports TS2 export helpers from research/trueskill2.
+# These two packages are needed at import time even for serving API routes.
+numpy>=2.0,<3.0
+PyYAML>=6.0,<7.0
