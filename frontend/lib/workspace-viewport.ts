@@ -31,21 +31,50 @@ function mobileMinScaleForStage(stage: WorkspaceStage) {
   }
 }
 
+function desktopTargetScale(stage: WorkspaceStage, width: number, height: number, fittedScale: number, gutterX: number, gutterY: number) {
+  const widthScale = Math.min((width - gutterX * 2) / stage.width, 1);
+  const projectedHeight = stage.height * widthScale + gutterY * 2;
+  const overflowY = projectedHeight - height;
+
+  if (overflowY > 0 && overflowY <= height * 0.14) {
+    return Math.max(fittedScale, widthScale);
+  }
+
+  return fittedScale;
+}
+
 function viewportBounds(stage: WorkspaceStage, frame: FrameSize, scale: number) {
   const stageWidth = stage.width * scale;
   const stageHeight = stage.height * scale;
   const minVisibleX = Math.min(72, frame.width * 0.24);
   const minVisibleY = Math.min(120, frame.height * 0.18);
-  const minX = frame.width - stageWidth - minVisibleX;
-  const maxX = minVisibleX;
-  const minY = frame.height - stageHeight - minVisibleY;
   const maxY = Math.min(44, frame.height * 0.06);
 
+  const xBounds = stageWidth <= frame.width
+    ? {
+        min: minVisibleX - stageWidth,
+        max: frame.width - minVisibleX,
+      }
+    : {
+        min: frame.width - stageWidth - minVisibleX,
+        max: minVisibleX,
+      };
+
+  const yBounds = stageHeight <= frame.height
+    ? {
+        min: maxY - stageHeight,
+        max: frame.height - minVisibleY,
+      }
+    : {
+        min: frame.height - stageHeight - minVisibleY,
+        max: maxY,
+      };
+
   return {
-    minX: Math.min(minX, maxX),
-    maxX,
-    minY: Math.min(minY, maxY),
-    maxY,
+    minX: Math.min(xBounds.min, xBounds.max),
+    maxX: xBounds.max,
+    minY: Math.min(yBounds.min, yBounds.max),
+    maxY: yBounds.max,
   };
 }
 
@@ -58,6 +87,25 @@ export function clampViewportPosition(stage: WorkspaceStage, frame: FrameSize, v
   };
 }
 
+export function scaleViewportAroundFramePoint(
+  stage: WorkspaceStage,
+  frame: FrameSize,
+  viewport: ViewportState,
+  frameX: number,
+  frameY: number,
+  nextScale: number
+): ViewportState {
+  const scale = clamp(nextScale, 0.4, 2);
+  const worldX = (frameX - viewport.x) / viewport.scale;
+  const worldY = (frameY - viewport.y) / viewport.scale;
+
+  return clampViewportPosition(stage, frame, {
+    scale,
+    x: frameX - worldX * scale,
+    y: frameY - worldY * scale,
+  });
+}
+
 export function fitWorkspaceViewport(stage: WorkspaceStage, width: number, height: number): ViewportState {
   const requestedPaddingX = stage.viewport?.paddingX ?? 72;
   const requestedPaddingY = stage.viewport?.paddingY ?? 72;
@@ -65,8 +113,10 @@ export function fitWorkspaceViewport(stage: WorkspaceStage, width: number, heigh
   const gutterY = clamp(Math.min(requestedPaddingY, height * 0.055), 18, 34);
   const fittedScale = Math.min((width - gutterX * 2) / stage.width, (height - gutterY * 2) / stage.height, 1);
   const desktopMinScale = stage.viewport?.minScale ?? 0.56;
+  const desktopScale = desktopTargetScale(stage, width, height, fittedScale, gutterX, gutterY);
   const minScale = width < 768 ? Math.max(mobileMinScaleForStage(stage), Math.min(desktopMinScale, 0.5)) : desktopMinScale;
-  const scale = clamp(Math.max(fittedScale, minScale), minScale, 1);
+  const targetScale = width < 768 ? fittedScale : desktopScale;
+  const scale = clamp(Math.max(targetScale, minScale), minScale, 1);
   const align = width < 768
     ? (stage.id === "final-rankings" ? "center" : "left")
     : (stage.viewport?.align ?? "center");

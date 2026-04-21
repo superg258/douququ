@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { clampViewportPosition, fitWorkspaceViewport } from "@/lib/workspace-viewport";
+import { clampViewportPosition, fitWorkspaceViewport, scaleViewportAroundFramePoint } from "@/lib/workspace-viewport";
 import type { WorkspaceStage } from "@/lib/types";
 
 function makeStage(id: WorkspaceStage["id"], width: number, height: number, minScale?: number): WorkspaceStage {
@@ -43,12 +43,44 @@ describe("workspace-viewport", () => {
     expect(viewport.scale).toBeLessThan(0.52);
   });
 
+  it("uses more desktop width when the extra vertical overflow stays modest", () => {
+    const playoffStage = makeStage("playoff", 1938, 1240, 0.74);
+
+    const viewport = fitWorkspaceViewport(playoffStage, 1920, 1180);
+
+    expect(viewport.scale).toBeGreaterThan(0.9);
+  });
+
   it("clamps panning so the stage cannot be dragged completely out of view", () => {
     const stage = makeStage("playoff", 1938, 1240, 0.74);
 
     const clamped = clampViewportPosition(stage, { width: 390, height: 844 }, { scale: 0.58, x: -5000, y: -5000 });
 
     expect(clamped.x).toBeGreaterThan(-900);
-    expect(clamped.y).toBeGreaterThan(-600);
+    expect(clamped.y).toBeGreaterThan(-700);
+  });
+
+  it("still allows panning when the scaled stage is narrower than the fullscreen frame", () => {
+    const stage = makeStage("playoff", 1938, 1620, 0.74);
+
+    const clamped = clampViewportPosition(stage, { width: 1914, height: 1182 }, { scale: 0.74, x: 320, y: 34 });
+
+    expect(clamped.x).toBe(320);
+  });
+
+  it("keeps the pinch center anchored while scaling the viewport", () => {
+    const stage = makeStage("playoff", 1938, 1240, 0.74);
+    const current = { scale: 0.6, x: 24, y: 30 };
+
+    const next = scaleViewportAroundFramePoint(stage, { width: 390, height: 844 }, current, 180, 260, 0.9);
+
+    const currentWorldX = (180 - current.x) / current.scale;
+    const currentWorldY = (260 - current.y) / current.scale;
+    const nextWorldX = (180 - next.x) / next.scale;
+    const nextWorldY = (260 - next.y) / next.scale;
+
+    expect(next.scale).toBe(0.9);
+    expect(Math.abs(nextWorldX - currentWorldX)).toBeLessThan(0.001);
+    expect(Math.abs(nextWorldY - currentWorldY)).toBeLessThan(0.001);
   });
 });

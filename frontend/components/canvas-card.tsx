@@ -95,7 +95,6 @@ function TeamCanvasCardComponent({
         pointerIntentRef.current = null;
       }}
       onPointerDown={(event) => {
-        event.stopPropagation();
         pointerIntentRef.current = { x: event.clientX, y: event.clientY, moved: false };
       }}
       onPointerMove={(event) => {
@@ -165,6 +164,7 @@ function MatchRowLine({
   const scoreBoxColor = isRed ? "bg-[#E62E2E]/25 text-[#FFF0D4] border-[#FF3333]/50" : "bg-[#1E88E5]/25 text-[#DCEFFF] border-[#3399FF]/50";
   const probColor = isRed ? "text-[#FF4D4D]" : "text-[#3399FF]";
   const barBg = isRed ? "bg-[#E62E2E]/30" : "bg-[#1E88E5]/30";
+  const pointerIntentRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
 
   return (
     <button
@@ -173,8 +173,34 @@ function MatchRowLine({
         "relative w-full flex items-stretch text-left group/row transition-all outline-none flex-1 border-b last:border-b-0 border-[#2f303d] overflow-hidden",
         isWinner ? activeBg : isLoser ? "bg-black/60 grayscale opacity-60" : `bg-transparent ${hoverBg}`
       )}
-      onClick={onTeamSelect ? (e) => { e.stopPropagation(); onTeamSelect(side.teamKey); } : undefined}
-      onPointerDown={(e) => e.stopPropagation()}
+      onClick={onTeamSelect ? (e) => {
+        if (pointerIntentRef.current?.moved) {
+          pointerIntentRef.current = null;
+          return;
+        }
+        e.stopPropagation();
+        onTeamSelect(side.teamKey);
+        pointerIntentRef.current = null;
+      } : undefined}
+      onPointerDown={(event) => {
+        pointerIntentRef.current = { x: event.clientX, y: event.clientY, moved: false };
+      }}
+      onPointerMove={(event) => {
+        if (!pointerIntentRef.current) return;
+        const deltaX = Math.abs(event.clientX - pointerIntentRef.current.x);
+        const deltaY = Math.abs(event.clientY - pointerIntentRef.current.y);
+        if (deltaX > 6 || deltaY > 6) {
+          pointerIntentRef.current = { ...pointerIntentRef.current, moved: true };
+        }
+      }}
+      onPointerUp={() => {
+        if (pointerIntentRef.current?.moved) {
+          pointerIntentRef.current = null;
+        }
+      }}
+      onPointerCancel={() => {
+        pointerIntentRef.current = null;
+      }}
     >
       {showProbability && (
         <div 
@@ -199,7 +225,7 @@ function MatchRowLine({
       {showProbability && (
         <div className="relative z-10 shrink-0 flex items-center pr-3">
           <span className={cn("font-mono text-[10px] font-bold drop-shadow-sm", probColor)}>
-            {pct(side.probability)} {isWinner ? "WIN" : ""}
+            {pct(side.probability)} {isWinner ? "胜" : ""}
           </span>
         </div>
       )}
@@ -300,7 +326,6 @@ function MatchCanvasCardComponent({
         }
       }}
       onPointerDown={(event) => {
-        event.stopPropagation();
         pointerIntentRef.current = { x: event.clientX, y: event.clientY, moved: false };
       }}
       onPointerMove={(event) => {
@@ -357,7 +382,14 @@ function MatchCanvasCardComponent({
             hasRealResult && actualWinnerName === row.redTeam.collegeName ? "border-rm-status-safe shadow-[inset_0_0_12px_rgba(0,255,157,0.15)]" : "border-rm-red",
             (selectedTeamKey === row.redTeam.teamKey || highlightedTeamKey === row.redTeam.teamKey) && "ring-1 ring-white/30"
           )}
-          onClick={(e) => { e.stopPropagation(); onTeamSelect(row.redTeam.teamKey); }}>
+          onClick={(e) => {
+            if (pointerIntentRef.current?.moved) {
+              pointerIntentRef.current = null;
+              return;
+            }
+            e.stopPropagation();
+            onTeamSelect(row.redTeam.teamKey);
+          }}>
             {hasRealResult && actualWinnerName === row.redTeam.collegeName && (
               <span className="text-[7.5px] font-machine text-rm-status-safe tracking-widest mb-0.5 animate-pulse">{">>> 胜者"}</span>
             )}
@@ -376,7 +408,7 @@ function MatchCanvasCardComponent({
           
           {/* Center VS */}
           <div className="flex-[0.16] flex flex-col items-center justify-center relative shrink-0 z-20">
-            <div className="text-xl font-machine italic text-rm-metal-text opacity-30 select-none">VS</div>
+            <div className="text-xl font-machine italic text-rm-metal-text opacity-30 select-none">对阵</div>
             {showsResolvedScoreline ? (
               <div className={cn(
                 "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#0a0a0f] border px-2 py-0.5 text-lg font-machine whitespace-nowrap",
@@ -405,7 +437,14 @@ function MatchCanvasCardComponent({
             hasRealResult && actualWinnerName === row.blueTeam.collegeName ? "border-rm-status-safe shadow-[inset_0_0_12px_rgba(0,255,157,0.15)]" : "border-rm-blue",
             (selectedTeamKey === row.blueTeam.teamKey || highlightedTeamKey === row.blueTeam.teamKey) && "ring-1 ring-white/30"
           )}
-          onClick={(e) => { e.stopPropagation(); onTeamSelect(row.blueTeam.teamKey); }}>
+          onClick={(e) => {
+            if (pointerIntentRef.current?.moved) {
+              pointerIntentRef.current = null;
+              return;
+            }
+            e.stopPropagation();
+            onTeamSelect(row.blueTeam.teamKey);
+          }}>
             {hasRealResult && actualWinnerName === row.blueTeam.collegeName && (
               <span className="text-[7.5px] font-machine text-rm-status-safe tracking-widest mb-0.5 animate-pulse">胜者 {"<<<"}</span>
             )}

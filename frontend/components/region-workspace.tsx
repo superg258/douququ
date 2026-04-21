@@ -781,7 +781,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
          )}
          
          <button onClick={() => setSearchOpen(true)} className="border border-rm-metal-border bg-rm-metal-dark hover:bg-rm-metal-panel text-rm-metal-text px-2 md:px-3 py-1.5 transition-colors uppercase">
-           SEARCH
+           搜索
          </button>
          <button
            type="button"
@@ -824,7 +824,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
          ))}
          
          <div className="ml-auto opacity-0 md:opacity-100 hidden md:flex items-center gap-4 text-[10px] text-rm-metal-text font-mono font-bold">
-            <span>T-COUNT: {overview?.regions.find(r => r.regionSlug === regionSlug)?.teams.length ?? 0}</span>
+            <span>队伍数: {overview?.regions.find(r => r.regionSlug === regionSlug)?.teams.length ?? 0}</span>
             <span>当前种子: <span className="text-white">{seed}</span></span>
          </div>
       </div>
@@ -954,7 +954,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
         </div>
         
         {/* Toggle Inspector Button */}
-        <div className={`hidden md:block absolute top-4 transition-all duration-300 z-40 ${inspectorOpen ? 'opacity-0 pointer-events-none md:opacity-100 md:pointer-events-auto right-4 md:right-[336px]' : 'right-4'}`}>
+        <div className={`hidden md:block absolute top-28 transition-all duration-300 z-40 ${inspectorOpen ? 'opacity-0 pointer-events-none md:opacity-100 md:pointer-events-auto right-4 md:right-[336px]' : 'right-4'}`}>
            <button 
              onClick={() => setInspectorOpen(!inspectorOpen)}
              className="flex flex-col gap-1 w-8 h-10 items-center justify-center bg-rm-metal-panel border border-rm-metal-border hover:border-rm-blue text-rm-metal-text clip-chamfer group transition-all"
@@ -968,8 +968,9 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
 
         {/* Inspector Panel */}
         <div className={cn(
-          "flex-none w-full md:w-80 transition-transform duration-300 ease-in-out z-30 absolute md:relative md:inset-auto inset-x-0 bottom-0 md:right-0 md:top-0 md:bottom-0",
-          "h-[58%] md:h-auto",
+          "w-full md:w-80 transition-transform duration-300 ease-in-out z-30 absolute inset-x-0 bottom-0 md:inset-y-0 md:right-0 md:left-auto",
+          "h-[58%] md:h-full",
+          inspectorOpen ? "pointer-events-auto" : "pointer-events-none",
           inspectorOpen
             ? "translate-y-0 md:translate-x-0"
             : "translate-y-full md:translate-y-0 md:translate-x-full"
