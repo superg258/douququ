@@ -1,5 +1,7 @@
 "use client";
 
+import { useRef } from "react";
+
 import type { CanvasCard, MatchCanvasCard, TeamCanvasCard } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -68,6 +70,7 @@ function TeamCanvasCardComponent({
   const isSelected = selectedTeamKey === card.teamKey;
   const isHighlighted = highlightedTeamKey === card.teamKey;
   const isSafe = card.tone === "emerald" || card.tone === "amber";
+  const pointerIntentRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
 
   return (
     <button
@@ -83,8 +86,34 @@ function TeamCanvasCardComponent({
         height: card.height,
       }}
       title={[card.collegeName, card.teamName, card.statLine, ...(card.meta ?? [])].filter(Boolean).join(" / ")}
-      onClick={() => onTeamSelect(card.teamKey)}
-      onPointerDown={(event) => event.stopPropagation()}
+      onClick={() => {
+        if (pointerIntentRef.current?.moved) {
+          pointerIntentRef.current = null;
+          return;
+        }
+        onTeamSelect(card.teamKey);
+        pointerIntentRef.current = null;
+      }}
+      onPointerDown={(event) => {
+        event.stopPropagation();
+        pointerIntentRef.current = { x: event.clientX, y: event.clientY, moved: false };
+      }}
+      onPointerMove={(event) => {
+        if (!pointerIntentRef.current) return;
+        const deltaX = Math.abs(event.clientX - pointerIntentRef.current.x);
+        const deltaY = Math.abs(event.clientY - pointerIntentRef.current.y);
+        if (deltaX > 6 || deltaY > 6) {
+          pointerIntentRef.current = { ...pointerIntentRef.current, moved: true };
+        }
+      }}
+      onPointerUp={() => {
+        if (pointerIntentRef.current?.moved) {
+          pointerIntentRef.current = null;
+        }
+      }}
+      onPointerCancel={() => {
+        pointerIntentRef.current = null;
+      }}
     >
       {card.orderLabel ? (
         <span className="flex-none flex items-center justify-center w-12 h-full px-1 overflow-hidden border-r border-inherit bg-black/40 text-[16px] font-bold font-mono text-[#A0A0B0]">
@@ -93,10 +122,10 @@ function TeamCanvasCardComponent({
       ) : null}
       
       <div className="flex-1 flex flex-col justify-center px-3 min-w-0 bg-[#12121A]/80 backdrop-blur-sm relative overflow-hidden">
-        <div className={cn("font-bold text-[14px] truncate drop-shadow-sm", isSafe ? "text-[#FFFFFF]" : "text-[#E0E0E0]")}>
+        <div className={cn("font-bold text-[13px] leading-[1.25] line-clamp-2 min-h-[2.65rem] drop-shadow-sm", isSafe ? "text-[#FFFFFF]" : "text-[#E0E0E0]")}>
           {card.collegeName}
         </div>
-        <div className={cn("text-[10px] font-mono truncate mt-0.5", isSafe ? "text-[#FFD180]" : "text-[#A0A0B0]")}>
+        <div className={cn("text-[9px] font-mono line-clamp-1 mt-1", isSafe ? "text-[#FFD180]" : "text-[#A0A0B0]")}>
           {card.subtitle ?? card.teamName} {card.statLine ? ` / ${card.statLine}` : ""}
         </div>
         
@@ -159,10 +188,10 @@ function MatchRowLine({
       </div>
 
       <div className="relative z-10 flex flex-col justify-center flex-1 px-3 min-w-0">
-        <span className={cn("font-bold text-[13px] leading-tight truncate drop-shadow-sm", isWinner ? "text-white" : "text-[#D0D0E0]")}>
+        <span className={cn("font-bold text-[13px] leading-tight line-clamp-2 drop-shadow-sm", isWinner ? "text-white" : "text-[#D0D0E0]")}>
           {side.collegeName}
         </span>
-        <span className="text-[10px] text-[#A0A0B0] font-mono truncate mt-0.5">
+        <span className="text-[10px] text-[#A0A0B0] font-mono line-clamp-1 mt-0.5">
           {side.teamName}
         </span>
       </div>
@@ -199,6 +228,7 @@ function MatchCanvasCardComponent({
 }) {
   const isSelected = selectedMatchLabel === card.match.matchLabel;
   const headless = card.variant === "compact" || card.variant === "playoff";
+  const pointerIntentRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const row = card.match;
   const expectedRed = row.pSeriesRed ?? card.redSide.probability;
   const expectedBlue = row.pSeriesBlue ?? card.blueSide.probability;
@@ -255,14 +285,40 @@ function MatchCanvasCardComponent({
         width: card.width,
         height: card.height,
       }}
-      onClick={() => onMatchSelect(row.matchLabel)}
+      onClick={() => {
+        if (pointerIntentRef.current?.moved) {
+          pointerIntentRef.current = null;
+          return;
+        }
+        onMatchSelect(row.matchLabel);
+        pointerIntentRef.current = null;
+      }}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           onMatchSelect(row.matchLabel);
         }
       }}
-      onPointerDown={(event) => event.stopPropagation()}
+      onPointerDown={(event) => {
+        event.stopPropagation();
+        pointerIntentRef.current = { x: event.clientX, y: event.clientY, moved: false };
+      }}
+      onPointerMove={(event) => {
+        if (!pointerIntentRef.current) return;
+        const deltaX = Math.abs(event.clientX - pointerIntentRef.current.x);
+        const deltaY = Math.abs(event.clientY - pointerIntentRef.current.y);
+        if (deltaX > 6 || deltaY > 6) {
+          pointerIntentRef.current = { ...pointerIntentRef.current, moved: true };
+        }
+      }}
+      onPointerUp={() => {
+        if (pointerIntentRef.current?.moved) {
+          pointerIntentRef.current = null;
+        }
+      }}
+      onPointerCancel={() => {
+        pointerIntentRef.current = null;
+      }}
     >
       {hasRealResult && (
         <div className="absolute inset-0 bg-gradient-to-r from-rm-status-safe/5 via-transparent to-transparent pointer-events-none" />
@@ -307,7 +363,12 @@ function MatchCanvasCardComponent({
             )}
             <div 
               title={row.redTeam.collegeName} 
-              className={cn("text-[13px] leading-tight font-bold tracking-widest break-normal line-clamp-2 mt-0.5 h-full flex items-center shadow-black drop-shadow-md", showsResolvedScoreline && actualWinnerName === row.redTeam.collegeName ? "text-white text-glow-white" : "text-rm-red")}
+              className={cn(
+                "text-[13px] leading-tight font-bold tracking-widest break-normal line-clamp-2 mt-0.5 h-full flex items-center drop-shadow-[0_2px_3px_rgba(0,0,0,0.95)]",
+                showsResolvedScoreline && actualWinnerName === row.redTeam.collegeName
+                  ? "text-[#FFD54A] [text-shadow:0_0_10px_rgba(255,213,74,0.38)]"
+                  : "text-rm-red"
+              )}
             >
               {row.redTeam.collegeName}
             </div>
@@ -350,7 +411,12 @@ function MatchCanvasCardComponent({
             )}
             <div 
               title={row.blueTeam.collegeName} 
-              className={cn("text-[13px] leading-tight font-bold tracking-widest break-normal line-clamp-2 mt-0.5 h-full flex items-center justify-end shadow-black drop-shadow-md", showsResolvedScoreline && actualWinnerName === row.blueTeam.collegeName ? "text-white text-glow-white" : "text-rm-blue")}
+              className={cn(
+                "text-[13px] leading-tight font-bold tracking-widest break-normal line-clamp-2 mt-0.5 h-full flex items-center justify-end drop-shadow-[0_2px_3px_rgba(0,0,0,0.95)]",
+                showsResolvedScoreline && actualWinnerName === row.blueTeam.collegeName
+                  ? "text-[#FFD54A] [text-shadow:0_0_10px_rgba(255,213,74,0.38)]"
+                  : "text-rm-blue"
+              )}
             >
               {row.blueTeam.collegeName}
             </div>

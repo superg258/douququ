@@ -5,26 +5,7 @@ import { CanvasCardView } from "@/components/canvas-card";
 import { CanvasConnectorView } from "@/components/canvas-connector";
 import type { WorkspaceStage } from "@/lib/types";
 import { cn } from "@/lib/utils";
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function fitViewport(stage: WorkspaceStage, width: number, height: number) {
-  const requestedPaddingX = stage.viewport?.paddingX ?? 72;
-  const requestedPaddingY = stage.viewport?.paddingY ?? 72;
-  const gutterX = clamp(Math.min(requestedPaddingX, width * 0.045), 18, 36);
-  const gutterY = clamp(Math.min(requestedPaddingY, height * 0.055), 18, 34);
-  const fittedScale = Math.min((width - gutterX * 2) / stage.width, (height - gutterY * 2) / stage.height, 1);
-  const minScale = width < 768 ? 0.4 : (stage.viewport?.minScale ?? 0.56);
-  const scale = clamp(Math.max(fittedScale, minScale), minScale, 1);
-  const align = stage.viewport?.align ?? "center";
-  return {
-    scale,
-    x: align === "left" ? gutterX : Math.max(gutterX, (width - stage.width * scale) / 2),
-    y: Math.max(gutterY, (height - stage.height * scale) / 2),
-  };
-}
+import { clampViewportPosition, fitWorkspaceViewport } from "@/lib/workspace-viewport";
 
 export function WorkspaceStageView({
   stage,
@@ -46,12 +27,22 @@ export function WorkspaceStageView({
   const frameRef = useRef<HTMLDivElement>(null);
   const [frameSize, setFrameSize] = useState({ width: 0, height: 0 });
   const [viewport, setViewport] = useState({ scale: 1, x: 0, y: 0 });
+  const activePointers = useRef(new Map<number, { x: number; y: number }>());
   const dragState = useRef<{
     pointerId: number;
     startX: number;
     startY: number;
     originX: number;
     originY: number;
+    moved: boolean;
+  } | null>(null);
+  const pinchState = useRef<{
+    startDistance: number;
+    originScale: number;
+    worldX: number;
+    worldY: number;
+    centerX: number;
+    centerY: number;
   } | null>(null);
 
   useEffect(() => {
@@ -68,19 +59,72 @@ export function WorkspaceStageView({
 
   useEffect(() => {
     if (!frameSize.width || !frameSize.height) return;
-    setViewport(fitViewport(stage, frameSize.width, frameSize.height));
+    setViewport(fitWorkspaceViewport(stage, frameSize.width, frameSize.height));
   }, [stage, frameSize.height, frameSize.width]);
 
   const resetViewport = () => {
     if (!frameSize.width || !frameSize.height) return;
-    setViewport(fitViewport(stage, frameSize.width, frameSize.height));
+    setViewport(fitWorkspaceViewport(stage, frameSize.width, frameSize.height));
+  };
+
+  const updateViewport = (nextViewport: { scale: number; x: number; y: number }) => {
+    if (!frameSize.width || !frameSize.height) return;
+    setViewport(clampViewportPosition(stage, frameSize, nextViewport));
   };
 
   const setScale = (nextScale: number) => {
-    setViewport((current) => ({
-      ...current,
-      scale: clamp(nextScale, 0.4, 2.0),
-    }));
+    const frameCenterX = frameSize.width / 2;
+    const frameCenterY = frameSize.height / 2;
+
+    setViewport((current) => {
+      const scale = Math.min(2, Math.max(0.4, nextScale));
+      const worldX = (frameCenterX - current.x) / current.scale;
+      const worldY = (frameCenterY - current.y) / current.scale;
+      return clampViewportPosition(stage, frameSize, {
+        scale,
+        x: frameCenterX - worldX * scale,
+        y: frameCenterY - worldY * scale,
+      });
+    });
+  };
+
+  const clearInteraction = (pointerId: number, target: EventTarget | null) => {
+    activePointers.current.delete(pointerId);
+
+    if (dragState.current?.pointerId === pointerId) {
+      if (target instanceof HTMLElement && target.hasPointerCapture(pointerId)) {
+        target.releasePointerCapture(pointerId);
+      }
+      dragState.current = null;
+    }
+
+    if (activePointers.current.size < 2) {
+      pinchState.current = null;
+    }
+  };
+
+  const maybeStartPinch = () => {
+    if (activePointers.current.size !== 2) {
+      pinchState.current = null;
+      return;
+    }
+
+    const [first, second] = [...activePointers.current.values()];
+    const centerX = (first.x + second.x) / 2;
+    const centerY = (first.y + second.y) / 2;
+    const startDistance = Math.hypot(second.x - first.x, second.y - first.y);
+
+    if (!startDistance) return;
+
+    pinchState.current = {
+      startDistance,
+      originScale: viewport.scale,
+      worldX: (centerX - viewport.x) / viewport.scale,
+      worldY: (centerY - viewport.y) / viewport.scale,
+      centerX,
+      centerY,
+    };
+    dragState.current = null;
   };
 
   return (
@@ -117,7 +161,7 @@ export function WorkspaceStageView({
             className="text-rm-metal-text hover:text-white px-1 md:px-2 py-0.5 text-xs font-mono uppercase transition-colors focus:outline-none"
             onClick={resetViewport}
           >
-            <span className="hidden md:inline">Reset</span><span className="md:hidden">R</span>
+            <span className="hidden md:inline">Reset</span><span className="md:hidden">归位</span>
           </button>
         </div>
       </div>
@@ -127,43 +171,71 @@ export function WorkspaceStageView({
         ref={frameRef}
         className="flex-1 w-full h-full cursor-grab active:cursor-grabbing overflow-hidden touch-none"
         onPointerDown={(event) => {
-          if (event.button !== 0) return;
+          if (event.pointerType === "mouse" && event.button !== 0) return;
+          activePointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+          maybeStartPinch();
+
+          if (activePointers.current.size > 1) {
+            return;
+          }
+
           dragState.current = {
             pointerId: event.pointerId,
             startX: event.clientX,
             startY: event.clientY,
             originX: viewport.x,
             originY: viewport.y,
+            moved: false,
           };
           (event.target as HTMLElement).setPointerCapture(event.pointerId);
         }}
         onPointerMove={(event) => {
+          activePointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+          if (pinchState.current && activePointers.current.size >= 2) {
+            const [first, second] = [...activePointers.current.values()];
+            const centerX = (first.x + second.x) / 2;
+            const centerY = (first.y + second.y) / 2;
+            const distance = Math.hypot(second.x - first.x, second.y - first.y);
+
+            if (!distance) return;
+
+            const scale = Math.min(2, Math.max(0.4, pinchState.current.originScale * (distance / pinchState.current.startDistance)));
+            updateViewport({
+              scale,
+              x: centerX - pinchState.current.worldX * scale,
+              y: centerY - pinchState.current.worldY * scale,
+            });
+            return;
+          }
+
           if (!dragState.current || dragState.current.pointerId !== event.pointerId) return;
           const currentDrag = dragState.current;
           const clientX = event.clientX;
           const clientY = event.clientY;
-          setViewport((current) => ({
-            ...current,
-            x: currentDrag.originX + (clientX - currentDrag.startX),
-            y: currentDrag.originY + (clientY - currentDrag.startY),
-          }));
+          const deltaX = clientX - currentDrag.startX;
+          const deltaY = clientY - currentDrag.startY;
+
+          if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
+            dragState.current = { ...currentDrag, moved: true };
+          }
+
+          updateViewport({
+            scale: viewport.scale,
+            x: currentDrag.originX + deltaX,
+            y: currentDrag.originY + deltaY,
+          });
         }}
         onPointerUp={(event) => {
-          if (!dragState.current || dragState.current.pointerId !== event.pointerId) return;
-          (event.target as HTMLElement).releasePointerCapture(event.pointerId);
-          dragState.current = null;
+          clearInteraction(event.pointerId, event.target);
         }}
         onPointerCancel={(event) => {
-          if (!dragState.current || dragState.current.pointerId !== event.pointerId) return;
-          (event.target as HTMLElement).releasePointerCapture(event.pointerId);
-          dragState.current = null;
+          clearInteraction(event.pointerId, event.target);
         }}
         onWheel={(event) => {
            event.preventDefault();
-           setViewport((current) => ({
-             ...current,
-             scale: clamp(current.scale - event.deltaY * 0.001, 0.4, 2.0),
-           }));
+           const nextScale = viewport.scale - event.deltaY * 0.001;
+           setScale(nextScale);
         }}
       >
         <div

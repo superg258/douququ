@@ -471,9 +471,9 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
       <h4 className="text-xs text-white font-bold uppercase tracking-widest mb-3">头部竞争队</h4>
       <div className="space-y-2">
         {regionOverview?.teams.slice(0, 6).map((team: any) => (
-          <button key={team.teamKey} onClick={() => onTeamOpen(team.teamKey)} className="w-full flex items-center justify-between bg-rm-metal-dark border border-rm-metal-border px-3 py-2 hover:border-rm-blue transition-colors group">
-            <span className="text-xs font-bold text-white truncate w-32 text-left">{team.collegeName}</span>
-            <span className="text-[9px] font-mono text-rm-blue">{percent(team.probabilities.champion)}</span>
+          <button key={team.teamKey} onClick={() => onTeamOpen(team.teamKey)} className="w-full flex items-start justify-between gap-3 bg-rm-metal-dark border border-rm-metal-border px-3 py-2 hover:border-rm-blue transition-colors group">
+            <span className="min-w-0 flex-1 text-xs font-bold text-white text-left leading-5 line-clamp-2">{team.collegeName}</span>
+            <span className="shrink-0 pt-0.5 text-[9px] font-mono text-rm-blue">{percent(team.probabilities.champion)}</span>
           </button>
         ))}
       </div>
@@ -502,6 +502,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   const [error, setError] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [sessionSeed, setSessionSeed] = useState<number | null>(null);
   const seed = parsedSeed ?? sessionSeed;
@@ -712,17 +713,18 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   return (
     <div className="absolute inset-0 flex flex-col min-h-0 bg-[#0a0a0f] bg-red-blue-split">
       {/* Header Panel */}
-      <header className="flex flex-col md:flex-row items-start md:items-center justify-between px-3 py-2 md:px-6 md:py-4 bg-rm-metal-panel/80 border-b border-rm-metal-border backdrop-blur-sm z-30">
-        <div className="flex flex-col mb-1 md:mb-0">
-          <div className="text-[10px] text-rm-metal-text font-mono tracking-widest uppercase mb-1 flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-rm-status-safe animate-pulse"/>
-            RMUC 2026 // {REGION_LABELS[regionSlug] ?? regionSlug}
+      <header className="flex flex-col gap-2 px-3 py-2 md:px-6 md:py-4 bg-rm-metal-panel/80 border-b border-rm-metal-border backdrop-blur-sm z-30">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+          <div className="flex flex-col">
+            <div className="text-[10px] text-rm-metal-text font-mono tracking-widest uppercase mb-1 flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-rm-status-safe animate-pulse"/>
+              RMUC 2026 // {REGION_LABELS[regionSlug] ?? regionSlug}
+            </div>
+            <h1 className="text-xl md:text-2xl font-machine text-white tracking-widest uppercase text-glow-blue">{viewMeta.label}</h1>
           </div>
-          <h1 className="text-xl md:text-2xl font-machine text-white tracking-widest uppercase text-glow-blue">{viewMeta.label}</h1>
-        </div>
-        
-        <div className="flex items-center gap-2 md:gap-4 mt-1 md:mt-0 font-mono text-xs w-full md:w-auto overflow-x-auto no-scrollbar pb-1 md:pb-0">
-           <div className="flex bg-rm-metal-dark border border-rm-metal-border overflow-hidden flex-none">
+
+          <div className="flex flex-wrap items-center gap-2 md:gap-4 font-mono text-xs w-full md:w-auto">
+           <div className="flex bg-rm-metal-dark border border-rm-metal-border overflow-hidden">
              <button 
                onClick={() => {
                  if (realtimeEnabled) {
@@ -751,7 +753,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
          <select 
             value={regionSlug} 
             onChange={(e) => router.push(`/regions/${e.target.value}?${searchParams.toString()}`)} 
-            className="bg-rm-metal-dark border border-rm-metal-border text-white px-2 md:px-3 py-1.5 focus:outline-none focus:border-rm-blue flex-none"
+            className="bg-rm-metal-dark border border-rm-metal-border text-white px-2 md:px-3 py-1.5 focus:outline-none focus:border-rm-blue min-w-[7.5rem]"
          >
             {overview?.regions.map((region) => (
               <option key={region.regionSlug} value={region.regionSlug}>{region.regionName}</option>
@@ -759,7 +761,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
          </select>
          
          {mode === "sim" && (
-           <div className="flex items-center bg-rm-metal-dark border border-rm-metal-border overflow-hidden flex-none">
+           <div className="flex items-center bg-rm-metal-dark border border-rm-metal-border overflow-hidden">
              <div className="bg-rm-metal-panel border-r border-rm-metal-border px-2 py-1.5 text-rm-metal-text">种子</div>
              <input
                type="text"
@@ -778,9 +780,34 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
            </div>
          )}
          
-         <button onClick={() => setSearchOpen(true)} className="border border-rm-metal-border bg-rm-metal-dark hover:bg-rm-metal-panel text-rm-metal-text px-2 md:px-3 py-1.5 transition-colors uppercase flex-none">
+         <button onClick={() => setSearchOpen(true)} className="border border-rm-metal-border bg-rm-metal-dark hover:bg-rm-metal-panel text-rm-metal-text px-2 md:px-3 py-1.5 transition-colors uppercase">
            SEARCH
          </button>
+         <button
+           type="button"
+           onClick={() => setLegendOpen((current) => !current)}
+           className={cn(
+             "md:hidden border px-2 py-1.5 transition-colors uppercase",
+             legendOpen
+               ? "border-rm-blue bg-rm-blue/15 text-rm-blue"
+               : "border-rm-metal-border bg-rm-metal-dark text-rm-metal-text hover:bg-rm-metal-panel"
+           )}
+         >
+           图例
+         </button>
+         <button
+           type="button"
+           onClick={() => setInspectorOpen((current) => !current)}
+           className={cn(
+             "md:hidden border px-2 py-1.5 transition-colors uppercase",
+             inspectorVisible
+               ? "border-rm-blue bg-rm-blue/15 text-rm-blue"
+               : "border-rm-metal-border bg-rm-metal-dark text-rm-metal-text hover:bg-rm-metal-panel"
+           )}
+         >
+           {inspectorVisible ? "收起情报" : "情报"}
+         </button>
+      </div>
       </div>
     </header>
       
@@ -802,8 +829,37 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
          </div>
       </div>
 
+      {legendOpen ? (
+        <div className="md:hidden border-b border-rm-metal-border bg-[#08080d]/95 px-3 py-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-rm-metal-text">图例与统计</div>
+            <button
+              type="button"
+              onClick={() => setLegendOpen(false)}
+              className="text-[10px] font-mono uppercase text-rm-metal-text hover:text-white"
+            >
+              收起
+            </button>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <span className="text-[10px] font-bold border border-rm-status-safe bg-rm-status-safe/10 text-rm-status-safe px-1.5 py-0.5 shadow-[0_0_5px_rgba(0,255,157,0.3)]">精准预测</span>
+            <span className="text-[10px] font-bold border border-[#a855f7] bg-[#a855f7]/10 text-[#a855f7] px-1.5 py-0.5 shadow-[0_0_5px_rgba(168,85,247,0.3)]">比分偏离</span>
+            <span className="text-[10px] font-bold border border-[#ef4444] bg-[#ef4444]/10 text-[#ef4444] px-1.5 py-0.5 shadow-[0_0_5px_rgba(239,68,68,0.3)]">路线爆冷</span>
+            <span className="text-[10px] font-bold border border-[#facc15] bg-[#facc15]/10 text-[#facc15] px-1.5 py-0.5 shadow-[0_0_5px_rgba(250,204,21,0.3)]">确认未赛</span>
+            <span className="text-[10px] font-bold border border-rm-blue bg-rm-blue/10 text-rm-blue px-1.5 py-0.5 shadow-[0_0_5px_rgba(0,163,255,0.3)]">模拟预测</span>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] font-mono">
+            <span className="border border-rm-blue/35 bg-rm-blue/10 text-rm-blue px-2 py-1">预测池 {matchPhaseOverview.counters.pre}</span>
+            <span className="border border-rm-status-safe/35 bg-rm-status-safe/10 text-rm-status-safe px-2 py-1">已完赛 {matchPhaseOverview.counters.post}</span>
+            <span className="border border-rm-status-safe/35 bg-rm-status-safe/10 text-rm-status-safe px-2 py-1">精准 {matchPhaseOverview.accuracy.correct}</span>
+            <span className="border border-[#a855f7]/35 bg-[#a855f7]/10 text-[#a855f7] px-2 py-1">偏离 {matchPhaseOverview.accuracy.mismatch}</span>
+            <span className="col-span-2 border border-[#ef4444]/35 bg-[#ef4444]/10 text-[#ef4444] px-2 py-1">爆冷 {matchPhaseOverview.accuracy.upset}</span>
+          </div>
+        </div>
+      ) : null}
+
       {/* Prediction / Review Strip */}
-      <div className="flex flex-nowrap overflow-x-auto no-scrollbar items-center gap-2 px-3 py-1.5 md:px-6 md:py-2.5 bg-rm-metal-panel/60 border-b border-rm-metal-border z-20 whitespace-nowrap">
+      <div className="hidden md:flex flex-nowrap overflow-x-auto no-scrollbar items-center gap-2 px-3 py-1.5 md:px-6 md:py-2.5 bg-rm-metal-panel/60 border-b border-rm-metal-border z-20 whitespace-nowrap">
         <div className="flex items-center gap-2 mr-4 flex-none">
           <span className="text-[10px] font-bold uppercase tracking-widest text-rm-metal-text">图框图例</span>
           <span className="text-[10px] font-bold border border-rm-status-safe bg-rm-status-safe/10 text-rm-status-safe px-1.5 py-0.5 shadow-[0_0_5px_rgba(0,255,157,0.3)]">精准预测</span>
@@ -898,7 +954,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
         </div>
         
         {/* Toggle Inspector Button */}
-        <div className={`absolute top-4 transition-all duration-300 z-40 ${inspectorOpen ? 'opacity-0 pointer-events-none md:opacity-100 md:pointer-events-auto right-4 md:right-[336px]' : 'right-4'}`}>
+        <div className={`hidden md:block absolute top-4 transition-all duration-300 z-40 ${inspectorOpen ? 'opacity-0 pointer-events-none md:opacity-100 md:pointer-events-auto right-4 md:right-[336px]' : 'right-4'}`}>
            <button 
              onClick={() => setInspectorOpen(!inspectorOpen)}
              className="flex flex-col gap-1 w-8 h-10 items-center justify-center bg-rm-metal-panel border border-rm-metal-border hover:border-rm-blue text-rm-metal-text clip-chamfer group transition-all"
@@ -911,7 +967,13 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
         </div>
 
         {/* Inspector Panel */}
-        <div className={`flex-none w-full md:w-80 transform transition-transform duration-300 ease-in-out z-30 ${inspectorOpen ? 'translate-x-0 absolute inset-0 md:relative' : 'translate-x-full absolute right-0 top-0 bottom-0'}`}>
+        <div className={cn(
+          "flex-none w-full md:w-80 transition-transform duration-300 ease-in-out z-30 absolute md:relative md:inset-auto inset-x-0 bottom-0 md:right-0 md:top-0 md:bottom-0",
+          "h-[58%] md:h-auto",
+          inspectorOpen
+            ? "translate-y-0 md:translate-x-0"
+            : "translate-y-full md:translate-y-0 md:translate-x-full"
+        )}>
           <InspectorPanel
             selection={selection}
             regionOverview={regionOverview}
