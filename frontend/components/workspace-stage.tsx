@@ -16,7 +16,8 @@ function fitViewport(stage: WorkspaceStage, width: number, height: number) {
   const gutterX = clamp(Math.min(requestedPaddingX, width * 0.045), 18, 36);
   const gutterY = clamp(Math.min(requestedPaddingY, height * 0.055), 18, 34);
   const fittedScale = Math.min((width - gutterX * 2) / stage.width, (height - gutterY * 2) / stage.height, 1);
-  const scale = clamp(Math.max(fittedScale, stage.viewport?.minScale ?? 0.56), 0.56, 1);
+  const minScale = width < 768 ? 0.4 : (stage.viewport?.minScale ?? 0.56);
+  const scale = clamp(Math.max(fittedScale, minScale), minScale, 1);
   const align = stage.viewport?.align ?? "center";
   return {
     scale,
@@ -85,38 +86,38 @@ export function WorkspaceStageView({
   return (
     <section className="relative flex flex-col h-full bg-transparent border-t border-rm-metal-border rounded-none overflow-hidden">
       {/* Top Banner / Toolbar */}
-      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4 bg-gradient-to-b from-rm-metal-panel/90 to-transparent pointer-events-none">
-        <div className="flex flex-col">
-          <span className="text-[10px] text-rm-metal-text tracking-widest uppercase font-mono mb-1">
+      <div className="absolute top-0 left-0 right-0 z-20 flex items-start md:items-center justify-between p-2 md:p-4 bg-gradient-to-b from-rm-metal-panel/90 to-transparent pointer-events-none">
+        <div className="flex flex-col max-w-[50%] md:max-w-none">
+          <span className="text-[10px] text-rm-metal-text tracking-widest uppercase font-mono mb-1 hidden md:block">
             Tactical Simulation Canvas
           </span>
-          <h2 className="text-xl font-bold text-white tracking-widest font-machine">{stage.title}</h2>
+          <h2 className="text-sm md:text-xl font-bold text-white tracking-widest font-machine leading-tight">{stage.title}</h2>
           {stage.description && (
-            <p className="text-xs text-rm-metal-text mt-1 max-w-xl">{stage.description}</p>
+            <p className="hidden md:block text-xs text-rm-metal-text mt-1 max-w-xl">{stage.description}</p>
           )}
         </div>
-        <div className="flex items-center gap-2 pointer-events-auto bg-rm-metal-panel/80 border border-rm-metal-border px-3 py-1.5 backdrop-blur-md clip-chamfer">
+        <div className="flex items-center gap-1 md:gap-2 pointer-events-auto bg-rm-metal-panel/80 border border-rm-metal-border px-2 md:px-3 py-1 md:py-1.5 backdrop-blur-md clip-chamfer">
           <button 
-            className="text-rm-metal-text hover:text-white px-2 py-0.5 text-xs font-mono uppercase transition-colors focus:outline-none"
+            className="text-rm-metal-text hover:text-white px-1 md:px-2 py-0.5 text-xs font-mono uppercase transition-colors focus:outline-none"
             onClick={() => setScale(viewport.scale * 1.15)}
           >
-            Zoom In
+            <span className="hidden md:inline">Zoom In</span><span className="md:hidden">+</span>
           </button>
-          <span className="text-xs text-rm-blue font-bold font-mono min-w-[3ch] text-center">
+          <span className="text-[10px] md:text-xs text-rm-blue font-bold font-mono min-w-[3ch] text-center">
             {Math.round(viewport.scale * 100)}%
           </span>
           <button 
-            className="text-rm-metal-text hover:text-white px-2 py-0.5 text-xs font-mono uppercase transition-colors focus:outline-none"
+            className="text-rm-metal-text hover:text-white px-1 md:px-2 py-0.5 text-xs font-mono uppercase transition-colors focus:outline-none"
             onClick={() => setScale(viewport.scale / 1.15)}
           >
-            Zoom Out
+            <span className="hidden md:inline">Zoom Out</span><span className="md:hidden">-</span>
           </button>
           <div className="w-[1px] h-3 bg-rm-metal-text/30 mx-1"></div>
           <button 
-            className="text-rm-metal-text hover:text-white px-2 py-0.5 text-xs font-mono uppercase transition-colors focus:outline-none"
+            className="text-rm-metal-text hover:text-white px-1 md:px-2 py-0.5 text-xs font-mono uppercase transition-colors focus:outline-none"
             onClick={resetViewport}
           >
-            Reset
+            <span className="hidden md:inline">Reset</span><span className="md:hidden">R</span>
           </button>
         </div>
       </div>

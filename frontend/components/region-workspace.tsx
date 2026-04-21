@@ -316,7 +316,7 @@ function SearchModal({ open, title, onClose, children }: { open: boolean; title:
 function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selectedRanking, selectedPath, selectedMatch, onMatchOpen, onTeamOpen, onClose }: any) {
   if (selection?.kind === "team" && selectedOverviewTeam && selectedRanking) {
     return (
-      <div className="h-full flex flex-col bg-rm-metal-panel/95 border-l border-rm-metal-border w-80 shadow-2xl p-4 overflow-y-auto overflow-x-hidden animate-in slide-in-from-right-8 clip-chamfer-tr-bl">
+      <div className="h-full flex flex-col bg-rm-metal-panel/95 border-l border-rm-metal-border w-full md:w-80 shadow-2xl p-4 overflow-y-auto overflow-x-hidden animate-in slide-in-from-right-8 clip-chamfer-tr-bl">
         <div className="flex justify-between items-start border-b border-rm-metal-border pb-4 mb-4">
           <div>
             <p className="text-[10px] text-rm-metal-text font-bold uppercase tracking-widest leading-tight">队伍情报</p>
@@ -372,7 +372,7 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
     const actualScoreSame = predictedScore.scoreline === selectedMatch.scoreline;
 
     return (
-      <div className="h-full flex flex-col bg-rm-metal-panel/95 border-l border-rm-metal-border w-80 shadow-2xl p-4 overflow-y-auto animate-in slide-in-from-right-8 clip-chamfer-tr-bl">
+      <div className="h-full flex flex-col bg-rm-metal-panel/95 border-l border-rm-metal-border w-full md:w-80 shadow-2xl p-4 overflow-y-auto animate-in slide-in-from-right-8 clip-chamfer-tr-bl">
         <div className="flex justify-between items-start border-b border-rm-metal-border pb-4 mb-4">
           <div>
             <p className="text-[10px] text-rm-metal-text font-bold uppercase tracking-widest leading-tight">赛事对战情报</p>
@@ -441,8 +441,12 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
 
                       <span className="text-rm-metal-text">历史战绩修正</span>
             <span className="text-white font-bold text-right">{selectedMatch.deltaH2H.toFixed(3)}</span>
+        {selectedMatch.confidenceLabel && (
+          <>
             <span className="text-rm-metal-text">结果置信度</span>
             <span className="text-white font-bold text-right">{translateConfidenceLabel(selectedMatch.confidenceLabel)}</span>
+          </>
+        )}
           </div>
         </div>
       </div>
@@ -450,7 +454,7 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
   }
 
   return (
-    <div className="h-full flex flex-col bg-rm-metal-panel/95 border-l border-rm-metal-border w-80 shadow-2xl p-4 overflow-y-auto animate-in slide-in-from-right-8 clip-chamfer-tr-bl">
+    <div className="h-full flex flex-col bg-rm-metal-panel/95 border-l border-rm-metal-border w-full md:w-80 shadow-2xl p-4 overflow-y-auto animate-in slide-in-from-right-8 clip-chamfer-tr-bl">
       <div className="border-b border-rm-metal-border pb-4 mb-4">
             <p className="text-[10px] text-rm-metal-text font-bold uppercase tracking-widest">赛区模块</p>
         <h3 className="text-lg font-machine text-white">{regionOverview?.regionName ?? "等待载入"}</h3>
@@ -708,17 +712,17 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   return (
     <div className="absolute inset-0 flex flex-col min-h-0 bg-[#0a0a0f] bg-red-blue-split">
       {/* Header Panel */}
-      <header className="flex flex-col md:flex-row items-start md:items-center justify-between px-6 py-4 bg-rm-metal-panel/80 border-b border-rm-metal-border backdrop-blur-sm z-30">
-        <div className="flex flex-col">
+      <header className="flex flex-col md:flex-row items-start md:items-center justify-between px-3 py-2 md:px-6 md:py-4 bg-rm-metal-panel/80 border-b border-rm-metal-border backdrop-blur-sm z-30">
+        <div className="flex flex-col mb-1 md:mb-0">
           <div className="text-[10px] text-rm-metal-text font-mono tracking-widest uppercase mb-1 flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-rm-status-safe animate-pulse"/>
             RMUC 2026 // {REGION_LABELS[regionSlug] ?? regionSlug}
           </div>
-          <h1 className="text-2xl font-machine text-white tracking-widest uppercase text-glow-blue">{viewMeta.label}</h1>
+          <h1 className="text-xl md:text-2xl font-machine text-white tracking-widest uppercase text-glow-blue">{viewMeta.label}</h1>
         </div>
         
-        <div className="flex items-center gap-4 mt-4 md:mt-0 font-mono text-xs">
-           <div className="flex bg-rm-metal-dark border border-rm-metal-border overflow-hidden">
+        <div className="flex items-center gap-2 md:gap-4 mt-1 md:mt-0 font-mono text-xs w-full md:w-auto overflow-x-auto no-scrollbar pb-1 md:pb-0">
+           <div className="flex bg-rm-metal-dark border border-rm-metal-border overflow-hidden flex-none">
              <button 
                onClick={() => {
                  if (realtimeEnabled) {
@@ -737,52 +741,51 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
              >
                {realtimeEnabled ? "实时预测" : "实时预测待接入"}
              </button>
-             <button 
-               onClick={() => updateQuery({ mode: "sim" })}
-               className={cn("px-4 py-1.5 transition-colors font-bold uppercase", mode === "sim" ? "bg-rm-blue text-white" : "border-l border-rm-metal-border text-rm-metal-text hover:text-white")}
-             >
-               赛程模拟
+           <button onClick={() => updateQuery({ mode: "sim" })}
+             className={cn("px-2 md:px-4 py-1.5 transition-colors font-bold uppercase", mode === "sim" ? "bg-rm-blue text-white" : "border-l border-rm-metal-border text-rm-metal-text hover:text-white")}
+           >
+             赛程模拟
+           </button>
+         </div>
+
+         <select 
+            value={regionSlug} 
+            onChange={(e) => router.push(`/regions/${e.target.value}?${searchParams.toString()}`)} 
+            className="bg-rm-metal-dark border border-rm-metal-border text-white px-2 md:px-3 py-1.5 focus:outline-none focus:border-rm-blue flex-none"
+         >
+            {overview?.regions.map((region) => (
+              <option key={region.regionSlug} value={region.regionSlug}>{region.regionName}</option>
+            ))}
+         </select>
+         
+         {mode === "sim" && (
+           <div className="flex items-center bg-rm-metal-dark border border-rm-metal-border overflow-hidden flex-none">
+             <div className="bg-rm-metal-panel border-r border-rm-metal-border px-2 py-1.5 text-rm-metal-text">种子</div>
+             <input
+               type="text"
+               value={seedDraft}
+               onChange={(e) => setSeedDraft(sanitizeSeedInput(e.target.value))}
+               onKeyDown={(e) => {
+                 if (e.key === "Enter") {
+                   applySeedDraft();
+                 }
+               }}
+               className="bg-transparent w-16 md:w-24 px-2 py-1.5 text-white focus:outline-none font-mono"
+             />
+             <button onClick={refreshSimulationSeed} className="bg-rm-blue/20 text-rm-blue hover:bg-rm-blue hover:text-white px-2 md:px-3 py-1.5 font-bold transition-colors border-l border-rm-metal-border">
+               刷新
              </button>
            </div>
-
-           <select 
-              value={regionSlug} 
-              onChange={(e) => router.push(`/regions/${e.target.value}?${searchParams.toString()}`)} 
-              className="bg-rm-metal-dark border border-rm-metal-border text-white px-3 py-1.5 focus:outline-none focus:border-rm-blue"
-           >
-              {overview?.regions.map((region) => (
-                <option key={region.regionSlug} value={region.regionSlug}>{region.regionName}</option>
-              ))}
-           </select>
-           
-           {mode === "sim" && (
-             <div className="flex items-center bg-rm-metal-dark border border-rm-metal-border overflow-hidden">
-               <div className="bg-rm-metal-panel border-r border-rm-metal-border px-2 py-1.5 text-rm-metal-text">种子</div>
-               <input
-                 type="text"
-                 value={seedDraft}
-                 onChange={(e) => setSeedDraft(sanitizeSeedInput(e.target.value))}
-                 onKeyDown={(e) => {
-                   if (e.key === "Enter") {
-                     applySeedDraft();
-                   }
-                 }}
-                 className="bg-transparent w-24 px-2 py-1.5 text-white focus:outline-none font-mono"
-               />
-               <button onClick={refreshSimulationSeed} className="bg-rm-blue/20 text-rm-blue hover:bg-rm-blue hover:text-white px-3 py-1.5 font-bold transition-colors border-l border-rm-metal-border">
-                 刷新
-               </button>
-             </div>
-           )}
-           
-           <button onClick={() => setSearchOpen(true)} className="border border-rm-metal-border bg-rm-metal-dark hover:bg-rm-metal-panel text-rm-metal-text px-3 py-1.5 transition-colors uppercase">
-             SEARCH
-           </button>
-        </div>
-      </header>
+         )}
+         
+         <button onClick={() => setSearchOpen(true)} className="border border-rm-metal-border bg-rm-metal-dark hover:bg-rm-metal-panel text-rm-metal-text px-2 md:px-3 py-1.5 transition-colors uppercase flex-none">
+           SEARCH
+         </button>
+      </div>
+    </header>
       
       {/* Subnav Panel */}
-      <div className="flex items-center gap-1 overflow-x-auto px-6 py-2 bg-rm-metal-dark border-b border-rm-metal-border z-20">
+      <div className="flex items-center gap-1 overflow-x-auto px-3 py-1.5 md:px-6 md:py-2 bg-rm-metal-dark border-b border-rm-metal-border z-20">
          {REGION_VIEWS.map((item) => (
             <button
               key={item.id}
@@ -800,8 +803,8 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
       </div>
 
       {/* Prediction / Review Strip */}
-      <div className="flex flex-wrap items-center gap-2 px-6 py-2.5 bg-rm-metal-panel/60 border-b border-rm-metal-border z-20">
-        <div className="flex items-center gap-2 mr-4">
+      <div className="flex flex-nowrap overflow-x-auto no-scrollbar items-center gap-2 px-3 py-1.5 md:px-6 md:py-2.5 bg-rm-metal-panel/60 border-b border-rm-metal-border z-20 whitespace-nowrap">
+        <div className="flex items-center gap-2 mr-4 flex-none">
           <span className="text-[10px] font-bold uppercase tracking-widest text-rm-metal-text">图框图例</span>
           <span className="text-[10px] font-bold border border-rm-status-safe bg-rm-status-safe/10 text-rm-status-safe px-1.5 py-0.5 shadow-[0_0_5px_rgba(0,255,157,0.3)]">精准预测</span>
           <span className="text-[10px] font-bold border border-[#a855f7] bg-[#a855f7]/10 text-[#a855f7] px-1.5 py-0.5 shadow-[0_0_5px_rgba(168,85,247,0.3)]">比分偏离</span>
@@ -824,7 +827,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
 
       {/* Prediction / Review Tape */}
       {matchPhaseOverview.preMatches.length || matchPhaseOverview.postMatches.length ? (
-        <div className="flex items-stretch gap-2 overflow-x-auto px-6 py-2.5 bg-[#08080d]/90 border-b border-rm-metal-border z-10 no-scrollbar">
+        <div className="hidden md:flex items-stretch gap-2 overflow-x-auto px-6 py-2.5 bg-[#08080d]/90 border-b border-rm-metal-border z-10 no-scrollbar">
           {[...matchPhaseOverview.preMatches, ...matchPhaseOverview.postMatches].map((match) => {
             const phase = deriveMatchPhase(match);
             return (
@@ -895,7 +898,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
         </div>
         
         {/* Toggle Inspector Button */}
-        <div className={`absolute top-4 transition-all duration-300 z-40 ${inspectorOpen ? 'right-[336px]' : 'right-4'}`}>
+        <div className={`absolute top-4 transition-all duration-300 z-40 ${inspectorOpen ? 'opacity-0 pointer-events-none md:opacity-100 md:pointer-events-auto right-4 md:right-[336px]' : 'right-4'}`}>
            <button 
              onClick={() => setInspectorOpen(!inspectorOpen)}
              className="flex flex-col gap-1 w-8 h-10 items-center justify-center bg-rm-metal-panel border border-rm-metal-border hover:border-rm-blue text-rm-metal-text clip-chamfer group transition-all"
@@ -908,7 +911,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
         </div>
 
         {/* Inspector Panel */}
-        <div className={`flex-none w-80 transform transition-transform duration-300 ease-in-out z-30 ${inspectorOpen ? 'translate-x-0' : 'translate-x-full absolute right-0 top-0 bottom-0'}`}>
+        <div className={`flex-none w-full md:w-80 transform transition-transform duration-300 ease-in-out z-30 ${inspectorOpen ? 'translate-x-0 absolute inset-0 md:relative' : 'translate-x-full absolute right-0 top-0 bottom-0'}`}>
           <InspectorPanel
             selection={selection}
             regionOverview={regionOverview}
