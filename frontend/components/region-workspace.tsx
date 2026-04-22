@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import PinyinMatch from "pinyin-match";
 
 import { WorkspaceStageView } from "@/components/workspace-stage";
@@ -502,6 +503,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   const [error, setError] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [stageFullscreen, setStageFullscreen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [sessionSeed, setSessionSeed] = useState<number | null>(null);
@@ -709,6 +711,48 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
 
   const inspectorVisible = inspectorOpen || Boolean(selection);
   const inspectorToggleLabel = selection?.kind === "team" ? "队伍情报" : selection?.kind === "match" ? "比赛情报" : "赛区情报";
+  const inspectorToggle = (
+    <div className={cn(
+      "hidden md:block top-28 transition-all duration-300",
+      stageFullscreen ? "fixed z-[180]" : "absolute z-40",
+      inspectorOpen
+        ? "opacity-0 pointer-events-none md:opacity-100 md:pointer-events-auto right-4 md:right-[336px]"
+        : "right-4"
+    )}>
+      <button 
+        onClick={() => setInspectorOpen(!inspectorOpen)}
+        className="flex flex-col gap-1 w-8 h-10 items-center justify-center bg-rm-metal-panel border border-rm-metal-border hover:border-rm-blue text-rm-metal-text clip-chamfer group transition-all"
+        title={inspectorOpen ? "收起情报面板" : "打开情报面板"}
+      >
+        <div className="w-1 h-1 bg-current group-hover:bg-rm-blue"></div>
+        <div className="w-1 h-1 bg-current group-hover:bg-rm-blue"></div>
+        <div className="w-1 h-1 bg-current group-hover:bg-rm-blue"></div>
+      </button>
+    </div>
+  );
+  const inspectorPanel = (
+    <div className={cn(
+      "w-full md:w-80 transition-transform duration-300 ease-in-out absolute inset-x-0 bottom-0 md:inset-y-0 md:right-0 md:left-auto",
+      stageFullscreen ? "z-[170] md:fixed md:top-0 md:bottom-0 md:right-0 md:left-auto" : "z-30",
+      "h-[58%] md:h-full",
+      inspectorOpen ? "pointer-events-auto" : "pointer-events-none",
+      inspectorOpen
+        ? "translate-y-0 md:translate-x-0"
+        : "translate-y-full md:translate-y-0 md:translate-x-full"
+    )}>
+      <InspectorPanel
+        selection={selection}
+        regionOverview={regionOverview}
+        selectedOverviewTeam={selectedOverviewTeam}
+        selectedRanking={selectedRanking}
+        selectedPath={selectedPath}
+        selectedMatch={selectedMatch}
+        onMatchOpen={openMatch}
+        onTeamOpen={openTeam}
+        onClose={closeInspector}
+      />
+    </div>
+  );
 
   return (
     <div className="absolute inset-0 flex flex-col min-h-0 bg-[#0a0a0f] bg-red-blue-split">
@@ -948,46 +992,22 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
                   const match = simulation?.matches.find((row) => row.matchLabel === matchLabel);
                   if (match) openMatch(match);
                 }}
+                onFullscreenChange={setStageFullscreen}
               />
             </div>
           ) : null}
         </div>
         
-        {/* Toggle Inspector Button */}
-        <div className={`hidden md:block absolute top-28 transition-all duration-300 z-40 ${inspectorOpen ? 'opacity-0 pointer-events-none md:opacity-100 md:pointer-events-auto right-4 md:right-[336px]' : 'right-4'}`}>
-           <button 
-             onClick={() => setInspectorOpen(!inspectorOpen)}
-             className="flex flex-col gap-1 w-8 h-10 items-center justify-center bg-rm-metal-panel border border-rm-metal-border hover:border-rm-blue text-rm-metal-text clip-chamfer group transition-all"
-             title={inspectorOpen ? "收起情报面板" : "打开情报面板"}
-           >
-             <div className="w-1 h-1 bg-current group-hover:bg-rm-blue"></div>
-             <div className="w-1 h-1 bg-current group-hover:bg-rm-blue"></div>
-             <div className="w-1 h-1 bg-current group-hover:bg-rm-blue"></div>
-           </button>
-        </div>
-
-        {/* Inspector Panel */}
-        <div className={cn(
-          "w-full md:w-80 transition-transform duration-300 ease-in-out z-30 absolute inset-x-0 bottom-0 md:inset-y-0 md:right-0 md:left-auto",
-          "h-[58%] md:h-full",
-          inspectorOpen ? "pointer-events-auto" : "pointer-events-none",
-          inspectorOpen
-            ? "translate-y-0 md:translate-x-0"
-            : "translate-y-full md:translate-y-0 md:translate-x-full"
-        )}>
-          <InspectorPanel
-            selection={selection}
-            regionOverview={regionOverview}
-            selectedOverviewTeam={selectedOverviewTeam}
-            selectedRanking={selectedRanking}
-            selectedPath={selectedPath}
-            selectedMatch={selectedMatch}
-            onMatchOpen={openMatch}
-            onTeamOpen={openTeam}
-            onClose={closeInspector}
-          />
-        </div>
+        {!stageFullscreen ? inspectorToggle : null}
+        {!stageFullscreen ? inspectorPanel : null}
       </div>
+      {stageFullscreen && typeof document !== "undefined" ? createPortal(
+        <>
+          {inspectorToggle}
+          {inspectorPanel}
+        </>,
+        document.body
+      ) : null}
       
       <SearchModal open={searchOpen} title="搜索队伍档案" onClose={() => setSearchOpen(false)}>
         <div className="flex flex-col gap-4">

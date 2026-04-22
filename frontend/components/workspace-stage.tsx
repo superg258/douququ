@@ -17,6 +17,7 @@ export function WorkspaceStageView({
   selectedMatchLabel,
   onTeamSelect,
   onMatchSelect,
+  onFullscreenChange,
 }: {
   stage: WorkspaceStage;
   mode?: "sim" | "live";
@@ -25,6 +26,7 @@ export function WorkspaceStageView({
   selectedMatchLabel: string | null;
   onTeamSelect: (teamKey: string) => void;
   onMatchSelect: (matchLabel: string) => void;
+  onFullscreenChange?: (fullscreen: boolean) => void;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
@@ -81,11 +83,13 @@ export function WorkspaceStageView({
   useEffect(() => {
     if (typeof document === "undefined") return;
     setPageFullscreenLock(document, fullscreen);
+    onFullscreenChange?.(fullscreen);
 
     return () => {
       setPageFullscreenLock(document, false);
+      onFullscreenChange?.(false);
     };
-  }, [fullscreen]);
+  }, [fullscreen, onFullscreenChange]);
 
   useEffect(() => {
     if (!fullscreen || typeof window === "undefined") return;
@@ -135,13 +139,6 @@ export function WorkspaceStageView({
 
   const clearInteraction = (pointerId: number, target: EventTarget | null) => {
     activePointers.current.delete(pointerId);
-    const frameElement = frameRef.current;
-
-    if (frameElement?.hasPointerCapture(pointerId)) {
-      frameElement.releasePointerCapture(pointerId);
-    } else if (target instanceof HTMLElement && target.hasPointerCapture(pointerId)) {
-      target.releasePointerCapture(pointerId);
-    }
 
     if (dragState.current?.pointerId === pointerId) {
       dragState.current = null;
@@ -185,11 +182,7 @@ export function WorkspaceStageView({
       suppressClickRef.current = false;
       activePointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
       maybeStartPinch();
-
-      if (activePointers.current.size > 1) {
-        frameElement.setPointerCapture(event.pointerId);
-        return;
-      }
+      if (activePointers.current.size > 1) return;
 
       dragState.current = {
         pointerId: event.pointerId,
@@ -199,7 +192,6 @@ export function WorkspaceStageView({
         originY: viewportRef.current.y,
         moved: false,
       };
-      frameElement.setPointerCapture(event.pointerId);
     };
 
     const handlePointerMove = (event: PointerEvent) => {
