@@ -1,6 +1,102 @@
 export type RegionSlug = "east_region" | "south_region" | "north_region";
 export type WorkspaceView = "slots" | "swiss-a" | "swiss-b" | "qualification" | "playoff" | "final-rankings";
 export type CanvasTone = "cyan" | "amber" | "steel" | "emerald";
+export type LiveSourceStatus = "active" | "inactive" | "missing" | "error";
+
+export interface LiveStatusSummary {
+  sourceStatus: LiveSourceStatus;
+  sourceReason: string | null;
+  sourceUpdatedAt: string | null;
+  completedOfficialMatches: number;
+  confirmedOfficialMatches: number;
+  ledgerRows: number;
+  recentError?: string | null;
+}
+
+export interface LiveStateTeam {
+  teamKey: string;
+  schoolKey: string;
+  collegeName: string;
+  teamName: string;
+  currentPublishedRating: number;
+  preseasonPublishedRating: number;
+  publishedDeltaFromPreseason: number;
+  liveStateRatingComponent: number;
+  confirmedPriorRatingComponent: number;
+  residualPriorRatingComponent: number;
+  regionalGroupMatchesPlayed: number;
+  currentStageFamily: string;
+  latestMatchId: string | null;
+  latestMatchDate: string | null;
+}
+
+export interface LiveStateLedgerRow {
+  matchId: string;
+  matchDate: string;
+  regionSlug: RegionSlug;
+  stageFamily: string;
+  teamKey: string;
+  opponentTeamKey: string;
+  teamSide: "red" | "blue";
+  scoreline: string;
+  matchResult: "win" | "loss" | string;
+  publishedRatingBeforeMatch: number;
+  publishedRatingAfterMatch: number;
+  publishedDeltaRating: number;
+  liveUpdateDeltaRating: number;
+  priorComponentDeltaRating: number;
+  confirmedPriorRatingAfterMatch: number;
+  residualPriorRatingAfterMatch: number;
+}
+
+export interface LiveStateResponse extends LiveStatusSummary {
+  available: boolean;
+  reason: string | null;
+  regionSlug: RegionSlug;
+  regionName: string;
+  generatedAt: string | null;
+  season: number | null;
+  currentSnapshot: LiveStateTeam[];
+  matchLedger: LiveStateLedgerRow[];
+  teamIndex: Record<
+    string,
+    {
+      teamKey: string;
+      schoolKey: string;
+      collegeName: string;
+      teamName: string;
+      regionSlug: RegionSlug;
+      regionName: string;
+    }
+  >;
+}
+
+export type MiniProgramPrediction =
+  | {
+      status: "available";
+      matchId: string;
+      redCount: number;
+      blueCount: number;
+      tieCount: number;
+      totalCount: number;
+      redRate: number;
+      blueRate: number;
+      tieRate: number;
+      fetchedAt: string;
+    }
+  | {
+      status: "unavailable";
+      matchId: string;
+      reason?: string;
+      fetchedAt?: string;
+      redCount?: number;
+      blueCount?: number;
+      tieCount?: number;
+      totalCount?: number;
+      redRate?: number;
+      blueRate?: number;
+      tieRate?: number;
+    };
 
 export interface OverviewTeam {
   teamKey: string;
@@ -35,6 +131,7 @@ export interface OverviewRegion {
     seeds: number[];
     pairProbabilitySamples: number;
   };
+  liveStatus?: LiveStatusSummary;
   teams: OverviewTeam[];
 }
 
@@ -94,6 +191,10 @@ export interface MatchRow {
   confidenceLabel: string;
   winnerNext: string;
   loserNext: string;
+  officialMatchId?: string;
+  officialStatus?: string;
+  plannedStartAt?: string | null;
+  miniProgramPrediction?: MiniProgramPrediction;
 }
 
 export interface FinalRankingRow extends TeamRef {
@@ -118,6 +219,8 @@ export interface SimulationResponse {
     samplesPerMatch: number;
     nationalSlots: number;
     repechageSlots: number;
+    monteCarlo?: OverviewRegion["monteCarlo"];
+    liveStatus?: LiveStatusSummary;
   };
   slots: SlotRow[];
   groupRankings: Record<string, GroupRankingRow[]>;
@@ -171,6 +274,7 @@ export interface RegionDashboardCard {
   favorite: OverviewTeam;
   teams: OverviewTeam[];
   monteCarlo: OverviewRegion["monteCarlo"];
+  liveStatus?: LiveStatusSummary;
   titleShapeTag: string;
   profileTags: string[];
   summarySentence: string;

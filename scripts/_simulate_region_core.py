@@ -266,6 +266,48 @@ def assign_region_slots(teams: list[RegionTeam], rng: random.Random) -> list[dic
     return rows
 
 
+def assign_region_slots_from_map(teams: list[RegionTeam], slot_assignments: dict[str, str]) -> list[dict[str, Any]]:
+    if len(slot_assignments) != len(teams):
+        raise ValueError(f"Expected {len(teams)} official slot assignments, found {len(slot_assignments)}")
+    seen_slots: set[str] = set()
+    rows: list[dict[str, Any]] = []
+    for team in teams:
+        slot = slot_assignments.get(team.team_key)
+        if not slot:
+            raise ValueError(f"Missing official slot assignment for team_key={team.team_key}")
+        if slot in seen_slots:
+            raise ValueError(f"Duplicate official slot assignment: {slot}")
+        seen_slots.add(slot)
+        team.slot = slot
+        team.group_name = slot[0]
+        if slot in TIER1_SLOTS:
+            draw_box = "box1"
+        elif slot in BOX4_SLOTS:
+            draw_box = "box4"
+        elif slot in BOX5_SLOTS:
+            draw_box = "box5"
+        else:
+            draw_box = "official"
+        team.draw_box = draw_box
+        rows.append(
+            {
+                "region": team.admitted_region,
+                "group_name": team.group_name,
+                "slot": team.slot,
+                "draw_box": draw_box,
+                "seed_tier": team.seed_tier,
+                "seed_rank_in_region": team.seed_rank_in_region,
+                "college_name": team.college_name,
+                "team_name": team.team_name,
+                "mu0": round(team.mu0, 6),
+                "sigma0": round(team.sigma0, 6),
+                "shape_rank": team.shape_rank or "",
+                "ranking_global_rank": team.ranking_global_rank or "",
+            }
+        )
+    return sorted(rows, key=lambda row: slot_sort_key(row["slot"]))
+
+
 def sample_from_distribution(distribution: dict[str, float], rng: random.Random) -> str:
     threshold = rng.random()
     cumulative = 0.0
@@ -445,6 +487,10 @@ def simulate_series(
         "blue_games": blue_games,
         "winner": winner,
         "loser": loser,
+        "official_match_id": payload.get("official_match_id"),
+        "official_status": payload.get("official_status"),
+        "planned_start_at": payload.get("planned_start_at"),
+        "mini_program_prediction": payload.get("mini_program_prediction"),
     }
 
 
@@ -509,6 +555,9 @@ def match_row(
         "is_actual_result": is_actual_result,
         "is_confirmed_matchup": bool(result.get("is_confirmed_matchup", False)),
     }
+    for optional_key in ("official_match_id", "official_status", "planned_start_at", "mini_program_prediction"):
+        if result.get(optional_key) is not None:
+            row[optional_key] = result[optional_key]
     if update is not None:
         row["red_mu0"] = round(red_mu_before, 1)
         row["blue_mu0"] = round(blue_mu_before, 1)
@@ -539,13 +588,22 @@ def simulate_swiss_group(
     head_to_head_index: dict[tuple[str, str], dict[str, Any]],
     samples: int,
     payload_builder: PayloadBuilder | None = None,
+    official_pairings: dict[int, list[tuple[str, str]]] | None = None,
 ) -> tuple[list[RegionTeam], list[dict[str, Any]]]:
     teams_by_key = {team.team_key: team for team in group_teams}
     slot_to_team = {team.slot: team for team in group_teams}
     match_rows: list[dict[str, Any]] = []
 
     for round_number in range(1, 6):
-        if round_number == 1:
+        official_round_pairings = (official_pairings or {}).get(round_number)
+        if official_round_pairings:
+            pairings = []
+            for red_team_key, blue_team_key in official_round_pairings:
+                try:
+                    pairings.append((teams_by_key[red_team_key], teams_by_key[blue_team_key]))
+                except KeyError as exc:
+                    raise ValueError(f"Official Swiss pairing references unknown team_key={exc.args[0]}") from exc
+        elif round_number == 1:
             pairings = [(slot_to_team[left], slot_to_team[right]) for left, right in SWISS_ROUND1_PAIRINGS[group_name]]
         else:
             ranked = sorted(group_teams, key=lambda team: swiss_sort_key(team, teams_by_key), reverse=True)

@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 
+import { PredictionSignalsPanel } from "@/components/prediction-signals";
 import type { CanvasCard, MatchCanvasCard, TeamCanvasCard } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -261,6 +262,7 @@ function MatchCanvasCardComponent({
   const isSimulationMode = mode === "sim";
   const hasRealResult = Boolean(row.isRealResult);
   const showsResolvedScoreline = isSimulationMode || hasRealResult;
+  const showAudienceSignal = Boolean(row.miniProgramPrediction || row.officialMatchId);
   
   const [redGamesText, blueGamesText] = (row.scoreline || "0:0").split(":");
   const redGames = Number(redGamesText);
@@ -462,57 +464,17 @@ function MatchCanvasCardComponent({
           </div>
         </div>
 
-        {/* Probability Bar */}
+        {/* Prediction Signals */}
         {(showProbability ?? card.showProbability ?? true) && (
-          <div className="shrink-0">
-            <div className="flex items-center justify-center text-[7px] font-mono mb-1 px-1 uppercase tracking-widest drop-shadow-md">
-              {hasRealResult ? (
-                <span className="text-rm-metal-text/60">系统预测记录</span>
-              ) : isSimulationMode ? (
-                <span className="text-rm-blue/80">模拟赛果推演</span>
-              ) : (
-                <span className="text-rm-status-warn/80">实时预测信号</span>
-              )}
-            </div>
-            <div className="h-[18px] w-full relative bg-rm-metal-dark border border-rm-metal-border overflow-hidden clip-chamfer">
-              {/* Red Bar */}
-              <div 
-                className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-rm-red/80 to-rm-red/90 transition-all duration-500 flex items-center justify-start pl-1.5 z-10"
-                style={{ 
-                  width: `calc(${(expectedRed * 100).toFixed(1)}% + 4px)`, 
-                  clipPath: "polygon(0 0, 100% 0, calc(100% - 8px) 100%, 0 100%)" 
-                }}
-              >
-                <span className="text-white font-machine text-[9px] tracking-wider drop-shadow-[0_1px_2px_rgba(0,0,0,1)]">
-                  {(expectedRed * 100).toFixed(1)}%
-                </span>
-              </div>
-
-              {/* Glowing Separator */}
-              <div 
-                className="absolute top-0 bottom-0 w-[2px] bg-white z-20 transition-all duration-500"
-                style={{
-                  left: `${(expectedRed * 100).toFixed(1)}%`,
-                  marginLeft: '-1px',
-                  transform: "skewX(-20deg)",
-                  boxShadow: "0 0 8px 1px rgba(255,255,255,0.7)"
-                }}
-              />
-
-              {/* Blue Bar */}
-              <div 
-                className="absolute right-0 top-0 bottom-0 bg-gradient-to-l from-rm-blue/80 to-rm-blue/90 transition-all duration-500 flex items-center justify-end pr-1.5 z-10"
-                style={{ 
-                  width: `calc(${(expectedBlue * 100).toFixed(1)}% + 4px)`, 
-                  clipPath: "polygon(8px 0, 100% 0, 100% 100%, 0 100%)" 
-                }}
-              >
-                <span className="text-white font-machine text-[9px] tracking-wider drop-shadow-[0_1px_2px_rgba(0,0,0,1)]">
-                  {(expectedBlue * 100).toFixed(1)}%
-                </span>
-              </div>
-            </div>
-          </div>
+          <PredictionSignalsPanel
+            className="shrink-0"
+            density="compact"
+            ts2RedRate={expectedRed}
+            ts2BlueRate={expectedBlue}
+            miniProgramPrediction={row.miniProgramPrediction}
+            showAudience={showAudienceSignal}
+            modelBadge={hasRealResult ? "赛前记录" : isSimulationMode ? "模拟胜率" : "实时胜率"}
+          />
         )}
       </div>
     </div>

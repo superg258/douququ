@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 
 from backend.app.main import app
 from backend.app import service
-from backend.app.south_actual_schedule import SOUTH_SWISS_ACTUAL_SCORELINES
 
 
 client = TestClient(app)
@@ -160,7 +159,9 @@ def test_south_sim_mode_starts_from_scratch_without_actual_results() -> None:
     assert all(match.get("blueDelta") is None for match in payload["matches"])
 
 
-def test_south_live_mode_applies_actual_results_for_completed_swiss_matches() -> None:
+def test_live_mode_falls_back_to_plain_simulation_when_official_source_missing(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(service, "NORMALIZED_LIVE_SCHEDULE_PATH", tmp_path / "missing_normalized_schedule.json")
+
     response = client.get(
         "/api/regions/south_region/simulation",
         params={"seed": 20260414, "mode": "live"},
@@ -169,76 +170,35 @@ def test_south_live_mode_applies_actual_results_for_completed_swiss_matches() ->
     payload = response.json()
 
     assert payload["matches"]
-    by_label = {match["matchLabel"]: match for match in payload["matches"]}
-    completed_labels = set(SOUTH_SWISS_ACTUAL_SCORELINES)
-
-    assert any(match["isRealResult"] for match in payload["matches"])
-    for match_label in completed_labels:
-        assert by_label[match_label]["isRealResult"] is True
-        assert by_label[match_label]["scoreline"] == SOUTH_SWISS_ACTUAL_SCORELINES[match_label]
-
-
-def test_south_live_mode_carries_round1_elo_into_round2() -> None:
-    response = client.get(
-        "/api/regions/south_region/simulation",
-        params={"seed": 20260414, "mode": "live"},
-    )
-    assert response.status_code == 200
-    payload = response.json()
-
-    round1_after_by_team: dict[str, float] = {}
-    round2_before_by_team: dict[str, float] = {}
-
-    for match in payload["matches"]:
-        if match["stage"] != "swiss":
-            continue
-        for side, base_key, delta_key in (
-            ("redTeam", "redMu0", "redDelta"),
-            ("blueTeam", "blueMu0", "blueDelta"),
-        ):
-            if match.get(base_key) is None or match.get(delta_key) is None:
-                continue
-            team_key = match[side]["teamKey"]
-            base = float(match[base_key])
-            delta = float(match[delta_key])
-            if match["roundNumber"] == 1:
-                round1_after_by_team[team_key] = base + delta
-            elif match["roundNumber"] == 2:
-                round2_before_by_team[team_key] = base
-
-    assert round1_after_by_team
-    assert round2_before_by_team
-    assert round1_after_by_team.keys() == round2_before_by_team.keys()
-
-    for team_key, round1_after in round1_after_by_team.items():
-        assert abs(round2_before_by_team[team_key] - round1_after) < 0.15, team_key
-
-
-def test_south_live_mode_omits_elo_fields_for_non_actual_matches() -> None:
-    response = client.get(
-        "/api/regions/south_region/simulation",
-        params={"seed": 20260414, "mode": "live"},
-    )
-    assert response.status_code == 200
-    payload = response.json()
-
-    actual_matches = [match for match in payload["matches"] if match["isRealResult"]]
-    non_actual_matches = [match for match in payload["matches"] if not match["isRealResult"]]
-
-    assert actual_matches
-    assert non_actual_matches
-    assert all(match.get("redMu0") is not None for match in actual_matches)
-    assert all(match.get("blueMu0") is not None for match in actual_matches)
-    assert all(match.get("redDelta") is not None for match in actual_matches)
-    assert all(match.get("blueDelta") is not None for match in actual_matches)
-    assert all(match.get("redMu0") is None for match in non_actual_matches)
-    assert all(match.get("blueMu0") is None for match in non_actual_matches)
-    assert all(match.get("redDelta") is None for match in non_actual_matches)
-    assert all(match.get("blueDelta") is None for match in non_actual_matches)
-
-
+    assert payload["meta"]["seed"] == 20260414
+    assert payload["meta"]["liveStatus"]["sourceStatus"] == "missing"
+    assert all(not match["isRealResult"] for match in payload["matches"])
+    assert all(match.get("officialMatchId") is None for match in payload["matches"])
+    assert all(match.get("redMu0") is None for match in payload["matches"])
+    assert all(match.get("blueMu0") is None for match in payload["matches"])
+    assert all(match.get("redDelta") is None for match in payload["matches"])
+    assert all(match.get("blueDelta") is None for match in payload["matches"])
 def test_live_state_returns_unavailable_when_published_artifacts_missing(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr(service, "PUBLISHED_RATINGS_DIR", tmp_path / "published_2026")
+    normalized_path = tmp_path / "normalized_schedule.json"
+    normalized_path.write_text(
+        json.dumps(
+            {
+                "sourceStatus": "active",
+                "reason": None,
+                "fetchedAt": "2026-11-11T09:00:00+00:00",
+                "regions": {
+                    "south_region": {
+                        "matches": [],
+                        "slotAssignments": {},
+                    }
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(service, "NORMALIZED_LIVE_SCHEDULE_PATH", normalized_path)
+    monkeypatch.setattr(service, "RUNTIME_PUBLISHED_RATINGS_DIR", tmp_path / "missing_published_2026")
     service._reset_live_state_caches()
 
     response = client.get("/api/regions/south_region/live-state")
@@ -266,6 +226,29 @@ def test_live_state_uses_published_artifacts_when_present(tmp_path, monkeypatch)
     )
     published_dir = tmp_path / "published_2026"
     published_dir.mkdir(parents=True)
+    normalized_path = tmp_path / "normalized_schedule.json"
+    normalized_path.write_text(
+        json.dumps(
+            {
+                "sourceStatus": "active",
+                "reason": None,
+                "fetchedAt": "2026-11-11T09:00:00+00:00",
+                "regions": {
+                    "south_region": {
+                        "matches": [
+                            {
+                                "isCompleted": True,
+                                "isConfirmedMatchup": True,
+                            }
+                        ],
+                        "slotAssignments": {},
+                    }
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
     (published_dir / "published_manifest.json").write_text(
         json.dumps(
             {
@@ -360,7 +343,8 @@ def test_live_state_uses_published_artifacts_when_present(tmp_path, monkeypatch)
     )
 
     monkeypatch.setattr(service, "PRESEASON_RATINGS_CSV", ratings_path)
-    monkeypatch.setattr(service, "PUBLISHED_RATINGS_DIR", published_dir)
+    monkeypatch.setattr(service, "NORMALIZED_LIVE_SCHEDULE_PATH", normalized_path)
+    monkeypatch.setattr(service, "RUNTIME_PUBLISHED_RATINGS_DIR", published_dir)
     service.load_ratings_rows.cache_clear()
     service.load_global_elo_rank_map.cache_clear()
     service._reset_live_state_caches()

@@ -1,4 +1,4 @@
-import type { OverviewResponse, RegionSlug, SimulationResponse } from "@/lib/types";
+import type { LiveStateResponse, OverviewResponse, RegionSlug, SimulationResponse } from "@/lib/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8001";
 
@@ -18,4 +18,8 @@ export function getOverview(): Promise<OverviewResponse> {
 
 export function getSimulation(regionSlug: RegionSlug, seed: number, mode: "sim" | "live" = "sim"): Promise<SimulationResponse> {
   return requestJson<SimulationResponse>(`/api/regions/${regionSlug}/simulation?seed=${seed}&mode=${mode}`);
+}
+
+export function getLiveState(regionSlug: RegionSlug): Promise<LiveStateResponse> {
+  return requestJson<LiveStateResponse>(`/api/regions/${regionSlug}/live-state`);
 }

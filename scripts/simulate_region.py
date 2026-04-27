@@ -202,12 +202,27 @@ def simulate_region(
     ratings_csv: Path = DEFAULT_RATINGS_CSV,
     samples: int = DEFAULT_MONTE_CARLO_SAMPLES,
     payload_builder: PayloadBuilder | None = None,
+    slot_assignments: dict[str, str] | None = None,
+    rating_overrides: dict[str, float] | None = None,
+    official_swiss_pairings: dict[str, dict[int, list[tuple[str, str]]]] | None = None,
 ) -> dict[str, Any]:
     if region not in REGION_CONFIGS:
         raise ValueError(f"Unsupported region: {region}")
     rng = random.Random(seed)
     teams = parse_team_rows(region, ratings_csv)
-    slot_rows = region_core.assign_region_slots(teams, rng)
+    if rating_overrides:
+        for team in teams:
+            rating = rating_overrides.get(team.team_key)
+            if rating is None:
+                continue
+            theta = (float(rating) - 1500.0) / RATING_SCALE
+            team.mu0 = float(rating)
+            team.regional_pre_theta = theta
+            team.simulation_theta = theta
+    if slot_assignments:
+        slot_rows = region_core.assign_region_slots_from_map(teams, slot_assignments)
+    else:
+        slot_rows = region_core.assign_region_slots(teams, rng)
     assign_tournament_strengths(teams, rng)
     head_to_head_index = h2h.load_head_to_head_index()
 
@@ -222,6 +237,7 @@ def simulate_region(
             head_to_head_index=head_to_head_index,
             samples=samples,
             payload_builder=payload_builder or build_prediction_payload,
+            official_pairings=(official_swiss_pairings or {}).get(group_name),
         )
         group_rankings[group_name] = ranked_group
         match_rows.extend(swiss_rows)

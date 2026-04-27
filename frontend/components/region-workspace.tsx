@@ -6,15 +6,18 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "rea
 import { createPortal } from "react-dom";
 import PinyinMatch from "pinyin-match";
 
+import { PredictionSignalsPanel } from "@/components/prediction-signals";
 import { WorkspaceStageView } from "@/components/workspace-stage";
-import { getOverview, getSimulation } from "@/lib/api";
+import { getLiveState, getOverview, getSimulation } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { buildWorkspaceStage } from "@/lib/canvas-builders";
 import { formatRankingResultLabel, translateConfidenceLabel, translateDestinationLabel, translateStageLabel } from "@/lib/display";
-import { buildRegionHref, getOrCreateSessionSeed, isRegionRealtimeEnabled, parseSeed, refreshSessionSeed, REGION_LABELS, REGION_VIEWS } from "@/lib/region-config";
+import { buildRegionHref, getOrCreateSessionSeed, parseSeed, refreshSessionSeed, REGION_LABELS, REGION_VIEWS } from "@/lib/region-config";
+import { deriveRealtimeAvailability } from "@/lib/realtime";
 import { predictScoreline } from "@/components/canvas-card";
 import type {
   InspectorSelection,
+  LiveStateResponse,
   MatchRow,
   OverviewResponse,
   OverviewTeam,
@@ -48,6 +51,26 @@ function validView(view: string | null): view is WorkspaceView {
 
 function sanitizeSeedInput(seedText: string) {
   return seedText.replace(/\D/g, "").slice(0, 12);
+}
+
+function unavailableLiveState(regionSlug: RegionSlug, reason: string): LiveStateResponse {
+  return {
+    available: false,
+    reason,
+    sourceStatus: "error",
+    sourceReason: reason,
+    sourceUpdatedAt: null,
+    completedOfficialMatches: 0,
+    confirmedOfficialMatches: 0,
+    ledgerRows: 0,
+    regionSlug,
+    regionName: REGION_LABELS[regionSlug],
+    generatedAt: null,
+    season: null,
+    currentSnapshot: [],
+    matchLedger: [],
+    teamIndex: {},
+  };
 }
 
 function sortTeamsByQuery(teams: OverviewTeam[], query: string) {
@@ -115,16 +138,16 @@ function SouthSwissReplayList({ view, simulation }: { view: WorkspaceView; simul
     <div className="h-full overflow-y-auto px-6 py-5 no-scrollbar">
       <div className="mb-4 border border-rm-status-safe/45 bg-rm-status-safe/10 px-4 py-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-bold tracking-widest text-rm-status-safe">南部赛区 {groupName} 组实时赛程列表</h3>
+          <h3 className="text-sm font-bold tracking-widest text-rm-status-safe">{groupName} 组赛程</h3>
           <span className="text-[10px] font-mono border border-rm-status-safe/45 bg-rm-status-safe/10 px-2 py-0.5 text-rm-status-safe">
-            未完赛在前，已完赛在后
+            未赛优先
           </span>
         </div>
         <p className="mt-2 text-xs text-rm-metal-text">
-          已明确对局但未正式开赛/未出结果的场次优先展示；已完赛场次放在列表后半区并给出赛后分析。
+          未完赛优先，已完赛靠后。
         </p>
         <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-mono">
-          <span className="border border-rm-blue/35 bg-rm-blue/10 px-2 py-0.5 text-rm-blue">待开赛/待结果 {pendingRows.length}</span>
+          <span className="border border-rm-blue/35 bg-rm-blue/10 px-2 py-0.5 text-rm-blue">未完赛 {pendingRows.length}</span>
           <span className="border border-rm-status-safe/35 bg-rm-status-safe/10 px-2 py-0.5 text-rm-status-safe">已完赛 {completedRows.length}</span>
         </div>
       </div>
@@ -234,54 +257,20 @@ function SouthSwissReplayList({ view, simulation }: { view: WorkspaceView; simul
                 </div>
 
                 <div className="mt-4 border border-rm-metal-border/50 bg-[#05070c] p-2.5 clip-chamfer">
-                  <div className="flex items-center justify-center text-[9px] font-mono mb-2 px-1 uppercase tracking-widest">
-                    {isCompleted ? <span className="text-rm-metal-text/60">系统预测记录</span> : <span className="text-rm-status-warn/80">实时预测信号</span>}
-                  </div>
-                  <div className="h-8 w-full relative bg-rm-metal-dark border border-rm-metal-border overflow-hidden clip-chamfer">
-                    {/* Red Bar */}
-                    <div 
-                      className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-rm-red/80 to-rm-red/90 transition-all duration-500 flex items-center justify-start pl-3 z-10"
-                      style={{ 
-                        width: `calc(${(expectedRed * 100).toFixed(1)}% + 6px)`, 
-                        clipPath: "polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%)" 
-                      }}
-                    >
-                      <span className="text-white font-machine text-xs tracking-wider drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">
-                        {(expectedRed * 100).toFixed(1)}%
-                      </span>
-                    </div>
+                  <PredictionSignalsPanel
+                    ts2RedRate={expectedRed}
+                    ts2BlueRate={expectedBlue}
+                    miniProgramPrediction={row.miniProgramPrediction}
+                    showAudience={Boolean(row.miniProgramPrediction || row.officialMatchId)}
+                    modelBadge={isCompleted ? "赛前记录" : "实时胜率"}
+                  />
 
-                    {/* Glowing Separator */}
-                    <div 
-                      className="absolute top-0 bottom-0 w-[3px] bg-white z-20 transition-all duration-500"
-                      style={{
-                        left: `${(expectedRed * 100).toFixed(1)}%`,
-                        marginLeft: '-1px',
-                        transform: "skewX(-20.5deg)",
-                        boxShadow: "0 0 12px 2px rgba(255,255,255,0.7)"
-                      }}
-                    />
-
-                    {/* Blue Bar */}
-                    <div 
-                      className="absolute right-0 top-0 bottom-0 bg-gradient-to-l from-rm-blue/80 to-rm-blue/90 transition-all duration-500 flex items-center justify-end pr-3 z-10"
-                      style={{ 
-                        width: `calc(${(expectedBlue * 100).toFixed(1)}% + 6px)`, 
-                        clipPath: "polygon(12px 0, 100% 0, 100% 100%, 0 100%)" 
-                      }}
-                    >
-                      <span className="text-white font-machine text-xs tracking-wider drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">
-                        {(expectedBlue * 100).toFixed(1)}%
-                      </span>
-                    </div>
-                  </div>
-                  
                   <div className="mt-3 bg-rm-metal-dark/30 border-l-[3px] border-rm-blue px-3 py-2">
                     <div className="text-[10px] text-rm-metal-text font-mono flex items-start gap-2">
                       <span className={cn("font-bold mt-[1px]", isCompleted ? "text-rm-status-safe" : "text-rm-blue opacity-50")}>{'>'}</span>
                       <span className="leading-relaxed flex-1">
                         <span className={cn("font-bold mr-2", isCompleted ? "text-white" : "text-rm-metal-text")}>
-                          {isCompleted ? "赛后结论 //" : "情报摘要 //"}
+                          {isCompleted ? "赛后 //" : "摘要 //"}
                         </span>
                         {postLine}
                       </span>
@@ -399,12 +388,26 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
           </div>
 
           <div className="grid grid-cols-2 gap-2 text-[10px] font-mono p-3 bg-rm-metal-dark border border-rm-metal-border">
-            <span className="text-rm-red opacity-80">红方预计胜率</span>
-            <span className="text-rm-red font-bold text-right">{percent(selectedMatch.pSeriesRed)}</span>
-            <span className="text-rm-blue opacity-80">蓝方预计胜率</span>
-            <span className="text-rm-blue font-bold text-right">{percent(selectedMatch.pSeriesBlue)}</span>
+            <div className="col-span-2">
+              <PredictionSignalsPanel
+                density="compact"
+                ts2RedRate={selectedMatch.pSeriesRed}
+                ts2BlueRate={selectedMatch.pSeriesBlue}
+                miniProgramPrediction={selectedMatch.miniProgramPrediction}
+                showAudience={Boolean(selectedMatch.miniProgramPrediction || selectedMatch.officialMatchId)}
+                modelBadge={selectedMatch.isRealResult ? "赛前记录" : "实时胜率"}
+              />
+            </div>
             <div className="col-span-2 border-t border-rm-metal-border my-1"></div>
-            
+            {selectedMatch.officialMatchId ? (
+              <>
+                <span className="text-rm-metal-text">官方赛程 ID</span>
+                <span className="text-white font-bold text-right">{selectedMatch.officialMatchId}</span>
+                <span className="text-rm-metal-text">官方状态</span>
+                <span className="text-white font-bold text-right">{selectedMatch.officialStatus ?? "未返回"}</span>
+                <div className="col-span-2 border-t border-rm-metal-border my-1"></div>
+              </>
+            ) : null}
             {/* Show ELO changes only for matches with an actual published result */}
             {hasMatchElo(selectedMatch) && (
               <>
@@ -489,17 +492,16 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   const defaultView = useMemo<WorkspaceView>(() => "playoff", []);
 
   const regionSlug = validRegion(rawRegionSlug) ? rawRegionSlug : "east_region";
-  const realtimeEnabled = isRegionRealtimeEnabled(regionSlug);
   const view = validView(searchParams.get("view")) ? (searchParams.get("view") as WorkspaceView) : defaultView;
   const requestedMode = (searchParams.get("mode") === "sim" || searchParams.get("mode") === "live")
     ? searchParams.get("mode") as "sim" | "live"
     : "sim";
-  const mode = realtimeEnabled && requestedMode === "live" ? "live" : "sim";
   const highlightedTeamKey = searchParams.get("highlight");
   const parsedSeed = parseSeed(searchParams.get("seed"));
 
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
   const [simulation, setSimulation] = useState<SimulationResponse | null>(null);
+  const [liveState, setLiveState] = useState<LiveStateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -514,6 +516,18 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   );
   const deferredSearchText = useDeferredValue(searchText);
   const resolveSeed = useCallback(() => seed ?? getOrCreateSessionSeed(), [seed]);
+  const regionOverview = useMemo(
+    () => overview?.regions.find((item) => item.regionSlug === regionSlug) ?? null,
+    [overview, regionSlug]
+  );
+  const realtimeState = liveState ?? regionOverview?.liveStatus ?? null;
+  const realtimeStatusLoaded = Boolean(realtimeState);
+  const realtimeAvailability = useMemo(
+    () => deriveRealtimeAvailability(regionSlug, realtimeState),
+    [realtimeState, regionSlug]
+  );
+  const realtimeEnabled = realtimeAvailability.enabled;
+  const mode = realtimeEnabled && requestedMode === "live" ? "live" : "sim";
 
   useEffect(() => {
     setSelection(highlightedTeamKey ? { kind: "team", teamKey: highlightedTeamKey } : null);
@@ -539,6 +553,31 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
       })
       .catch((err: Error) => setError(err.message));
   }, []);
+
+  useEffect(() => {
+    let canceled = false;
+    const loadLiveState = () => {
+      getLiveState(regionSlug)
+        .then((payload) => {
+          if (!canceled) {
+            setLiveState(payload);
+          }
+        })
+        .catch((err: Error) => {
+          if (!canceled) {
+            setLiveState(unavailableLiveState(regionSlug, err.message));
+          }
+        });
+    };
+
+    setLiveState(null);
+    loadLiveState();
+    const timer = window.setInterval(loadLiveState, 30_000);
+    return () => {
+      canceled = true;
+      window.clearInterval(timer);
+    };
+  }, [regionSlug]);
 
   useEffect(() => {
     if (seed === null) {
@@ -575,19 +614,15 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   }, [parsedSeed, sessionSeed, updateQuery]);
 
   useEffect(() => {
-    if (requestedMode !== "live" || realtimeEnabled) {
+    if (requestedMode !== "live" || realtimeEnabled || !realtimeStatusLoaded) {
       return;
     }
     updateQuery({ mode: null });
-  }, [realtimeEnabled, requestedMode, updateQuery]);
+  }, [realtimeEnabled, realtimeStatusLoaded, requestedMode, updateQuery]);
 
   const viewMeta = useMemo(
     () => REGION_VIEWS.find((item) => item.id === view) ?? REGION_VIEWS.find((item) => item.id === defaultView) ?? REGION_VIEWS[0],
     [defaultView, view]
-  );
-  const regionOverview = useMemo(
-    () => overview?.regions.find((item) => item.regionSlug === regionSlug) ?? null,
-    [overview, regionSlug]
   );
   const allTeams = useMemo(() => overview?.regions.flatMap((region) => region.teams) ?? [], [overview]);
   const searchResults = useMemo(
@@ -776,6 +811,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
                  }
                }}
                disabled={!realtimeEnabled}
+               title={realtimeAvailability.hint}
                className={cn(
                  "px-4 py-1.5 transition-colors font-bold uppercase",
                  !realtimeEnabled
@@ -785,7 +821,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
                      : "text-rm-metal-text hover:text-white"
                )}
              >
-               {realtimeEnabled ? "实时预测" : "实时预测待接入"}
+               {realtimeEnabled ? "实时预测" : "待接入"}
              </button>
            <button onClick={() => updateQuery({ mode: "sim" })}
              className={cn("px-2 md:px-4 py-1.5 transition-colors font-bold uppercase", mode === "sim" ? "bg-rm-blue text-white" : "border-l border-rm-metal-border text-rm-metal-text hover:text-white")}
@@ -794,9 +830,14 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
            </button>
          </div>
 
-         <select 
-            value={regionSlug} 
-            onChange={(e) => router.push(`/regions/${e.target.value}?${searchParams.toString()}`)} 
+         <select
+            value={regionSlug}
+            onChange={(e) => {
+              const nextRegion = e.target.value;
+              if (validRegion(nextRegion)) {
+                onRegionChange(nextRegion);
+              }
+            }}
             className="bg-rm-metal-dark border border-rm-metal-border text-white px-2 md:px-3 py-1.5 focus:outline-none focus:border-rm-blue min-w-[7.5rem]"
          >
             {overview?.regions.map((region) => (
@@ -827,6 +868,17 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
          <button onClick={() => setSearchOpen(true)} className="border border-rm-metal-border bg-rm-metal-dark hover:bg-rm-metal-panel text-rm-metal-text px-2 md:px-3 py-1.5 transition-colors uppercase">
            搜索
          </button>
+         <span
+           className={cn(
+             "max-w-full basis-full md:basis-auto border px-2 py-1 text-[10px] font-mono leading-tight",
+             realtimeEnabled
+               ? "border-rm-status-safe/45 bg-rm-status-safe/10 text-rm-status-safe"
+               : "border-rm-status-warn/45 bg-rm-status-warn/10 text-rm-status-warn"
+           )}
+           title={realtimeAvailability.hint}
+         >
+           {realtimeAvailability.badge}
+         </span>
          <button
            type="button"
            onClick={() => setLegendOpen((current) => !current)}
@@ -905,14 +957,14 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
       {/* Prediction / Review Strip */}
       <div className="hidden md:flex flex-nowrap overflow-x-auto no-scrollbar items-center gap-2 px-3 py-1.5 md:px-6 md:py-2.5 bg-rm-metal-panel/60 border-b border-rm-metal-border z-20 whitespace-nowrap">
         <div className="flex items-center gap-2 mr-4 flex-none">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-rm-metal-text">图框图例</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-rm-metal-text">图例</span>
           <span className="text-[10px] font-bold border border-rm-status-safe bg-rm-status-safe/10 text-rm-status-safe px-1.5 py-0.5 shadow-[0_0_5px_rgba(0,255,157,0.3)]">精准预测</span>
           <span className="text-[10px] font-bold border border-[#a855f7] bg-[#a855f7]/10 text-[#a855f7] px-1.5 py-0.5 shadow-[0_0_5px_rgba(168,85,247,0.3)]">比分偏离</span>
           <span className="text-[10px] font-bold border border-[#ef4444] bg-[#ef4444]/10 text-[#ef4444] px-1.5 py-0.5 shadow-[0_0_5px_rgba(239,68,68,0.3)]">路线爆冷</span>
           <span className="text-[10px] font-bold border border-[#facc15] bg-[#facc15]/10 text-[#facc15] px-1.5 py-0.5 shadow-[0_0_5px_rgba(250,204,21,0.3)]">确认未赛</span>
           <span className="text-[10px] font-bold border border-rm-blue bg-rm-blue/10 text-rm-blue px-1.5 py-0.5 shadow-[0_0_5px_rgba(0,163,255,0.3)]">模拟预测</span>
         </div>
-        <span className="text-[10px] font-mono uppercase tracking-widest text-rm-metal-text">预测与评价</span>
+        <span className="text-[10px] font-mono uppercase tracking-widest text-rm-metal-text">预测</span>
         <span className="text-[10px] font-mono border border-rm-blue/35 bg-rm-blue/10 text-rm-blue px-2 py-0.5">
           预测池 {matchPhaseOverview.counters.pre}
         </span>

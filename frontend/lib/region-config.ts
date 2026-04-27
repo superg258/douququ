@@ -1,4 +1,5 @@
-import type { RegionSlug, RegionViewConfig, WorkspaceView } from "@/lib/types";
+import { deriveRealtimeAvailability } from "@/lib/realtime";
+import type { LiveStateResponse, LiveStatusSummary, RegionSlug, RegionViewConfig, WorkspaceView } from "@/lib/types";
 
 export const REGION_VIEWS: RegionViewConfig[] = [
   {
@@ -62,14 +63,8 @@ export const REGION_LABELS: Record<RegionSlug, string> = {
   north_region: "北部赛区",
 };
 
-const REGION_REALTIME_AVAILABILITY: Record<RegionSlug, boolean> = {
-  east_region: false,
-  south_region: false,
-  north_region: false,
-};
-
-export function isRegionRealtimeEnabled(regionSlug: RegionSlug) {
-  return REGION_REALTIME_AVAILABILITY[regionSlug];
+export function isRegionRealtimeEnabled(regionSlug: RegionSlug, liveState?: LiveStateResponse | LiveStatusSummary | null) {
+  return deriveRealtimeAvailability(regionSlug, liveState).enabled;
 }
 
 export function isValidSeed(value: number | null | undefined) {

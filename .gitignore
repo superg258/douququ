@@ -36,6 +36,7 @@ __pycache__/
 /tmp-*.png
 /output/
 /runs/
+/data/runtime/
 
 # OS junk
 .DS_Store

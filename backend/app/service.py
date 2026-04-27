@@ -17,7 +17,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 import build_rmuc_ts2_backend as ts2_model  # noqa: E402
 import simulate_region as region_sim  # noqa: E402
-from .south_actual_schedule import SOUTH_FIXED_SEED, SOUTH_SWISS_ACTUAL_SCORELINES
+from . import rmuc_live
 
 
 DEFAULT_SIMULATION_SAMPLES = int(os.getenv("RMUC_SIMULATION_SAMPLES", "1200"))
@@ -27,6 +27,10 @@ REGION_SLUG_TO_NAME = {config["slug"]: region for region, config in region_sim.R
 PRESEASON_RATINGS_CSV = ts2_model.DERIVED_DIR / "preseason_ratings.csv"
 PUBLISHED_RATINGS_DIR = ts2_model.DERIVED_DIR / "published_2026"
 REGION_SIM_DIR = ts2_model.ROOT / "data" / "derived" / "2026_rmuc_region_simulations"
+RUNTIME_LIVE_DIR = ROOT / "data" / "runtime" / "rmuc_live"
+NORMALIZED_LIVE_SCHEDULE_PATH = RUNTIME_LIVE_DIR / "normalized_schedule.json"
+RUNTIME_PUBLISHED_RATINGS_DIR = RUNTIME_LIVE_DIR / "published_2026"
+MINI_PROGRAM_CLIENT = rmuc_live.MiniProgramPredictionClient()
 
 
 def _read_csv(path: Path) -> list[dict[str, str]]:
@@ -119,6 +123,40 @@ def published_live_match_ledger_path() -> Path:
     return PUBLISHED_RATINGS_DIR / "live_match_ledger.json"
 
 
+def _published_manifest_path_for(published_dir: Path) -> Path:
+    return published_dir / "published_manifest.json"
+
+
+def _published_current_snapshot_path_for(published_dir: Path) -> Path:
+    return published_dir / "current_snapshot.json"
+
+
+def _published_live_match_ledger_path_for(published_dir: Path) -> Path:
+    return published_dir / "live_match_ledger.json"
+
+
+def _effective_published_dir() -> Path:
+    runtime_required = [
+        _published_manifest_path_for(RUNTIME_PUBLISHED_RATINGS_DIR),
+        _published_current_snapshot_path_for(RUNTIME_PUBLISHED_RATINGS_DIR),
+        _published_live_match_ledger_path_for(RUNTIME_PUBLISHED_RATINGS_DIR),
+    ]
+    if all(path.exists() for path in runtime_required):
+        return RUNTIME_PUBLISHED_RATINGS_DIR
+    return PUBLISHED_RATINGS_DIR
+
+
+def _read_json_if_exists(path: Path) -> Any | None:
+    if not path.exists():
+        return None
+    return _read_json(path)
+
+
+def load_normalized_live_schedule() -> dict[str, Any] | None:
+    payload = _read_json_if_exists(NORMALIZED_LIVE_SCHEDULE_PATH)
+    return payload if isinstance(payload, dict) else None
+
+
 @lru_cache(maxsize=1)
 def load_published_manifest() -> dict[str, Any]:
     return _read_json(published_manifest_path())
@@ -141,9 +179,11 @@ def _reset_live_state_caches() -> None:
 
 
 def live_state_unavailable_payload(region_slug: str, reason: str) -> dict[str, Any]:
+    live_status = summarize_live_status(region_slug)
     return {
         "available": False,
         "reason": reason,
+        **live_status,
         "regionSlug": region_slug,
         "regionName": resolve_region_name(region_slug),
         "generatedAt": None,
@@ -151,6 +191,34 @@ def live_state_unavailable_payload(region_slug: str, reason: str) -> dict[str, A
         "currentSnapshot": [],
         "matchLedger": [],
         "teamIndex": {},
+    }
+
+
+def summarize_live_status(region_slug: str) -> dict[str, Any]:
+    normalized = load_normalized_live_schedule()
+    if not normalized:
+        return {
+            "sourceStatus": "missing",
+            "sourceReason": "尚未同步官方实时赛程",
+            "sourceUpdatedAt": None,
+            "completedOfficialMatches": 0,
+            "confirmedOfficialMatches": 0,
+            "ledgerRows": 0,
+            "recentError": None,
+        }
+    source_status = str(normalized.get("sourceStatus") or "inactive")
+    region = normalized.get("regions", {}).get(region_slug) if isinstance(normalized.get("regions"), dict) else None
+    matches = region.get("matches", []) if isinstance(region, dict) else []
+    ledger = _read_json_if_exists(_published_live_match_ledger_path_for(RUNTIME_PUBLISHED_RATINGS_DIR))
+    ledger_rows = len(ledger) if isinstance(ledger, list) else 0
+    return {
+        "sourceStatus": source_status if region or source_status != "active" else "inactive",
+        "sourceReason": normalized.get("reason") if source_status != "active" else (None if region else "实时源未包含当前赛区"),
+        "sourceUpdatedAt": normalized.get("sourceUpdatedAt") or normalized.get("fetchedAt"),
+        "completedOfficialMatches": sum(1 for match in matches if match.get("isCompleted")),
+        "confirmedOfficialMatches": sum(1 for match in matches if match.get("isConfirmedMatchup")),
+        "ledgerRows": ledger_rows,
+        "recentError": normalized.get("reason") if source_status != "active" else None,
     }
 
 
@@ -205,6 +273,7 @@ def build_overview_payload() -> dict[str, Any]:
                 "nationalSlots": config["national_slots"],
                 "repechageSlots": config["repechage_slots"],
                 "monteCarlo": monte_carlo,
+                "liveStatus": summarize_live_status(region_slug),
                 "teams": teams,
             }
         )
@@ -316,6 +385,14 @@ def _serialize_simulation(region_slug: str, seed: int, simulation: dict[str, Any
             serialized_match["blueMu0"] = float(row["blue_mu0"])
             serialized_match["redDelta"] = float(row["red_delta"])
             serialized_match["blueDelta"] = float(row["blue_delta"])
+        if row.get("official_match_id") is not None:
+            serialized_match["officialMatchId"] = str(row["official_match_id"])
+        if row.get("official_status") is not None:
+            serialized_match["officialStatus"] = str(row["official_status"])
+        if row.get("planned_start_at") is not None:
+            serialized_match["plannedStartAt"] = str(row["planned_start_at"])
+        if row.get("mini_program_prediction") is not None:
+            serialized_match["miniProgramPrediction"] = row["mini_program_prediction"]
         match_rows.append(serialized_match)
 
     group_rankings: dict[str, list[dict[str, Any]]] = {}
@@ -371,6 +448,7 @@ def _serialize_simulation(region_slug: str, seed: int, simulation: dict[str, Any
             "nationalSlots": int(summary["configuration"]["national_slots"]),
             "repechageSlots": int(summary["configuration"]["repechage_slots"]),
             "monteCarlo": monte_carlo,
+            "liveStatus": summarize_live_status(region_slug),
         },
         "slots": slots,
         "groupRankings": group_rankings,
@@ -405,9 +483,17 @@ def _serialize_simulation(region_slug: str, seed: int, simulation: dict[str, Any
 
 
 def build_live_state_payload(region_slug: str) -> dict[str, Any]:
-    manifest = published_manifest_path()
-    current_snapshot = published_current_snapshot_path()
-    live_ledger = published_live_match_ledger_path()
+    live_status = summarize_live_status(region_slug)
+    if live_status["sourceStatus"] != "active":
+        return live_state_unavailable_payload(
+            region_slug,
+            str(live_status.get("sourceReason") or "实时赛程源未激活"),
+        )
+
+    published_dir = RUNTIME_PUBLISHED_RATINGS_DIR
+    manifest = _published_manifest_path_for(published_dir)
+    current_snapshot = _published_current_snapshot_path_for(published_dir)
+    live_ledger = _published_live_match_ledger_path_for(published_dir)
     if not (manifest.exists() and current_snapshot.exists() and live_ledger.exists()):
         return live_state_unavailable_payload(region_slug, "published artifacts unavailable")
 
@@ -416,9 +502,9 @@ def build_live_state_payload(region_slug: str) -> dict[str, Any]:
     if not ratings_rows:
         return live_state_unavailable_payload(region_slug, "no teams found for region")
 
-    manifest_payload = load_published_manifest()
-    snapshot_rows = load_published_current_snapshot_rows()
-    ledger_rows = load_published_live_match_ledger_rows()
+    manifest_payload = _read_json(manifest)
+    snapshot_rows = _read_json(current_snapshot)
+    ledger_rows = _read_json(live_ledger)
     snapshot_by_school_key = {str(row["school_key"]): row for row in snapshot_rows}
     region_school_keys = {str(row["school_key"]) for row in ratings_rows if row.get("school_key")}
     region_ledger_rows = [
@@ -507,6 +593,7 @@ def build_live_state_payload(region_slug: str) -> dict[str, Any]:
     return {
         "available": True,
         "reason": None,
+        **summarize_live_status(region_slug),
         "regionSlug": region_slug,
         "regionName": region_name,
         "generatedAt": manifest_payload.get("generated_at"),
@@ -517,42 +604,109 @@ def build_live_state_payload(region_slug: str) -> dict[str, Any]:
     }
 
 
-def custom_payload_builder(
-    red_team, blue_team, *, best_of, samples, match_seed, head_to_head_index, **kwargs
-):
-    payload = region_sim.build_prediction_payload(
-        red_team,
-        blue_team,
-        best_of=best_of,
-        samples=samples,
-        match_seed=match_seed,
-        head_to_head_index=head_to_head_index,
-        **kwargs,
+def _mini_program_predictions_for_context(context: rmuc_live.LiveRuntimeContext) -> dict[str, dict[str, Any]]:
+    if os.getenv("RMUC_MINI_PROGRAM_ENABLED", "1") in {"0", "false", "False"}:
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for match in context.matches_by_pair.values():
+        if isinstance(match.get("miniProgramPrediction"), dict):
+            continue
+        official_id = str(match.get("officialMatchId") or "")
+        if official_id and official_id not in out:
+            out[official_id] = MINI_PROGRAM_CLIENT.get(official_id)
+    return out
+
+
+def _load_live_runtime_context(region_slug: str) -> rmuc_live.LiveRuntimeContext:
+    normalized = load_normalized_live_schedule()
+    if not normalized:
+        return rmuc_live.LiveRuntimeContext.inactive(region_slug, "尚未同步官方实时赛程")
+    context = rmuc_live.LiveRuntimeContext.from_normalized(normalized, region_slug)
+    if context.source_status != "active":
+        return context
+    mini_program_predictions = _mini_program_predictions_for_context(context)
+    return rmuc_live.LiveRuntimeContext.from_normalized(
+        normalized,
+        region_slug,
+        mini_program_predictions=mini_program_predictions,
     )
-    
-    stage = kwargs.get("stage")
-    round_number = kwargs.get("round_number")
-    match_label = kwargs.get("match_label")
-
-    # Use fixed actual results for South Region Swiss rounds 1-2.
-    # Keep model probabilities unchanged; only lock finalized scoreline for completed matches.
-    if stage == "swiss" and round_number in (1, 2):
-        fixed_scoreline = SOUTH_SWISS_ACTUAL_SCORELINES.get(str(match_label))
-        if fixed_scoreline:
-            payload["fixed_scoreline"] = fixed_scoreline
-        
-    return payload
 
 
-@lru_cache(maxsize=128)
+def _rating_overrides_from_published(region_slug: str) -> dict[str, float]:
+    current_snapshot = _read_json_if_exists(_published_current_snapshot_path_for(RUNTIME_PUBLISHED_RATINGS_DIR))
+    if not isinstance(current_snapshot, list):
+        return {}
+    region_name = resolve_region_name(region_slug)
+    ratings_rows = [row for row in load_ratings_rows() if row.get("admitted_region") == region_name]
+    school_to_team_key = {str(row.get("school_key")): str(row["team_key"]) for row in ratings_rows if row.get("school_key")}
+    overrides: dict[str, float] = {}
+    for row in current_snapshot:
+        if not isinstance(row, dict):
+            continue
+        school_key = str(row.get("school_key") or "")
+        team_key = school_to_team_key.get(school_key)
+        if not team_key:
+            continue
+        rating = row.get("published_rating", row.get("currentPublishedRating"))
+        if rating is None:
+            continue
+        overrides[team_key] = float(rating)
+    return overrides
+
+
+def live_payload_builder_factory(context: rmuc_live.LiveRuntimeContext):
+    def _builder(red_team, blue_team, *, best_of, samples, match_seed, head_to_head_index, **kwargs):
+        payload = region_sim.build_prediction_payload(
+            red_team,
+            blue_team,
+            best_of=best_of,
+            samples=samples,
+            match_seed=match_seed,
+            head_to_head_index=head_to_head_index,
+            **kwargs,
+        )
+        payload.update(
+            context.payload_override_for(
+                red_team_key=red_team.team_key,
+                blue_team_key=blue_team.team_key,
+                stage=str(kwargs.get("stage") or ""),
+                round_number=int(kwargs["round_number"]) if kwargs.get("round_number") is not None else None,
+                match_label=str(kwargs["match_label"]) if kwargs.get("match_label") is not None else None,
+            )
+        )
+        return payload
+
+    return _builder
+
+
 def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", samples: int = DEFAULT_SIMULATION_SAMPLES) -> dict[str, Any]:
     region_name = resolve_region_name(region_slug)
-    if mode == "live" and region_slug == "south_region":
-        builder = custom_payload_builder
-        effective_seed = SOUTH_FIXED_SEED
+    slot_assignments: dict[str, str] | None = None
+    rating_overrides: dict[str, float] | None = None
+    official_swiss_pairings: dict[str, dict[int, list[tuple[str, str]]]] | None = None
+    if mode == "live":
+        context = _load_live_runtime_context(region_slug)
+    else:
+        context = rmuc_live.LiveRuntimeContext.inactive(region_slug)
+
+    if mode == "live" and context.source_status == "active":
+        builder = live_payload_builder_factory(context)
+        if len(context.slot_assignments) == 32:
+            slot_assignments = context.slot_assignments
+        official_swiss_pairings = context.swiss_pairings
+        rating_overrides = _rating_overrides_from_published(region_slug)
+        effective_seed = seed
     else:
         builder = None
         effective_seed = seed
-    
-    simulation = region_sim.simulate_region(region_name, seed=effective_seed, samples=samples, payload_builder=builder)
+
+    simulation = region_sim.simulate_region(
+        region_name,
+        seed=effective_seed,
+        samples=samples,
+        payload_builder=builder,
+        slot_assignments=slot_assignments,
+        rating_overrides=rating_overrides,
+        official_swiss_pairings=official_swiss_pairings,
+    )
     return _serialize_simulation(region_slug, effective_seed, simulation)

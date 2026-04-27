@@ -5,8 +5,9 @@ import { useEffect, useState } from "react";
 
 import { getOverview } from "@/lib/api";
 import { buildOverviewDashboard } from "@/lib/overview-builders";
-import { buildRegionHref, isRegionRealtimeEnabled } from "@/lib/region-config";
-import type { OverviewDashboard, RegionDashboardCard, WorkspaceView, OverviewTeam, RegionSlug, RegionStrengthRow } from "@/lib/types";
+import { buildRegionHref } from "@/lib/region-config";
+import { deriveRealtimeAvailability } from "@/lib/realtime";
+import type { OverviewDashboard, RegionDashboardCard, WorkspaceView, OverviewTeam, RegionStrengthRow } from "@/lib/types";
 import { MechCard } from "@/components/ui/mech-card";
 import { cn } from "@/lib/utils";
 
@@ -214,47 +215,85 @@ function TacticalRosterGrid({ teams }: { teams: OverviewTeam[] }) {
 
 function RegionCard({ region }: { region: RegionDashboardCard }) {
   const isLive = region.monteCarlo.effectiveIterations > 0;
-  const realtimeEnabled = isRegionRealtimeEnabled(region.regionSlug);
-  const realtimeBadge = realtimeEnabled ? "已接入" : "待接入";
-  const realtimeHint = "当前模块尚未接入真实赛中数据；此处为真实信息入口预留位，不属于赛程模拟内容。";
+  const realtimeAvailability = deriveRealtimeAvailability(region.regionSlug, region.liveStatus);
+  const realtimeEnabled = realtimeAvailability.enabled;
+  const realtimeSummary = realtimeEnabled
+    ? "官方赛果进入赛程画布，TS2 与观众投票并列展示。"
+    : "实时赛程源待接入，已切换到模拟赛程入口。";
+  const fallbackMode = realtimeEnabled ? "live" : "sim";
+  const realtimeEntryView: WorkspaceView = realtimeEnabled ? "qualification" : "playoff";
+  const realtimeEntryHref = buildRegionHref(region.regionSlug, realtimeEntryView, { mode: fallbackMode });
+  const realtimeEntryLabel = realtimeEnabled ? "进入实时赛程" : "进入模拟赛程";
+  const realtimeKicker = realtimeEnabled ? "实时" : "模拟";
+  const realtimeTitle = realtimeEnabled ? "实时赛程结果" : "模拟赛程入口";
+  const realtimePanelClassName = cn(
+    "group/realtime block bg-gradient-to-r via-rm-metal-dark px-3 py-2.5 text-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rm-blue/70",
+    realtimeEnabled
+      ? "border border-rm-status-safe/45 from-rm-status-safe/20 to-rm-blue/20 hover:border-rm-status-safe hover:shadow-[0_0_16px_rgba(0,255,157,0.18)]"
+      : "border border-rm-blue/45 from-rm-blue/15 to-rm-status-warn/15 hover:border-rm-blue hover:shadow-[0_0_16px_rgba(0,163,255,0.14)]",
+  );
+  const realtimePanelContent = (
+    <>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-col">
+          <span className="text-[9px] font-mono uppercase tracking-[0.2em] text-rm-metal-text">{realtimeKicker}</span>
+          <span className="truncate text-sm font-bold tracking-wide">{realtimeTitle}</span>
+        </div>
+        <span
+          className={cn(
+            "shrink-0 border px-2 py-1 text-[10px] font-bold uppercase tracking-widest",
+            realtimeEnabled
+              ? "border-rm-status-safe/60 bg-rm-status-safe/15 text-rm-status-safe"
+              : "border-rm-status-warn/60 bg-rm-status-warn/15 text-rm-status-warn",
+          )}
+        >
+          {realtimeAvailability.badge}
+        </span>
+      </div>
+      <p className="mt-3 text-[11px] leading-relaxed text-rm-metal-text">
+        {realtimeSummary}
+      </p>
+      <div className="mt-3 flex flex-wrap gap-1.5 text-[9px] font-mono font-bold tracking-widest">
+        <span className="border border-rm-status-safe/40 bg-rm-status-safe/10 px-1.5 py-0.5 text-rm-status-safe">
+          官方赛程
+        </span>
+        <span className="border border-rm-blue/40 bg-rm-blue/10 px-1.5 py-0.5 text-rm-blue">
+          TS2 预测
+        </span>
+        <span className="border border-rm-status-warn/40 bg-rm-status-warn/10 px-1.5 py-0.5 text-rm-status-warn">
+          王牌预言家
+        </span>
+        <span
+          className={cn(
+            "ml-auto border px-1.5 py-0.5 transition-colors",
+            realtimeEnabled
+              ? "border-rm-status-safe/50 text-rm-status-safe group-hover/realtime:bg-rm-status-safe group-hover/realtime:text-black"
+              : "border-rm-blue/50 text-rm-blue group-hover/realtime:bg-rm-blue group-hover/realtime:text-black",
+          )}
+        >
+          {realtimeEntryLabel}
+        </span>
+      </div>
+    </>
+  );
   
   return (
-    <MechCard 
-      label={`${region.regionName} / 大数据推演结果`}
+    <MechCard
+      label={`${region.regionName} / 推演结果`}
       className={cn(
         "flex h-full flex-col group overflow-hidden",
         isLive ? "hover:border-rm-red/50 hover:shadow-[0_0_20px_rgba(255,42,42,0.15)] transition-all" : "opacity-60"
       )}
     >
       <div className="grid shrink-0 gap-4 mb-6 [grid-template-rows:minmax(128px,auto)_auto_auto_minmax(86px,auto)_minmax(72px,auto)_minmax(150px,auto)_minmax(150px,auto)]">
-        <div
-          className={cn(
-            "bg-gradient-to-r via-rm-metal-dark px-3 py-2.5 text-white",
-            realtimeEnabled
-              ? "border border-rm-status-safe/45 from-rm-status-safe/20 to-rm-blue/20"
-              : "border border-rm-status-warn/45 from-rm-status-warn/20 to-rm-blue/20",
-          )}
+        <Link
+          href={realtimeEntryHref}
+          aria-label={`${region.regionName}${realtimeEntryLabel}`}
+          title={realtimeEnabled ? `${region.regionName}${realtimeEntryLabel}` : `${region.regionName}${realtimeEntryLabel}；${realtimeAvailability.hint}`}
+          className={realtimePanelClassName}
         >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 flex-col">
-              <span className="text-[9px] font-mono uppercase tracking-[0.2em] text-rm-metal-text">实时数据入口</span>
-              <span className="truncate text-sm font-bold tracking-wide">实时胜率信息</span>
-            </div>
-            <span
-              className={cn(
-                "shrink-0 border px-2 py-1 text-[10px] font-bold uppercase tracking-widest",
-                realtimeEnabled
-                  ? "border-rm-status-safe/60 bg-rm-status-safe/15 text-rm-status-safe"
-                  : "border-rm-status-warn/60 bg-rm-status-warn/15 text-rm-status-warn",
-              )}
-            >
-              {realtimeBadge}
-            </span>
-          </div>
-          <p className="mt-2 text-[10px] font-mono text-rm-metal-text leading-relaxed">
-            {realtimeHint}
-          </p>
-        </div>
+          {realtimePanelContent}
+        </Link>
 
         <div className="flex items-center justify-between border-b-2 border-rm-metal-border pb-2">
           <div className="flex items-center gap-2">
@@ -263,11 +302,11 @@ function RegionCard({ region }: { region: RegionDashboardCard }) {
               isLive ? "bg-rm-status-safe animate-pulse" : "bg-rm-status-dead"
             )}/>
             <span className="font-mono text-xs text-rm-metal-text tracking-wider uppercase">
-              {isLive ? `推演种子点: ${region.monteCarlo.seeds[0] || 0}` : "等待推演源数据注入"}
+              {isLive ? `种子: ${region.monteCarlo.seeds[0] || 0}` : "待推演"}
             </span>
           </div>
           <span className="font-mono text-[10px] text-rm-metal-text/60">
-            {isLive ? `${region.monteCarlo.effectiveIterations.toLocaleString("en-US")} 场平行赛程验证` : "推演集群离线"}
+            {isLive ? `${region.monteCarlo.effectiveIterations.toLocaleString("en-US")} 场` : "离线"}
           </span>
         </div>
 
@@ -313,9 +352,9 @@ function RegionCard({ region }: { region: RegionDashboardCard }) {
         {isLive && (
           <div className="shrink-0 border-t border-rm-metal-border pt-4 px-4 pb-4 flex justify-between gap-2 overflow-x-auto no-scrollbar bg-transparent relative z-20 pointer-events-auto">
             {REGION_QUICK_VIEWS.map((view) => (
-              <Link 
-                key={view.id} 
-                href={buildRegionHref(region.regionSlug, view.id)}
+              <Link
+                key={view.id}
+                href={buildRegionHref(region.regionSlug, view.id, { mode: fallbackMode })}
                 className="flex-none px-3 py-1.5 bg-rm-metal-dark border border-rm-metal-border text-xs font-bold text-rm-metal-text hover:text-rm-blue hover:border-rm-blue/50 transition-colors whitespace-nowrap"
               >
                 {view.label}
@@ -331,12 +370,12 @@ function RegionCard({ region }: { region: RegionDashboardCard }) {
 
 function SystemBrief() {
   return (
-    <MechCard label="系统简报 / 赛区监控网络简报" className="mb-6">
+    <MechCard label="系统简报" className="mb-6">
       <div className="text-sm font-mono text-rm-metal-text leading-relaxed space-y-2">
-        <p className="text-white"><span className="text-rm-blue font-bold mr-2">{'>'}</span>欢迎访问 RMUC 2026 全局赛区监控网络。</p>
-        <p><span className="text-rm-metal-text/50 mr-2">{'>'}</span>这里展示基于 TrueSkill 2 算法与 Monte Carlo 蒙特卡洛预测模型推演的各赛区战局与晋级态势。</p>
-        <p><span className="text-rm-metal-text/50 mr-2">{'>'}</span>全方位分析各个赛区的「资格赛」、「主淘汰赛」分流走向，实时呈现重点梯队夺冠预测及各赛区战力指数评估。</p>
-        <p><span className="text-rm-blue/80 font-bold tracking-widest text-xs uppercase animate-pulse">{">>>"} 系统数据同步完成</span></p>
+        <p className="text-white"><span className="text-rm-blue font-bold mr-2">{'>'}</span>RMUC 2026 赛区总览。</p>
+        <p><span className="text-rm-metal-text/50 mr-2">{'>'}</span>TS2 与蒙特卡洛推演各赛区晋级形势。</p>
+        <p><span className="text-rm-metal-text/50 mr-2">{'>'}</span>覆盖抽签、瑞士轮、资格赛、主淘汰赛和最终排名。</p>
+        <p><span className="text-rm-blue/80 font-bold tracking-widest text-xs uppercase animate-pulse">{">>>"} 已同步</span></p>
       </div>
     </MechCard>
   );

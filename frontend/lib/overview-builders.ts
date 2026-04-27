@@ -244,6 +244,7 @@ function buildRegionCards(regions: OverviewRegion[]): RegionDashboardCard[] {
         favorite: favoriteOf(region),
         teams: region.teams,
         monteCarlo: region.monteCarlo,
+        liveStatus: region.liveStatus,
         titleShapeTag: determineTitleShape(titleGap, top2ChampionShare),
         profileTags: [],
         summarySentence: "",
