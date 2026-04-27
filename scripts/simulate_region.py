@@ -205,6 +205,7 @@ def simulate_region(
     slot_assignments: dict[str, str] | None = None,
     rating_overrides: dict[str, float] | None = None,
     official_swiss_pairings: dict[str, dict[int, list[tuple[str, str]]]] | None = None,
+    official_group_rank_metrics: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     if region not in REGION_CONFIGS:
         raise ValueError(f"Unsupported region: {region}")
@@ -223,6 +224,7 @@ def simulate_region(
         slot_rows = region_core.assign_region_slots_from_map(teams, slot_assignments)
     else:
         slot_rows = region_core.assign_region_slots(teams, rng)
+    region_core.apply_official_swiss_ranking_metrics(teams, official_group_rank_metrics)
     assign_tournament_strengths(teams, rng)
     head_to_head_index = h2h.load_head_to_head_index()
 
@@ -238,6 +240,7 @@ def simulate_region(
             samples=samples,
             payload_builder=payload_builder or build_prediction_payload,
             official_pairings=(official_swiss_pairings or {}).get(group_name),
+            use_south_round5_csv_pairings=region == "南部赛区",
         )
         group_rankings[group_name] = ranked_group
         match_rows.extend(swiss_rows)
@@ -253,6 +256,7 @@ def simulate_region(
     match_rows.extend(bracket_rows)
     final_rankings = region_core.build_final_rankings(region, teams, bracket_summary)
     config = REGION_CONFIGS[region]
+    teams_by_key = {team.team_key: team for team in teams}
     national_qualifiers = [team.college_name for team in final_rankings if team.advancement == "national_qualified"]
     repechage_qualifiers = [team.college_name for team in final_rankings if team.advancement == "repechage_qualified"]
     if len(national_qualifiers) != config["national_slots"]:
@@ -262,6 +266,7 @@ def simulate_region(
 
     ranking_rows = []
     for team in final_rankings:
+        metrics = region_core.swiss_ranking_metrics(team, teams_by_key)
         ranking_rows.append(
             {
                 "rank": team.final_rank,
@@ -274,6 +279,12 @@ def simulate_region(
                 "swiss_wins": team.swiss_wins,
                 "swiss_losses": team.swiss_losses,
                 "swiss_group_rank": team.swiss_final_group_rank or "",
+                "opponent_score": metrics["opponent_score"],
+                "calculated_opponent_score": metrics["calculated_opponent_score"],
+                "official_opponent_points": metrics["official_opponent_points"],
+                "official_avg_base_hp_diff": metrics["official_avg_base_hp_diff"],
+                "official_avg_team_damage": metrics["official_avg_team_damage"],
+                "ranking_metric_source": metrics["ranking_metric_source"],
                 "mu0": round(team.mu0, 6),
                 "final_bucket": team.final_bucket,
                 "advancement": team.advancement,
@@ -291,15 +302,23 @@ def simulate_region(
             "repechage_slots": config["repechage_slots"],
             "slot_rules": {
                 "box1": region_core.TIER1_SLOTS,
-                "box4": region_core.BOX4_SLOTS,
-                "box5": region_core.BOX5_SLOTS,
+                "box2": region_core.TIER2_SLOTS,
+                "box3": region_core.UNSEEDED_SLOTS,
             },
             "swiss": {
                 "rounds": 5,
                 "advance_wins": 3,
                 "eliminate_losses": 3,
                 "allow_rematches": True,
-                "ranking_tiebreak_proxy": ["official_opponent_score", "game_diff", "ts2_preseason_rating"],
+                "round5_pairing_source": "south_csv_rank_positions" if region == "南部赛区" else "dynamic_adjacent_rank",
+                "official_ranking_order": [
+                    "completed_rounds_to_3_wins",
+                    "opponent_score",
+                    "avg_base_hp_diff",
+                    "avg_team_damage",
+                ],
+                "simulation_metric_policy": "pure simulation does not predict base HP differential or team damage; those official fields stay null unless live data supplies them",
+                "simulation_fallback_after_official_metrics": ["game_diff", "ts2_preseason_rating", "seed_rank"],
             },
             "head_to_head": h2h.configuration_payload(),
         },
@@ -320,6 +339,7 @@ def simulate_region(
                     "wins": team.swiss_wins,
                     "losses": team.swiss_losses,
                     "status": team.swiss_status,
+                    **region_core.swiss_ranking_metrics(team, teams_by_key),
                 }
                 for index, team in enumerate(group_teams, start=1)
             ]

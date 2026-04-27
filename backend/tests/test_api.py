@@ -15,6 +15,12 @@ ROOT = Path(__file__).resolve().parents[2]
 TS2_DERIVED_DIR = ROOT / "data" / "derived" / "2026_rmuc_ts2"
 
 
+def teardown_function() -> None:
+    service.load_ratings_rows.cache_clear()
+    service.load_global_elo_rank_map.cache_clear()
+    service._reset_live_state_caches()
+
+
 def _read_csv(path: Path) -> list[dict[str, str]]:
     with path.open(encoding="utf-8-sig", newline="") as handle:
         return list(csv.DictReader(handle))

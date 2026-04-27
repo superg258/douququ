@@ -83,6 +83,50 @@ def test_normalize_schedule_payload_marks_rmuc_source_active() -> None:
     assert match["blueTeamKey"] == "西交利物浦大学::GMaster"
 
 
+def test_normalize_schedule_payload_attaches_official_group_rank_metrics() -> None:
+    group_rank_payload = {
+        "zones": [
+            {
+                "zoneName": "南部赛区",
+                "groups": [
+                    {
+                        "groupName": "A组",
+                        "groupPlayers": [
+                            [
+                                {"itemName": "排名", "itemValue": 6},
+                                {
+                                    "itemName": "战队",
+                                    "itemValue": {
+                                        "collegeName": "太原理工大学",
+                                        "teamName": "TRoMaC",
+                                    },
+                                },
+                                {"itemName": "对手分", "itemValue": 4},
+                                {"itemName": "局均总基地净胜血量", "itemValue": 1200},
+                                {"itemName": "局均全队总伤害血量", "itemValue": 7800},
+                            ]
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+
+    normalized = rmuc_live.normalize_schedule_payload(
+        _schedule_payload(),
+        fetched_at=datetime(2026, 4, 27, tzinfo=UTC),
+        source_headers={},
+        group_rank_payload=group_rank_payload,
+    )
+
+    metrics = normalized["regions"]["south_region"]["groupRankMetrics"]["太原理工大学::TRoMaC"]
+    assert metrics["group_name"] == "A"
+    assert metrics["official_opponent_points"] == 4.0
+    assert metrics["official_avg_base_hp_diff"] == 1200.0
+    assert metrics["official_avg_team_damage"] == 7800.0
+    assert metrics["ranking_metric_source"] == "official_live"
+
+
 def test_normalize_schedule_payload_keeps_non_rmuc_source_inactive() -> None:
     normalized = rmuc_live.normalize_schedule_payload(
         _schedule_payload("RoboMaster 2026 高校联盟赛-3V3对抗赛"),

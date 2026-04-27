@@ -32,8 +32,27 @@ REGION_CONFIGS = {
 }
 
 TIER1_SLOTS = ["A1", "A3", "A5", "A7", "B1", "B3", "B5", "B7"]
-BOX4_SLOTS = ["A2", "A4", "A6", "A8", "A9", "A10", "A11", "A12", "A13", "A14", "A15", "A16"]
-BOX5_SLOTS = ["B2", "B4", "B6", "B8", "B9", "B10", "B11", "B12", "B13", "B14", "B15", "B16"]
+TIER2_SLOTS = ["A2", "A4", "A6", "A8", "B2", "B4", "B6", "B8"]
+UNSEEDED_SLOTS = [
+    "A9",
+    "A10",
+    "A11",
+    "A12",
+    "A13",
+    "A14",
+    "A15",
+    "A16",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "B15",
+    "B16",
+]
+BOX4_SLOTS = TIER2_SLOTS
+BOX5_SLOTS = UNSEEDED_SLOTS
 ALL_SLOTS = [
     *[f"A{i}" for i in range(1, 17)],
     *[f"B{i}" for i in range(1, 17)],
@@ -42,6 +61,11 @@ ALL_SLOTS = [
 SWISS_ROUND1_PAIRINGS = {
     "A": [("A1", "A9"), ("A2", "A10"), ("A11", "A3"), ("A12", "A4"), ("A5", "A13"), ("A6", "A14"), ("A15", "A7"), ("A16", "A8")],
     "B": [("B1", "B9"), ("B2", "B10"), ("B11", "B3"), ("B12", "B4"), ("B5", "B13"), ("B6", "B14"), ("B15", "B7"), ("B16", "B8")],
+}
+
+SOUTH_SWISS_ROUND5_CSV_RANK_PAIRINGS = {
+    "A": [(6, 11), (10, 7), (8, 9)],
+    "B": [(11, 6), (7, 10), (9, 8)],
 }
 
 ROUND_OF_16_PAIRINGS = [
@@ -63,8 +87,8 @@ QUARTERFINAL_MAPPING = [
 ]
 
 SEMIFINAL_MAPPING = [
-    ("QF-1", "QF-2"),
-    ("QF-3", "QF-4"),
+    ("QF-1", "QF-3"),
+    ("QF-2", "QF-4"),
 ]
 
 STAGE_ORDER = {
@@ -127,6 +151,10 @@ class RegionTeam:
     swiss_qualified_round: int | None = None
     swiss_eliminated_round: int | None = None
     swiss_final_group_rank: int | None = None
+    official_opponent_points: float | None = None
+    official_avg_base_hp_diff: float | None = None
+    official_avg_team_damage: float | None = None
+    ranking_metric_source: str = "simulation_proxy"
     final_bucket: str = ""
     advancement: str = ""
     final_rank: int | None = None
@@ -228,19 +256,10 @@ def assign_region_slots(teams: list[RegionTeam], rng: random.Random) -> list[dic
     assignments: list[tuple[str, RegionTeam, str]] = []
     for slot, team in zip(TIER1_SLOTS, tier1, strict=True):
         assignments.append((slot, team, "box1"))
-
-    box4_tier2 = tier2[:4]
-    box5_tier2 = tier2[4:]
-    box4_unseeded = unseeded[:8]
-    box5_unseeded = unseeded[8:]
-    box4 = [*box4_tier2, *box4_unseeded]
-    box5 = [*box5_tier2, *box5_unseeded]
-    rng.shuffle(box4)
-    rng.shuffle(box5)
-    for slot, team in zip(BOX4_SLOTS, box4, strict=True):
-        assignments.append((slot, team, "box4"))
-    for slot, team in zip(BOX5_SLOTS, box5, strict=True):
-        assignments.append((slot, team, "box5"))
+    for slot, team in zip(TIER2_SLOTS, tier2, strict=True):
+        assignments.append((slot, team, "box2"))
+    for slot, team in zip(UNSEEDED_SLOTS, unseeded, strict=True):
+        assignments.append((slot, team, "box3"))
 
     rows: list[dict[str, Any]] = []
     for slot, team, draw_box in sorted(assignments, key=lambda item: slot_sort_key(item[0])):
@@ -282,10 +301,10 @@ def assign_region_slots_from_map(teams: list[RegionTeam], slot_assignments: dict
         team.group_name = slot[0]
         if slot in TIER1_SLOTS:
             draw_box = "box1"
-        elif slot in BOX4_SLOTS:
-            draw_box = "box4"
-        elif slot in BOX5_SLOTS:
-            draw_box = "box5"
+        elif slot in TIER2_SLOTS:
+            draw_box = "box2"
+        elif slot in UNSEEDED_SLOTS:
+            draw_box = "box3"
         else:
             draw_box = "official"
         team.draw_box = draw_box
@@ -306,6 +325,61 @@ def assign_region_slots_from_map(teams: list[RegionTeam], slot_assignments: dict
             }
         )
     return sorted(rows, key=lambda row: slot_sort_key(row["slot"]))
+
+
+def _parse_optional_metric(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _first_metric(row: dict[str, Any], *keys: str) -> float | None:
+    for key in keys:
+        value = _parse_optional_metric(row.get(key))
+        if value is not None:
+            return value
+    return None
+
+
+def apply_official_swiss_ranking_metrics(
+    teams: list[RegionTeam],
+    metrics_by_team_key: dict[str, dict[str, Any]] | None,
+) -> None:
+    if not metrics_by_team_key:
+        return
+    for team in teams:
+        metrics = metrics_by_team_key.get(team.team_key)
+        if not metrics:
+            continue
+        team.official_opponent_points = _first_metric(
+            metrics,
+            "official_opponent_points",
+            "opponent_points",
+            "opponentScore",
+            "opponent_score",
+        )
+        team.official_avg_base_hp_diff = _first_metric(
+            metrics,
+            "official_avg_base_hp_diff",
+            "avg_base_hp_diff",
+            "avgBaseHpDiff",
+            "baseHpDiff",
+        )
+        team.official_avg_team_damage = _first_metric(
+            metrics,
+            "official_avg_team_damage",
+            "avg_team_damage",
+            "avgTeamDamage",
+            "teamDamage",
+        )
+        if any(
+            value is not None
+            for value in (team.official_opponent_points, team.official_avg_base_hp_diff, team.official_avg_team_damage)
+        ):
+            team.ranking_metric_source = str(metrics.get("ranking_metric_source") or metrics.get("source") or "official_live")
 
 
 def sample_from_distribution(distribution: dict[str, float], rng: random.Random) -> str:
@@ -340,6 +414,29 @@ def swiss_opponent_score(team: RegionTeam, teams_by_key: dict[str, RegionTeam]) 
     )
 
 
+def effective_swiss_opponent_score(team: RegionTeam, teams_by_key: dict[str, RegionTeam]) -> float:
+    if team.official_opponent_points is not None:
+        return team.official_opponent_points
+    return float(swiss_opponent_score(team, teams_by_key))
+
+
+def swiss_ranking_metrics(team: RegionTeam, teams_by_key: dict[str, RegionTeam]) -> dict[str, Any]:
+    calculated_opponent_score = float(swiss_opponent_score(team, teams_by_key))
+    return {
+        "opponent_score": effective_swiss_opponent_score(team, teams_by_key),
+        "calculated_opponent_score": calculated_opponent_score,
+        "official_opponent_points": team.official_opponent_points,
+        "official_avg_base_hp_diff": team.official_avg_base_hp_diff,
+        "official_avg_team_damage": team.official_avg_team_damage,
+        "ranking_metric_source": team.ranking_metric_source,
+        "simulation_game_diff": team.swiss_game_diff,
+    }
+
+
+def _official_metric_or_zero(value: float | None) -> float:
+    return 0.0 if value is None else float(value)
+
+
 def swiss_sort_key(team: RegionTeam, teams_by_key: dict[str, RegionTeam]) -> tuple[float, ...]:
     qualified_speed = -float(team.swiss_qualified_round) if team.swiss_qualified_round is not None else -99.0
     seed_fallback = -float(team.seed_rank_in_region)
@@ -347,7 +444,9 @@ def swiss_sort_key(team: RegionTeam, teams_by_key: dict[str, RegionTeam]) -> tup
         float(swiss_status_priority(team)),
         float(team.swiss_wins),
         qualified_speed,
-        float(swiss_opponent_score(team, teams_by_key)),
+        effective_swiss_opponent_score(team, teams_by_key),
+        _official_metric_or_zero(team.official_avg_base_hp_diff),
+        _official_metric_or_zero(team.official_avg_team_damage),
         float(team.swiss_game_diff),
         team.mu0,
         seed_fallback,
@@ -358,11 +457,38 @@ def swiss_cross_group_key(team: RegionTeam, teams_by_key: dict[str, RegionTeam])
     return (
         float(team.swiss_wins),
         -float(team.swiss_qualified_round) if team.swiss_qualified_round is not None else -99.0,
-        float(swiss_opponent_score(team, teams_by_key)),
+        effective_swiss_opponent_score(team, teams_by_key),
+        _official_metric_or_zero(team.official_avg_base_hp_diff),
+        _official_metric_or_zero(team.official_avg_team_damage),
         float(team.swiss_game_diff),
         team.mu0,
         -float(team.seed_rank_in_region),
     )
+
+
+def south_round5_csv_pairings(
+    group_name: str,
+    group_teams: list[RegionTeam],
+    teams_by_key: dict[str, RegionTeam],
+) -> list[tuple[RegionTeam, RegionTeam]]:
+    rank_pairings = SOUTH_SWISS_ROUND5_CSV_RANK_PAIRINGS.get(group_name)
+    if rank_pairings is None:
+        raise ValueError(f"Unsupported South Swiss round 5 group: {group_name}")
+    ranked = sorted(group_teams, key=lambda team: swiss_sort_key(team, teams_by_key), reverse=True)
+    active = [team for team in ranked if team.swiss_status == "active"]
+    if len(active) != 6:
+        raise ValueError(f"South Swiss round 5 expects exactly 6 active teams in group {group_name}, found {len(active)}")
+    position_to_team = {index: team for index, team in enumerate(ranked, start=1)}
+    pairings: list[tuple[RegionTeam, RegionTeam]] = []
+    for red_position, blue_position in rank_pairings:
+        red_team = position_to_team[red_position]
+        blue_team = position_to_team[blue_position]
+        if red_team.swiss_status != "active" or blue_team.swiss_status != "active":
+            raise ValueError(
+                f"South Swiss round 5 CSV position {red_position}-{blue_position} did not resolve to two active teams"
+            )
+        pairings.append((red_team, blue_team))
+    return pairings
 
 
 def build_prediction_payload(
@@ -589,6 +715,7 @@ def simulate_swiss_group(
     samples: int,
     payload_builder: PayloadBuilder | None = None,
     official_pairings: dict[int, list[tuple[str, str]]] | None = None,
+    use_south_round5_csv_pairings: bool = False,
 ) -> tuple[list[RegionTeam], list[dict[str, Any]]]:
     teams_by_key = {team.team_key: team for team in group_teams}
     slot_to_team = {team.slot: team for team in group_teams}
@@ -605,6 +732,8 @@ def simulate_swiss_group(
                     raise ValueError(f"Official Swiss pairing references unknown team_key={exc.args[0]}") from exc
         elif round_number == 1:
             pairings = [(slot_to_team[left], slot_to_team[right]) for left, right in SWISS_ROUND1_PAIRINGS[group_name]]
+        elif round_number == 5 and use_south_round5_csv_pairings:
+            pairings = south_round5_csv_pairings(group_name, group_teams, teams_by_key)
         else:
             ranked = sorted(group_teams, key=lambda team: swiss_sort_key(team, teams_by_key), reverse=True)
             active = [team for team in ranked if team.swiss_status == "active"]
@@ -869,9 +998,9 @@ def simulate_qualification_path(
     rows: list[dict[str, Any]] = []
     q1_pairs = [
         (round_of_16_losers[0], round_of_16_losers[1]),
-        (round_of_16_losers[2], round_of_16_losers[3]),
+        (round_of_16_losers[3], round_of_16_losers[2]),
         (round_of_16_losers[4], round_of_16_losers[5]),
-        (round_of_16_losers[6], round_of_16_losers[7]),
+        (round_of_16_losers[7], round_of_16_losers[6]),
     ]
     q1_winners, q1_losers, q1_rows = simulate_named_round(
         "qualification_round1",
@@ -933,7 +1062,7 @@ def simulate_qualification_path(
         summary["round2_losers"] = q2_losers
         return rows, summary
 
-    national_pairs = [(q1_winners[0], q1_winners[1]), (q1_winners[2], q1_winners[3])]
+    national_pairs = [(q1_winners[0], q1_winners[2]), (q1_winners[1], q1_winners[3])]
     national_winners, national_losers, national_rows = simulate_named_round(
         "qualification_round2",
         ["QUAL-2-1", "QUAL-2-2"],
@@ -1144,12 +1273,14 @@ def simulate_region(
     ratings_csv: Path = DEFAULT_RATINGS_CSV,
     samples: int = DEFAULT_MONTE_CARLO_SAMPLES,
     payload_builder: PayloadBuilder | None = None,
+    official_group_rank_metrics: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     if region not in REGION_CONFIGS:
         raise ValueError(f"Unsupported region: {region}")
     rng = random.Random(seed)
     teams = parse_team_rows(region, ratings_csv)
     slot_rows = assign_region_slots(teams, rng)
+    apply_official_swiss_ranking_metrics(teams, official_group_rank_metrics)
     assign_tournament_strengths(teams, rng)
     head_to_head_index = predictor.load_head_to_head_index()
 
@@ -1164,6 +1295,7 @@ def simulate_region(
             head_to_head_index=head_to_head_index,
             samples=samples,
             payload_builder=payload_builder,
+            use_south_round5_csv_pairings=region == "南部赛区",
         )
         group_rankings[group_name] = ranked_group
         match_rows.extend(swiss_rows)
@@ -1179,6 +1311,7 @@ def simulate_region(
     match_rows.extend(bracket_rows)
     final_rankings = build_final_rankings(region, teams, bracket_summary)
     config = REGION_CONFIGS[region]
+    teams_by_key = {team.team_key: team for team in teams}
     national_qualifiers = [team.college_name for team in final_rankings if team.advancement == "national_qualified"]
     repechage_qualifiers = [team.college_name for team in final_rankings if team.advancement == "repechage_qualified"]
     if len(national_qualifiers) != config["national_slots"]:
@@ -1188,6 +1321,7 @@ def simulate_region(
 
     ranking_rows = []
     for team in final_rankings:
+        metrics = swiss_ranking_metrics(team, teams_by_key)
         ranking_rows.append(
             {
                 "rank": team.final_rank,
@@ -1200,6 +1334,12 @@ def simulate_region(
                 "swiss_wins": team.swiss_wins,
                 "swiss_losses": team.swiss_losses,
                 "swiss_group_rank": team.swiss_final_group_rank or "",
+                "opponent_score": metrics["opponent_score"],
+                "calculated_opponent_score": metrics["calculated_opponent_score"],
+                "official_opponent_points": metrics["official_opponent_points"],
+                "official_avg_base_hp_diff": metrics["official_avg_base_hp_diff"],
+                "official_avg_team_damage": metrics["official_avg_team_damage"],
+                "ranking_metric_source": metrics["ranking_metric_source"],
                 "mu0": round(team.mu0, 6),
                 "final_bucket": team.final_bucket,
                 "advancement": team.advancement,
@@ -1217,17 +1357,25 @@ def simulate_region(
             "repechage_slots": config["repechage_slots"],
             "slot_rules": {
                 "box1": TIER1_SLOTS,
-                "box4": BOX4_SLOTS,
-                "box5": BOX5_SLOTS,
+                "box2": TIER2_SLOTS,
+                "box3": UNSEEDED_SLOTS,
             },
-                "swiss": {
-                    "rounds": 5,
-                    "advance_wins": 3,
-                    "eliminate_losses": 3,
-                    "allow_rematches": True,
-                    "ranking_tiebreak_proxy": ["official_opponent_score", "game_diff", "preseason_mu0"],
-                },
+            "swiss": {
+                "rounds": 5,
+                "advance_wins": 3,
+                "eliminate_losses": 3,
+                "allow_rematches": True,
+                "round5_pairing_source": "south_csv_rank_positions" if region == "南部赛区" else "dynamic_adjacent_rank",
+                "official_ranking_order": [
+                    "completed_rounds_to_3_wins",
+                    "opponent_score",
+                    "avg_base_hp_diff",
+                    "avg_team_damage",
+                ],
+                "simulation_metric_policy": "pure simulation does not predict base HP differential or team damage; those official fields stay null unless live data supplies them",
+                "simulation_fallback_after_official_metrics": ["game_diff", "preseason_mu0", "seed_rank"],
             },
+        },
         "champion": {
             "college_name": bracket_summary["champion"].college_name,
             "team_name": bracket_summary["champion"].team_name,
@@ -1257,6 +1405,7 @@ def simulate_region(
                     "wins": team.swiss_wins,
                     "losses": team.swiss_losses,
                     "status": team.swiss_status,
+                    **swiss_ranking_metrics(team, teams_by_key),
                 }
                 for index, team in enumerate(group_teams, start=1)
             ]
@@ -1350,6 +1499,12 @@ def write_simulation_outputs(simulation: dict[str, Any]) -> dict[str, Path]:
             "swiss_wins",
             "swiss_losses",
             "swiss_group_rank",
+            "opponent_score",
+            "calculated_opponent_score",
+            "official_opponent_points",
+            "official_avg_base_hp_diff",
+            "official_avg_team_damage",
+            "ranking_metric_source",
             "mu0",
             "final_bucket",
             "advancement",

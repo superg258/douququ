@@ -314,6 +314,12 @@ def _serialize_team_ref(
     }
 
 
+def _optional_float(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    return float(value)
+
+
 def _serialize_simulation(region_slug: str, seed: int, simulation: dict[str, Any]) -> dict[str, Any]:
     region_name = resolve_region_name(region_slug)
     monte_carlo = serialize_region_monte_carlo(region_slug)
@@ -411,6 +417,13 @@ def _serialize_simulation(region_slug: str, seed: int, simulation: dict[str, Any
                     "wins": int(row["wins"]),
                     "losses": int(row["losses"]),
                     "status": row["status"],
+                    "opponentScore": _optional_float(row.get("opponent_score")),
+                    "calculatedOpponentScore": _optional_float(row.get("calculated_opponent_score")),
+                    "officialOpponentPoints": _optional_float(row.get("official_opponent_points")),
+                    "officialAvgBaseHpDiff": _optional_float(row.get("official_avg_base_hp_diff")),
+                    "officialAvgTeamDamage": _optional_float(row.get("official_avg_team_damage")),
+                    "rankingMetricSource": str(row.get("ranking_metric_source") or "simulation_proxy"),
+                    "simulationGameDiff": _optional_float(row.get("simulation_game_diff")),
                     "finalRank": int(ranking_row["rank"]),
                 }
             )
@@ -431,6 +444,12 @@ def _serialize_simulation(region_slug: str, seed: int, simulation: dict[str, Any
                 "swissWins": int(row["swiss_wins"]),
                 "swissLosses": int(row["swiss_losses"]),
                 "swissGroupRank": int(row["swiss_group_rank"]) if row["swiss_group_rank"] != "" else None,
+                "opponentScore": _optional_float(row.get("opponent_score")),
+                "calculatedOpponentScore": _optional_float(row.get("calculated_opponent_score")),
+                "officialOpponentPoints": _optional_float(row.get("official_opponent_points")),
+                "officialAvgBaseHpDiff": _optional_float(row.get("official_avg_base_hp_diff")),
+                "officialAvgTeamDamage": _optional_float(row.get("official_avg_team_damage")),
+                "rankingMetricSource": str(row.get("ranking_metric_source") or "simulation_proxy"),
                 "mu0": float(row["mu0"]),
                 "finalBucket": row["final_bucket"],
                 "advancement": row["advancement"],
@@ -684,6 +703,7 @@ def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", sam
     slot_assignments: dict[str, str] | None = None
     rating_overrides: dict[str, float] | None = None
     official_swiss_pairings: dict[str, dict[int, list[tuple[str, str]]]] | None = None
+    official_group_rank_metrics: dict[str, dict[str, Any]] | None = None
     if mode == "live":
         context = _load_live_runtime_context(region_slug)
     else:
@@ -694,6 +714,7 @@ def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", sam
         if len(context.slot_assignments) == 32:
             slot_assignments = context.slot_assignments
         official_swiss_pairings = context.swiss_pairings
+        official_group_rank_metrics = context.group_rank_metrics
         rating_overrides = _rating_overrides_from_published(region_slug)
         effective_seed = seed
     else:
@@ -708,5 +729,6 @@ def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", sam
         slot_assignments=slot_assignments,
         rating_overrides=rating_overrides,
         official_swiss_pairings=official_swiss_pairings,
+        official_group_rank_metrics=official_group_rank_metrics,
     )
     return _serialize_simulation(region_slug, effective_seed, simulation)

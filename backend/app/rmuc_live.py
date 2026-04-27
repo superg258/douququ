@@ -92,6 +92,96 @@ def _scoreline(match: dict[str, Any]) -> str:
     return f"{red_wins}:{blue_wins}"
 
 
+def _optional_float(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _rank_items(row: Any) -> dict[str, Any]:
+    if not isinstance(row, list):
+        return {}
+    out: dict[str, Any] = {}
+    for item in row:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("itemName") or "").strip()
+        if name:
+            out[name] = item.get("itemValue")
+    return out
+
+
+def _metric_value(items: dict[str, Any], *names: str) -> float | None:
+    for name in names:
+        value = _optional_float(items.get(name))
+        if value is not None:
+            return value
+    return None
+
+
+def normalize_group_rank_metrics(
+    payload: dict[str, Any] | None,
+) -> dict[str, dict[str, dict[str, Any]]]:
+    if not isinstance(payload, dict):
+        return {}
+    regions: dict[str, dict[str, dict[str, Any]]] = {}
+    zones = payload.get("zones", [])
+    if not isinstance(zones, list):
+        return regions
+    for zone in zones:
+        if not isinstance(zone, dict):
+            continue
+        zone_name = str(zone.get("zoneName") or zone.get("name") or "").strip()
+        region_slug = REGION_NAME_TO_SLUG.get(zone_name)
+        if region_slug is None:
+            continue
+        region_metrics = regions.setdefault(region_slug, {})
+        groups = zone.get("groups", [])
+        if not isinstance(groups, list):
+            continue
+        for group in groups:
+            if not isinstance(group, dict):
+                continue
+            raw_group_name = str(group.get("groupName") or group.get("name") or "").strip()
+            group_name = raw_group_name[:1]
+            players = group.get("groupPlayers", [])
+            if not isinstance(players, list):
+                continue
+            for player_row in players:
+                items = _rank_items(player_row)
+                team = items.get("战队")
+                if not isinstance(team, dict):
+                    continue
+                college_name = str(team.get("collegeName") or "").strip()
+                team_name = str(team.get("teamName") or team.get("name") or "").strip()
+                if not college_name or not team_name:
+                    continue
+                team_key = legacy_elo.make_team_key(college_name, team_name)
+                region_metrics[team_key] = {
+                    "group_name": group_name,
+                    "group_rank": _metric_value(items, "排名"),
+                    "wins": _metric_value(items, "胜场数"),
+                    "official_opponent_points": _metric_value(items, "对手分"),
+                    "official_avg_base_hp_diff": _metric_value(
+                        items,
+                        "局均总基地净胜血量",
+                        "平均总基地净胜血量",
+                        "平均基地净胜血量",
+                    ),
+                    "official_avg_team_damage": _metric_value(
+                        items,
+                        "局均全队总伤害血量",
+                        "平均全队总伤害血量",
+                        "全队总伤害血量",
+                    ),
+                    "ranking_metric_source": "official_live",
+                }
+    return regions
+
+
 def _stage_family(match: dict[str, Any], zone_name: str) -> str:
     match_type = str(match.get("matchType") or "").upper()
     if "复活" in zone_name:
@@ -179,6 +269,7 @@ def normalize_schedule_payload(
     *,
     fetched_at: datetime | None = None,
     source_headers: dict[str, str] | None = None,
+    group_rank_payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     fetched_at = fetched_at or datetime.now(tz=UTC)
     source_headers = source_headers or {}
@@ -199,6 +290,7 @@ def normalize_schedule_payload(
         base["reason"] = "当前官方 live_json 不是 RMUC 超级对抗赛"
         return base
 
+    group_rank_metrics = normalize_group_rank_metrics(group_rank_payload)
     regions: dict[str, Any] = {}
     for zone in _nodes(event.get("zones")):
         zone_name = str(zone.get("name") or "").strip()
@@ -218,6 +310,7 @@ def normalize_schedule_payload(
             "regionSlug": region_slug,
             "regionName": REGION_SLUG_TO_NAME[region_slug],
             "slotAssignments": _collect_slot_assignments(zone),
+            "groupRankMetrics": group_rank_metrics.get(region_slug, {}),
             "matches": matches,
         }
 
@@ -286,6 +379,7 @@ class LiveRuntimeContext:
     matches_by_pair_label: dict[tuple[str, str, str, str], dict[str, Any]]
     swiss_pairings: dict[str, dict[int, list[tuple[str, str]]]]
     slot_assignments: dict[str, str]
+    group_rank_metrics: dict[str, dict[str, Any]]
     completed_count: int
     confirmed_count: int
 
@@ -300,6 +394,7 @@ class LiveRuntimeContext:
             matches_by_pair_label={},
             swiss_pairings={},
             slot_assignments={},
+            group_rank_metrics={},
             completed_count=0,
             confirmed_count=0,
         )
@@ -373,6 +468,7 @@ class LiveRuntimeContext:
             matches_by_pair_label=matches_by_pair_label,
             swiss_pairings=swiss_pairings,
             slot_assignments=dict(region.get("slotAssignments", {})),
+            group_rank_metrics=dict(region.get("groupRankMetrics", {})),
             completed_count=completed_count,
             confirmed_count=confirmed_count,
         )

@@ -207,6 +207,7 @@ def main() -> None:
 
     if args.skip_fetch:
         schedule_payload = load_json(raw_dir / "schedule.json")
+        group_rank_payload = load_json_if_exists(raw_dir / "group_rank_info.json")
         headers = upstream_headers.get("schedule", {}) if isinstance(upstream_headers.get("schedule"), dict) else {}
     else:
         schedule_payload, headers, changed = fetch_json(
@@ -218,6 +219,7 @@ def main() -> None:
         elif changed:
             write_raw_snapshot(raw_dir, "schedule", schedule_payload, fetched_at)
         upstream_headers["schedule"] = {**headers, "fetched-at": fetched_at.isoformat()}
+        group_rank_payload = load_json_if_exists(raw_dir / "group_rank_info.json")
         for name, url in rmuc_live.UPSTREAM_LIVE_URLS.items():
             if name == "schedule":
                 continue
@@ -228,12 +230,19 @@ def main() -> None:
                 )
                 if payload is not None and aux_changed:
                     write_raw_snapshot(raw_dir, name, payload, fetched_at)
+                if name == "group_rank_info" and payload is not None:
+                    group_rank_payload = payload
                 upstream_headers[name] = {**aux_headers, "fetched-at": fetched_at.isoformat()}
             except Exception as exc:  # noqa: BLE001 - auxiliary sources must not block schedule sync.
                 write_json_atomic(raw_dir / f"{name}.error.json", {"error": str(exc), "fetchedAt": fetched_at.isoformat()})
         write_json_atomic(headers_path, upstream_headers)
 
-    normalized = rmuc_live.normalize_schedule_payload(schedule_payload, fetched_at=fetched_at, source_headers=headers)
+    normalized = rmuc_live.normalize_schedule_payload(
+        schedule_payload,
+        fetched_at=fetched_at,
+        source_headers=headers,
+        group_rank_payload=group_rank_payload if isinstance(group_rank_payload, dict) else None,
+    )
     write_json_atomic(args.runtime_dir / "normalized_schedule.json", normalized)
     if normalized.get("sourceStatus") == "active":
         publish_runtime_artifacts(

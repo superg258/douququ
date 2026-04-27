@@ -103,16 +103,6 @@ function deriveMatchPhase(match: MatchRow): MatchPhase {
   return match.isRealResult ? "post" : "pre";
 }
 
-function phaseLabel(phase: MatchPhase) {
-  return phase === "post" ? "赛后评价" : "赛前预测";
-}
-
-function phaseClass(phase: MatchPhase) {
-  return phase === "post"
-    ? "text-rm-status-safe border-rm-status-safe/35 bg-rm-status-safe/12"
-    : "text-rm-blue border-rm-blue/35 bg-rm-blue/12";
-}
-
 function SouthSwissReplayList({ view, simulation }: { view: WorkspaceView; simulation: SimulationResponse | null }) {
   const groupName = view === "swiss-a" ? "A" : "B";
   const swissRows = (simulation?.matches ?? []).filter((row) => row.stage === "swiss" && row.groupName === groupName);
@@ -682,19 +672,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
       }
     });
 
-    const sortedRows = rows
-      .slice()
-      .sort((left, right) => {
-        if (left.stageOrder !== right.stageOrder) {
-          return right.stageOrder - left.stageOrder;
-        }
-        return right.matchLabel.localeCompare(left.matchLabel);
-      });
-
-    const preMatches = sortedRows.filter((match) => deriveMatchPhase(match) === "pre").slice(0, 4);
-    const postMatches = sortedRows.filter((match) => deriveMatchPhase(match) === "post").slice(0, 4);
-
-    return { counters, accuracy, preMatches, postMatches };
+    return { counters, accuracy };
   }, [simulation]);
 
   const openTeam = (teamKey: string) => {
@@ -976,33 +954,6 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
           <span className="text-[#ef4444]">{matchPhaseOverview.accuracy.upset} <span className="opacity-70">爆冷</span></span>
         </div>
       </div>
-
-      {/* Prediction / Review Tape */}
-      {matchPhaseOverview.preMatches.length || matchPhaseOverview.postMatches.length ? (
-        <div className="hidden md:flex items-stretch gap-2 overflow-x-auto px-6 py-2.5 bg-[#08080d]/90 border-b border-rm-metal-border z-10 no-scrollbar">
-          {[...matchPhaseOverview.preMatches, ...matchPhaseOverview.postMatches].map((match) => {
-            const phase = deriveMatchPhase(match);
-            return (
-              <button
-                key={match.matchLabel}
-                type="button"
-                onClick={() => openMatch(match)}
-                className="flex-none min-w-[220px] max-w-[260px] border border-rm-metal-border bg-rm-metal-dark/80 px-2.5 py-2 text-left hover:border-rm-blue transition-colors"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] text-rm-metal-text font-mono truncate">{translateStageLabel(match.stage)}</span>
-                  <span className={`text-[9px] font-mono border px-1.5 py-0.5 ${phaseClass(phase)}`}>
-                    {phaseLabel(phase)}
-                  </span>
-                </div>
-                <div className="mt-1.5 text-[11px] text-white font-bold truncate">{match.redTeam.collegeName}</div>
-                <div className="text-[11px] text-white font-bold truncate">{match.blueTeam.collegeName}</div>
-                <div className="mt-1 text-[10px] text-rm-blue font-mono">{match.matchLabel} / {match.scoreline || "--"}</div>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
 
       <div className="flex-1 relative flex overflow-hidden">
         {/* Canvas Area */}
