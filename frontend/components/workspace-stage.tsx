@@ -9,6 +9,19 @@ import { cn } from "@/lib/utils";
 import { isPageFullscreenActive, setPageFullscreenLock } from "@/lib/fullscreen-api";
 import { clampViewportPosition, fitWorkspaceViewport, scaleViewportAroundFramePoint } from "@/lib/workspace-viewport";
 
+function headerToneClass(tone: WorkspaceStage["headers"][number]["tone"]) {
+  switch (tone) {
+    case "amber":
+      return "border-rm-result-winner/75 bg-rm-result-winner/10 text-rm-result-winner shadow-[0_0_18px_rgba(255,213,74,0.18)]";
+    case "emerald":
+      return "border-rm-status-safe/70 bg-rm-status-safe/10 text-rm-status-safe shadow-[0_0_18px_rgba(0,255,157,0.14)]";
+    case "steel":
+      return "border-rm-metal-border bg-rm-metal-panel/80 text-rm-metal-text shadow-[0_0_12px_rgba(0,0,0,0.28)]";
+    default:
+      return "border-rm-blue/70 bg-rm-blue/10 text-rm-blue shadow-[0_0_18px_rgba(0,163,255,0.16)]";
+  }
+}
+
 export function WorkspaceStageView({
   stage,
   mode,
@@ -385,13 +398,11 @@ export function WorkspaceStageView({
         >
           {/* Header Banners (e.g. Round 1, Round 2, Final Band) */}
           {stage.headers.map((header) => (
-             <div 
+             <div
                key={header.id}
                className={cn(
-                 "absolute border-t-2 text-[11px] font-bold tracking-widest font-mono pt-2 pl-1",
-                 header.tone === "amber" ? "border-rm-status-safe text-rm-status-safe" : 
-                 header.tone === "steel" ? "border-rm-metal-text/50 text-rm-metal-text/50" : 
-                 "border-rm-blue text-rm-blue text-glow-blue" // default cyan / blue
+                 "absolute flex h-12 items-center justify-between gap-3 overflow-hidden border px-3 py-2 font-mono clip-chamfer",
+                 headerToneClass(header.tone)
                )}
                style={{
                  left: header.x,
@@ -399,7 +410,20 @@ export function WorkspaceStageView({
                  width: header.width,
                }}
              >
-                {header.title}
+                <div className="min-w-0">
+                  <div className="truncate font-machine text-[16px] font-extrabold leading-none tracking-widest text-current">
+                    {header.title}
+                  </div>
+                  {header.subtitle ? (
+                    <div className="mt-1 truncate text-[9px] font-semibold leading-none tracking-widest text-current opacity-70">
+                      {header.subtitle}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="flex h-full shrink-0 items-center gap-1 opacity-80">
+                  <span className="h-6 w-[3px] bg-current" />
+                  <span className="h-4 w-[3px] bg-current opacity-60" />
+                </div>
              </div>
           ))}
 
@@ -421,7 +445,6 @@ export function WorkspaceStageView({
               key={card.id}
               card={card}
               mode={mode}
-              showProbability={stage.showProbability || false}
               onMatchSelect={onMatchSelect}
               selectedMatchLabel={selectedMatchLabel}
               selectedTeamKey={selectedTeamKey}

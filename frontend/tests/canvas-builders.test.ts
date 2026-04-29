@@ -182,6 +182,7 @@ describe("buildWorkspaceStage", () => {
 
     expect(boundLabels.every((label) => !label.startsWith("QUAL-"))).toBe(true);
     expect(stage.cards.every((card) => card.kind === "match")).toBe(true);
+    expect(stage.cards.every((card) => card.kind === "match" && card.showProbability === false)).toBe(true);
     expect(stage.connectors.some((connector) => connector.id === "R16-1+R16-2=>QF-1")).toBe(true);
     expect(stage.connectors.some((connector) => connector.id === "SF-1+SF-2=>FINAL-1")).toBe(true);
   });
@@ -199,6 +200,11 @@ describe("buildWorkspaceStage", () => {
     expect(stage.cards.some((card) => card.kind === "match" && card.match.matchLabel === "QUAL-R-1")).toBe(false);
     expect(stage.cards.some((card) => card.kind === "match" && card.match.matchLabel === "FINAL-1")).toBe(false);
     expect(stage.connectors.some((connector) => connector.id === "qualification-q1-split")).toBe(true);
+    expect(stage.connectors.find((connector) => connector.id === "qualification-q1-split")?.branchLabels?.map((label) => label.text)).toEqual([
+      "败者进复活赛",
+      "胜者进第二轮",
+    ]);
+    expect(stage.cards.every((card) => card.kind !== "match" || card.showProbability === false)).toBe(true);
     expect(stage.headers.some((header) => header.title === "资格赛第二轮")).toBe(true);
   });
 
@@ -241,6 +247,7 @@ describe("buildWorkspaceStage", () => {
 
     expect(stage.headers.some((header) => header.title === "第 1 轮 · 0-0 组")).toBe(true);
     expect(stage.cards.some((card) => card.kind === "match" && card.orderLabel === "1")).toBe(true);
+    expect(stage.cards.every((card) => card.kind !== "match" || card.showProbability === false)).toBe(true);
     expect(stage.width).toBeGreaterThan(2000);
   });
 

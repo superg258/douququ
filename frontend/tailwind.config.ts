@@ -39,6 +39,11 @@ const config: Config = {
             deviation: "#A855F7",
             prediction: "#00A3FF",
             scheduled: "#FACC15"
+          },
+          result: {
+            winner: "#FFD54A",
+            loser: "#7C7F8A",
+            neutral: "#F5F7FA"
           }
         }
       },

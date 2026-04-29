@@ -2,16 +2,21 @@
 
 import type { CanvasConnector } from "@/lib/types";
 
-function toneClass(tone: CanvasConnector["tone"]) {
-  switch (tone) {
+function toneClass(connector: CanvasConnector) {
+  const strong = connector.weight === "strong";
+  switch (connector.tone) {
     case "amber":
-      return "stroke-rm-status-safe drop-shadow-[0_0_8px_rgba(0,255,157,0.8)] opacity-90";
+      return strong
+        ? "stroke-rm-result-winner drop-shadow-[0_0_7px_rgba(255,213,74,0.42)] opacity-85"
+        : "stroke-rm-result-winner opacity-45";
     case "emerald":
-      return "stroke-rm-status-safe drop-shadow-[0_0_8px_rgba(0,255,157,0.8)] opacity-90";
+      return strong
+        ? "stroke-rm-status-safe drop-shadow-[0_0_7px_rgba(0,255,157,0.38)] opacity-80"
+        : "stroke-rm-status-safe opacity-45";
     case "steel":
-      return "stroke-rm-metal-border opacity-50";
+      return "stroke-rm-metal-border opacity-45";
     default:
-      return "stroke-rm-blue drop-shadow-[0_0_8px_rgba(0,163,255,0.6)] opacity-70 animate-pulse";
+      return strong ? "stroke-rm-blue opacity-70 drop-shadow-[0_0_6px_rgba(0,163,255,0.28)]" : "stroke-rm-metal-text opacity-35";
   }
 }
 
@@ -67,7 +72,17 @@ export function CanvasConnectorView({
   const d = connector.kind !== "bracket" && connector.kind !== "merge" ? connectorPath(connector) : bracketPath(connector);
   const isSelected = connector.teamKey && connector.teamKey === selectedTeamKey;
   const isHighlighted = connector.teamKey && connector.teamKey === highlightedTeamKey;
-  
+  const strokeWidth = connector.weight === "strong" ? "stroke-[3px]" : "stroke-[2px]";
+  const labelX = (connector.viaX ?? (connector.fromX + connector.toX) / 2) + 10;
+  const labelToneClass =
+    connector.tone === "amber"
+      ? "fill-rm-result-winner"
+      : connector.tone === "emerald"
+        ? "fill-rm-status-safe"
+        : connector.tone === "steel"
+          ? "fill-rm-metal-text"
+          : "fill-rm-blue";
+
   if (isSelected || isHighlighted) {
     return (
       <g>
@@ -83,7 +98,30 @@ export function CanvasConnectorView({
 
   return (
     <g>
-      <path d={d} className={`fill-none stroke-[2px] transition-all ${toneClass(connector.tone)}`} />
+      <path d={d} className={`fill-none transition-all ${strokeWidth} ${toneClass(connector)}`} />
+      {connector.branchLabels?.map((label) => {
+        const width = Math.max(74, label.text.length * 12 + 18);
+        return (
+          <g key={`${connector.id}:${label.text}:${label.y}`} transform={`translate(${labelX} ${label.y})`}>
+            <rect
+              x={0}
+              y={-12}
+              width={width}
+              height={24}
+              className="fill-[#05070c] stroke-rm-metal-border opacity-90"
+              rx={0}
+            />
+            <text
+              x={9}
+              y={4}
+              className={`${labelToneClass} font-mono`}
+              style={{ fontSize: 11, fontWeight: 800 }}
+            >
+              {label.text}
+            </text>
+          </g>
+        );
+      })}
     </g>
   );
 }

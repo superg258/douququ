@@ -29,20 +29,20 @@ interface SwissReplayArtifacts {
 }
 
 const MATCH_CARD_WIDTH = 338;
-const MATCH_CARD_HEIGHT = 176;
+const MATCH_CARD_HEIGHT = 132;
 const TEAM_CARD_WIDTH = 338;
 const TEAM_CARD_HEIGHT = 98;
 const DETAIL_TEAM_CARD_WIDTH = 338;
 const DETAIL_TEAM_CARD_HEIGHT = 116;
-const SWISS_MATCH_CARD_HEIGHT = 176;
-const SWISS_MATCH_STEP = 190;
+const SWISS_MATCH_CARD_HEIGHT = 132;
+const SWISS_MATCH_STEP = 152;
 const SUMMARY_TEAM_STEP = 124;
-const STAGE_HEADER_TO_CARD_OFFSET = 92;
+const STAGE_HEADER_TO_CARD_OFFSET = 72;
 const SWISS_SECTION_GAP = 78;
 const PLAYOFF_MATCH_CARD_WIDTH = 392;
-const PLAYOFF_MATCH_CARD_HEIGHT = 176;
-const PLAYOFF_MATCH_STEP = 184;
-const HEADER_CONNECTOR_ANCHOR_Y = 10;
+const PLAYOFF_MATCH_CARD_HEIGHT = 132;
+const PLAYOFF_MATCH_STEP = 152;
+const HEADER_CONNECTOR_ANCHOR_Y = 24;
 
 type SwissSummaryId =
   | "qualified-3-0"
@@ -125,16 +125,16 @@ const SWISS_STAGE_COLUMNS: Array<{ id: SwissStageColumnId; x: number; sections: 
   },
 ];
 
-const SWISS_STAGE_FLOWS: Array<{ sourceId: string; targetIds: string[]; tone: CanvasTone }> = [
-  { sourceId: "r1-0-0", targetIds: ["r2-1-0", "r2-0-1"], tone: "cyan" },
-  { sourceId: "r2-1-0", targetIds: ["r3-2-0", "r3-1-1"], tone: "cyan" },
-  { sourceId: "r2-0-1", targetIds: ["r3-1-1", "r3-0-2"], tone: "cyan" },
-  { sourceId: "r3-2-0", targetIds: ["qualified-3-0", "r4-2-1"], tone: "amber" },
-  { sourceId: "r3-1-1", targetIds: ["r4-2-1", "r4-1-2"], tone: "cyan" },
-  { sourceId: "r3-0-2", targetIds: ["r4-1-2", "eliminated-0-3"], tone: "steel" },
-  { sourceId: "r4-2-1", targetIds: ["qualified-3-1", "r5-2-2"], tone: "amber" },
-  { sourceId: "r4-1-2", targetIds: ["r5-2-2", "eliminated-1-3"], tone: "steel" },
-  { sourceId: "r5-2-2", targetIds: ["qualified-3-2", "eliminated-2-3"], tone: "amber" },
+const SWISS_STAGE_FLOWS: Array<{ sourceId: string; targetIds: string[]; tone: CanvasTone; labels: string[] }> = [
+  { sourceId: "r1-0-0", targetIds: ["r2-1-0", "r2-0-1"], tone: "cyan", labels: ["胜入 1-0", "负入 0-1"] },
+  { sourceId: "r2-1-0", targetIds: ["r3-2-0", "r3-1-1"], tone: "cyan", labels: ["胜入 2-0", "负入 1-1"] },
+  { sourceId: "r2-0-1", targetIds: ["r3-1-1", "r3-0-2"], tone: "cyan", labels: ["胜入 1-1", "负入 0-2"] },
+  { sourceId: "r3-2-0", targetIds: ["qualified-3-0", "r4-2-1"], tone: "amber", labels: ["3-0 晋级", "负入 2-1"] },
+  { sourceId: "r3-1-1", targetIds: ["r4-2-1", "r4-1-2"], tone: "cyan", labels: ["胜入 2-1", "负入 1-2"] },
+  { sourceId: "r3-0-2", targetIds: ["r4-1-2", "eliminated-0-3"], tone: "steel", labels: ["胜入 1-2", "0-3 淘汰"] },
+  { sourceId: "r4-2-1", targetIds: ["qualified-3-1", "r5-2-2"], tone: "amber", labels: ["3-1 晋级", "负入 2-2"] },
+  { sourceId: "r4-1-2", targetIds: ["r5-2-2", "eliminated-1-3"], tone: "steel", labels: ["胜入 2-2", "1-3 淘汰"] },
+  { sourceId: "r5-2-2", targetIds: ["qualified-3-2", "eliminated-2-3"], tone: "amber", labels: ["3-2 晋级", "2-3 淘汰"] },
 ];
 
 function splitScoreline(scoreline: string) {
@@ -227,7 +227,7 @@ function buildMatchCard(
     displayLabel: options?.displayLabel ?? match.matchLabel,
     metaLabel: options?.metaLabel ?? stageMeta(match),
     variant: options?.variant ?? "standard",
-    showProbability: options?.showProbability ?? true,
+    showProbability: options?.showProbability ?? false,
     match,
     redSide: {
       teamKey: match.redTeam.teamKey,
@@ -308,7 +308,8 @@ function connectHeaderBands(
   sourceHeaders: WorkspaceStageHeader[],
   targetHeaders: WorkspaceStageHeader[],
   id: string,
-  tone: CanvasTone = "steel"
+  tone: CanvasTone = "steel",
+  branchLabelTexts?: string[]
 ): CanvasConnector | null {
   if (!sourceHeaders.length || !targetHeaders.length) {
     return null;
@@ -322,6 +323,7 @@ function connectHeaderBands(
   const targetY =
     targetHeaders.reduce((sum, header) => sum + header.y + HEADER_CONNECTOR_ANCHOR_Y, 0) /
     targetHeaders.length;
+  const branchY = targetHeaders.map((header) => header.y + HEADER_CONNECTOR_ANCHOR_Y);
   const gap = Math.max(18, targetLeft - sourceRight);
 
   return {
@@ -332,7 +334,11 @@ function connectHeaderBands(
     toX: targetLeft - 12,
     toY: targetY,
     viaX: sourceRight + Math.max(18, Math.min(36, gap * 0.5)),
-    branchY: targetHeaders.map((header) => header.y + HEADER_CONNECTOR_ANCHOR_Y),
+    branchY,
+    branchLabels: branchLabelTexts?.map((text, index) => {
+      const targetHeader = targetHeaders[index];
+      return { text, y: targetHeader ? targetHeader.y - 12 : targetY - 30 };
+    }),
     tone,
     weight: tone === "amber" ? "strong" : "normal",
   };
@@ -653,7 +659,7 @@ function buildSwissStage(groupName: "A" | "B", simulation: SimulationResponse, v
               metaLabel: `BO${match.bestOf}`,
               height: SWISS_MATCH_CARD_HEIGHT,
               variant: "compact",
-              showProbability: true,
+              showProbability: false,
             })
           );
         });
@@ -703,12 +709,13 @@ function buildSwissStage(groupName: "A" | "B", simulation: SimulationResponse, v
     });
   });
 
-  const connectors = SWISS_STAGE_FLOWS.map(({ sourceId, targetIds, tone }) =>
+  const connectors = SWISS_STAGE_FLOWS.map(({ sourceId, targetIds, tone, labels }) =>
     connectHeaderBands(
       headersBySection.has(sourceId) ? [headersBySection.get(sourceId)!] : [],
       targetIds.map((targetId) => headersBySection.get(targetId)).filter((header): header is WorkspaceStageHeader => Boolean(header)),
       `${groupName}-${sourceId}->${targetIds.join("+")}`,
-      tone
+      tone,
+      labels
     )
   ).filter((connector): connector is CanvasConnector => Boolean(connector));
 
@@ -726,7 +733,7 @@ function buildSwissStage(groupName: "A" | "B", simulation: SimulationResponse, v
     height: Math.max(1560, maxBottom + 116),
     viewport: {
       align: "left",
-      minScale: 0.68,
+      minScale: 0.78,
       paddingX: 48,
       paddingY: 48,
     },
@@ -747,7 +754,7 @@ function buildPlayoffStage(_regionSlug: RegionSlug, simulation: SimulationRespon
       width: PLAYOFF_MATCH_CARD_WIDTH,
       height: PLAYOFF_MATCH_CARD_HEIGHT,
       variant: "playoff",
-      showProbability: true,
+      showProbability: false,
     });
     cards.push(card);
     cardMap.set(match.matchLabel, card);
@@ -870,7 +877,7 @@ function buildPlayoffStage(_regionSlug: RegionSlug, simulation: SimulationRespon
     height: Math.max(1240, maxBottom + 140),
     viewport: {
       align: "left",
-      minScale: 0.74,
+      minScale: 0.82,
       paddingX: 48,
       paddingY: 48,
     },
@@ -910,7 +917,7 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
           width: PLAYOFF_MATCH_CARD_WIDTH,
           height: PLAYOFF_MATCH_CARD_HEIGHT,
           variant: "playoff",
-          showProbability: true,
+          showProbability: false,
         })
       );
     });
@@ -1014,13 +1021,15 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
         headerList("qualification-q1"),
         headerList("qualification-q1-repechage", "qualification-q2"),
         "qualification-q1-split",
-        "emerald"
+        "emerald",
+        ["胜者进复活赛", "败者进第二轮"]
       ),
       connectHeaderBands(
         headerList("qualification-q2"),
         headerList("qualification-q2-repechage", "qualification-q2-eliminated"),
         "qualification-q2-split",
-        "emerald"
+        "emerald",
+        ["胜者进复活赛", "败者本站止步"]
       )
     );
 
@@ -1074,13 +1083,15 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
         headerList("qualification-q1"),
         headerList("qualification-q1-repechage", "qualification-q2"),
         "qualification-q1-split",
-        "emerald"
+        "emerald",
+        ["败者进复活赛", "胜者进第二轮"]
       ),
       connectHeaderBands(
         headerList("qualification-q2"),
         headerList("qualification-q2-national", "qualification-q2-repechage"),
         "qualification-q2-split",
-        "amber"
+        "amber",
+        ["胜者进国赛", "败者进复活赛"]
       )
     );
 
@@ -1153,19 +1164,22 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
         headerList("qualification-q1"),
         headerList("qualification-q2", "qualification-qualr"),
         "qualification-q1-split",
-        "emerald"
+        "emerald",
+        ["胜者争国赛", "败者争复活赛"]
       ),
       connectHeaderBands(
         headerList("qualification-q2"),
         headerList("qualification-q2-national", "qualification-q2-repechage"),
         "qualification-q2-split",
-        "amber"
+        "amber",
+        ["胜者进国赛", "败者进复活赛"]
       ),
       connectHeaderBands(
         headerList("qualification-qualr"),
         headerList("qualification-qualr-repechage", "qualification-qualr-eliminated"),
         "qualification-qualr-split",
-        "emerald"
+        "emerald",
+        ["胜者进复活赛", "败者本站止步"]
       )
     );
 
@@ -1189,7 +1203,7 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
     height: Math.max(1460, maxBottom + 140),
     viewport: {
       align: "left",
-      minScale: 0.72,
+      minScale: 0.82,
       paddingX: 48,
       paddingY: 48,
     },
@@ -1254,7 +1268,7 @@ function buildFinalRankingsStage(simulation: SimulationResponse): WorkspaceStage
     height: Math.max(1120, maxBottom + 140),
     viewport: {
       align: "left",
-      minScale: 0.62,
+      minScale: 0.68,
       paddingX: 48,
       paddingY: 48,
     },

@@ -2,13 +2,8 @@
 
 import { useRef } from "react";
 
-import { PredictionSignalsPanel } from "@/components/prediction-signals";
 import type { CanvasCard, MatchCanvasCard, TeamCanvasCard } from "@/lib/types";
 import { cn } from "@/lib/utils";
-
-function pct(value: number) {
-  return `${(value * 100).toFixed(1)}%`;
-}
 
 function toneClass(tone: CanvasCard["tone"]) {
   switch (tone) {
@@ -143,36 +138,41 @@ function TeamCanvasCardComponent({
   );
 }
 
-function MatchRowLine({
+function scoreParts(scoreline: string) {
+  const [red = "-", blue = "-"] = scoreline.split(":");
+  return { red, blue };
+}
+
+function MatchTeamLine({
   side,
-  showProbability,
+  score,
+  resultResolved,
   selectedTeamKey,
   highlightedTeamKey,
   onTeamSelect,
 }: {
   side: MatchCanvasCard["redSide"] | MatchCanvasCard["blueSide"];
-  showProbability: boolean;
+  score: string;
+  resultResolved: boolean;
   selectedTeamKey: string | null;
   highlightedTeamKey: string | null;
   onTeamSelect: (teamKey: string) => void;
 }) {
   const isRed = side.side === "red";
-  const isWinner = side.isWinner;
-  const isLoser = !isWinner;
-
-  const activeBg = isRed ? "bg-[#4A1111]" : "bg-[#11264A]";
-  const hoverBg = isRed ? "hover:bg-[#2A0505]" : "hover:bg-[#05112A]";
-  const scoreBoxColor = isRed ? "bg-[#E62E2E]/25 text-[#FFF0D4] border-[#FF3333]/50" : "bg-[#1E88E5]/25 text-[#DCEFFF] border-[#3399FF]/50";
-  const probColor = isRed ? "text-[#FF4D4D]" : "text-[#3399FF]";
-  const barBg = isRed ? "bg-[#E62E2E]/30" : "bg-[#1E88E5]/30";
+  const isWinner = resultResolved && side.isWinner;
+  const isLoser = resultResolved && !side.isWinner;
+  const isFocused = selectedTeamKey === side.teamKey || highlightedTeamKey === side.teamKey;
   const pointerIntentRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={-1}
       className={cn(
-        "relative w-full flex items-stretch text-left group/row transition-all outline-none flex-1 border-b last:border-b-0 border-[#2f303d] overflow-hidden",
-        isWinner ? activeBg : isLoser ? "bg-black/60 grayscale opacity-60" : `bg-transparent ${hoverBg}`
+        "relative grid min-h-[44px] grid-cols-[5px_minmax(0,1fr)_46px] items-stretch overflow-hidden border-b border-rm-metal-border/55 bg-[#080a10] text-left outline-none transition-colors last:border-b-0 hover:bg-white/[0.035]",
+        isWinner && "bg-[linear-gradient(90deg,rgba(255,213,74,0.14),rgba(255,213,74,0.035)_58%,rgba(255,255,255,0.025))]",
+        isLoser && "bg-black/45",
+        isFocused && "ring-1 ring-white/35"
       )}
       onClick={onTeamSelect ? (e) => {
         if (pointerIntentRef.current?.moved) {
@@ -203,41 +203,53 @@ function MatchRowLine({
         pointerIntentRef.current = null;
       }}
     >
-      {showProbability && (
-        <div 
-          className={cn("absolute top-0 bottom-0 left-0 transition-all duration-700 ease-out z-0", barBg)} 
-          style={{ width: pct(side.probability) }}
-        />
-      )}
+      <div className={cn("h-full", isRed ? "bg-rm-red shadow-[0_0_10px_rgba(255,31,31,0.42)]" : "bg-rm-blue shadow-[0_0_10px_rgba(0,163,255,0.42)]")} />
 
-      <div className={cn("relative z-10 flex flex-col items-center justify-center w-10 shrink-0 border-r", scoreBoxColor)}>
-        <span className="font-machine text-lg leading-none drop-shadow-sm">{side.score || "-"}</span>
-      </div>
-
-      <div className="relative z-10 flex flex-col justify-center flex-1 px-3 min-w-0">
-        <span className={cn("font-bold text-[13px] leading-tight line-clamp-2 drop-shadow-sm", isWinner ? "text-white" : "text-[#D0D0E0]")}>
-          {side.collegeName}
-        </span>
-        <span className="text-[10px] text-[#A0A0B0] font-mono line-clamp-1 mt-0.5">
-          {side.teamName}
-        </span>
-      </div>
-
-      {showProbability && (
-        <div className="relative z-10 shrink-0 flex items-center pr-3">
-          <span className={cn("font-mono text-[10px] font-bold drop-shadow-sm", probColor)}>
-            {pct(side.probability)} {isWinner ? "胜" : ""}
+      <div className="min-w-0 px-3 py-1.5">
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              "shrink-0 border px-1 py-0.5 text-[8px] font-bold leading-none tracking-widest",
+              isRed ? "border-rm-red/65 text-rm-red bg-rm-red/10" : "border-rm-blue/65 text-rm-blue bg-rm-blue/10"
+            )}
+          >
+            {isRed ? "红方" : "蓝方"}
           </span>
+          {isWinner ? (
+            <span className="shrink-0 border border-rm-result-winner/70 bg-rm-result-winner/20 px-1 py-0.5 text-[8px] font-extrabold leading-none text-rm-result-winner">
+              胜
+            </span>
+          ) : null}
         </div>
-      )}
-    </button>
+        <div
+          title={`${side.collegeName} / ${side.teamName}`}
+          className={cn(
+            "mt-1 text-[14px] font-extrabold leading-[1.18] tracking-normal line-clamp-2",
+            isWinner ? "text-rm-result-winner [text-shadow:0_0_8px_rgba(255,213,74,0.35)]" : isLoser ? "text-rm-result-loser" : "text-white",
+            isRed && !isWinner && !isLoser && "text-[#FF6A6A]",
+            !isRed && !isWinner && !isLoser && "text-[#58BFFF]"
+          )}
+        >
+          {side.collegeName}
+        </div>
+        <div className="mt-0.5 line-clamp-1 text-[9px] font-mono text-rm-metal-text/80">
+          {side.teamName}
+        </div>
+      </div>
+
+      <div className={cn(
+        "flex items-center justify-center border-l border-rm-metal-border/70 bg-black/55 font-machine text-xl leading-none",
+        isWinner ? "text-black bg-rm-result-winner shadow-[inset_0_0_10px_rgba(0,0,0,0.25)]" : isLoser ? "text-rm-result-loser" : "text-white"
+      )}>
+        {score || "-"}
+      </div>
+    </div>
   );
 }
 
 function MatchCanvasCardComponent({
   card,
   mode,
-  showProbability,
   selectedTeamKey,
   highlightedTeamKey,
   onTeamSelect,
@@ -246,7 +258,6 @@ function MatchCanvasCardComponent({
 }: {
   card: MatchCanvasCard;
   mode?: "sim" | "live";
-  showProbability: boolean;
   selectedTeamKey: string | null;
   highlightedTeamKey: string | null;
   onTeamSelect: (teamKey: string) => void;
@@ -254,49 +265,46 @@ function MatchCanvasCardComponent({
   selectedMatchLabel: string | null;
 }) {
   const isSelected = selectedMatchLabel === card.match.matchLabel;
-  const headless = card.variant === "compact" || card.variant === "playoff";
   const pointerIntentRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const row = card.match;
   const expectedRed = row.pSeriesRed ?? card.redSide.probability;
-  const expectedBlue = row.pSeriesBlue ?? card.blueSide.probability;
   const isSimulationMode = mode === "sim";
   const hasRealResult = Boolean(row.isRealResult);
   const showsResolvedScoreline = isSimulationMode || hasRealResult;
-  const showAudienceSignal = Boolean(row.miniProgramPrediction || row.officialMatchId);
-  
   const [redGamesText, blueGamesText] = (row.scoreline || "0:0").split(":");
   const redGames = Number(redGamesText);
   const blueGames = Number(blueGamesText);
-  const actualWinnerName = redGames > blueGames ? row.redTeam.collegeName : row.blueTeam.collegeName;
   const predictedScore = predictScoreline(row.pGameRed ?? expectedRed, expectedRed, row.bestOf || 3);
+  const displayScore = showsResolvedScoreline ? scoreParts(row.scoreline) : scoreParts(predictedScore.scoreline);
+  const scoreLabel = showsResolvedScoreline ? "比分" : "预测";
 
   const containerBorder = (() => {
-    if (isSimulationMode) return "border-[2px] border-rm-blue shadow-[0_0_20px_rgba(0,163,255,0.2)] bg-rm-blue/10";
+    if (isSimulationMode) return "border border-rm-blue/75 bg-rm-blue/10 shadow-[0_0_14px_rgba(0,163,255,0.12)]";
     if (row.isRealResult) {
       const predWinnerSame = (predictedScore.scoreline[0] > predictedScore.scoreline[2]) === (redGames > blueGames);
       const predScoreSame = predictedScore.scoreline === row.scoreline;
       if (!predWinnerSame) {
-        return "border-[2px] border-[#ef4444] shadow-[0_0_20px_rgba(239,68,68,0.3)] bg-[#ef4444]/10";
+        return "border border-rm-status-upset/80 bg-rm-status-upset/10 shadow-[0_0_14px_rgba(255,31,31,0.18)]";
       } else if (!predScoreSame) {
-        return "border-[2px] border-[#a855f7] shadow-[0_0_20px_rgba(168,85,247,0.3)] bg-[#a855f7]/10";
+        return "border border-rm-status-deviation/80 bg-rm-status-deviation/10 shadow-[0_0_14px_rgba(168,85,247,0.16)]";
       }
-      return "border-[2px] border-rm-status-safe shadow-[0_0_20px_rgba(0,255,157,0.3)] bg-rm-status-safe/10";
+      return "border border-rm-status-safe/75 bg-rm-status-safe/10 shadow-[0_0_14px_rgba(0,255,157,0.14)]";
     }
-    if (row.isConfirmedMatchup) return "border-[2px] border-[#facc15] shadow-[0_0_20px_rgba(250,204,21,0.3)] bg-[#facc15]/10";
-    return "border-[2px] border-rm-blue shadow-[0_0_20px_rgba(0,163,255,0.2)] bg-rm-blue/10";
+    if (row.isConfirmedMatchup) return "border border-rm-status-scheduled/75 bg-rm-status-scheduled/10 shadow-[0_0_14px_rgba(250,204,21,0.16)]";
+    return "border border-rm-blue/65 bg-rm-blue/10 shadow-[0_0_12px_rgba(0,163,255,0.10)]";
   })();
 
   const statusConfig = (() => {
-    if (isSimulationMode) return { label: "推演战果", className: "border-rm-blue font-extrabold text-rm-blue bg-rm-blue/20 shadow-[0_0_12px_rgba(0,163,255,0.6)]" };
+    if (isSimulationMode) return { label: "模拟战果", className: "border-rm-blue/70 text-rm-blue bg-rm-blue/10" };
     if (row.isRealResult) {
       const predWinnerSame = (predictedScore.scoreline[0] > predictedScore.scoreline[2]) === (redGames > blueGames);
       const predScoreSame = predictedScore.scoreline === row.scoreline;
-      if (!predWinnerSame) return { label: "爆冷", className: "border-[#ef4444] font-extrabold text-[#ef4444] bg-[#ef4444]/20 shadow-[0_0_12px_rgba(239,68,68,0.6)]" };
-      if (!predScoreSame) return { label: "比分偏离", className: "border-[#a855f7] font-extrabold text-[#a855f7] bg-[#a855f7]/20 shadow-[0_0_12px_rgba(168,85,247,0.6)]" };
-      return { label: "已完赛", className: "border-rm-status-safe font-extrabold text-rm-status-safe bg-rm-status-safe/20 shadow-[0_0_12px_rgba(0,255,157,0.6)]" };
+      if (!predWinnerSame) return { label: "爆冷", className: "border-rm-status-upset/80 text-rm-status-upset bg-rm-status-upset/10" };
+      if (!predScoreSame) return { label: "比分偏离", className: "border-rm-status-deviation/80 text-rm-status-deviation bg-rm-status-deviation/10" };
+      return { label: "已完赛", className: "border-rm-status-safe/75 text-rm-status-safe bg-rm-status-safe/10" };
     }
-    if (row.isConfirmedMatchup) return { label: "已排期", className: "border-[#facc15] font-extrabold text-[#facc15] bg-[#facc15]/20 shadow-[0_0_12px_rgba(250,204,21,0.6)]" };
-    return { label: "预测", className: "border-rm-blue font-extrabold text-rm-blue bg-rm-blue/20 shadow-[0_0_12px_rgba(0,163,255,0.6)]" };
+    if (row.isConfirmedMatchup) return { label: "已排期", className: "border-rm-status-scheduled/75 text-rm-status-scheduled bg-rm-status-scheduled/10" };
+    return { label: "预测", className: "border-rm-blue/70 text-rm-blue bg-rm-blue/10" };
   })();
 
   return (
@@ -305,7 +313,8 @@ function MatchCanvasCardComponent({
       tabIndex={0}
       className={cn(
         "absolute touch-none group flex flex-col bg-[#05070c] outline-none transition-all overflow-hidden clip-chamfer cursor-pointer",
-        isSelected ? "ring-2 ring-white/80 z-30" : "hover:border-rm-blue/50 z-10",
+        "hover:border-white/45 hover:shadow-[0_0_16px_rgba(255,255,255,0.10)]",
+        isSelected ? "ring-2 ring-rm-result-winner/80 z-30" : "z-10",
         containerBorder
       )}
       style={{
@@ -347,135 +356,44 @@ function MatchCanvasCardComponent({
         pointerIntentRef.current = null;
       }}
     >
-      {hasRealResult && (
-        <div className="absolute inset-0 bg-gradient-to-r from-rm-status-safe/5 via-transparent to-transparent pointer-events-none" />
-      )}
       {card.orderLabel ? (
-        <span className="absolute top-0 bottom-0 left-0 flex items-center justify-center w-6 px-1 border-r border-rm-metal-border bg-black/40 text-[10px] font-bold font-mono text-[#A0A0B0] z-20">
-          {card.orderLabel}
-        </span>
+        <div className="absolute inset-y-0 left-0 z-20 flex w-8 flex-col items-center justify-center border-r border-rm-metal-border bg-black/65">
+          <span className="font-machine text-[15px] leading-none text-white">{card.orderLabel}</span>
+          <span className="mt-1 text-[7px] font-bold tracking-widest text-rm-metal-text">{scoreLabel}</span>
+        </div>
       ) : null}
 
-      <div className={cn("flex flex-col flex-1 p-2 relative z-10 w-full h-full", card.orderLabel ? "pl-8" : "")}>
-        {/* Header */}
-        {!headless && (
-          <div className="flex items-center justify-between border-b border-rm-metal-border/50 pb-1 mb-1.5 shrink-0">
-            <div className="flex items-center gap-2">
-              <span className={cn(
-                "text-[8px] font-mono font-bold uppercase tracking-widest px-1.5 py-0.5 clip-chamfer border",
-                statusConfig.className
-              )}>
-                {statusConfig.label}
-              </span>
-              <span className="text-[10px] font-machine tracking-widest text-[#E0E0F0] truncate">{card.displayLabel}</span>
-            </div>
-            <div className="text-[9px] text-[#A0A0B0] font-mono border border-rm-metal-border/50 px-1 shrink-0">
-              BO{row.bestOf}
-            </div>
+      <div className={cn("relative z-10 flex h-full min-w-0 flex-col", card.orderLabel ? "pl-8" : "")}>
+        <div className="flex h-7 shrink-0 items-center justify-between gap-2 border-b border-rm-metal-border/60 bg-black/35 px-2">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className={cn("shrink-0 border px-1.5 py-0.5 text-[8px] font-extrabold leading-none tracking-widest", statusConfig.className)}>
+              {statusConfig.label}
+            </span>
+            <span className="truncate text-[10px] font-machine tracking-widest text-white/90">{card.displayLabel}</span>
           </div>
-        )}
-
-        {/* VS / Teams area */}
-        <div className="flex flex-1 items-stretch justify-between relative bg-[#0a0a0f] border border-rm-metal-border/30 clip-chamfer min-h-[60px] mb-1.5 group-hover:border-rm-metal-border/70 transition-colors">
-          
-          {/* Red Team Side */}
-          <div className={cn(
-            "flex-[0.42] flex flex-col justify-center p-2 border-l-2 bg-gradient-to-r from-rm-red/10 to-transparent overflow-hidden z-10",
-            hasRealResult && actualWinnerName === row.redTeam.collegeName ? "border-rm-status-safe shadow-[inset_0_0_12px_rgba(0,255,157,0.15)]" : "border-rm-red",
-            (selectedTeamKey === row.redTeam.teamKey || highlightedTeamKey === row.redTeam.teamKey) && "ring-1 ring-white/30"
-          )}
-          onClick={(e) => {
-            if (pointerIntentRef.current?.moved) {
-              pointerIntentRef.current = null;
-              return;
-            }
-            e.stopPropagation();
-            onTeamSelect(row.redTeam.teamKey);
-          }}>
-            {hasRealResult && actualWinnerName === row.redTeam.collegeName && (
-              <span className="text-[7.5px] font-machine text-rm-status-safe tracking-widest mb-0.5 animate-pulse">{">>> 胜者"}</span>
-            )}
-            <div 
-              title={row.redTeam.collegeName} 
-              className={cn(
-                "text-[13px] leading-tight font-bold tracking-widest break-normal line-clamp-2 mt-0.5 h-full flex items-center drop-shadow-[0_2px_3px_rgba(0,0,0,0.95)]",
-                showsResolvedScoreline && actualWinnerName === row.redTeam.collegeName
-                  ? "text-[#FFD54A] [text-shadow:0_0_10px_rgba(255,213,74,0.38)]"
-                  : "text-rm-red"
-              )}
-            >
-              {row.redTeam.collegeName}
-            </div>
-          </div>
-          
-          {/* Center VS */}
-          <div className="flex-[0.16] flex flex-col items-center justify-center relative shrink-0 z-20">
-            <div className="text-xl font-machine italic text-rm-metal-text opacity-30 select-none">对阵</div>
-            {showsResolvedScoreline ? (
-              <div className={cn(
-                "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#0a0a0f] border px-2 py-0.5 text-lg font-machine whitespace-nowrap",
-                isSimulationMode
-                  ? "border-rm-blue text-rm-blue shadow-[0_0_10px_rgba(0,163,255,0.4)]"
-                  : "border-rm-status-safe text-rm-status-safe shadow-[0_0_10px_rgba(0,255,157,0.4)] text-glow"
-              )}>
-                {row.scoreline}
-              </div>
-            ) : row.isConfirmedMatchup ? (
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#0a0a0f] border border-[#facc15] px-1 py-0 px-2 text-[10px] font-machine text-[#facc15] whitespace-nowrap flex flex-col items-center shadow-[0_0_10px_rgba(250,204,21,0.4)]">
-                <span className="-mb-0.5 text-[7px] text-[#facc15]/80 uppercase scale-90">预测</span>
-                <span className="text-[13px] tracking-widest leading-none mt-0.5">{predictedScore.scoreline}</span>
-              </div>
-            ) : (
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#0a0a0f] border border-rm-blue/80 px-1 py-0 px-2 text-[10px] font-machine text-rm-blue whitespace-nowrap flex flex-col items-center shadow-[0_0_10px_rgba(0,163,255,0.4)]">
-                <span className="-mb-0.5 text-[7px] text-rm-blue/80 uppercase scale-90">预测</span>
-                <span className="text-[13px] tracking-widest leading-none mt-0.5">{predictedScore.scoreline}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Blue Team Side */}
-          <div className={cn(
-            "flex-[0.42] flex flex-col justify-center items-end p-2 border-r-2 bg-gradient-to-l from-rm-blue/10 to-transparent text-right overflow-hidden z-10",
-            hasRealResult && actualWinnerName === row.blueTeam.collegeName ? "border-rm-status-safe shadow-[inset_0_0_12px_rgba(0,255,157,0.15)]" : "border-rm-blue",
-            (selectedTeamKey === row.blueTeam.teamKey || highlightedTeamKey === row.blueTeam.teamKey) && "ring-1 ring-white/30"
-          )}
-          onClick={(e) => {
-            if (pointerIntentRef.current?.moved) {
-              pointerIntentRef.current = null;
-              return;
-            }
-            e.stopPropagation();
-            onTeamSelect(row.blueTeam.teamKey);
-          }}>
-            {hasRealResult && actualWinnerName === row.blueTeam.collegeName && (
-              <span className="text-[7.5px] font-machine text-rm-status-safe tracking-widest mb-0.5 animate-pulse">胜者 {"<<<"}</span>
-            )}
-            <div 
-              title={row.blueTeam.collegeName} 
-              className={cn(
-                "text-[13px] leading-tight font-bold tracking-widest break-normal line-clamp-2 mt-0.5 h-full flex items-center justify-end drop-shadow-[0_2px_3px_rgba(0,0,0,0.95)]",
-                showsResolvedScoreline && actualWinnerName === row.blueTeam.collegeName
-                  ? "text-[#FFD54A] [text-shadow:0_0_10px_rgba(255,213,74,0.38)]"
-                  : "text-rm-blue"
-              )}
-            >
-              {row.blueTeam.collegeName}
-            </div>
+          <div className="shrink-0 border border-rm-metal-border/70 bg-black/35 px-1.5 py-0.5 text-[9px] font-mono text-rm-metal-text">
+            {card.metaLabel}
           </div>
         </div>
 
-        {/* Prediction Signals */}
-        {(showProbability ?? card.showProbability ?? true) && (
-          <PredictionSignalsPanel
-            className="shrink-0"
-            density="compact"
-            ts2RedRate={expectedRed}
-            ts2BlueRate={expectedBlue}
-            miniProgramPrediction={row.miniProgramPrediction}
-            showAudience={showAudienceSignal}
-            modelBadge={hasRealResult ? "赛前记录" : isSimulationMode ? "模拟胜率" : "实时胜率"}
+        <div className="grid flex-1 grid-rows-2 overflow-hidden">
+          <MatchTeamLine
+            side={card.redSide}
+            score={displayScore.red}
+            resultResolved={showsResolvedScoreline}
+            selectedTeamKey={selectedTeamKey}
+            highlightedTeamKey={highlightedTeamKey}
+            onTeamSelect={onTeamSelect}
           />
-        )}
+          <MatchTeamLine
+            side={card.blueSide}
+            score={displayScore.blue}
+            resultResolved={showsResolvedScoreline}
+            selectedTeamKey={selectedTeamKey}
+            highlightedTeamKey={highlightedTeamKey}
+            onTeamSelect={onTeamSelect}
+          />
+        </div>
       </div>
     </div>
   );
@@ -483,7 +401,6 @@ function MatchCanvasCardComponent({
 export function CanvasCardView({
   card,
   mode,
-  showProbability,
   selectedTeamKey,
   highlightedTeamKey,
 
@@ -495,7 +412,6 @@ export function CanvasCardView({
 }: {
   card: CanvasCard;
   mode?: "sim" | "live";
-  showProbability: boolean;
   selectedTeamKey: string | null;
   highlightedTeamKey: string | null;
 
@@ -509,7 +425,6 @@ export function CanvasCardView({
       <MatchCanvasCardComponent
         card={card}
         mode={mode}
-        showProbability={card.showProbability ?? showProbability ?? true}
         selectedTeamKey={selectedTeamKey}
         highlightedTeamKey={highlightedTeamKey}
         selectedMatchLabel={selectedMatchLabel}
