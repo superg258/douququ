@@ -143,6 +143,111 @@ function scoreParts(scoreline: string) {
   return { red, blue };
 }
 
+function clampRate(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(1, value));
+}
+
+function formatRate(value: number) {
+  return `${Math.round(clampRate(value) * 100)}%`;
+}
+
+function audienceSignal(prediction: MatchCanvasCard["match"]["miniProgramPrediction"]) {
+  if (!prediction) {
+    return {
+      redRate: 0,
+      blueRate: 0,
+      statusLabel: "待接入",
+      available: false,
+      title: "王牌预言家观众投票待接入",
+    };
+  }
+
+  if (prediction.status === "available") {
+    return {
+      redRate: prediction.redRate,
+      blueRate: prediction.blueRate,
+      statusLabel: `${prediction.totalCount}票`,
+      available: true,
+      title: `王牌预言家观众投票：红 ${formatRate(prediction.redRate)}，蓝 ${formatRate(prediction.blueRate)}`,
+    };
+  }
+
+  const hasCache = typeof prediction.redRate === "number" && typeof prediction.blueRate === "number";
+  return {
+    redRate: hasCache ? (prediction.redRate ?? 0) : 0,
+    blueRate: hasCache ? (prediction.blueRate ?? 0) : 0,
+    statusLabel: hasCache ? "缓存" : "暂不可用",
+    available: hasCache,
+    title: prediction.reason ?? "王牌预言家暂不可用",
+  };
+}
+
+function SignalMicroRow({
+  label,
+  redRate,
+  blueRate,
+  statusLabel,
+  variant,
+  available = true,
+  title,
+}: {
+  label: string;
+  redRate: number;
+  blueRate: number;
+  statusLabel: string;
+  variant: "model" | "audience";
+  available?: boolean;
+  title?: string;
+}) {
+  const red = clampRate(redRate);
+  const blue = clampRate(blueRate);
+  const accentClass = variant === "model" ? "text-rm-blue" : "text-rm-status-warn";
+  const trackClass = variant === "model" ? "border-rm-blue/25" : "border-rm-status-warn/25";
+
+  return (
+    <div
+      className="grid h-[13px] grid-cols-[28px_34px_minmax(0,1fr)_34px_44px] items-center gap-1.5 font-mono"
+      title={title}
+    >
+      <span className={cn("text-[8px] font-extrabold tracking-widest", available ? accentClass : "text-rm-metal-text/70")}>
+        {label}
+      </span>
+      <span className={cn("text-left text-[8px] font-bold", available ? "text-rm-red/90" : "text-rm-metal-text/60")}>
+        {available ? formatRate(red) : "--"}
+      </span>
+      <span className={cn("relative h-[5px] overflow-hidden border bg-black/55", trackClass)}>
+        {available ? (
+          <>
+            <span
+              className="absolute inset-y-0 left-0 bg-[linear-gradient(90deg,rgba(255,31,31,0.62),rgba(255,96,96,0.9))]"
+              style={{ width: `${(red * 100).toFixed(1)}%` }}
+            />
+            <span
+              className="absolute inset-y-0 right-0 bg-[linear-gradient(270deg,rgba(0,163,255,0.62),rgba(88,191,255,0.9))]"
+              style={{ width: `${(blue * 100).toFixed(1)}%` }}
+            />
+            <span
+              className="absolute inset-y-[-2px] w-px bg-white/75 shadow-[0_0_6px_rgba(255,255,255,0.55)]"
+              style={{ left: `${(red * 100).toFixed(1)}%` }}
+            />
+          </>
+        ) : (
+          <span className="absolute inset-x-1 top-1/2 border-t border-dashed border-white/15" />
+        )}
+      </span>
+      <span className={cn("text-right text-[8px] font-bold", available ? "text-rm-blue/90" : "text-rm-metal-text/60")}>
+        {available ? formatRate(blue) : "--"}
+      </span>
+      <span className={cn("truncate text-right text-[8px] font-bold", available ? accentClass : "text-rm-metal-text/65")}>
+        {statusLabel}
+      </span>
+    </div>
+  );
+}
+
 function MatchTeamLine({
   side,
   score,
@@ -169,10 +274,10 @@ function MatchTeamLine({
       role="button"
       tabIndex={-1}
       className={cn(
-        "relative grid min-h-[44px] grid-cols-[5px_minmax(0,1fr)_46px] items-stretch overflow-hidden border-b border-rm-metal-border/55 bg-[#080a10] text-left outline-none transition-colors last:border-b-0 hover:bg-white/[0.035]",
-        isWinner && "bg-[linear-gradient(90deg,rgba(255,213,74,0.14),rgba(255,213,74,0.035)_58%,rgba(255,255,255,0.025))]",
-        isLoser && "bg-black/45",
-        isFocused && "ring-1 ring-white/35"
+        "relative grid min-h-[42px] grid-cols-[4px_minmax(0,1fr)_44px] items-stretch overflow-hidden border-b border-white/10 bg-[#070a10]/95 text-left outline-none transition-colors last:border-b-0 hover:bg-white/[0.045]",
+        isWinner && "bg-[linear-gradient(90deg,rgba(255,213,74,0.12),rgba(255,213,74,0.03)_58%,rgba(255,255,255,0.025))]",
+        isLoser && "bg-black/38",
+        isFocused && "ring-1 ring-white/30"
       )}
       onClick={onTeamSelect ? (e) => {
         if (pointerIntentRef.current?.moved) {
@@ -203,14 +308,14 @@ function MatchTeamLine({
         pointerIntentRef.current = null;
       }}
     >
-      <div className={cn("h-full", isRed ? "bg-rm-red shadow-[0_0_10px_rgba(255,31,31,0.42)]" : "bg-rm-blue shadow-[0_0_10px_rgba(0,163,255,0.42)]")} />
+      <div className={cn("h-full", isRed ? "bg-rm-red shadow-[0_0_8px_rgba(255,31,31,0.28)]" : "bg-rm-blue shadow-[0_0_8px_rgba(0,163,255,0.28)]")} />
 
-      <div className="min-w-0 px-3 py-1.5">
-        <div className="flex items-center gap-2">
+      <div className="min-w-0 px-2.5 py-1">
+        <div className="flex items-center gap-1.5">
           <span
             className={cn(
-              "shrink-0 border px-1 py-0.5 text-[8px] font-bold leading-none tracking-widest",
-              isRed ? "border-rm-red/65 text-rm-red bg-rm-red/10" : "border-rm-blue/65 text-rm-blue bg-rm-blue/10"
+              "shrink-0 border px-1 py-0.5 text-[7px] font-bold leading-none tracking-widest",
+              isRed ? "border-rm-red/45 text-rm-red/90 bg-rm-red/10" : "border-rm-blue/45 text-rm-blue/90 bg-rm-blue/10"
             )}
           >
             {isRed ? "红方" : "蓝方"}
@@ -224,7 +329,7 @@ function MatchTeamLine({
         <div
           title={`${side.collegeName} / ${side.teamName}`}
           className={cn(
-            "mt-1 text-[14px] font-extrabold leading-[1.18] tracking-normal line-clamp-2",
+            "mt-0.5 text-[13px] font-extrabold leading-[1.16] tracking-normal line-clamp-2",
             isWinner ? "text-rm-result-winner [text-shadow:0_0_8px_rgba(255,213,74,0.35)]" : isLoser ? "text-rm-result-loser" : "text-white",
             isRed && !isWinner && !isLoser && "text-[#FF6A6A]",
             !isRed && !isWinner && !isLoser && "text-[#58BFFF]"
@@ -238,8 +343,12 @@ function MatchTeamLine({
       </div>
 
       <div className={cn(
-        "flex items-center justify-center border-l border-rm-metal-border/70 bg-black/55 font-machine text-xl leading-none",
-        isWinner ? "text-black bg-rm-result-winner shadow-[inset_0_0_10px_rgba(0,0,0,0.25)]" : isLoser ? "text-rm-result-loser" : "text-white"
+        "flex items-center justify-center border-l border-white/10 bg-[#04060a]/80 font-machine text-[19px] leading-none",
+        isWinner
+          ? "border-l-rm-result-winner/55 bg-[linear-gradient(180deg,rgba(255,213,74,0.22),rgba(255,213,74,0.075))] text-rm-result-winner shadow-[inset_0_0_10px_rgba(255,213,74,0.10),0_0_10px_rgba(255,213,74,0.10)]"
+          : isLoser
+            ? "text-rm-result-loser"
+            : "text-white"
       )}>
         {score || "-"}
       </div>
@@ -277,6 +386,7 @@ function MatchCanvasCardComponent({
   const predictedScore = predictScoreline(row.pGameRed ?? expectedRed, expectedRed, row.bestOf || 3);
   const displayScore = showsResolvedScoreline ? scoreParts(row.scoreline) : scoreParts(predictedScore.scoreline);
   const scoreLabel = showsResolvedScoreline ? "比分" : "预测";
+  const audience = audienceSignal(row.miniProgramPrediction);
 
   const containerBorder = (() => {
     if (isSimulationMode) return "border border-rm-blue/75 bg-rm-blue/10 shadow-[0_0_14px_rgba(0,163,255,0.12)]";
@@ -312,8 +422,8 @@ function MatchCanvasCardComponent({
       role="button"
       tabIndex={0}
       className={cn(
-        "absolute touch-none group flex flex-col bg-[#05070c] outline-none transition-all overflow-hidden clip-chamfer cursor-pointer",
-        "hover:border-white/45 hover:shadow-[0_0_16px_rgba(255,255,255,0.10)]",
+        "absolute touch-none group flex flex-col bg-[linear-gradient(145deg,rgba(7,10,16,0.98),rgba(5,7,12,0.96)_52%,rgba(10,15,24,0.98))] outline-none transition-all overflow-hidden clip-chamfer cursor-pointer",
+        "hover:border-white/35 hover:shadow-[0_14px_28px_rgba(0,0,0,0.34),0_0_18px_rgba(255,255,255,0.06)]",
         isSelected ? "ring-2 ring-rm-result-winner/80 z-30" : "z-10",
         containerBorder
       )}
@@ -356,22 +466,23 @@ function MatchCanvasCardComponent({
         pointerIntentRef.current = null;
       }}
     >
+      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_12%_0%,rgba(255,255,255,0.08),transparent_34%),linear-gradient(90deg,rgba(255,255,255,0.04),transparent_32%,rgba(255,255,255,0.025))]" />
       {card.orderLabel ? (
-        <div className="absolute inset-y-0 left-0 z-20 flex w-8 flex-col items-center justify-center border-r border-rm-metal-border bg-black/65">
-          <span className="font-machine text-[15px] leading-none text-white">{card.orderLabel}</span>
-          <span className="mt-1 text-[7px] font-bold tracking-widest text-rm-metal-text">{scoreLabel}</span>
+        <div className="absolute inset-y-0 left-0 z-20 flex w-8 flex-col items-center justify-center border-r border-white/10 bg-black/70">
+          <span className="font-machine text-[15px] leading-none text-white/90">{card.orderLabel}</span>
+          <span className="mt-1 text-[7px] font-bold tracking-widest text-rm-metal-text/85">{scoreLabel}</span>
         </div>
       ) : null}
 
       <div className={cn("relative z-10 flex h-full min-w-0 flex-col", card.orderLabel ? "pl-8" : "")}>
-        <div className="flex h-7 shrink-0 items-center justify-between gap-2 border-b border-rm-metal-border/60 bg-black/35 px-2">
+        <div className="flex h-7 shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-white/[0.035] px-2">
           <div className="flex min-w-0 items-center gap-1.5">
             <span className={cn("shrink-0 border px-1.5 py-0.5 text-[8px] font-extrabold leading-none tracking-widest", statusConfig.className)}>
               {statusConfig.label}
             </span>
             <span className="truncate text-[10px] font-machine tracking-widest text-white/90">{card.displayLabel}</span>
           </div>
-          <div className="shrink-0 border border-rm-metal-border/70 bg-black/35 px-1.5 py-0.5 text-[9px] font-mono text-rm-metal-text">
+          <div className="shrink-0 border border-white/10 bg-black/30 px-1.5 py-0.5 text-[9px] font-mono text-rm-metal-text">
             {card.metaLabel}
           </div>
         </div>
@@ -392,6 +503,26 @@ function MatchCanvasCardComponent({
             selectedTeamKey={selectedTeamKey}
             highlightedTeamKey={highlightedTeamKey}
             onTeamSelect={onTeamSelect}
+          />
+        </div>
+
+        <div className="shrink-0 border-t border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(0,0,0,0.22))] px-2 py-1">
+          <SignalMicroRow
+            label="TS2"
+            redRate={row.pSeriesRed}
+            blueRate={row.pSeriesBlue}
+            statusLabel={row.pSeriesRed >= row.pSeriesBlue ? "红方占优" : "蓝方占优"}
+            variant="model"
+            title={`TS2 预测胜率：红 ${formatRate(row.pSeriesRed)}，蓝 ${formatRate(row.pSeriesBlue)}`}
+          />
+          <SignalMicroRow
+            label="王牌"
+            redRate={audience.redRate}
+            blueRate={audience.blueRate}
+            statusLabel={audience.statusLabel}
+            variant="audience"
+            available={audience.available}
+            title={audience.title}
           />
         </div>
       </div>

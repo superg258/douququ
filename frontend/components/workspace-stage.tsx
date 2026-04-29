@@ -12,13 +12,13 @@ import { clampViewportPosition, fitWorkspaceViewport, scaleViewportAroundFramePo
 function headerToneClass(tone: WorkspaceStage["headers"][number]["tone"]) {
   switch (tone) {
     case "amber":
-      return "border-rm-result-winner/75 bg-rm-result-winner/10 text-rm-result-winner shadow-[0_0_18px_rgba(255,213,74,0.18)]";
+      return "border-rm-result-winner/45 bg-[linear-gradient(135deg,rgba(255,213,74,0.14),rgba(8,10,14,0.92)_34%,rgba(255,255,255,0.035))] text-rm-result-winner shadow-[0_10px_26px_rgba(0,0,0,0.28),0_0_14px_rgba(255,213,74,0.12)]";
     case "emerald":
-      return "border-rm-status-safe/70 bg-rm-status-safe/10 text-rm-status-safe shadow-[0_0_18px_rgba(0,255,157,0.14)]";
+      return "border-rm-status-safe/40 bg-[linear-gradient(135deg,rgba(0,255,157,0.12),rgba(7,12,13,0.94)_34%,rgba(255,255,255,0.03))] text-rm-status-safe shadow-[0_10px_26px_rgba(0,0,0,0.28),0_0_14px_rgba(0,255,157,0.10)]";
     case "steel":
-      return "border-rm-metal-border bg-rm-metal-panel/80 text-rm-metal-text shadow-[0_0_12px_rgba(0,0,0,0.28)]";
+      return "border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.055),rgba(8,9,12,0.94)_42%,rgba(255,255,255,0.02))] text-rm-metal-text shadow-[0_10px_24px_rgba(0,0,0,0.26)]";
     default:
-      return "border-rm-blue/70 bg-rm-blue/10 text-rm-blue shadow-[0_0_18px_rgba(0,163,255,0.16)]";
+      return "border-rm-blue/45 bg-[linear-gradient(135deg,rgba(0,163,255,0.13),rgba(7,11,17,0.94)_34%,rgba(255,255,255,0.03))] text-rm-blue shadow-[0_10px_26px_rgba(0,0,0,0.28),0_0_14px_rgba(0,163,255,0.11)]";
   }
 }
 
@@ -401,7 +401,7 @@ export function WorkspaceStageView({
              <div
                key={header.id}
                className={cn(
-                 "absolute flex h-12 items-center justify-between gap-3 overflow-hidden border px-3 py-2 font-mono clip-chamfer",
+                 "absolute flex h-11 items-center justify-between gap-3 overflow-hidden border px-3 py-2 font-mono backdrop-blur-sm clip-chamfer",
                  headerToneClass(header.tone)
                )}
                style={{
@@ -411,7 +411,7 @@ export function WorkspaceStageView({
                }}
              >
                 <div className="min-w-0">
-                  <div className="truncate font-machine text-[16px] font-extrabold leading-none tracking-widest text-current">
+                  <div className="truncate font-machine text-[15px] font-extrabold leading-none tracking-widest text-current">
                     {header.title}
                   </div>
                   {header.subtitle ? (
