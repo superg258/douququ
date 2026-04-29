@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { getOverview } from "@/lib/api";
+import { buildLiveCommandCenter, type LiveCommandCenter } from "@/lib/live-command-center";
 import { buildOverviewDashboard } from "@/lib/overview-builders";
 import { buildRegionHref } from "@/lib/region-config";
 import { deriveRealtimeAvailability } from "@/lib/realtime";
@@ -161,8 +162,8 @@ function TacticalRosterGrid({ teams }: { teams: OverviewTeam[] }) {
         </h4>
       </div>
       
-      <div className="flex-1 overflow-y-auto no-scrollbar scroll-smooth relative pointer-events-auto h-0">
-        <table className="w-full text-left border-collapse text-xs whitespace-nowrap select-none">
+      <div className="flex-1 max-w-full overflow-auto no-scrollbar scroll-smooth relative pointer-events-auto h-0 [contain:layout_paint]">
+        <table className="w-full min-w-[360px] sm:min-w-0 text-left border-collapse text-xs whitespace-nowrap select-none">
           <thead className="sticky top-0 bg-rm-metal-panel/90 backdrop-blur z-20 shadow-md">
             <tr className="border-b border-rm-metal-border text-rm-metal-text/80 font-mono text-[9px] uppercase tracking-widest">
               <th className="py-2.5 px-2 font-bold w-4">本区排名</th>
@@ -381,6 +382,121 @@ function SystemBrief() {
   );
 }
 
+function LiveCommandCenterPanel({ commandCenter }: { commandCenter: LiveCommandCenter | null }) {
+  if (!commandCenter) {
+    return null;
+  }
+
+  return (
+    <MechCard label="本轮任务队列 / 实时赛程" className="overflow-hidden">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-rm-metal-border/70 pb-3">
+        <div>
+          <h3 className="text-xl font-machine tracking-widest text-white">实时赛程任务队列</h3>
+          <p className="mt-1 text-xs leading-relaxed text-rm-metal-text">
+            只接官方实时赛程、官方赛果和观众投票信号；当前先保留入口结构。
+          </p>
+        </div>
+        <span className="clip-chamfer border border-rm-status-warn/55 bg-rm-status-warn/10 px-3 py-1 text-[10px] font-mono font-bold tracking-widest text-rm-status-warn shadow-[0_0_12px_rgba(255,176,0,0.12)]">
+          不接入推演数据
+        </span>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {commandCenter.sections.map((bucket, index) => (
+          <LiveCommandSection key={bucket.id} section={bucket} index={index} />
+        ))}
+      </div>
+      <div className="mt-3 clip-chamfer border border-rm-metal-border/70 bg-rm-metal-dark/70 px-3 py-2 text-[11px] leading-relaxed text-rm-metal-text">
+        {commandCenter.unavailableReason}
+      </div>
+    </MechCard>
+  );
+}
+
+function LiveCommandSection({
+  section,
+  index,
+}: {
+  section: LiveCommandCenter["sections"][number];
+  index: number;
+}) {
+  const tone = {
+    blue: {
+      rail: "bg-rm-blue shadow-[0_0_14px_rgba(0,163,255,0.45)]",
+      text: "text-rm-blue",
+      border: "group-hover/live:border-rm-blue/55",
+      badge: "border-rm-blue/45 bg-rm-blue/10 text-rm-blue",
+      wash: "from-rm-blue/10",
+    },
+    red: {
+      rail: "bg-rm-red shadow-[0_0_14px_rgba(255,31,31,0.45)]",
+      text: "text-rm-red",
+      border: "group-hover/live:border-rm-red/60",
+      badge: "border-rm-red/50 bg-rm-red/10 text-rm-red",
+      wash: "from-rm-red/12",
+    },
+    amber: {
+      rail: "bg-rm-status-warn shadow-[0_0_14px_rgba(255,176,0,0.4)]",
+      text: "text-rm-status-warn",
+      border: "group-hover/live:border-rm-status-warn/55",
+      badge: "border-rm-status-warn/45 bg-rm-status-warn/10 text-rm-status-warn",
+      wash: "from-rm-status-warn/10",
+    },
+    green: {
+      rail: "bg-rm-status-safe shadow-[0_0_14px_rgba(0,255,157,0.4)]",
+      text: "text-rm-status-safe",
+      border: "group-hover/live:border-rm-status-safe/55",
+      badge: "border-rm-status-safe/45 bg-rm-status-safe/10 text-rm-status-safe",
+      wash: "from-rm-status-safe/10",
+    },
+    steel: {
+      rail: "bg-rm-metal-text/70 shadow-[0_0_12px_rgba(163,163,163,0.24)]",
+      text: "text-rm-metal-text",
+      border: "group-hover/live:border-rm-metal-text/45",
+      badge: "border-rm-metal-border bg-rm-metal-panel text-rm-metal-text",
+      wash: "from-white/[0.045]",
+    },
+  } satisfies Record<LiveCommandCenter["sections"][number]["tone"], Record<"rail" | "text" | "border" | "badge" | "wash", string>>;
+
+  const style = tone[section.tone];
+
+  return (
+    <article
+      className={cn(
+        "group/live relative min-h-[138px] overflow-hidden border border-rm-metal-border bg-rm-metal-dark/80 p-0 transition-colors clip-chamfer",
+        style.border,
+      )}
+    >
+      <div className={cn("absolute inset-y-0 left-0 w-1", style.rail)} />
+      <div className={cn("pointer-events-none absolute inset-0 bg-gradient-to-r to-transparent opacity-80", style.wash)} />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+      <div className="pointer-events-none absolute left-3 right-3 top-9 h-px bg-gradient-to-r from-rm-metal-border via-rm-metal-border/30 to-transparent" />
+      <div className="relative flex h-full flex-col p-4 pl-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className={cn("font-machine text-[10px] tracking-widest", style.text)}>
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-rm-metal-text">
+                任务分区
+              </span>
+            </div>
+            <h4 className="mt-3 text-base font-machine tracking-widest text-white">{section.title}</h4>
+          </div>
+          <span className={cn("flex-none border px-2 py-0.5 text-[10px] font-bold tracking-widest clip-chamfer", style.badge)}>
+            {section.emptyLabel}
+          </span>
+        </div>
+        <p className="mt-3 text-xs leading-relaxed text-rm-metal-text">{section.description}</p>
+        <div className="mt-auto flex items-center justify-between pt-4 text-[9px] font-mono tracking-widest text-rm-metal-text/60">
+          <span>OFFICIAL FEED</span>
+          <span className={style.text}>STANDBY</span>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function GlobalContenders({ contenders }: { contenders: OverviewTeam[] }) {
   if (!contenders || contenders.length === 0) return null;
   
@@ -463,16 +579,21 @@ function RegionComparison({ strengths }: { strengths: RegionStrengthRow[] }) {
 
 export function OverviewPage() {
   const [dashboard, setDashboard] = useState<OverviewDashboard | null>(null);
+  const [commandCenter, setCommandCenter] = useState<LiveCommandCenter | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let canceled = false;
-    getOverview()
-      .then((res) => {
-        if (!canceled) {
-          setDashboard(buildOverviewDashboard(res));
-        }
-      })
+    async function loadOverview() {
+      const res = await getOverview();
+
+      if (!canceled) {
+        setDashboard(buildOverviewDashboard(res));
+        setCommandCenter(buildLiveCommandCenter(res));
+      }
+    }
+
+    loadOverview()
       .catch((err) => {
         if (!canceled) {
           setError(err instanceof Error ? err.message : String(err));
@@ -509,9 +630,9 @@ export function OverviewPage() {
         <div className="absolute bottom-0 left-0 right-1/2 h-[2px] bg-gradient-to-r from-transparent to-rm-red shadow-[0_0_10px_rgba(255,42,42,0.8)]" />
         <div className="absolute bottom-0 right-0 left-1/2 h-[2px] bg-gradient-to-l from-transparent to-rm-blue shadow-[0_0_10px_rgba(0,229,255,0.8)]" />
         
-        <h2 className="text-3xl font-black uppercase tracking-widest text-white flex items-center group">
-           RoboMaster 胜率预测总控台 
-           <span className="ml-4 flex gap-1">
+        <h2 className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-2xl font-black uppercase tracking-widest text-white sm:text-3xl">
+           <span className="min-w-0">RoboMaster 胜率预测总控台</span>
+           <span className="flex flex-none gap-1">
              <span className="w-3 h-3 bg-rm-red skew-x-[-15deg] box-shadow-[0_0_8px_rgba(255,42,42,0.8)]"></span>
              <span className="w-3 h-3 bg-rm-blue skew-x-[15deg] box-shadow-[0_0_8px_rgba(0,229,255,0.8)]"></span>
            </span>
@@ -529,6 +650,8 @@ export function OverviewPage() {
       </div>
 
       <SystemBrief />
+
+      <LiveCommandCenterPanel commandCenter={commandCenter} />
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {dashboard.regions.map((region) => (

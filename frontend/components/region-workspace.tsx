@@ -7,11 +7,13 @@ import { createPortal } from "react-dom";
 import PinyinMatch from "pinyin-match";
 
 import { PredictionSignalsPanel } from "@/components/prediction-signals";
+import { PredictionExplanationCard } from "@/components/prediction-explanation-card";
 import { WorkspaceStageView } from "@/components/workspace-stage";
 import { getLiveState, getOverview, getSimulation } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { buildWorkspaceStage } from "@/lib/canvas-builders";
 import { formatRankingResultLabel, translateConfidenceLabel, translateDestinationLabel, translateStageLabel } from "@/lib/display";
+import { buildPredictionRecap } from "@/lib/prediction-insights";
 import { buildRegionHref, getOrCreateSessionSeed, parseSeed, refreshSessionSeed, REGION_LABELS, REGION_VIEWS } from "@/lib/region-config";
 import { deriveRealtimeAvailability } from "@/lib/realtime";
 import { predictScoreline } from "@/components/canvas-card";
@@ -363,6 +365,12 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
         </div>
 
         <div className="space-y-6">
+          <PredictionExplanationCard
+            match={selectedMatch}
+            regionSlug={regionOverview?.regionSlug}
+            regionName={regionOverview?.regionName}
+          />
+
           <div className="text-center font-machine text-xl text-white tracking-widest bg-rm-metal-dark border border-rm-metal-border py-4 relative overflow-hidden">
              {selectedMatch.scoreline}
              <div className="absolute bottom-1 right-2 text-[9px] text-rm-metal-text font-sans">实际 BO{selectedMatch.bestOf}</div>
@@ -642,6 +650,10 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
     [simulation, view, regionSlug]
   );
   const useFixedSouthSwissList = false; // user requested to revert back to canvas for south swiss stages
+  const predictionRecap = useMemo(
+    () => (simulation ? buildPredictionRecap(simulation) : null),
+    [simulation]
+  );
   const matchPhaseOverview = useMemo(() => {
     const rows = simulation?.matches ?? [];
     const counters: Record<MatchPhase, number> = {
@@ -886,8 +898,11 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
     </header>
       
       {/* Subnav Panel */}
-      <div className="flex items-center gap-1 overflow-x-auto px-3 py-1.5 md:px-6 md:py-2 bg-rm-metal-dark border-b border-rm-metal-border z-20">
-         {REGION_VIEWS.map((item) => (
+      <div className="relative bg-rm-metal-dark border-b border-rm-metal-border z-20">
+        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-rm-metal-dark to-transparent md:hidden" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-rm-metal-dark to-transparent md:hidden" />
+        <div className="flex items-center gap-1 overflow-x-auto px-3 py-1.5 md:px-6 md:py-2 no-scrollbar">
+          {REGION_VIEWS.map((item) => (
             <button
               key={item.id}
               onClick={() => updateQuery({ view: item.id })}
@@ -895,12 +910,13 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
             >
               {item.label}
             </button>
-         ))}
+          ))}
          
-         <div className="ml-auto opacity-0 md:opacity-100 hidden md:flex items-center gap-4 text-[10px] text-rm-metal-text font-mono font-bold">
+          <div className="ml-auto opacity-0 md:opacity-100 hidden md:flex items-center gap-4 text-[10px] text-rm-metal-text font-mono font-bold">
             <span>队伍数: {overview?.regions.find(r => r.regionSlug === regionSlug)?.teams.length ?? 0}</span>
             <span>当前种子: <span className="text-white">{seed}</span></span>
-         </div>
+          </div>
+        </div>
       </div>
 
       {legendOpen ? (
@@ -925,6 +941,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
           <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] font-mono">
             <span className="border border-rm-blue/35 bg-rm-blue/10 text-rm-blue px-2 py-1">预测池 {matchPhaseOverview.counters.pre}</span>
             <span className="border border-rm-status-safe/35 bg-rm-status-safe/10 text-rm-status-safe px-2 py-1">已完赛 {matchPhaseOverview.counters.post}</span>
+            <span className="col-span-2 border border-white/15 bg-white/5 text-white px-2 py-1">胜负命中率 {predictionRecap ? percent(predictionRecap.winnerHitRate) : "0.0%"}</span>
             <span className="border border-rm-status-safe/35 bg-rm-status-safe/10 text-rm-status-safe px-2 py-1">精准 {matchPhaseOverview.accuracy.correct}</span>
             <span className="border border-[#a855f7]/35 bg-[#a855f7]/10 text-[#a855f7] px-2 py-1">偏离 {matchPhaseOverview.accuracy.mismatch}</span>
             <span className="col-span-2 border border-[#ef4444]/35 bg-[#ef4444]/10 text-[#ef4444] px-2 py-1">爆冷 {matchPhaseOverview.accuracy.upset}</span>
@@ -942,13 +959,14 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
           <span className="text-[10px] font-bold border border-[#facc15] bg-[#facc15]/10 text-[#facc15] px-1.5 py-0.5 shadow-[0_0_5px_rgba(250,204,21,0.3)]">确认未赛</span>
           <span className="text-[10px] font-bold border border-rm-blue bg-rm-blue/10 text-rm-blue px-1.5 py-0.5 shadow-[0_0_5px_rgba(0,163,255,0.3)]">模拟预测</span>
         </div>
-        <span className="text-[10px] font-mono uppercase tracking-widest text-rm-metal-text">预测</span>
+        <span className="text-[10px] font-mono uppercase tracking-widest text-rm-metal-text">预测复盘</span>
         <span className="text-[10px] font-mono border border-rm-blue/35 bg-rm-blue/10 text-rm-blue px-2 py-0.5">
           预测池 {matchPhaseOverview.counters.pre}
         </span>
         <div className="flex items-center text-[10px] font-mono border border-rm-status-safe/35 bg-rm-status-safe/10 text-rm-status-safe px-2 py-0.5 gap-2">
           <span>已完赛 {matchPhaseOverview.counters.post}</span>
           <span className="text-white/30">|</span>
+          <span className="text-white">命中率 {predictionRecap ? percent(predictionRecap.winnerHitRate) : "0.0%"}</span>
           <span className="text-rm-status-safe">{matchPhaseOverview.accuracy.correct} <span className="opacity-70">精准</span></span>
           <span className="text-[#a855f7]">{matchPhaseOverview.accuracy.mismatch} <span className="opacity-70">偏离</span></span>
           <span className="text-[#ef4444]">{matchPhaseOverview.accuracy.upset} <span className="opacity-70">爆冷</span></span>

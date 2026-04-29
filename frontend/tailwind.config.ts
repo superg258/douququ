@@ -15,9 +15,9 @@ const config: Config = {
         
         rm: {
           red: {
-            DEFAULT: "#E60000",
-            glow: "rgba(230, 0, 0, 0.6)",
-            dim: "rgba(230, 0, 0, 0.12)",
+            DEFAULT: "#FF1F1F",
+            glow: "rgba(255, 31, 31, 0.72)",
+            dim: "rgba(255, 31, 31, 0.16)",
           },
           blue: {
             DEFAULT: "#00A3FF",
@@ -34,7 +34,11 @@ const config: Config = {
           status: {
             safe: "#00FF9D",
             warn: "#FFB000",
-            dead: "#4B5563"
+            dead: "#4B5563",
+            upset: "#FF1F1F",
+            deviation: "#A855F7",
+            prediction: "#00A3FF",
+            scheduled: "#FACC15"
           }
         }
       },

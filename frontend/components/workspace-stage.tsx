@@ -133,6 +133,27 @@ export function WorkspaceStageView({
     setViewport(nextViewport);
   };
 
+  const minimapViewport = (() => {
+    if (!frameSize.width || !frameSize.height) {
+      return null;
+    }
+
+    const mapWidth = 112;
+    const mapHeight = Math.max(40, Math.round((stage.height / stage.width) * mapWidth));
+    const visibleWorldWidth = frameSize.width / viewport.scale;
+    const visibleWorldHeight = frameSize.height / viewport.scale;
+    const visibleWorldX = -viewport.x / viewport.scale;
+    const visibleWorldY = -viewport.y / viewport.scale;
+
+    return {
+      mapHeight,
+      left: Math.max(0, Math.min(mapWidth, (visibleWorldX / stage.width) * mapWidth)),
+      top: Math.max(0, Math.min(mapHeight, (visibleWorldY / stage.height) * mapHeight)),
+      width: Math.max(8, Math.min(mapWidth, (visibleWorldWidth / stage.width) * mapWidth)),
+      height: Math.max(8, Math.min(mapHeight, (visibleWorldHeight / stage.height) * mapHeight)),
+    };
+  })();
+
   const toggleFullscreen = () => {
     setFullscreen((current) => !current);
   };
@@ -319,6 +340,29 @@ export function WorkspaceStageView({
             <span className="md:hidden">{fullscreen ? "退出全屏" : "全屏"}</span>
           </button>
         </div>
+      </div>
+
+      <div className="pointer-events-none absolute bottom-3 left-3 z-20 flex flex-col gap-2 md:hidden">
+        <div className="border border-rm-blue/45 bg-black/70 px-2 py-1 text-[10px] font-mono text-rm-blue shadow-[0_0_12px_rgba(0,163,255,0.25)] clip-chamfer">
+          拖拽查看完整赛程
+        </div>
+        {minimapViewport ? (
+          <div
+            className="relative border border-rm-metal-border bg-rm-metal-dark/80"
+            style={{ width: 112, height: minimapViewport.mapHeight }}
+          >
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[length:16px_16px]" />
+            <div
+              className="absolute border border-rm-blue bg-rm-blue/20 shadow-[0_0_8px_rgba(0,163,255,0.45)]"
+              style={{
+                left: minimapViewport.left,
+                top: minimapViewport.top,
+                width: minimapViewport.width,
+                height: minimapViewport.height,
+              }}
+            />
+          </div>
+        ) : null}
       </div>
 
       {/* Surface for Zooming & Dragging */}
