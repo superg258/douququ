@@ -1,6 +1,8 @@
 # Local tooling
 /.codex
 /.vscode
+/.agents
+/.playwright-mcp
 
 # Python
 /.pytest_cache

@@ -12,13 +12,13 @@ import { clampViewportPosition, fitWorkspaceViewport, scaleViewportAroundFramePo
 function headerToneClass(tone: WorkspaceStage["headers"][number]["tone"]) {
   switch (tone) {
     case "amber":
-      return "border-rm-result-winner/45 bg-[linear-gradient(135deg,rgba(255,213,74,0.14),rgba(8,10,14,0.92)_34%,rgba(255,255,255,0.035))] text-rm-result-winner shadow-[0_10px_26px_rgba(0,0,0,0.28),0_0_14px_rgba(255,213,74,0.12)]";
+      return "border-l-4 border-rm-result-winner border-y-white/10 border-r-white/10 bg-black/80 text-rm-result-winner";
     case "emerald":
-      return "border-rm-status-safe/40 bg-[linear-gradient(135deg,rgba(0,255,157,0.12),rgba(7,12,13,0.94)_34%,rgba(255,255,255,0.03))] text-rm-status-safe shadow-[0_10px_26px_rgba(0,0,0,0.28),0_0_14px_rgba(0,255,157,0.10)]";
+      return "border-l-4 border-rm-status-safe border-y-white/10 border-r-white/10 bg-black/80 text-rm-status-safe";
     case "steel":
-      return "border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.055),rgba(8,9,12,0.94)_42%,rgba(255,255,255,0.02))] text-rm-metal-text shadow-[0_10px_24px_rgba(0,0,0,0.26)]";
+      return "border-l-4 border-rm-metal-text border-y-white/10 border-r-white/10 bg-black/80 text-rm-metal-text";
     default:
-      return "border-rm-blue/45 bg-[linear-gradient(135deg,rgba(0,163,255,0.13),rgba(7,11,17,0.94)_34%,rgba(255,255,255,0.03))] text-rm-blue shadow-[0_10px_26px_rgba(0,0,0,0.28),0_0_14px_rgba(0,163,255,0.11)]";
+      return "border-l-4 border-rm-blue border-y-white/10 border-r-white/10 bg-black/80 text-rm-blue";
   }
 }
 
@@ -306,7 +306,7 @@ export function WorkspaceStageView({
     <section
       ref={sectionRef}
       className={cn(
-        "relative flex flex-col h-full bg-transparent border-t border-rm-metal-border rounded-none overflow-hidden",
+        "canvas-background relative flex flex-col h-full border-t border-rm-metal-border rounded-none overflow-hidden",
         isPageFullscreenActive(fullscreen) && "fixed inset-0 z-[140] h-screen w-screen border-0 bg-[#05070c]"
       )}
     >
@@ -321,7 +321,7 @@ export function WorkspaceStageView({
             <p className="hidden md:block text-xs text-rm-metal-text mt-1 max-w-xl">{stage.description}</p>
           )}
         </div>
-        <div className="flex items-center gap-1 md:gap-2 pointer-events-auto bg-rm-metal-panel/80 border border-rm-metal-border px-2 md:px-3 py-1 md:py-1.5 backdrop-blur-md clip-chamfer">
+        <div className="flex items-center gap-1 md:gap-2 pointer-events-auto bg-black/90 border border-rm-metal-border px-2 md:px-3 py-1 md:py-1.5 clip-chamfer">
           <button 
             className="text-rm-metal-text hover:text-white px-1 md:px-2 py-0.5 text-xs font-mono uppercase transition-colors focus:outline-none"
             onClick={() => setScale(viewport.scale * 1.15)}
@@ -389,7 +389,7 @@ export function WorkspaceStageView({
         }}
       >
         <div
-          className="absolute top-0 left-0 origin-top-left"
+          className="absolute top-0 left-0 origin-top-left canvas-grid"
           style={{
             transform: `translate3d(${viewport.x}px, ${viewport.y}px, 0) scale(${viewport.scale})`,
             width: stage.width,
@@ -401,7 +401,7 @@ export function WorkspaceStageView({
              <div
                key={header.id}
                className={cn(
-                 "absolute flex h-11 items-center justify-between gap-3 overflow-hidden border px-3 py-2 font-mono backdrop-blur-sm clip-chamfer",
+                "absolute flex h-12 items-center justify-between gap-3 overflow-hidden px-3 py-2 font-mono clip-chamfer min-w-0 border-y border-r border-y-white/10 border-r-white/10 glass-panel",
                  headerToneClass(header.tone)
                )}
                style={{
@@ -411,11 +411,11 @@ export function WorkspaceStageView({
                }}
              >
                 <div className="min-w-0">
-                  <div className="truncate font-machine text-[15px] font-extrabold leading-none tracking-widest text-current">
+                  <div className="truncate font-machine text-[16px] font-extrabold leading-none tracking-widest text-current">
                     {header.title}
                   </div>
                   {header.subtitle ? (
-                    <div className="mt-1 truncate text-[9px] font-semibold leading-none tracking-widest text-current opacity-70">
+                    <div className="mt-1 truncate text-[10px] font-semibold leading-none tracking-widest text-current opacity-70">
                       {header.subtitle}
                     </div>
                   ) : null}

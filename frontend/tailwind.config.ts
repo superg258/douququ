@@ -15,34 +15,34 @@ const config: Config = {
         
         rm: {
           red: {
-            DEFAULT: "#FF1F1F",
-            glow: "rgba(255, 31, 31, 0.72)",
-            dim: "rgba(255, 31, 31, 0.16)",
+            DEFAULT: "#DC143C",
+            glow: "rgba(220, 20, 60, 0.7)",
+            dim: "rgba(220, 20, 60, 0.12)",
           },
           blue: {
-            DEFAULT: "#00A3FF",
-            glow: "rgba(0, 163, 255, 0.6)",
-            dim: "rgba(0, 163, 255, 0.12)",
+            DEFAULT: "#1E90FF",
+            glow: "rgba(30, 144, 255, 0.7)",
+            dim: "rgba(30, 144, 255, 0.12)",
           },
-          // Pure Neutral Metal - Removed ALL Blue Tints
           metal: {
-            dark: "#050505",   // Absolute neutral near-black
-            panel: "#121212",  // Pure dark grey panel 
-            border: "#2A2A2A", // Pure medium grey border
-            text: "#A3A3A3"    // Pure light grey text
+            dark: "#040608",
+            panel: "#121212",
+            border: "#2A2A2A",
+            text: "#A3A3A3"
           },
           status: {
             safe: "#00FF9D",
             warn: "#FFB000",
             dead: "#4B5563",
-            upset: "#FF1F1F",
+            upset: "#DC143C",
             deviation: "#A855F7",
-            prediction: "#00A3FF",
+            prediction: "#1E90FF",
             scheduled: "#FACC15"
           },
           result: {
-            winner: "#FFD54A",
-            loser: "#7C7F8A",
+            winner: "#FFB553",
+            winnerGlow: "rgba(255, 181, 83, 0.6)",
+            loser: "#9D9F9F",
             neutral: "#F5F7FA"
           }
         }
@@ -77,10 +77,17 @@ const config: Config = {
           'clip-path': 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))',
         },
         '.text-glow-red': {
-          'text-shadow': '0 0 10px rgba(230, 0, 0, 0.8)',
+          'text-shadow': '0 0 10px rgba(220, 20, 60, 0.7)',
         },
         '.text-glow-blue': {
-          'text-shadow': '0 0 10px rgba(0, 163, 255, 0.8)',
+          'text-shadow': '0 0 10px rgba(30, 144, 255, 0.7)',
+        },
+        '.text-glow-winner': {
+          'text-shadow': '0 0 12px rgba(255, 181, 83, 0.7)',
+        },
+        '.glass-panel': {
+          'backdrop-filter': 'blur(6px)',
+          'background': 'rgba(4, 6, 8, 0.75)',
         },
       })
     }

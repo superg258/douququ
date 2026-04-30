@@ -28,20 +28,20 @@ interface SwissReplayArtifacts {
   summaryBuckets: Record<string, GroupRankingRow[]>;
 }
 
-const MATCH_CARD_WIDTH = 338;
-const MATCH_CARD_HEIGHT = 158;
-const TEAM_CARD_WIDTH = 338;
-const TEAM_CARD_HEIGHT = 98;
-const DETAIL_TEAM_CARD_WIDTH = 338;
-const DETAIL_TEAM_CARD_HEIGHT = 116;
-const SWISS_MATCH_CARD_HEIGHT = 158;
-const SWISS_MATCH_STEP = 178;
-const SUMMARY_TEAM_STEP = 124;
-const STAGE_HEADER_TO_CARD_OFFSET = 78;
-const SWISS_SECTION_GAP = 78;
-const PLAYOFF_MATCH_CARD_WIDTH = 392;
-const PLAYOFF_MATCH_CARD_HEIGHT = 158;
-const PLAYOFF_MATCH_STEP = 178;
+const MATCH_CARD_WIDTH = 380;
+const MATCH_CARD_HEIGHT = 172;
+const TEAM_CARD_WIDTH = 380;
+const TEAM_CARD_HEIGHT = 108;
+const DETAIL_TEAM_CARD_WIDTH = 380;
+const DETAIL_TEAM_CARD_HEIGHT = 128;
+const SWISS_MATCH_CARD_HEIGHT = 172;
+const SWISS_MATCH_STEP = 198;
+const SUMMARY_TEAM_STEP = 138;
+const STAGE_HEADER_TO_CARD_OFFSET = 88;
+const SWISS_SECTION_GAP = 88;
+const PLAYOFF_MATCH_CARD_WIDTH = 420;
+const PLAYOFF_MATCH_CARD_HEIGHT = 172;
+const PLAYOFF_MATCH_STEP = 198;
 const HEADER_CONNECTOR_ANCHOR_Y = 24;
 
 type SwissSummaryId =
@@ -81,7 +81,7 @@ const SWISS_STAGE_COLUMNS: Array<{ id: SwissStageColumnId; x: number; sections: 
   },
   {
     id: "round2",
-    x: 448,
+    x: 490,
     sections: [
       { kind: "matches", id: "r2-1-0", round: 2, bucket: "1-0", title: "第 2 轮 · 1-0 组", y: 92, tone: "cyan" },
       { kind: "matches", id: "r2-0-1", round: 2, bucket: "0-1", title: "第 2 轮 · 0-1 组", y: 700, tone: "cyan" },
@@ -89,7 +89,7 @@ const SWISS_STAGE_COLUMNS: Array<{ id: SwissStageColumnId; x: number; sections: 
   },
   {
     id: "round3",
-    x: 832,
+    x: 916,
     sections: [
       { kind: "matches", id: "r3-2-0", round: 3, bucket: "2-0", title: "第 3 轮 · 2-0 组", y: 44, tone: "cyan" },
       { kind: "matches", id: "r3-1-1", round: 3, bucket: "1-1", title: "第 3 轮 · 1-1 组", y: 468, tone: "cyan" },
@@ -98,7 +98,7 @@ const SWISS_STAGE_COLUMNS: Array<{ id: SwissStageColumnId; x: number; sections: 
   },
   {
     id: "round4-band",
-    x: 1216,
+    x: 1342,
     sections: [
       { kind: "summary", id: "qualified-3-0", summaryId: "qualified-3-0", title: "3-0 晋级", y: 44, tone: "amber" },
       { kind: "matches", id: "r4-2-1", round: 4, bucket: "2-1", title: "第 4 轮 · 2-1 组", y: 330, tone: "cyan" },
@@ -108,7 +108,7 @@ const SWISS_STAGE_COLUMNS: Array<{ id: SwissStageColumnId; x: number; sections: 
   },
   {
     id: "round5-band",
-    x: 1600,
+    x: 1768,
     sections: [
       { kind: "summary", id: "qualified-3-1", summaryId: "qualified-3-1", title: "3-1 晋级", y: 132, tone: "amber" },
       { kind: "matches", id: "r5-2-2", round: 5, bucket: "2-2", title: "第 5 轮 · 2-2 组", y: 546, tone: "cyan" },
@@ -117,7 +117,7 @@ const SWISS_STAGE_COLUMNS: Array<{ id: SwissStageColumnId; x: number; sections: 
   },
   {
     id: "final-band",
-    x: 1984,
+    x: 2194,
     sections: [
       { kind: "summary", id: "qualified-3-2", summaryId: "qualified-3-2", title: "3-2 晋级", y: 300, tone: "amber" },
       { kind: "summary", id: "eliminated-2-3", summaryId: "eliminated-2-3", title: "2-3 淘汰", y: 780, tone: "steel" },
@@ -729,11 +729,11 @@ function buildSwissStage(groupName: "A" | "B", simulation: SimulationResponse, v
     label: `${groupName} 组瑞士轮`,
     title: `${groupName} 组瑞士轮`,
     description: "从首轮一路看到出线与出局节点，每轮结束后都会即时标出下一步去向。",
-    width: 2398,
-    height: Math.max(1560, maxBottom + 116),
+    width: 2638,
+    height: Math.max(1560, maxBottom + 124),
     viewport: {
       align: "left",
-      minScale: 0.78,
+      minScale: 0.72,
       paddingX: 48,
       paddingY: 48,
     },
@@ -770,9 +770,9 @@ function buildPlayoffStage(_regionSlug: RegionSlug, simulation: SimulationRespon
 
   const x = {
     r16: 80,
-    qf: 540,
-    sf: 1000,
-    finals: 1460,
+    qf: 580,
+    sf: 1080,
+    finals: 1580,
   };
   const y = {
     bandMain: 82,
@@ -791,7 +791,7 @@ function buildPlayoffStage(_regionSlug: RegionSlug, simulation: SimulationRespon
       id: "playoff-main-band",
       x: 80,
       y: y.bandMain,
-      width: 1772,
+      width: 1920,
       title: "主淘汰链",
       subtitle: "从 16 进 8 一路打到冠军战与季军战",
       tone: "cyan",
@@ -873,11 +873,11 @@ function buildPlayoffStage(_regionSlug: RegionSlug, simulation: SimulationRespon
     label: "主淘汰赛",
     title: "主淘汰赛",
     description: "这里只保留主淘汰链，方便连续查看每一轮晋级走势；资格赛请切到上方资格赛页签查看。",
-    width: 1938,
-    height: Math.max(1240, maxBottom + 140),
+    width: 2080,
+    height: Math.max(1240, maxBottom + 160),
     viewport: {
       align: "left",
-      minScale: 0.82,
+      minScale: 0.76,
       paddingX: 48,
       paddingY: 48,
     },
