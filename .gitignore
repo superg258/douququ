@@ -1,6 +1,8 @@
 # Local tooling
 /.codex
 /.vscode
+/.agents
+/.playwright-mcp
 
 # Python
 /.pytest_cache
@@ -32,11 +34,15 @@ __pycache__/
 
 # Logs and temporary local artifacts
 *.log
-/frontend/*.png
+*.png
 /tmp-*.png
 /output/
 /runs/
 /data/runtime/
+
+# Dev tooling artifacts
+.superpowers/
+node_modules/
 
 # OS junk
 .DS_Store

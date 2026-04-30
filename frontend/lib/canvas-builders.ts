@@ -28,21 +28,21 @@ interface SwissReplayArtifacts {
   summaryBuckets: Record<string, GroupRankingRow[]>;
 }
 
-const MATCH_CARD_WIDTH = 338;
-const MATCH_CARD_HEIGHT = 176;
-const TEAM_CARD_WIDTH = 338;
-const TEAM_CARD_HEIGHT = 98;
-const DETAIL_TEAM_CARD_WIDTH = 338;
-const DETAIL_TEAM_CARD_HEIGHT = 116;
-const SWISS_MATCH_CARD_HEIGHT = 176;
-const SWISS_MATCH_STEP = 190;
-const SUMMARY_TEAM_STEP = 124;
-const STAGE_HEADER_TO_CARD_OFFSET = 92;
-const SWISS_SECTION_GAP = 78;
-const PLAYOFF_MATCH_CARD_WIDTH = 392;
-const PLAYOFF_MATCH_CARD_HEIGHT = 176;
-const PLAYOFF_MATCH_STEP = 184;
-const HEADER_CONNECTOR_ANCHOR_Y = 10;
+const MATCH_CARD_WIDTH = 400;
+const MATCH_CARD_HEIGHT = 188;
+const TEAM_CARD_WIDTH = 400;
+const TEAM_CARD_HEIGHT = 108;
+const DETAIL_TEAM_CARD_WIDTH = 400;
+const DETAIL_TEAM_CARD_HEIGHT = 128;
+const SWISS_MATCH_CARD_HEIGHT = 188;
+const SWISS_MATCH_STEP = 215;
+const SUMMARY_TEAM_STEP = 148;
+const STAGE_HEADER_TO_CARD_OFFSET = 52;
+const SWISS_SECTION_GAP = 88;
+const PLAYOFF_MATCH_CARD_WIDTH = 440;
+const PLAYOFF_MATCH_CARD_HEIGHT = 188;
+const PLAYOFF_MATCH_STEP = 215;
+const HEADER_CONNECTOR_ANCHOR_Y = 24;
 
 type SwissSummaryId =
   | "qualified-3-0"
@@ -81,46 +81,46 @@ const SWISS_STAGE_COLUMNS: Array<{ id: SwissStageColumnId; x: number; sections: 
   },
   {
     id: "round2",
-    x: 448,
+    x: 510,
     sections: [
       { kind: "matches", id: "r2-1-0", round: 2, bucket: "1-0", title: "第 2 轮 · 1-0 组", y: 92, tone: "cyan" },
-      { kind: "matches", id: "r2-0-1", round: 2, bucket: "0-1", title: "第 2 轮 · 0-1 组", y: 700, tone: "cyan" },
+      { kind: "matches", id: "r2-0-1", round: 2, bucket: "0-1", title: "第 2 轮 · 0-1 组", y: 720, tone: "cyan" },
     ],
   },
   {
     id: "round3",
-    x: 832,
+    x: 956,
     sections: [
       { kind: "matches", id: "r3-2-0", round: 3, bucket: "2-0", title: "第 3 轮 · 2-0 组", y: 44, tone: "cyan" },
-      { kind: "matches", id: "r3-1-1", round: 3, bucket: "1-1", title: "第 3 轮 · 1-1 组", y: 468, tone: "cyan" },
-      { kind: "matches", id: "r3-0-2", round: 3, bucket: "0-2", title: "第 3 轮 · 0-2 组", y: 1032, tone: "cyan" },
+      { kind: "matches", id: "r3-1-1", round: 3, bucket: "1-1", title: "第 3 轮 · 1-1 组", y: 480, tone: "cyan" },
+      { kind: "matches", id: "r3-0-2", round: 3, bucket: "0-2", title: "第 3 轮 · 0-2 组", y: 1052, tone: "cyan" },
     ],
   },
   {
     id: "round4-band",
-    x: 1216,
+    x: 1402,
     sections: [
       { kind: "summary", id: "qualified-3-0", summaryId: "qualified-3-0", title: "3-0 晋级", y: 44, tone: "amber" },
-      { kind: "matches", id: "r4-2-1", round: 4, bucket: "2-1", title: "第 4 轮 · 2-1 组", y: 330, tone: "cyan" },
-      { kind: "matches", id: "r4-1-2", round: 4, bucket: "1-2", title: "第 4 轮 · 1-2 组", y: 772, tone: "cyan" },
-      { kind: "summary", id: "eliminated-0-3", summaryId: "eliminated-0-3", title: "0-3 淘汰", y: 1230, tone: "steel" },
+      { kind: "matches", id: "r4-2-1", round: 4, bucket: "2-1", title: "第 4 轮 · 2-1 组", y: 340, tone: "cyan" },
+      { kind: "matches", id: "r4-1-2", round: 4, bucket: "1-2", title: "第 4 轮 · 1-2 组", y: 790, tone: "cyan" },
+      { kind: "summary", id: "eliminated-0-3", summaryId: "eliminated-0-3", title: "0-3 淘汰", y: 1250, tone: "steel" },
     ],
   },
   {
     id: "round5-band",
-    x: 1600,
+    x: 1848,
     sections: [
       { kind: "summary", id: "qualified-3-1", summaryId: "qualified-3-1", title: "3-1 晋级", y: 132, tone: "amber" },
-      { kind: "matches", id: "r5-2-2", round: 5, bucket: "2-2", title: "第 5 轮 · 2-2 组", y: 546, tone: "cyan" },
-      { kind: "summary", id: "eliminated-1-3", summaryId: "eliminated-1-3", title: "1-3 淘汰", y: 1018, tone: "steel" },
+      { kind: "matches", id: "r5-2-2", round: 5, bucket: "2-2", title: "第 5 轮 · 2-2 组", y: 560, tone: "cyan" },
+      { kind: "summary", id: "eliminated-1-3", summaryId: "eliminated-1-3", title: "1-3 淘汰", y: 1038, tone: "steel" },
     ],
   },
   {
     id: "final-band",
-    x: 1984,
+    x: 2294,
     sections: [
       { kind: "summary", id: "qualified-3-2", summaryId: "qualified-3-2", title: "3-2 晋级", y: 300, tone: "amber" },
-      { kind: "summary", id: "eliminated-2-3", summaryId: "eliminated-2-3", title: "2-3 淘汰", y: 780, tone: "steel" },
+      { kind: "summary", id: "eliminated-2-3", summaryId: "eliminated-2-3", title: "2-3 淘汰", y: 800, tone: "steel" },
     ],
   },
 ];
@@ -227,7 +227,7 @@ function buildMatchCard(
     displayLabel: options?.displayLabel ?? match.matchLabel,
     metaLabel: options?.metaLabel ?? stageMeta(match),
     variant: options?.variant ?? "standard",
-    showProbability: options?.showProbability ?? true,
+    showProbability: options?.showProbability ?? false,
     match,
     redSide: {
       teamKey: match.redTeam.teamKey,
@@ -308,7 +308,8 @@ function connectHeaderBands(
   sourceHeaders: WorkspaceStageHeader[],
   targetHeaders: WorkspaceStageHeader[],
   id: string,
-  tone: CanvasTone = "steel"
+  tone: CanvasTone = "steel",
+  branchLabelTexts?: string[]
 ): CanvasConnector | null {
   if (!sourceHeaders.length || !targetHeaders.length) {
     return null;
@@ -322,6 +323,7 @@ function connectHeaderBands(
   const targetY =
     targetHeaders.reduce((sum, header) => sum + header.y + HEADER_CONNECTOR_ANCHOR_Y, 0) /
     targetHeaders.length;
+  const branchY = targetHeaders.map((header) => header.y + HEADER_CONNECTOR_ANCHOR_Y);
   const gap = Math.max(18, targetLeft - sourceRight);
 
   return {
@@ -332,7 +334,11 @@ function connectHeaderBands(
     toX: targetLeft - 12,
     toY: targetY,
     viaX: sourceRight + Math.max(18, Math.min(36, gap * 0.5)),
-    branchY: targetHeaders.map((header) => header.y + HEADER_CONNECTOR_ANCHOR_Y),
+    branchY,
+    branchLabels: branchLabelTexts?.map((text, index) => {
+      const targetHeader = targetHeaders[index];
+      return { text, y: targetHeader ? targetHeader.y - 12 : targetY - 30 };
+    }),
     tone,
     weight: tone === "amber" ? "strong" : "normal",
   };
@@ -574,9 +580,9 @@ function buildSlotsStage(simulation: SimulationResponse): WorkspaceStage {
       id: `slots-${groupName}`,
       x,
       y: 82,
-      width: 380,
+      width: 400,
       title: `${groupName} 组抽签落位`,
-      subtitle: `${slots.length} 支队伍`,
+      subtitle: "",
       tone: "cyan",
     });
     slots.forEach((slot, index) => {
@@ -587,7 +593,7 @@ function buildSlotsStage(simulation: SimulationResponse): WorkspaceStage {
           collegeName: slot.collegeName,
           teamName: slot.teamName,
           x,
-          y: 182 + index * 96,
+          y: 134 + index * 96,
           orderLabel: slot.slot ?? "--",
           subtitle: slot.teamName,
           statLine: `${slot.seedTier} / Elo #${slot.eloGlobalRank}`,
@@ -635,7 +641,7 @@ function buildSwissStage(groupName: "A" | "B", simulation: SimulationResponse, v
           y: sectionY,
           width: MATCH_CARD_WIDTH,
           title: section.title,
-          subtitle: `${matchLabels.length} 场对阵`,
+          subtitle: "",
           tone: section.tone,
         };
         headers.push(header);
@@ -653,7 +659,7 @@ function buildSwissStage(groupName: "A" | "B", simulation: SimulationResponse, v
               metaLabel: `BO${match.bestOf}`,
               height: SWISS_MATCH_CARD_HEIGHT,
               variant: "compact",
-              showProbability: true,
+              showProbability: false,
             })
           );
         });
@@ -674,7 +680,7 @@ function buildSwissStage(groupName: "A" | "B", simulation: SimulationResponse, v
         y: sectionY,
         width: DETAIL_TEAM_CARD_WIDTH,
         title: section.title,
-        subtitle: `${rows.length} 支队伍`,
+        subtitle: "",
         tone: section.tone,
       };
       headers.push(header);
@@ -722,11 +728,11 @@ function buildSwissStage(groupName: "A" | "B", simulation: SimulationResponse, v
     label: `${groupName} 组瑞士轮`,
     title: `${groupName} 组瑞士轮`,
     description: "从首轮一路看到出线与出局节点，每轮结束后都会即时标出下一步去向。",
-    width: 2398,
-    height: Math.max(1560, maxBottom + 116),
+    width: 2740,
+    height: Math.max(1600, maxBottom + 124),
     viewport: {
       align: "left",
-      minScale: 0.68,
+      minScale: 0.72,
       paddingX: 48,
       paddingY: 48,
     },
@@ -747,7 +753,7 @@ function buildPlayoffStage(_regionSlug: RegionSlug, simulation: SimulationRespon
       width: PLAYOFF_MATCH_CARD_WIDTH,
       height: PLAYOFF_MATCH_CARD_HEIGHT,
       variant: "playoff",
-      showProbability: true,
+      showProbability: false,
     });
     cards.push(card);
     cardMap.set(match.matchLabel, card);
@@ -763,20 +769,20 @@ function buildPlayoffStage(_regionSlug: RegionSlug, simulation: SimulationRespon
 
   const x = {
     r16: 80,
-    qf: 540,
-    sf: 1000,
-    finals: 1460,
+    qf: 600,
+    sf: 1120,
+    finals: 1640,
   };
   const y = {
     bandMain: 82,
     headerMain: 198,
-    r16: 300,
-    qf: 374,
-    sf: 522,
-    finalHeader: 316,
-    final: 412,
-    thirdHeader: 742,
-    third: 838,
+    r16: 250,
+    qf: 358,
+    sf: 573,
+    finalHeader: 703,
+    final: 763,
+    thirdHeader: 1183,
+    third: 1243,
   };
 
   headers.push(
@@ -784,9 +790,9 @@ function buildPlayoffStage(_regionSlug: RegionSlug, simulation: SimulationRespon
       id: "playoff-main-band",
       x: 80,
       y: y.bandMain,
-      width: 1772,
+      width: 2040,
       title: "主淘汰链",
-      subtitle: "从 16 进 8 一路打到冠军战与季军战",
+      subtitle: "",
       tone: "cyan",
     },
     {
@@ -795,7 +801,7 @@ function buildPlayoffStage(_regionSlug: RegionSlug, simulation: SimulationRespon
       y: y.headerMain,
       width: PLAYOFF_MATCH_CARD_WIDTH,
       title: "16 进 8",
-      subtitle: `${stageGroups.round_of_16.length} 场 / 败者转入资格赛`,
+      subtitle: "",
       tone: "cyan",
     },
     {
@@ -804,7 +810,7 @@ function buildPlayoffStage(_regionSlug: RegionSlug, simulation: SimulationRespon
       y: y.headerMain,
       width: PLAYOFF_MATCH_CARD_WIDTH,
       title: "8 进 4",
-      subtitle: `${stageGroups.quarterfinal.length} 场 / 败者锁定国赛席位`,
+      subtitle: "",
       tone: "cyan",
     },
     {
@@ -813,7 +819,7 @@ function buildPlayoffStage(_regionSlug: RegionSlug, simulation: SimulationRespon
       y: y.headerMain,
       width: PLAYOFF_MATCH_CARD_WIDTH,
       title: "半决赛",
-      subtitle: `${stageGroups.semifinal.length} 场 / 胜者进冠军战，败者进季军战`,
+      subtitle: "",
       tone: "cyan",
     },
     {
@@ -822,7 +828,7 @@ function buildPlayoffStage(_regionSlug: RegionSlug, simulation: SimulationRespon
       y: y.finalHeader,
       width: PLAYOFF_MATCH_CARD_WIDTH,
       title: "冠军战",
-      subtitle: "半决赛胜者会师",
+      subtitle: "",
       tone: "amber",
     },
     {
@@ -831,14 +837,14 @@ function buildPlayoffStage(_regionSlug: RegionSlug, simulation: SimulationRespon
       y: y.thirdHeader,
       width: PLAYOFF_MATCH_CARD_WIDTH,
       title: "季军战",
-      subtitle: "半决赛败者再战",
+      subtitle: "",
       tone: "amber",
     }
   );
 
   stageGroups.round_of_16.forEach((match, index) => addMatch(match, x.r16, y.r16 + index * PLAYOFF_MATCH_STEP));
   stageGroups.quarterfinal.forEach((match, index) => addMatch(match, x.qf, y.qf + index * PLAYOFF_MATCH_STEP * 2));
-  stageGroups.semifinal.forEach((match, index) => addMatch(match, x.sf, y.sf + index * PLAYOFF_MATCH_STEP * 3));
+  stageGroups.semifinal.forEach((match, index) => addMatch(match, x.sf, y.sf + index * PLAYOFF_MATCH_STEP * 4));
   stageGroups.final.forEach((match) => addMatch(match, x.finals, y.final));
   stageGroups.third_place.forEach((match) => addMatch(match, x.finals, y.third));
 
@@ -866,11 +872,11 @@ function buildPlayoffStage(_regionSlug: RegionSlug, simulation: SimulationRespon
     label: "主淘汰赛",
     title: "主淘汰赛",
     description: "这里只保留主淘汰链，方便连续查看每一轮晋级走势；资格赛请切到上方资格赛页签查看。",
-    width: 1938,
-    height: Math.max(1240, maxBottom + 140),
+    width: 2120,
+    height: Math.max(1240, maxBottom + 160),
     viewport: {
       align: "left",
-      minScale: 0.74,
+      minScale: 0.76,
       paddingX: 48,
       paddingY: 48,
     },
@@ -910,7 +916,7 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
           width: PLAYOFF_MATCH_CARD_WIDTH,
           height: PLAYOFF_MATCH_CARD_HEIGHT,
           variant: "playoff",
-          showProbability: true,
+          showProbability: false,
         })
       );
     });
@@ -956,7 +962,7 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
     };
   };
 
-  const stageWidth = 1518;
+  const stageWidth = 1560;
   const x = {
     left: 80,
     middle: 560,
@@ -965,13 +971,13 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
   const connectors: Array<CanvasConnector | null> = [];
   let maxBottom = 0;
 
-  addHeader("qualification-band", 80, 82, 1322, "资格赛去向", "每一轮结束后都会即时标出继续前进、转入复活赛或就此止步的队伍。", "emerald");
+  addHeader("qualification-band", 80, 82, 1322, "资格赛去向", "", "emerald");
 
   if (regionSlug === "east_region") {
     const q1RepechageRows = pickQualificationRows(outcomeRows, "repechage", "qual-1");
     const q2RepechageRows = pickQualificationRows(outcomeRows, "repechage", "qual-2");
     const q2EliminatedRows = pickQualificationRows(outcomeRows, "eliminated", "qual-2");
-    const q1 = addMatchSection("qualification-q1", x.left, 198, "资格赛第一轮", "4 场 / 胜者先拿到复活赛席位，败者进入第二轮", "emerald", qualificationRound1);
+    const q1 = addMatchSection("qualification-q1", x.left, 198, "资格赛第一轮", "", "emerald", qualificationRound1);
     const q1Repechage = addOutcomeSection(
       "qualification-q1-repechage",
       x.middle,
@@ -979,14 +985,14 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
       "拿到复活赛席位",
       "emerald",
       q1RepechageRows,
-      `${q1RepechageRows.length} 队 / 来自资格赛第一轮胜者`
+      ""
     );
     const q2 = addMatchSection(
       "qualification-q2",
       x.middle,
       Math.max(514, q1Repechage.bottom + 96),
       "资格赛第二轮",
-      "2 场 / 决出剩余复活赛席位与止步队伍",
+      "",
       "emerald",
       qualificationRound2
     );
@@ -997,7 +1003,7 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
       "拿到复活赛席位",
       "emerald",
       q2RepechageRows,
-      `${q2RepechageRows.length} 队 / 来自资格赛第二轮胜者`
+      ""
     );
     const q2Eliminated = addOutcomeSection(
       "qualification-q2-eliminated",
@@ -1006,7 +1012,7 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
       "本站止步",
       "steel",
       q2EliminatedRows,
-      `${q2EliminatedRows.length} 队 / 来自资格赛第二轮败者`
+      ""
     );
 
     connectors.push(
@@ -1014,13 +1020,15 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
         headerList("qualification-q1"),
         headerList("qualification-q1-repechage", "qualification-q2"),
         "qualification-q1-split",
-        "emerald"
+        "emerald",
+        ["胜者进复活赛", "败者进第二轮"]
       ),
       connectHeaderBands(
         headerList("qualification-q2"),
         headerList("qualification-q2-repechage", "qualification-q2-eliminated"),
         "qualification-q2-split",
-        "emerald"
+        "emerald",
+        ["胜者进复活赛", "败者本站止步"]
       )
     );
 
@@ -1028,25 +1036,17 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
   }
 
   if (regionSlug === "north_region") {
-    const q1RepechageRows = pickQualificationRows(outcomeRows, "repechage", "qual-1");
     const q2NationalRows = pickQualificationRows(outcomeRows, "national", "qual-2");
     const q2RepechageRows = pickQualificationRows(outcomeRows, "repechage", "qual-2");
-    const q1 = addMatchSection("qualification-q1", x.left, 198, "资格赛第一轮", "4 场 / 败者先进入复活赛，胜者继续争夺国赛", "emerald", qualificationRound1);
-    const q1Repechage = addOutcomeSection(
-      "qualification-q1-repechage",
-      x.middle,
-      198,
-      "拿到复活赛席位",
-      "emerald",
-      q1RepechageRows,
-      `${q1RepechageRows.length} 队 / 来自资格赛第一轮败者`
-    );
+    const qualrRepechageRows = pickQualificationRows(outcomeRows, "repechage", "qual-r");
+    const qualrEliminatedRows = pickQualificationRows(outcomeRows, "eliminated", "qual-r");
+    const q1 = addMatchSection("qualification-q1", x.left, 198, "资格赛第一轮", "", "emerald", qualificationRound1);
     const q2 = addMatchSection(
       "qualification-q2",
       x.middle,
-      Math.max(514, q1Repechage.bottom + 96),
+      198,
       "资格赛第二轮",
-      "2 场 / 直接分出国赛与复活赛",
+      "",
       "amber",
       qualificationRound2
     );
@@ -1057,7 +1057,7 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
       "拿到国赛席位",
       "amber",
       q2NationalRows,
-      `${q2NationalRows.length} 队 / 来自资格赛第二轮胜者`
+      ""
     );
     const q2Repechage = addOutcomeSection(
       "qualification-q2-repechage",
@@ -1066,86 +1066,34 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
       "拿到复活赛席位",
       "emerald",
       q2RepechageRows,
-      `${q2RepechageRows.length} 队 / 来自资格赛第二轮败者`
-    );
-
-    connectors.push(
-      connectHeaderBands(
-        headerList("qualification-q1"),
-        headerList("qualification-q1-repechage", "qualification-q2"),
-        "qualification-q1-split",
-        "emerald"
-      ),
-      connectHeaderBands(
-        headerList("qualification-q2"),
-        headerList("qualification-q2-national", "qualification-q2-repechage"),
-        "qualification-q2-split",
-        "amber"
-      )
-    );
-
-    maxBottom = Math.max(q1.bottom, q1Repechage.bottom, q2.bottom, q2National.bottom, q2Repechage.bottom);
-  }
-
-  if (regionSlug === "south_region") {
-    const q2NationalRows = pickQualificationRows(outcomeRows, "national", "qual-2");
-    const q2RepechageRows = pickQualificationRows(outcomeRows, "repechage", "qual-2");
-    const qualrRepechageRows = pickQualificationRows(outcomeRows, "repechage", "qual-r");
-    const qualrEliminatedRows = pickQualificationRows(outcomeRows, "eliminated", "qual-r");
-    const q1 = addMatchSection(
-      "qualification-q1",
-      x.left,
-      198,
-      "资格赛第一轮",
-      "4 场 / 胜者去争国赛，败者去争复活赛",
-      "emerald",
-      qualificationRound1
-    );
-    const q2 = addMatchSection("qualification-q2", x.middle, 198, "国赛席位战", "2 场 / 胜者拿到国赛，败者转入复活赛", "amber", qualificationRound2);
-    const q2National = addOutcomeSection(
-      "qualification-q2-national",
-      x.right,
-      198,
-      "拿到国赛席位",
-      "amber",
-      q2NationalRows,
-      `${q2NationalRows.length} 队 / 来自国赛席位战胜者`
-    );
-    const q2Repechage = addOutcomeSection(
-      "qualification-q2-repechage",
-      x.right,
-      Math.max(518, q2National.bottom + 86),
-      "拿到复活赛席位",
-      "emerald",
-      q2RepechageRows,
-      `${q2RepechageRows.length} 队 / 来自国赛席位战败者`
+      ""
     );
     const qualr = addMatchSection(
       "qualification-qualr",
       x.middle,
-      Math.max(894, q2.bottom + 120),
-      "复活赛席位战",
-      "2 场 / 胜者保留希望，败者就此止步",
+      Math.max(514, q2.bottom + 96),
+      "复活赛突围战",
+      "",
       "emerald",
       qualificationRepechage
     );
     const qualrRepechage = addOutcomeSection(
       "qualification-qualr-repechage",
       x.right,
-      Math.max(972, q2Repechage.bottom + 160),
+      Math.max(850, q2Repechage.bottom + 86),
       "拿到复活赛席位",
       "emerald",
       qualrRepechageRows,
-      `${qualrRepechageRows.length} 队 / 来自复活赛席位战胜者`
+      ""
     );
     const qualrEliminated = addOutcomeSection(
       "qualification-qualr-eliminated",
       x.right,
-      Math.max(1292, qualrRepechage.bottom + 86),
+      Math.max(1200, qualrRepechage.bottom + 86),
       "本站止步",
       "steel",
       qualrEliminatedRows,
-      `${qualrEliminatedRows.length} 队 / 来自复活赛席位战败者`
+      ""
     );
 
     connectors.push(
@@ -1153,33 +1101,97 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
         headerList("qualification-q1"),
         headerList("qualification-q2", "qualification-qualr"),
         "qualification-q1-split",
-        "emerald"
+        "emerald",
+        ["胜者争国赛", "败者争复活赛"]
       ),
       connectHeaderBands(
         headerList("qualification-q2"),
         headerList("qualification-q2-national", "qualification-q2-repechage"),
         "qualification-q2-split",
-        "amber"
+        "amber",
+        ["胜者进国赛", "败者进复活赛"]
       ),
       connectHeaderBands(
         headerList("qualification-qualr"),
         headerList("qualification-qualr-repechage", "qualification-qualr-eliminated"),
         "qualification-qualr-split",
-        "emerald"
+        "emerald",
+        ["胜者进复活赛", "败者本站止步"]
       )
     );
 
-    maxBottom = Math.max(
-      q1.bottom,
-      q2.bottom,
-      q2National.bottom,
-      q2Repechage.bottom,
-      qualr.bottom,
-      qualrRepechage.bottom,
-      qualrEliminated.bottom
-    );
+    maxBottom = Math.max(q1.bottom, q2.bottom, qualr.bottom, q2National.bottom, q2Repechage.bottom, qualrRepechage.bottom, qualrEliminated.bottom);
   }
 
+    if (regionSlug === "south_region") {
+    const q1RepechageRows = pickQualificationRows(outcomeRows, "repechage", "qual-1");
+    const q2NationalRows = pickQualificationRows(outcomeRows, "national", "qual-2");
+    const q2RepechageRows = pickQualificationRows(outcomeRows, "repechage", "qual-2");
+    const q1 = addMatchSection(
+      "qualification-q1",
+      x.left,
+      198,
+      "资格赛第一轮",
+      "",
+      "emerald",
+      qualificationRound1
+    );
+    const q1Repechage = addOutcomeSection(
+      "qualification-q1-repechage",
+      x.middle,
+      198,
+      "拿到复活赛席位",
+      "emerald",
+      q1RepechageRows,
+      ""
+    );
+    const q2 = addMatchSection(
+      "qualification-q2",
+      x.middle,
+      Math.max(514, q1Repechage.bottom + 96),
+      "国赛席位战",
+      "",
+      "amber",
+      qualificationRound2
+    );
+    const q2National = addOutcomeSection(
+      "qualification-q2-national",
+      x.right,
+      198,
+      "拿到国赛席位",
+      "amber",
+      q2NationalRows,
+      ""
+    );
+    const q2Repechage = addOutcomeSection(
+      "qualification-q2-repechage",
+      x.right,
+      Math.max(518, q2National.bottom + 86),
+      "拿到复活赛席位",
+      "emerald",
+      q2RepechageRows,
+      ""
+    );
+
+    connectors.push(
+      connectHeaderBands(
+        headerList("qualification-q1"),
+        headerList("qualification-q2", "qualification-q1-repechage"),
+        "qualification-q1-split",
+        "emerald",
+        ["胜者争国赛", "败者进复活赛"]
+      ),
+      connectHeaderBands(
+        headerList("qualification-q2"),
+        headerList("qualification-q2-national", "qualification-q2-repechage"),
+        "qualification-q2-split",
+        "amber",
+        ["胜者进国赛", "败者进复活赛"]
+      )
+    );
+
+    maxBottom = Math.max(q1.bottom, q1Repechage.bottom, q2.bottom, q2National.bottom, q2Repechage.bottom);
+  }
   return {
     id: "qualification",
     label: "资格赛",
@@ -1189,7 +1201,7 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
     height: Math.max(1460, maxBottom + 140),
     viewport: {
       align: "left",
-      minScale: 0.72,
+      minScale: 0.82,
       paddingX: 48,
       paddingY: 48,
     },
@@ -1202,10 +1214,10 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
 function buildFinalRankingsStage(simulation: SimulationResponse): WorkspaceStage {
   const cards: CanvasCard[] = [];
   const headers: WorkspaceStageHeader[] = [
-    { id: "final-podium", x: 80, y: 82, width: DETAIL_TEAM_CARD_WIDTH, title: "领奖台", subtitle: "前四名次", tone: "amber" },
-    { id: "final-national", x: 520, y: 82, width: DETAIL_TEAM_CARD_WIDTH, title: "国赛名单", subtitle: "直接晋级队伍", tone: "amber" },
-    { id: "final-repechage", x: 960, y: 82, width: DETAIL_TEAM_CARD_WIDTH, title: "复活赛名单", subtitle: "保留希望队伍", tone: "emerald" },
-    { id: "final-tail", x: 1400, y: 82, width: DETAIL_TEAM_CARD_WIDTH, title: "其余名次", subtitle: "未晋级队伍", tone: "steel" },
+    { id: "final-podium", x: 80, y: 82, width: DETAIL_TEAM_CARD_WIDTH, title: "领奖台", subtitle: "", tone: "amber" },
+    { id: "final-national", x: 520, y: 82, width: DETAIL_TEAM_CARD_WIDTH, title: "国赛名单", subtitle: "", tone: "amber" },
+    { id: "final-repechage", x: 960, y: 82, width: DETAIL_TEAM_CARD_WIDTH, title: "复活赛名单", subtitle: "", tone: "emerald" },
+    { id: "final-tail", x: 1400, y: 82, width: DETAIL_TEAM_CARD_WIDTH, title: "其余名次", subtitle: "", tone: "steel" },
   ];
 
   const podiumRows = simulation.finalRankings.filter((row) => row.rank <= 4);
@@ -1224,7 +1236,7 @@ function buildFinalRankingsStage(simulation: SimulationResponse): WorkspaceStage
           collegeName: row.collegeName,
           teamName: row.teamName,
           x,
-          y: 182 + index * SUMMARY_TEAM_STEP,
+          y: 134 + index * SUMMARY_TEAM_STEP,
           orderLabel: `${row.rank}`,
           subtitle: row.teamName,
           statLine: formatSwissRecordLabel(row.swissWins, row.swissLosses),
@@ -1254,7 +1266,7 @@ function buildFinalRankingsStage(simulation: SimulationResponse): WorkspaceStage
     height: Math.max(1120, maxBottom + 140),
     viewport: {
       align: "left",
-      minScale: 0.62,
+      minScale: 0.68,
       paddingX: 48,
       paddingY: 48,
     },

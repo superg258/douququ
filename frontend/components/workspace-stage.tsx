@@ -9,6 +9,19 @@ import { cn } from "@/lib/utils";
 import { isPageFullscreenActive, setPageFullscreenLock } from "@/lib/fullscreen-api";
 import { clampViewportPosition, fitWorkspaceViewport, scaleViewportAroundFramePoint } from "@/lib/workspace-viewport";
 
+function headerToneClass(tone: WorkspaceStage["headers"][number]["tone"]) {
+  switch (tone) {
+    case "amber":
+      return "border-l-4 border-rm-result-winner border-y-white/10 border-r-white/10 bg-black/80 text-rm-result-winner";
+    case "emerald":
+      return "border-l-4 border-rm-status-safe border-y-white/10 border-r-white/10 bg-black/80 text-rm-status-safe";
+    case "steel":
+      return "border-l-4 border-rm-metal-text border-y-white/10 border-r-white/10 bg-black/80 text-rm-metal-text";
+    default:
+      return "border-l-4 border-rm-blue border-y-white/10 border-r-white/10 bg-black/80 text-rm-blue";
+  }
+}
+
 export function WorkspaceStageView({
   stage,
   mode,
@@ -132,6 +145,27 @@ export function WorkspaceStageView({
     viewportRef.current = nextViewport;
     setViewport(nextViewport);
   };
+
+  const minimapViewport = (() => {
+    if (!frameSize.width || !frameSize.height) {
+      return null;
+    }
+
+    const mapWidth = 112;
+    const mapHeight = Math.max(40, Math.round((stage.height / stage.width) * mapWidth));
+    const visibleWorldWidth = frameSize.width / viewport.scale;
+    const visibleWorldHeight = frameSize.height / viewport.scale;
+    const visibleWorldX = -viewport.x / viewport.scale;
+    const visibleWorldY = -viewport.y / viewport.scale;
+
+    return {
+      mapHeight,
+      left: Math.max(0, Math.min(mapWidth, (visibleWorldX / stage.width) * mapWidth)),
+      top: Math.max(0, Math.min(mapHeight, (visibleWorldY / stage.height) * mapHeight)),
+      width: Math.max(8, Math.min(mapWidth, (visibleWorldWidth / stage.width) * mapWidth)),
+      height: Math.max(8, Math.min(mapHeight, (visibleWorldHeight / stage.height) * mapHeight)),
+    };
+  })();
 
   const toggleFullscreen = () => {
     setFullscreen((current) => !current);
@@ -272,22 +306,12 @@ export function WorkspaceStageView({
     <section
       ref={sectionRef}
       className={cn(
-        "relative flex flex-col h-full bg-transparent border-t border-rm-metal-border rounded-none overflow-hidden",
+        "canvas-background relative flex flex-col h-full border-t border-rm-metal-border rounded-none overflow-hidden",
         isPageFullscreenActive(fullscreen) && "fixed inset-0 z-[140] h-screen w-screen border-0 bg-[#05070c]"
       )}
     >
-      {/* Top Banner / Toolbar */}
-      <div className="absolute top-0 left-0 right-0 z-20 flex items-start md:items-center justify-between p-2 md:p-4 bg-gradient-to-b from-rm-metal-panel/90 to-transparent pointer-events-none">
-        <div className="flex flex-col max-w-[65%] md:max-w-none">
-          <span className="text-[10px] text-rm-metal-text tracking-widest uppercase font-mono mb-1 hidden md:block">
-            战术模拟画布
-          </span>
-          <h2 className="text-sm md:text-xl font-bold text-white tracking-widest font-machine leading-tight">{stage.title}</h2>
-          {stage.description && (
-            <p className="hidden md:block text-xs text-rm-metal-text mt-1 max-w-xl">{stage.description}</p>
-          )}
-        </div>
-        <div className="flex items-center gap-1 md:gap-2 pointer-events-auto bg-rm-metal-panel/80 border border-rm-metal-border px-2 md:px-3 py-1 md:py-1.5 backdrop-blur-md clip-chamfer">
+      {/* Zoom toolbar — top-right floating */}
+      <div className="absolute top-3 right-3 z-20 flex items-center gap-1 md:gap-2 bg-black/90 border border-white/10 px-2 md:px-3 py-1 md:py-1.5 clip-chamfer">
           <button 
             className="text-rm-metal-text hover:text-white px-1 md:px-2 py-0.5 text-xs font-mono uppercase transition-colors focus:outline-none"
             onClick={() => setScale(viewport.scale * 1.15)}
@@ -319,6 +343,28 @@ export function WorkspaceStageView({
             <span className="md:hidden">{fullscreen ? "退出全屏" : "全屏"}</span>
           </button>
         </div>
+
+      <div className="pointer-events-none absolute bottom-3 left-3 z-20 flex flex-col gap-2 md:hidden">
+        <div className="border border-rm-blue/45 bg-black/70 px-2 py-1 text-[10px] font-mono text-rm-blue shadow-[0_0_12px_rgba(0,163,255,0.25)] clip-chamfer">
+          拖拽查看完整赛程
+        </div>
+        {minimapViewport ? (
+          <div
+            className="relative border border-rm-metal-border bg-rm-metal-dark/80"
+            style={{ width: 112, height: minimapViewport.mapHeight }}
+          >
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[length:16px_16px]" />
+            <div
+              className="absolute border border-rm-blue bg-rm-blue/20 shadow-[0_0_8px_rgba(0,163,255,0.45)]"
+              style={{
+                left: minimapViewport.left,
+                top: minimapViewport.top,
+                width: minimapViewport.width,
+                height: minimapViewport.height,
+              }}
+            />
+          </div>
+        ) : null}
       </div>
 
       {/* Surface for Zooming & Dragging */}
@@ -332,7 +378,7 @@ export function WorkspaceStageView({
         }}
       >
         <div
-          className="absolute top-0 left-0 origin-top-left"
+          className="absolute top-0 left-0 origin-top-left canvas-grid"
           style={{
             transform: `translate3d(${viewport.x}px, ${viewport.y}px, 0) scale(${viewport.scale})`,
             width: stage.width,
@@ -341,13 +387,11 @@ export function WorkspaceStageView({
         >
           {/* Header Banners (e.g. Round 1, Round 2, Final Band) */}
           {stage.headers.map((header) => (
-             <div 
+             <div
                key={header.id}
                className={cn(
-                 "absolute border-t-2 text-[11px] font-bold tracking-widest font-mono pt-2 pl-1",
-                 header.tone === "amber" ? "border-rm-status-safe text-rm-status-safe" : 
-                 header.tone === "steel" ? "border-rm-metal-text/50 text-rm-metal-text/50" : 
-                 "border-rm-blue text-rm-blue text-glow-blue" // default cyan / blue
+                "absolute flex h-12 items-center justify-between gap-3 overflow-hidden px-3 py-2 font-mono clip-chamfer min-w-0 border-y border-r border-y-white/10 border-r-white/10 glass-panel",
+                 headerToneClass(header.tone)
                )}
                style={{
                  left: header.x,
@@ -355,7 +399,20 @@ export function WorkspaceStageView({
                  width: header.width,
                }}
              >
-                {header.title}
+                <div className="min-w-0">
+                  <div className="truncate font-machine text-[16px] font-extrabold leading-none tracking-widest text-current">
+                    {header.title}
+                  </div>
+                  {header.subtitle ? (
+                    <div className="mt-1 truncate text-[10px] font-semibold leading-none tracking-widest text-current opacity-70">
+                      {header.subtitle}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="flex h-full shrink-0 items-center gap-1 opacity-80">
+                  <span className="h-6 w-[3px] bg-current" />
+                  <span className="h-4 w-[3px] bg-current opacity-60" />
+                </div>
              </div>
           ))}
 
@@ -377,7 +434,6 @@ export function WorkspaceStageView({
               key={card.id}
               card={card}
               mode={mode}
-              showProbability={stage.showProbability || false}
               onMatchSelect={onMatchSelect}
               selectedMatchLabel={selectedMatchLabel}
               selectedTeamKey={selectedTeamKey}

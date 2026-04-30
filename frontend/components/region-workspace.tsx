@@ -7,11 +7,13 @@ import { createPortal } from "react-dom";
 import PinyinMatch from "pinyin-match";
 
 import { PredictionSignalsPanel } from "@/components/prediction-signals";
+import { PredictionExplanationCard } from "@/components/prediction-explanation-card";
 import { WorkspaceStageView } from "@/components/workspace-stage";
 import { getLiveState, getOverview, getSimulation } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { buildWorkspaceStage } from "@/lib/canvas-builders";
-import { formatRankingResultLabel, translateConfidenceLabel, translateDestinationLabel, translateStageLabel } from "@/lib/display";
+import { formatRankingResultLabel, translateConfidenceLabel, translateStageLabel } from "@/lib/display";
+import { buildPredictionRecap } from "@/lib/prediction-insights";
 import { buildRegionHref, getOrCreateSessionSeed, parseSeed, refreshSessionSeed, REGION_LABELS, REGION_VIEWS } from "@/lib/region-config";
 import { deriveRealtimeAvailability } from "@/lib/realtime";
 import { predictScoreline } from "@/components/canvas-card";
@@ -50,7 +52,7 @@ function validView(view: string | null): view is WorkspaceView {
 }
 
 function sanitizeSeedInput(seedText: string) {
-  return seedText.replace(/\D/g, "").slice(0, 12);
+  return seedText.replace(/\D/g, "").slice(0, 8);
 }
 
 function unavailableLiveState(regionSlug: RegionSlug, reason: string): LiveStateResponse {
@@ -363,6 +365,12 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
         </div>
 
         <div className="space-y-6">
+          <PredictionExplanationCard
+            match={selectedMatch}
+            regionSlug={regionOverview?.regionSlug}
+            regionName={regionOverview?.regionName}
+          />
+
           <div className="text-center font-machine text-xl text-white tracking-widest bg-rm-metal-dark border border-rm-metal-border py-4 relative overflow-hidden">
              {selectedMatch.scoreline}
              <div className="absolute bottom-1 right-2 text-[9px] text-rm-metal-text font-sans">实际 BO{selectedMatch.bestOf}</div>
@@ -496,6 +504,14 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   const [searchOpen, setSearchOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [stageFullscreen, setStageFullscreen] = useState(false);
+
+  // Suppress root layout header on mount — this page is a fullscreen canvas
+  useEffect(() => {
+    document.body.classList.add("canvas-fullscreen-page");
+    return () => {
+      document.body.classList.remove("canvas-fullscreen-page");
+    };
+  }, []);
   const [legendOpen, setLegendOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [sessionSeed, setSessionSeed] = useState<number | null>(null);
@@ -610,10 +626,6 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
     updateQuery({ mode: null });
   }, [realtimeEnabled, realtimeStatusLoaded, requestedMode, updateQuery]);
 
-  const viewMeta = useMemo(
-    () => REGION_VIEWS.find((item) => item.id === view) ?? REGION_VIEWS.find((item) => item.id === defaultView) ?? REGION_VIEWS[0],
-    [defaultView, view]
-  );
   const allTeams = useMemo(() => overview?.regions.flatMap((region) => region.teams) ?? [], [overview]);
   const searchResults = useMemo(
     () => sortTeamsByQuery(allTeams, deferredSearchText).slice(0, 18),
@@ -642,6 +654,10 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
     [simulation, view, regionSlug]
   );
   const useFixedSouthSwissList = false; // user requested to revert back to canvas for south swiss stages
+  const predictionRecap = useMemo(
+    () => (simulation ? buildPredictionRecap(simulation) : null),
+    [simulation]
+  );
   const matchPhaseOverview = useMemo(() => {
     const rows = simulation?.matches ?? [];
     const counters: Record<MatchPhase, number> = {
@@ -723,7 +739,6 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   };
 
   const inspectorVisible = inspectorOpen || Boolean(selection);
-  const inspectorToggleLabel = selection?.kind === "team" ? "队伍情报" : selection?.kind === "match" ? "比赛情报" : "赛区情报";
   const inspectorToggle = (
     <div className={cn(
       "hidden md:block top-28 transition-all duration-300",
@@ -768,47 +783,22 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   );
 
   return (
-    <div className="absolute inset-0 flex flex-col min-h-0 bg-[#0a0a0f] bg-red-blue-split">
-      {/* Header Panel */}
-      <header className="flex flex-col gap-2 px-3 py-2 md:px-6 md:py-4 bg-rm-metal-panel/80 border-b border-rm-metal-border backdrop-blur-sm z-30">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-          <div className="flex flex-col">
-            <div className="text-[10px] text-rm-metal-text font-mono tracking-widest uppercase mb-1 flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-rm-status-safe animate-pulse"/>
-              RMUC 2026 // {REGION_LABELS[regionSlug] ?? regionSlug}
-            </div>
-            <h1 className="text-xl md:text-2xl font-machine text-white tracking-widest uppercase text-glow-blue">{viewMeta.label}</h1>
-          </div>
+    <div className="fixed inset-0 z-[100] flex flex-col min-h-0 bg-[#0a0a0f] bg-red-blue-split">
+      {/* Floating glass header — scutbot-inspired compact bar */}
+      <header className="glass-sheet z-30 px-3 py-2 md:px-4 md:py-2.5 flex flex-col gap-2 select-none">
+        {/* Row 1: core controls */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Home button */}
+          <Link
+            href="/"
+            className="flex items-center justify-center w-7 h-7 border border-rm-blue/40 bg-rm-blue/15 text-rm-blue clip-chamfer shrink-0 hover:bg-rm-blue hover:text-white transition-colors"
+            title="返回全景战略板"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </Link>
 
-          <div className="flex flex-wrap items-center gap-2 md:gap-4 font-mono text-xs w-full md:w-auto">
-           <div className="flex bg-rm-metal-dark border border-rm-metal-border overflow-hidden">
-             <button 
-               onClick={() => {
-                 if (realtimeEnabled) {
-                   updateQuery({ mode: "live" });
-                 }
-               }}
-               disabled={!realtimeEnabled}
-               title={realtimeAvailability.hint}
-               className={cn(
-                 "px-4 py-1.5 transition-colors font-bold uppercase",
-                 !realtimeEnabled
-                   ? "cursor-not-allowed text-rm-metal-text/40"
-                   : mode === "live"
-                     ? "bg-rm-status-warn text-black"
-                     : "text-rm-metal-text hover:text-white"
-               )}
-             >
-               {realtimeEnabled ? "实时预测" : "待接入"}
-             </button>
-           <button onClick={() => updateQuery({ mode: "sim" })}
-             className={cn("px-2 md:px-4 py-1.5 transition-colors font-bold uppercase", mode === "sim" ? "bg-rm-blue text-white" : "border-l border-rm-metal-border text-rm-metal-text hover:text-white")}
-           >
-             赛程模拟
-           </button>
-         </div>
-
-         <select
+          {/* Region selector */}
+          <select
             value={regionSlug}
             onChange={(e) => {
               const nextRegion = e.target.value;
@@ -816,95 +806,123 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
                 onRegionChange(nextRegion);
               }
             }}
-            className="bg-rm-metal-dark border border-rm-metal-border text-white px-2 md:px-3 py-1.5 focus:outline-none focus:border-rm-blue min-w-[7.5rem]"
-         >
+            className="bg-rm-metal-dark/80 border border-white/10 text-white text-xs px-2.5 py-1.5 focus:outline-none focus:border-rm-blue shrink-0"
+          >
             {overview?.regions.map((region) => (
               <option key={region.regionSlug} value={region.regionSlug}>{region.regionName}</option>
             ))}
-         </select>
-         
-         {mode === "sim" && (
-           <div className="flex items-center bg-rm-metal-dark border border-rm-metal-border overflow-hidden">
-             <div className="bg-rm-metal-panel border-r border-rm-metal-border px-2 py-1.5 text-rm-metal-text">种子</div>
-             <input
-               type="text"
-               value={seedDraft}
-               onChange={(e) => setSeedDraft(sanitizeSeedInput(e.target.value))}
-               onKeyDown={(e) => {
-                 if (e.key === "Enter") {
-                   applySeedDraft();
-                 }
-               }}
-               className="bg-transparent w-16 md:w-24 px-2 py-1.5 text-white focus:outline-none font-mono"
-             />
-             <button onClick={refreshSimulationSeed} className="bg-rm-blue/20 text-rm-blue hover:bg-rm-blue hover:text-white px-2 md:px-3 py-1.5 font-bold transition-colors border-l border-rm-metal-border">
-               刷新
-             </button>
-           </div>
-         )}
-         
-         <button onClick={() => setSearchOpen(true)} className="border border-rm-metal-border bg-rm-metal-dark hover:bg-rm-metal-panel text-rm-metal-text px-2 md:px-3 py-1.5 transition-colors uppercase">
-           搜索
-         </button>
-         <span
-           className={cn(
-             "max-w-full basis-full md:basis-auto border px-2 py-1 text-[10px] font-mono leading-tight",
-             realtimeEnabled
-               ? "border-rm-status-safe/45 bg-rm-status-safe/10 text-rm-status-safe"
-               : "border-rm-status-warn/45 bg-rm-status-warn/10 text-rm-status-warn"
-           )}
-           title={realtimeAvailability.hint}
-         >
-           {realtimeAvailability.badge}
-         </span>
-         <button
-           type="button"
-           onClick={() => setLegendOpen((current) => !current)}
-           className={cn(
-             "md:hidden border px-2 py-1.5 transition-colors uppercase",
-             legendOpen
-               ? "border-rm-blue bg-rm-blue/15 text-rm-blue"
-               : "border-rm-metal-border bg-rm-metal-dark text-rm-metal-text hover:bg-rm-metal-panel"
-           )}
-         >
-           图例
-         </button>
-         <button
-           type="button"
-           onClick={() => setInspectorOpen((current) => !current)}
-           className={cn(
-             "md:hidden border px-2 py-1.5 transition-colors uppercase",
-             inspectorVisible
-               ? "border-rm-blue bg-rm-blue/15 text-rm-blue"
-               : "border-rm-metal-border bg-rm-metal-dark text-rm-metal-text hover:bg-rm-metal-panel"
-           )}
-         >
-           {inspectorVisible ? "收起情报" : "情报"}
-         </button>
-      </div>
-      </div>
-    </header>
-      
-      {/* Subnav Panel */}
-      <div className="flex items-center gap-1 overflow-x-auto px-3 py-1.5 md:px-6 md:py-2 bg-rm-metal-dark border-b border-rm-metal-border z-20">
-         {REGION_VIEWS.map((item) => (
+          </select>
+
+          {/* Mode toggle */}
+          <div className="flex bg-rm-metal-dark/80 border border-white/10 overflow-hidden shrink-0">
+            <button
+              onClick={() => {
+                if (realtimeEnabled) updateQuery({ mode: "live" });
+              }}
+              disabled={!realtimeEnabled}
+              title={realtimeAvailability.hint}
+              className={cn(
+                "px-2.5 py-1.5 text-xs font-bold uppercase transition-colors",
+                !realtimeEnabled
+                  ? "cursor-not-allowed text-rm-metal-text/40"
+                  : mode === "live"
+                    ? "bg-rm-status-warn text-black"
+                    : "text-rm-metal-text hover:text-white"
+              )}
+            >
+              {realtimeEnabled ? "实时" : "离线"}
+            </button>
+            <button
+              onClick={() => updateQuery({ mode: "sim" })}
+              className={cn(
+                "px-2.5 py-1.5 text-xs font-bold uppercase transition-colors",
+                mode === "sim" ? "bg-rm-blue text-white" : "text-rm-metal-text hover:text-white"
+              )}
+            >
+              模拟
+            </button>
+          </div>
+
+          {/* Seed input (sim mode only) */}
+          {mode === "sim" && (
+            <div className="flex items-center bg-rm-metal-dark/80 border border-white/10 overflow-hidden shrink-0">
+              <span className="text-[10px] text-rm-metal-text px-2 font-mono">种子</span>
+              <input
+                type="text"
+                value={seedDraft}
+                onChange={(e) => setSeedDraft(sanitizeSeedInput(e.target.value))}
+                onKeyDown={(e) => { if (e.key === "Enter") applySeedDraft(); }}
+                className="bg-transparent w-16 md:w-20 px-1.5 py-1.5 text-xs text-white focus:outline-none font-mono"
+              />
+              <button
+                onClick={refreshSimulationSeed}
+                className="bg-rm-blue/20 text-rm-blue hover:bg-rm-blue hover:text-white px-2 py-1.5 text-[10px] font-bold transition-colors border-l border-white/10"
+              >
+                刷新
+              </button>
+            </div>
+          )}
+
+          {/* Spacer — push remaining items to the right on desktop */}
+          <div className="flex-1 hidden md:block" />
+
+          {/* Search button */}
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="border border-white/10 bg-rm-metal-dark/80 hover:bg-rm-metal-panel text-rm-metal-text text-xs px-2.5 py-1.5 transition-colors uppercase shrink-0"
+          >
+            搜索
+          </button>
+
+          {/* 图例 + 情报 按钮（全尺寸可见） */}
+          <button
+            type="button"
+            onClick={() => setLegendOpen((c) => !c)}
+            className={cn(
+              "border px-2 py-1.5 text-xs uppercase transition-colors shrink-0",
+              legendOpen ? "border-rm-blue bg-rm-blue/15 text-rm-blue" : "border-white/10 bg-rm-metal-dark/80 text-rm-metal-text"
+            )}
+          >
+            图例
+          </button>
+          <button
+            type="button"
+            onClick={() => setInspectorOpen((c) => !c)}
+            className={cn(
+              "border px-2 py-1.5 text-xs uppercase transition-colors shrink-0",
+              inspectorVisible ? "border-rm-blue bg-rm-blue/15 text-rm-blue" : "border-white/10 bg-rm-metal-dark/80 text-rm-metal-text"
+            )}
+          >
+            情报
+          </button>
+
+          {/* Desktop: seed info hint */}
+          <span className="hidden md:inline text-[10px] text-rm-metal-text font-mono shrink-0">
+            种子 {seed}
+          </span>
+        </div>
+
+        {/* Row 2: view tabs — horizontal scroll */}
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+          {REGION_VIEWS.map((item) => (
             <button
               key={item.id}
               onClick={() => updateQuery({ view: item.id })}
-              className={`px-4 py-1 flex-none text-xs font-bold uppercase tracking-widest transition-all clip-chamfer ${item.id === view ? 'bg-rm-blue text-white shadow-[0_0_10px_rgba(0,163,255,0.4)]' : 'text-rm-metal-text border border-transparent hover:border-rm-metal-border'}`}
+              className={cn(
+                "px-3 py-1 flex-none text-[11px] font-bold uppercase tracking-widest transition-all clip-chamfer",
+                item.id === view
+                  ? "bg-rm-blue text-white shadow-[0_0_10px_rgba(42,159,255,0.4)]"
+                  : "text-rm-metal-text border border-transparent hover:border-white/15"
+              )}
             >
               {item.label}
             </button>
-         ))}
-         
-         <div className="ml-auto opacity-0 md:opacity-100 hidden md:flex items-center gap-4 text-[10px] text-rm-metal-text font-mono font-bold">
-            <span>队伍数: {overview?.regions.find(r => r.regionSlug === regionSlug)?.teams.length ?? 0}</span>
-            <span>当前种子: <span className="text-white">{seed}</span></span>
-         </div>
-      </div>
+          ))}
+        </div>
+      </header>
 
       {legendOpen ? (
-        <div className="md:hidden border-b border-rm-metal-border bg-[#08080d]/95 px-3 py-2">
+        <div className="absolute top-0 left-0 right-0 z-40 glass-sheet px-3 py-3 md:left-auto md:right-4 md:top-20 md:w-72 md:border md:border-rm-metal-border">
           <div className="flex items-center justify-between gap-2">
             <div className="text-[10px] font-bold uppercase tracking-widest text-rm-metal-text">图例与统计</div>
             <button
@@ -925,35 +943,13 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
           <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] font-mono">
             <span className="border border-rm-blue/35 bg-rm-blue/10 text-rm-blue px-2 py-1">预测池 {matchPhaseOverview.counters.pre}</span>
             <span className="border border-rm-status-safe/35 bg-rm-status-safe/10 text-rm-status-safe px-2 py-1">已完赛 {matchPhaseOverview.counters.post}</span>
+            <span className="col-span-2 border border-white/15 bg-white/5 text-white px-2 py-1">胜负命中率 {predictionRecap ? percent(predictionRecap.winnerHitRate) : "0.0%"}</span>
             <span className="border border-rm-status-safe/35 bg-rm-status-safe/10 text-rm-status-safe px-2 py-1">精准 {matchPhaseOverview.accuracy.correct}</span>
             <span className="border border-[#a855f7]/35 bg-[#a855f7]/10 text-[#a855f7] px-2 py-1">偏离 {matchPhaseOverview.accuracy.mismatch}</span>
             <span className="col-span-2 border border-[#ef4444]/35 bg-[#ef4444]/10 text-[#ef4444] px-2 py-1">爆冷 {matchPhaseOverview.accuracy.upset}</span>
           </div>
         </div>
       ) : null}
-
-      {/* Prediction / Review Strip */}
-      <div className="hidden md:flex flex-nowrap overflow-x-auto no-scrollbar items-center gap-2 px-3 py-1.5 md:px-6 md:py-2.5 bg-rm-metal-panel/60 border-b border-rm-metal-border z-20 whitespace-nowrap">
-        <div className="flex items-center gap-2 mr-4 flex-none">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-rm-metal-text">图例</span>
-          <span className="text-[10px] font-bold border border-rm-status-safe bg-rm-status-safe/10 text-rm-status-safe px-1.5 py-0.5 shadow-[0_0_5px_rgba(0,255,157,0.3)]">精准预测</span>
-          <span className="text-[10px] font-bold border border-[#a855f7] bg-[#a855f7]/10 text-[#a855f7] px-1.5 py-0.5 shadow-[0_0_5px_rgba(168,85,247,0.3)]">比分偏离</span>
-          <span className="text-[10px] font-bold border border-[#ef4444] bg-[#ef4444]/10 text-[#ef4444] px-1.5 py-0.5 shadow-[0_0_5px_rgba(239,68,68,0.3)]">路线爆冷</span>
-          <span className="text-[10px] font-bold border border-[#facc15] bg-[#facc15]/10 text-[#facc15] px-1.5 py-0.5 shadow-[0_0_5px_rgba(250,204,21,0.3)]">确认未赛</span>
-          <span className="text-[10px] font-bold border border-rm-blue bg-rm-blue/10 text-rm-blue px-1.5 py-0.5 shadow-[0_0_5px_rgba(0,163,255,0.3)]">模拟预测</span>
-        </div>
-        <span className="text-[10px] font-mono uppercase tracking-widest text-rm-metal-text">预测</span>
-        <span className="text-[10px] font-mono border border-rm-blue/35 bg-rm-blue/10 text-rm-blue px-2 py-0.5">
-          预测池 {matchPhaseOverview.counters.pre}
-        </span>
-        <div className="flex items-center text-[10px] font-mono border border-rm-status-safe/35 bg-rm-status-safe/10 text-rm-status-safe px-2 py-0.5 gap-2">
-          <span>已完赛 {matchPhaseOverview.counters.post}</span>
-          <span className="text-white/30">|</span>
-          <span className="text-rm-status-safe">{matchPhaseOverview.accuracy.correct} <span className="opacity-70">精准</span></span>
-          <span className="text-[#a855f7]">{matchPhaseOverview.accuracy.mismatch} <span className="opacity-70">偏离</span></span>
-          <span className="text-[#ef4444]">{matchPhaseOverview.accuracy.upset} <span className="opacity-70">爆冷</span></span>
-        </div>
-      </div>
 
       <div className="flex-1 relative flex overflow-hidden">
         {/* Canvas Area */}

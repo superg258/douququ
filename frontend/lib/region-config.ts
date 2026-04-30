@@ -77,7 +77,7 @@ export function parseSeed(seedText: string | null) {
 }
 
 export function createLiveSeed() {
-  const timeComponent = Date.now().toString().slice(-9);
+  const timeComponent = Date.now().toString().slice(-4);
   let randomComponent = "000";
 
   if (typeof globalThis.crypto !== "undefined" && typeof globalThis.crypto.getRandomValues === "function") {

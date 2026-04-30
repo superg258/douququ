@@ -398,12 +398,15 @@ function buildEloRankingSections(regions: OverviewRegion[]): EloRankingSection[]
         championProbability: team.probabilities.champion,
       }));
 
+      const elos = rankedTeams.map((team) => team.mu0);
+
       return {
         regionSlug: region.regionSlug,
         regionName: region.regionName,
         teamCount: region.teams.length,
+        medianElo: median(elos),
         topTeam: rankedTeams[0] ?? null,
-        top8AverageElo: average(rankedTeams.slice(0, 8).map((team) => team.mu0)),
+        top8AverageElo: average(elos.slice(0, 8)),
         rows,
       };
     });

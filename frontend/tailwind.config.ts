@@ -15,26 +15,52 @@ const config: Config = {
         
         rm: {
           red: {
-            DEFAULT: "#E60000",
-            glow: "rgba(230, 0, 0, 0.6)",
-            dim: "rgba(230, 0, 0, 0.12)",
+            DEFAULT: "#E8302A",
+            glow: "rgba(232, 48, 42, 0.7)",
+            dim: "rgba(232, 48, 42, 0.12)",
           },
           blue: {
-            DEFAULT: "#00A3FF",
-            glow: "rgba(0, 163, 255, 0.6)",
-            dim: "rgba(0, 163, 255, 0.12)",
+            DEFAULT: "#2A9FFF",
+            glow: "rgba(42, 159, 255, 0.7)",
+            dim: "rgba(42, 159, 255, 0.12)",
           },
-          // Pure Neutral Metal - Removed ALL Blue Tints
           metal: {
-            dark: "#050505",   // Absolute neutral near-black
-            panel: "#121212",  // Pure dark grey panel 
-            border: "#2A2A2A", // Pure medium grey border
-            text: "#A3A3A3"    // Pure light grey text
+            dark: "#09090B",
+            raised: "#101012",
+            panel: "#16161A",
+            card: "#1C1C1F",
+            border: "#2A2A2E",
+            text: "#A3A3A3",
+            textLight: "#EDEDEF",
+            textMuted: "#A1A1AA",
+            textFaint: "#71717A"
           },
           status: {
-            safe: "#00FF9D",
+            safe: "#00E878",
             warn: "#FFB000",
-            dead: "#4B5563"
+            dead: "#4B5563",
+            upset: "#E8302A",
+            deviation: "#A855F7",
+            prediction: "#2A9FFF",
+            scheduled: "#FACC15",
+            confirmed: "#00E878",
+            pending: "#FFB000"
+          },
+          accent: {
+            DEFAULT: "#0EA5E9",
+            glow: "rgba(14, 165, 233, 0.4)",
+            dim: "rgba(14, 165, 233, 0.12)",
+          },
+          violet: {
+            DEFAULT: "#8B5CF6",
+            glow: "rgba(139, 92, 246, 0.4)",
+            dim: "rgba(139, 92, 246, 0.12)",
+          },
+          result: {
+            winner: "#F0972C",
+            winnerGlow: "rgba(240, 151, 44, 0.8)",
+            loser: "#7A7C80",
+            neutral: "#F5F7FA"
           }
         }
       },
@@ -68,10 +94,20 @@ const config: Config = {
           'clip-path': 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))',
         },
         '.text-glow-red': {
-          'text-shadow': '0 0 10px rgba(230, 0, 0, 0.8)',
+          'text-shadow': '0 0 10px rgba(232, 48, 42, 0.7)',
         },
         '.text-glow-blue': {
-          'text-shadow': '0 0 10px rgba(0, 163, 255, 0.8)',
+          'text-shadow': '0 0 10px rgba(42, 159, 255, 0.7)',
+        },
+        '.text-glow-winner': {
+          'text-shadow': '0 0 24px rgba(240, 151, 44, 0.8), 0 0 48px rgba(240, 151, 44, 0.3)',
+        },
+        '.text-glow-violet': {
+          'text-shadow': '0 0 10px rgba(139, 92, 246, 0.7)',
+        },
+        '.glass-panel': {
+          'backdrop-filter': 'blur(6px)',
+          'background': 'rgba(4, 6, 8, 0.75)',
         },
       })
     }
