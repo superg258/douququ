@@ -3,7 +3,7 @@
   "snapshot_date": "2026-11-12",
   "rating_scale": 135.0,
   "beta_perf": 1.8865294456481934,
-  "online_live_update_scale": 0.5,
+  "online_live_update_scale": 0.33,
   "source_model_dir": "data/derived/2026_rmuc_ts2/model_fit_20260420_full",
   "preseason_snapshot_path": "data/derived/2026_rmuc_ts2/published_2026/preseason_snapshot.parquet",
   "live_state_updates_path": "data/derived/2026_rmuc_ts2/published_2026/live_state_updates.parquet",

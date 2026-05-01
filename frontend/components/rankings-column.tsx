@@ -138,10 +138,10 @@ function RankingRow({
           </div>
         </div>
 
-        {/* Right: ELO */}
+        {/* Right: TS2 */}
         <div className="text-right shrink-0 ml-3">
           <div className="text-[8px] text-rm-metal-textFaint tracking-widest uppercase mb-0.5">
-            ELO
+            TS2
           </div>
           <div className={cn(
             "font-mono text-base font-bold tabular-nums",
@@ -237,7 +237,7 @@ export function RankingsColumn({
           </div>
           <div className="flex flex-col gap-0.5">
             <span className="text-rm-metal-textFaint text-[8px] tracking-widest uppercase">
-              八强均ELO
+              八强均TS2
             </span>
             <span className={cn("font-bold text-xs", a.text)}>
               {elo(top8AverageElo)}
@@ -245,7 +245,7 @@ export function RankingsColumn({
           </div>
           <div className="flex flex-col gap-0.5">
             <span className="text-rm-metal-textFaint text-[8px] tracking-widest uppercase">
-              中位Elo
+              中位TS2
             </span>
             <span className={cn("font-bold text-xs", a.text)}>
               {elo(medianElo)}

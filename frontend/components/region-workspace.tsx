@@ -311,7 +311,7 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
         
         <div className="space-y-6">
           <div className="bg-rm-metal-dark border border-rm-metal-border p-3 grid grid-cols-2 gap-2 text-[10px] font-mono">
-            <span className="text-rm-metal-text">Elo {selectedOverviewTeam.mu0.toFixed(1)}</span>
+            <span className="text-rm-metal-text">TS2 {selectedOverviewTeam.mu0.toFixed(1)}</span>
             <span className="text-rm-metal-text">全球 #{selectedOverviewTeam.eloGlobalRank}</span>
             <span className="col-span-2 text-rm-status-safe">国赛率 {percent(selectedOverviewTeam.probabilities.national)}</span>
             <span className="col-span-2 text-rm-status-warn">复活赛 {percent(selectedOverviewTeam.probabilities.repechage)}</span>
@@ -371,14 +371,23 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
             regionName={regionOverview?.regionName}
           />
 
-          <div className="text-center font-machine text-xl text-white tracking-widest bg-rm-metal-dark border border-rm-metal-border py-4 relative overflow-hidden">
-             {selectedMatch.scoreline}
-             <div className="absolute bottom-1 right-2 text-[9px] text-rm-metal-text font-sans">实际 BO{selectedMatch.bestOf}</div>
-          </div>
-          
+          {selectedMatch.isRealResult ? (
+            <div className={cn("text-center font-machine text-xl text-white tracking-widest bg-rm-metal-dark border py-4 relative overflow-hidden",
+              !actualWinnerSame ? "border-[#ef4444] text-[#ef4444]" : !actualScoreSame ? "border-[#a855f7] text-[#a855f7]" : "border-rm-status-safe text-rm-status-safe"
+            )}>
+               {selectedMatch.scoreline}
+               <div className="absolute bottom-1 right-2 text-[9px] text-rm-metal-text font-sans">实际 BO{selectedMatch.bestOf}</div>
+            </div>
+          ) : (
+            <div className="text-center font-machine text-sm text-rm-metal-text border border-dashed border-rm-metal-border bg-rm-metal-dark py-4 relative overflow-hidden">
+               尚未产生正式赛果
+               <div className="absolute bottom-1 right-2 text-[9px] text-rm-metal-text/50 font-sans">BO{selectedMatch.bestOf}</div>
+            </div>
+          )}
+
           <div className={cn("text-center font-machine text-lg tracking-widest bg-rm-metal-dark border py-3 relative overflow-hidden",
-            selectedMatch.isRealResult 
-              ? (!actualWinnerSame ? "border-[#ef4444] text-[#ef4444]" : !actualScoreSame ? "border-[#a855f7] text-[#a855f7]" : "border-rm-status-safe text-rm-status-safe")
+            selectedMatch.isRealResult
+              ? (actualScoreSame ? "border-rm-status-safe text-rm-status-safe" : "border-[#a855f7] text-[#a855f7]")
               : "border-rm-blue text-rm-blue"
           )}>
              {predictedScore.scoreline}
@@ -406,11 +415,11 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
                 <div className="col-span-2 border-t border-rm-metal-border my-1"></div>
               </>
             ) : null}
-            {/* Show ELO changes only for matches with an actual published result */}
+            {/* Show TS2 changes only for matches with an actual published result */}
             {hasMatchElo(selectedMatch) && (
               <>
                 <span className="text-rm-red opacity-80 flex items-center justify-between col-span-2 mt-1">
-                  <span className="text-rm-red font-bold">{selectedMatch.redTeam?.collegeName || "红方 ELO"}</span>
+                  <span className="text-rm-red font-bold">{selectedMatch.redTeam?.collegeName || "红方 TS2"}</span>
                   <span className="font-bold flex gap-2">
                     <span className="text-white">{selectedMatch.redMu0?.toFixed(1)}</span>
                     <span className={selectedMatch.redDelta > 0 ? "text-rm-status-safe" : selectedMatch.redDelta < 0 ? "text-rm-red" : "text-rm-metal-text"}>
@@ -420,7 +429,7 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
                   </span>
                 </span>
                 <span className="text-rm-blue opacity-80 flex items-center justify-between col-span-2 mt-1">
-                  <span className="text-rm-blue font-bold">{selectedMatch.blueTeam?.collegeName || "蓝方 ELO"}</span>
+                  <span className="text-rm-blue font-bold">{selectedMatch.blueTeam?.collegeName || "蓝方 TS2"}</span>
                   <span className="font-bold flex gap-2">
                     <span className="text-white">{selectedMatch.blueMu0?.toFixed(1)}</span>
                     <span className={selectedMatch.blueDelta > 0 ? "text-rm-status-safe" : selectedMatch.blueDelta < 0 ? "text-rm-red" : "text-rm-metal-text"}>
@@ -435,7 +444,7 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
             {!hasMatchElo(selectedMatch) && (
               <>
                 <span className="col-span-2 text-rm-metal-text">
-                  本场尚未产生实际赛果，不计算 Elo 变化，避免把模拟分支误当成真实总榜更新。
+                  本场尚未产生实际赛果，不计算 TS2 变化，避免把模拟分支误当成真实总榜更新。
                 </span>
                 <div className="col-span-2 border-t border-rm-metal-border my-1"></div>
               </>

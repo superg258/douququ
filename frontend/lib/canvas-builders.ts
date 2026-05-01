@@ -26,6 +26,7 @@ type SwissBucketKey = `${number}-${number}`;
 interface SwissReplayArtifacts {
   matchBuckets: Record<string, string[]>;
   summaryBuckets: Record<string, GroupRankingRow[]>;
+  summaryIsSimulated: Record<string, Record<string, boolean>>;
 }
 
 const MATCH_CARD_WIDTH = 400;
@@ -265,6 +266,7 @@ function buildTeamCard({
   meta,
   width,
   height,
+  isSimulated,
 }: {
   id: string;
   teamKey: string;
@@ -280,6 +282,7 @@ function buildTeamCard({
   meta?: string[];
   width?: number;
   height?: number;
+  isSimulated?: boolean;
 }): TeamCanvasCard {
   return {
     id,
@@ -297,6 +300,7 @@ function buildTeamCard({
     subtitle,
     statLine,
     meta,
+    isSimulated,
   };
 }
 
@@ -384,7 +388,7 @@ function replaySwissBuckets(simulation: SimulationResponse, groupName: "A" | "B"
       return left.matchLabel.localeCompare(right.matchLabel);
     });
 
-  const state = new Map<string, { wins: number; losses: number }>();
+  const state = new Map<string, { wins: number; losses: number; allReal: boolean }>();
   const matchBuckets: Record<string, string[]> = {};
   const teamBuckets: Record<string, string[]> = {
     "qualified-3-0": [],
@@ -394,10 +398,13 @@ function replaySwissBuckets(simulation: SimulationResponse, groupName: "A" | "B"
     "eliminated-1-3": [],
     "eliminated-2-3": [],
   };
+  const summaryIsSimulated: Record<string, Record<string, boolean>> = Object.fromEntries(
+    Object.keys(teamBuckets).map((bucket) => [bucket, {}])
+  );
 
   const ensureState = (teamKey: string) => {
     if (!state.has(teamKey)) {
-      state.set(teamKey, { wins: 0, losses: 0 });
+      state.set(teamKey, { wins: 0, losses: 0, allReal: true });
     }
     return state.get(teamKey)!;
   };
@@ -409,6 +416,9 @@ function replaySwissBuckets(simulation: SimulationResponse, groupName: "A" | "B"
     matchBuckets[bucketKey] ??= [];
     matchBuckets[bucketKey].push(match.matchLabel);
 
+    const matchIsReal = Boolean(match.isRealResult);
+    redState.allReal = redState.allReal && matchIsReal;
+    blueState.allReal = blueState.allReal && matchIsReal;
     redState.wins += match.winnerTeamKey === match.redTeam.teamKey ? 1 : 0;
     redState.losses += match.winnerTeamKey === match.redTeam.teamKey ? 0 : 1;
     blueState.wins += match.winnerTeamKey === match.blueTeam.teamKey ? 1 : 0;
@@ -419,10 +429,14 @@ function replaySwissBuckets(simulation: SimulationResponse, groupName: "A" | "B"
       [match.blueTeam.teamKey, blueState],
     ] as const) {
       if (teamState.wins === 3) {
-        teamBuckets[`qualified-3-${teamState.losses}`].push(teamKey);
+        const bucket = `qualified-3-${teamState.losses}`;
+        teamBuckets[bucket].push(teamKey);
+        summaryIsSimulated[bucket][teamKey] = !teamState.allReal;
       }
       if (teamState.losses === 3) {
-        teamBuckets[`eliminated-${teamState.wins}-3`].push(teamKey);
+        const bucket = `eliminated-${teamState.wins}-3`;
+        teamBuckets[bucket].push(teamKey);
+        summaryIsSimulated[bucket][teamKey] = !teamState.allReal;
       }
     }
   }
@@ -437,7 +451,7 @@ function replaySwissBuckets(simulation: SimulationResponse, groupName: "A" | "B"
       .sort((left, right) => left.groupRank - right.groupRank);
   }
 
-  return { matchBuckets, summaryBuckets };
+  return { matchBuckets, summaryBuckets, summaryIsSimulated };
 }
 
 export function summaryBucketTeams(
@@ -478,6 +492,7 @@ interface QualificationOutcomeRow {
   row: FinalRankingRow;
   sourceLabel: string;
   sourceStage: QualificationSourceStage;
+  isSimulated: boolean;
 }
 
 function buildQualificationOutcomeRows(simulation: SimulationResponse) {
@@ -493,7 +508,8 @@ function buildQualificationOutcomeRows(simulation: SimulationResponse) {
     teamKey: string,
     bucket: QualificationOutcomeKey,
     sourceLabel: string,
-    sourceStage: QualificationSourceStage
+    sourceStage: QualificationSourceStage,
+    isSimulated: boolean
   ) => {
     const row = rowsByKey.get(teamKey);
     if (!row) {
@@ -504,7 +520,7 @@ function buildQualificationOutcomeRows(simulation: SimulationResponse) {
       return;
     }
     seen.add(id);
-    outcomes[bucket].push({ row, sourceLabel, sourceStage });
+    outcomes[bucket].push({ row, sourceLabel, sourceStage, isSimulated });
   };
 
   simulation.matches
@@ -522,22 +538,22 @@ function buildQualificationOutcomeRows(simulation: SimulationResponse) {
           : "复活赛突围战";
 
       if (match.winnerNext === "national_qualified") {
-        pushOutcome(match.winnerTeamKey, "national", `${stagePrefix}胜者`, sourceStage);
+        pushOutcome(match.winnerTeamKey, "national", `${stagePrefix}胜者`, sourceStage, !match.isRealResult);
       }
       if (match.loserNext === "national_qualified") {
-        pushOutcome(match.loserTeamKey, "national", `${stagePrefix}负者`, sourceStage);
+        pushOutcome(match.loserTeamKey, "national", `${stagePrefix}负者`, sourceStage, !match.isRealResult);
       }
       if (match.winnerNext === "repechage_qualified") {
-        pushOutcome(match.winnerTeamKey, "repechage", `${stagePrefix}胜者`, sourceStage);
+        pushOutcome(match.winnerTeamKey, "repechage", `${stagePrefix}胜者`, sourceStage, !match.isRealResult);
       }
       if (match.loserNext === "repechage_qualified") {
-        pushOutcome(match.loserTeamKey, "repechage", `${stagePrefix}负者`, sourceStage);
+        pushOutcome(match.loserTeamKey, "repechage", `${stagePrefix}负者`, sourceStage, !match.isRealResult);
       }
       if (match.winnerNext === "eliminated") {
-        pushOutcome(match.winnerTeamKey, "eliminated", `${stagePrefix}胜者`, sourceStage);
+        pushOutcome(match.winnerTeamKey, "eliminated", `${stagePrefix}胜者`, sourceStage, !match.isRealResult);
       }
       if (match.loserNext === "eliminated") {
-        pushOutcome(match.loserTeamKey, "eliminated", `${stagePrefix}负者`, sourceStage);
+        pushOutcome(match.loserTeamKey, "eliminated", `${stagePrefix}负者`, sourceStage, !match.isRealResult);
       }
     });
 
@@ -596,7 +612,7 @@ function buildSlotsStage(simulation: SimulationResponse): WorkspaceStage {
           y: 134 + index * 96,
           orderLabel: slot.slot ?? "--",
           subtitle: slot.teamName,
-          statLine: `${slot.seedTier} / Elo #${slot.eloGlobalRank}`,
+          statLine: `${slot.seedTier} / TS2 #${slot.eloGlobalRank}`,
           tone: "cyan",
         })
       );
@@ -607,7 +623,7 @@ function buildSlotsStage(simulation: SimulationResponse): WorkspaceStage {
     id: "slots",
     label: "抽签落位",
     title: "小组抽签落位",
-    description: "先看两组抽签位置、种子档位与 Elo 顺位，再进入后续赛程。",
+    description: "先看两组抽签位置、种子档位与 TS2 顺位，再进入后续赛程。",
     width: 1160,
     height: 1040,
     headers,
@@ -702,6 +718,7 @@ function buildSwissStage(groupName: "A" | "B", simulation: SimulationResponse, v
             variant: "summary",
             width: DETAIL_TEAM_CARD_WIDTH,
             height: DETAIL_TEAM_CARD_HEIGHT,
+            isSimulated: artifacts.summaryIsSimulated[section.summaryId]?.[row.teamKey] ?? true,
           })
         );
       });
@@ -938,7 +955,7 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
       return { bottom: y };
     }
     addHeader(id, x, y, DETAIL_TEAM_CARD_WIDTH, title, subtitle, tone);
-    rows.forEach(({ row, sourceLabel }, index) => {
+    rows.forEach(({ row, sourceLabel, isSimulated }, index) => {
       cards.push(
         buildTeamCard({
           id: `${id}-${row.teamKey}`,
@@ -954,6 +971,7 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
           variant: "summary",
           width: DETAIL_TEAM_CARD_WIDTH,
           height: DETAIL_TEAM_CARD_HEIGHT,
+          isSimulated,
         })
       );
     });

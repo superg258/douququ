@@ -14,7 +14,8 @@ from typing import Any
 import build_rmuc_elo as elo_model
 
 
-DEFAULT_RATINGS_CSV = elo_model.DERIVED_DIR / "preseason_ratings.csv"
+TS2_DERIVED_DIR = elo_model.ROOT / "data" / "derived" / "2026_rmuc_ts2"
+DEFAULT_RATINGS_CSV = TS2_DERIVED_DIR / "preseason_ratings.csv"
 ENABLE_HEAD_TO_HEAD = False
 HISTORICAL_MATCH_PATHS = [
     elo_model.ROOT / "data" / "extracted" / "2024RMUC" / "matches.csv",
@@ -30,6 +31,26 @@ DEFAULT_MONTE_CARLO_SAMPLES = 20_000
 DEFAULT_MONTE_CARLO_SEED = 20260414
 MATCHUP_ELO_SCALE = 320.0
 MATCHUP_SIGMA_FACTOR = 0.5
+
+
+def float_field(row: dict[str, Any], key: str, default: float = 0.0) -> float:
+    value = row.get(key)
+    if value in (None, ""):
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def int_field(row: dict[str, Any], key: str, default: int = 0) -> int:
+    value = row.get(key)
+    if value in (None, ""):
+        return default
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
 
 
 def load_ratings(path: Path) -> dict[str, dict[str, str]]:
@@ -220,39 +241,78 @@ def compute_scoreline_distribution(best_of: int, p_game_a: float) -> dict[str, f
 
 
 def classify_confidence(row_a: dict[str, str], row_b: dict[str, str]) -> str:
-    sigma_a = float(row_a["sigma0"])
-    sigma_b = float(row_b["sigma0"])
+    sigma_a = float_field(row_a, "sigma0")
+    sigma_b = float_field(row_b, "sigma0")
     max_sigma = max(sigma_a, sigma_b)
-    min_rmuc_matches = min(int(row_a["n_matches_2025_rmuc"]), int(row_b["n_matches_2025_rmuc"]))
-    if max_sigma <= 58.0 and min_rmuc_matches >= 8:
+    if "n_matches_2025_rmuc" in row_a and "n_matches_2025_rmuc" in row_b:
+        min_rmuc_matches = min(int_field(row_a, "n_matches_2025_rmuc"), int_field(row_b, "n_matches_2025_rmuc"))
+        if max_sigma <= 58.0 and min_rmuc_matches >= 8:
+            return "high"
+        if max_sigma <= 72.0:
+            return "medium"
+        return "low"
+
+    min_history_strength = min(
+        float_field(row_a, "rmuc_history_strength"),
+        float_field(row_b, "rmuc_history_strength"),
+    )
+    if max_sigma <= 42.0 and min_history_strength >= 0.65:
         return "high"
-    if max_sigma <= 72.0:
+    if max_sigma <= 50.0:
         return "medium"
     return "low"
 
 
 def build_feature_deltas(row_a: dict[str, str], row_b: dict[str, str]) -> dict[str, float]:
     out: dict[str, float] = {}
-    for name in ["mu0", "sigma0", "z_25game", "z_robot25_raw", "z_26rmul", "z_form", "tilde_z_hist"]:
-        out[name] = round(float(row_a[name]) - float(row_b[name]), 6)
-    out["n_matches_2025_rmuc"] = int(row_a["n_matches_2025_rmuc"]) - int(row_b["n_matches_2025_rmuc"])
-    out["n_matches_2026_rmul"] = int(row_a["n_matches_2026_rmul"]) - int(row_b["n_matches_2026_rmul"])
-    out["robot_stage_reliability"] = round(
-        float(row_a["robot_stage_reliability"]) - float(row_b["robot_stage_reliability"]),
-        6,
-    )
+    numeric_fields = [
+        "mu0",
+        "sigma0",
+        "program_base_theta",
+        "prior_delta_theta",
+        "regional_pre_theta",
+        "regional_pre_rating",
+        "pre_signal_sd_theta",
+        "pre_signal_sd_rating",
+        "rmuc_history_strength",
+        "ranking_score",
+        "z_25game",
+        "z_robot25_raw",
+        "z_26rmul",
+        "z_form",
+        "tilde_z_hist",
+        "robot_stage_reliability",
+    ]
+    for name in numeric_fields:
+        if name in row_a or name in row_b:
+            out[name] = round(float_field(row_a, name) - float_field(row_b, name), 6)
+    for name in ["n_matches_2025_rmuc", "n_matches_2026_rmul"]:
+        if name in row_a or name in row_b:
+            out[name] = int_field(row_a, name) - int_field(row_b, name)
+    if "shape_rank" in row_a or "shape_rank" in row_b:
+        # Lower rank is better, so invert the difference to keep positive values
+        # pointing toward school A like the other feature deltas.
+        out["shape_rank_edge"] = int_field(row_b, "shape_rank", 9999) - int_field(row_a, "shape_rank", 9999)
     return out
 
 
 def summarize_feature_edges(feature_deltas: dict[str, float], school_a: str, school_b: str) -> str:
-    label_map = {
-        "z_25game": "2025RMUC实战",
-        "z_robot25_raw": "robot工程质量",
-        "z_26rmul": "RMUL近期状态",
-        "z_form": "完整形态",
-        "tilde_z_hist": "学校历史底蕴",
-    }
-    ranked = sorted(label_map, key=lambda key: abs(feature_deltas[key]), reverse=True)[:2]
+    if "regional_pre_theta" in feature_deltas:
+        label_map = {
+            "program_base_theta": "RMUC长期基础",
+            "prior_delta_theta": "区域赛前证据",
+            "rmuc_history_strength": "历史强度",
+        }
+    else:
+        label_map = {
+            "z_25game": "2025RMUC实战",
+            "z_robot25_raw": "robot工程质量",
+            "z_26rmul": "RMUL近期状态",
+            "z_form": "完整形态",
+            "tilde_z_hist": "学校历史底蕴",
+        }
+    candidate_keys = [key for key in label_map if key in feature_deltas]
+    ranked = sorted(candidate_keys, key=lambda key: abs(feature_deltas[key]), reverse=True)[:2]
     parts = []
     for key in ranked:
         diff = feature_deltas[key]
@@ -334,6 +394,7 @@ def predict_matchup(
         "feature_deltas": feature_deltas,
         "confidence_label": confidence_label,
         "explanation_summary": {
+            "rating_diff": round(mu_a - mu_b, 6),
             "elo_diff": round(mu_a - mu_b, 6),
             "top_feature_edges": summarize_feature_edges(feature_deltas, resolved_a, resolved_b),
         },
@@ -348,7 +409,7 @@ def render_text_prediction(prediction: dict[str, Any]) -> str:
     lines = [
         f"{team_a['school_name']} vs {team_b['school_name']} | BO{prediction['best_of']}",
         (
-            f"Elo: {team_a['school_name']} {team_a['mu0']:.3f} (sigma {team_a['sigma0']:.3f}) | "
+            f"TS2 rating: {team_a['school_name']} {team_a['mu0']:.3f} (sigma {team_a['sigma0']:.3f}) | "
             f"{team_b['school_name']} {team_b['mu0']:.3f} (sigma {team_b['sigma0']:.3f})"
         ),
         (
@@ -370,7 +431,7 @@ def render_text_prediction(prediction: dict[str, Any]) -> str:
         ),
         f"Predicted winner: {winner}",
         (
-            f"Explanation: Elo diff {prediction['explanation_summary']['elo_diff']:+.3f}; "
+            f"Explanation: TS2 diff {prediction['explanation_summary']['rating_diff']:+.3f}; "
             f"{prediction['explanation_summary']['top_feature_edges']}; "
             f"confidence={prediction['confidence_label']}"
         ),
@@ -379,7 +440,7 @@ def render_text_prediction(prediction: dict[str, Any]) -> str:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Predict a RMUC BO3/BO5 matchup from preseason Elo priors.")
+    parser = argparse.ArgumentParser(description="Predict a RMUC BO3/BO5 matchup from preseason TS2 priors.")
     parser.add_argument("--school-a", required=True, help="School name for side A.")
     parser.add_argument("--school-b", required=True, help="School name for side B.")
     parser.add_argument("--best-of", required=True, type=int, choices=[3, 5], help="Series length: 3 or 5.")

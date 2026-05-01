@@ -113,7 +113,7 @@ def _regional_pre_config(config: dict[str, Any] | None) -> RegionalPreModelConfi
         prior_delta_cap_min=float(payload.get("prior_delta_cap_min", 0.22)),
         prior_delta_cap_max=float(payload.get("prior_delta_cap_max", 0.90)),
         history_cap_curve=float(payload.get("history_cap_curve", 0.80)),
-        online_live_update_scale=float(payload.get("online_live_update_scale", 0.50)),
+        online_live_update_scale=float(payload.get("online_live_update_scale", 0.33)),
     )
 
 

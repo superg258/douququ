@@ -96,7 +96,7 @@ function RaceBattle({
               守位 {pct(cutoffProbability)}
             </span>
             <span className="font-mono text-[10px] text-rm-metal-textFaint">
-              ELO {elo(cutoffTeam.mu0)}
+              TS2 {elo(cutoffTeam.mu0)}
             </span>
           </div>
         </div>
@@ -154,7 +154,7 @@ function CompactRosterTable({ teams, regionSlug }: { teams: OverviewTeam[]; regi
           战力矩阵
         </span>
         <span className="text-[8px] text-rm-metal-textFaint/50 ml-auto">
-          ELO 降序
+          TS2 降序
         </span>
       </div>
       <table className="w-full text-[10px] border-collapse">
@@ -162,7 +162,7 @@ function CompactRosterTable({ teams, regionSlug }: { teams: OverviewTeam[]; regi
           <tr className="border-b border-rm-metal-border text-rm-metal-textFaint text-[8px] uppercase tracking-widest">
             <td className="py-1.5 w-6">#</td>
             <td className="py-1.5">高校</td>
-            <td className="py-1.5 text-right">ELO</td>
+            <td className="py-1.5 text-right">TS2</td>
             <td className="py-1.5 text-center w-16">国赛</td>
             <td className="py-1.5 text-center w-12">夺冠</td>
           </tr>
@@ -226,14 +226,14 @@ export function RegionCard({ region }: { region: RegionDashboardCard }) {
           // Per-region gradient: brighter, more saturated colors
           region.regionSlug === "south_region"
             ? (realtimeEnabled
-                ? "bg-[linear-gradient(135deg,rgba(0,232,120,0.22),rgba(28,28,31,0.2),rgba(232,48,42,0.18))] hover:bg-[linear-gradient(135deg,rgba(0,232,120,0.32),rgba(22,22,26,0.25),rgba(232,48,42,0.28))]"
+                ? "bg-[linear-gradient(135deg,rgba(232,48,42,0.22),rgba(28,28,31,0.2),rgba(232,196,74,0.18))] hover:bg-[linear-gradient(135deg,rgba(232,48,42,0.32),rgba(22,22,26,0.25),rgba(232,196,74,0.28))]"
                 : "bg-[linear-gradient(135deg,rgba(232,48,42,0.20),rgba(28,28,31,0.2),rgba(45,212,191,0.16))] hover:bg-[linear-gradient(135deg,rgba(232,48,42,0.30),rgba(22,22,26,0.25),rgba(45,212,191,0.26))]")
             : region.regionSlug === "east_region"
             ? (realtimeEnabled
-                ? "bg-[linear-gradient(135deg,rgba(0,232,120,0.22),rgba(28,28,31,0.2),rgba(42,159,255,0.18))] hover:bg-[linear-gradient(135deg,rgba(0,232,120,0.32),rgba(22,22,26,0.25),rgba(42,159,255,0.28))]"
+                ? "bg-[linear-gradient(135deg,rgba(42,159,255,0.22),rgba(28,28,31,0.2),rgba(232,196,74,0.18))] hover:bg-[linear-gradient(135deg,rgba(42,159,255,0.32),rgba(22,22,26,0.25),rgba(232,196,74,0.28))]"
                 : "bg-[linear-gradient(135deg,rgba(42,159,255,0.20),rgba(28,28,31,0.2),rgba(45,212,191,0.16))] hover:bg-[linear-gradient(135deg,rgba(42,159,255,0.30),rgba(22,22,26,0.25),rgba(45,212,191,0.26))]")
             : (realtimeEnabled
-                ? "bg-[linear-gradient(135deg,rgba(0,232,120,0.22),rgba(28,28,31,0.2),rgba(139,92,246,0.18))] hover:bg-[linear-gradient(135deg,rgba(0,232,120,0.32),rgba(22,22,26,0.25),rgba(139,92,246,0.28))]"
+                ? "bg-[linear-gradient(135deg,rgba(139,92,246,0.22),rgba(28,28,31,0.2),rgba(232,196,74,0.18))] hover:bg-[linear-gradient(135deg,rgba(139,92,246,0.32),rgba(22,22,26,0.25),rgba(232,196,74,0.28))]"
                 : "bg-[linear-gradient(135deg,rgba(139,92,246,0.20),rgba(28,28,31,0.2),rgba(45,212,191,0.16))] hover:bg-[linear-gradient(135deg,rgba(139,92,246,0.30),rgba(22,22,26,0.25),rgba(45,212,191,0.26))]"),
           region.regionSlug === "south_region" ? "border-l-rm-red/60" :
           region.regionSlug === "east_region" ? "border-l-rm-blue/60" : "border-l-rm-violet/60",
@@ -301,7 +301,7 @@ export function RegionCard({ region }: { region: RegionDashboardCard }) {
             {region.favorite.collegeName}
           </div>
           <span className={cn("text-[11px] font-bold font-mono", accent.link)}>
-            夺冠率 {pct(region.favorite.probabilities.champion)} · ELO {elo(region.favorite.mu0)}
+            夺冠率 {pct(region.favorite.probabilities.champion)} · TS2 {elo(region.favorite.mu0)}
           </span>
         </div>
         <div className="text-right">

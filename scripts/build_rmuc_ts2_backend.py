@@ -93,12 +93,13 @@ def build_backend_export(
         snapshot_row = snapshot_rows.get(key)
         if snapshot_row is None:
             raise ValueError(f"Missing TS2 snapshot row for school_key={key}")
-        team_name = participant["team_name_2026"]
+        college_name = legacy_elo.normalize_school(participant["college_name"])
+        team_name = legacy_elo.normalize_team(participant["team_name_2026"])
         export_rows.append(
             {
-                "team_key": make_team_key(participant["college_name"], team_name),
+                "team_key": make_team_key(college_name, team_name),
                 "school_key": key,
-                "college_name": participant["college_name"],
+                "college_name": college_name,
                 "team_name": team_name,
                 "preferred_region": participant["preferred_region"],
                 "admitted_region": participant["admitted_region"],

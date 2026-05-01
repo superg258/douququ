@@ -78,7 +78,7 @@ def load_manifest(base_published_dir: Path) -> dict[str, Any]:
     path = base_published_dir / "published_manifest.json"
     if path.exists():
         return load_json(path)
-    return {"season": 2026, "rating_scale": 135.0, "beta_perf": 1.8865294456481934, "online_live_update_scale": 0.5}
+    return {"season": 2026, "rating_scale": 135.0, "beta_perf": 1.8865294456481934, "online_live_update_scale": 0.33}
 
 
 def build_preseason_snapshot(preseason_ratings: Path, *, season: int, snapshot_date: str, rating_scale: float):
@@ -161,7 +161,7 @@ def publish_runtime_artifacts(
         rating_scale=rating_scale,
         pre_decay_matches=3,
         beta_perf=float(manifest.get("beta_perf", 1.8865294456481934)),
-        online_update_scale=float(manifest.get("online_live_update_scale", 0.5)),
+        online_update_scale=float(manifest.get("online_live_update_scale", 0.33)),
     )
     if not existing.empty:
         live_updates = pd.concat([existing, live_updates], ignore_index=True)
@@ -181,7 +181,7 @@ def publish_runtime_artifacts(
             "snapshot_date": snapshot_date,
             "rating_scale": rating_scale,
             "beta_perf": float(manifest.get("beta_perf", 1.8865294456481934)),
-            "online_live_update_scale": float(manifest.get("online_live_update_scale", 0.5)),
+            "online_live_update_scale": float(manifest.get("online_live_update_scale", 0.33)),
             "generated_at": datetime.now(tz=UTC).isoformat(),
             "source_status": normalized.get("sourceStatus"),
             "source_updated_at": normalized.get("sourceUpdatedAt"),

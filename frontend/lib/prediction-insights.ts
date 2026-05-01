@@ -128,7 +128,7 @@ function buildReasons(match: MatchRow, favoriteName: string, favoriteRate: numbe
   if (typeof match.redMu0 === "number" && typeof match.blueMu0 === "number") {
     const eloGap = Math.abs(match.redMu0 - match.blueMu0);
     const eloLeader = match.redMu0 >= match.blueMu0 ? match.redTeam.collegeName : match.blueTeam.collegeName;
-    reasons.push(`Elo 赛前差约 ${eloGap.toFixed(1)}，战力侧更偏向 ${eloLeader}。`);
+    reasons.push(`TS2 赛前差约 ${eloGap.toFixed(1)}，战力侧更偏向 ${eloLeader}。`);
   }
 
   if (Math.abs(match.deltaH2H) >= 0.1) {

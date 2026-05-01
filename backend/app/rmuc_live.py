@@ -38,6 +38,32 @@ REGION_SLUG_TO_NAME = {
     "north_region": "北部赛区",
 }
 MP_MATCH_URL = "https://mp.robomaster.com/api/v1/match?matchID={match_id}"
+SWISS_EXPECTED_MATCHES_BY_ROUND = {
+    1: 8,
+    2: 8,
+    3: 8,
+    4: 6,
+    5: 3,
+}
+SWISS_TOTAL_MATCHES = sum(SWISS_EXPECTED_MATCHES_BY_ROUND.values()) * 2
+POST_GROUP_SOURCE_LABELS = {
+    "QF-1": ("R16-1", "R16-2"),
+    "QF-2": ("R16-4", "R16-3"),
+    "QF-3": ("R16-5", "R16-6"),
+    "QF-4": ("R16-8", "R16-7"),
+    "QUAL-1-1": ("R16-1", "R16-2"),
+    "QUAL-1-2": ("R16-4", "R16-3"),
+    "QUAL-1-3": ("R16-5", "R16-6"),
+    "QUAL-1-4": ("R16-8", "R16-7"),
+    "QUAL-2-1": ("QUAL-1-1", "QUAL-1-3"),
+    "QUAL-2-2": ("QUAL-1-2", "QUAL-1-4"),
+    "QUAL-R-1": ("QUAL-1-1", "QUAL-1-3"),
+    "QUAL-R-2": ("QUAL-1-2", "QUAL-1-4"),
+    "SF-1": ("QF-1", "QF-3"),
+    "SF-2": ("QF-2", "QF-4"),
+    "THIRD-1": ("SF-1", "SF-2"),
+    "FINAL-1": ("SF-1", "SF-2"),
+}
 
 
 def _now_iso() -> str:
@@ -92,6 +118,15 @@ def _scoreline(match: dict[str, Any]) -> str:
     return f"{red_wins}:{blue_wins}"
 
 
+def _optional_int(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _optional_float(value: Any) -> float | None:
     if value is None or value == "":
         return None
@@ -120,6 +155,19 @@ def _metric_value(items: dict[str, Any], *names: str) -> float | None:
         if value is not None:
             return value
     return None
+
+
+def _win_draw_loss_metrics(value: Any) -> dict[str, float | None]:
+    if value is None:
+        return {"wins": None, "draws": None, "losses": None}
+    parts = re.findall(r"-?\d+(?:\.\d+)?", str(value))
+    if len(parts) < 3:
+        return {"wins": None, "draws": None, "losses": None}
+    return {
+        "wins": float(parts[0]),
+        "draws": float(parts[1]),
+        "losses": float(parts[2]),
+    }
 
 
 def normalize_group_rank_metrics(
@@ -160,11 +208,19 @@ def normalize_group_rank_metrics(
                 if not college_name or not team_name:
                     continue
                 team_key = legacy_elo.make_team_key(college_name, team_name)
+                wdl_metrics = _win_draw_loss_metrics(items.get("胜/平/负"))
                 region_metrics[team_key] = {
                     "group_name": group_name,
                     "group_rank": _metric_value(items, "排名"),
-                    "wins": _metric_value(items, "胜场数"),
-                    "official_opponent_points": _metric_value(items, "对手分"),
+                    "wins": _metric_value(items, "胜场数", "胜") if wdl_metrics["wins"] is None else wdl_metrics["wins"],
+                    "draws": _metric_value(items, "平") if wdl_metrics["draws"] is None else wdl_metrics["draws"],
+                    "losses": _metric_value(items, "负场数", "负") if wdl_metrics["losses"] is None else wdl_metrics["losses"],
+                    "score_points": _metric_value(items, "积分"),
+                    "official_opponent_points": None,
+                    "source_reported_opponent_points": _metric_value(items, "对手分"),
+                    "official_total_victory_points_diff": _metric_value(items, "总净胜胜利点"),
+                    "official_total_team_damage": _metric_value(items, "全队总伤害血量"),
+                    "official_total_robot_remaining_hp": _metric_value(items, "全队机器人总剩余血量"),
                     "official_avg_base_hp_diff": _metric_value(
                         items,
                         "局均总基地净胜血量",
@@ -180,6 +236,43 @@ def normalize_group_rank_metrics(
                     "ranking_metric_source": "official_live",
                 }
     return regions
+
+
+def _computed_swiss_opponent_points(matches: list[dict[str, Any]]) -> dict[str, float]:
+    stats: dict[str, dict[str, int]] = {}
+    opponents: dict[str, list[str]] = {}
+
+    def ensure(team_key: str) -> None:
+        stats.setdefault(team_key, {"game_wins": 0, "game_losses": 0})
+        opponents.setdefault(team_key, [])
+
+    for match in matches:
+        if str(match.get("stage") or "") != "swiss" or not match.get("isCompleted"):
+            continue
+        red_key = str(match.get("redTeamKey") or "")
+        blue_key = str(match.get("blueTeamKey") or "")
+        if not red_key or not blue_key:
+            continue
+        red_wins = int(match.get("redWins") or 0)
+        blue_wins = int(match.get("blueWins") or 0)
+        ensure(red_key)
+        ensure(blue_key)
+        stats[red_key]["game_wins"] += red_wins
+        stats[red_key]["game_losses"] += blue_wins
+        stats[blue_key]["game_wins"] += blue_wins
+        stats[blue_key]["game_losses"] += red_wins
+        opponents[red_key].append(blue_key)
+        opponents[blue_key].append(red_key)
+
+    return {
+        team_key: float(
+            sum(
+                stats[opponent_key]["game_wins"] - stats[opponent_key]["game_losses"]
+                for opponent_key in opponent_keys
+            )
+        )
+        for team_key, opponent_keys in opponents.items()
+    }
 
 
 def _stage_family(match: dict[str, Any], zone_name: str) -> str:
@@ -201,6 +294,297 @@ def _stage_from_family(stage_family: str) -> str:
     return stage_family
 
 
+def _slot_group_name(*slots: Any) -> str:
+    groups = {str(slot or "").strip()[:1] for slot in slots if str(slot or "").strip()}
+    groups.discard("")
+    if len(groups) == 1:
+        return next(iter(groups))
+    return ""
+
+
+def _swiss_round_from_order_number(order_number: int | None) -> int | None:
+    if order_number is None:
+        return None
+    if 1 <= order_number <= 16:
+        return 1
+    if 17 <= order_number <= 32:
+        return 2
+    if 33 <= order_number <= 48:
+        return 3
+    if 49 <= order_number <= 60:
+        return 4
+    if 61 <= order_number <= 66:
+        return 5
+    return None
+
+
+def _post_group_normalized_order_number(order_number: int | None) -> int | None:
+    if order_number is None:
+        return None
+    if order_number >= 67:
+        return order_number - 66
+    return order_number if order_number > 0 else None
+
+
+def _post_group_stage_from_order_number(order_number: int | None, region_slug: str | None = None) -> str | None:
+    normalized_order = _post_group_normalized_order_number(order_number)
+    if normalized_order is None:
+        return None
+    if 1 <= normalized_order <= 8:
+        return "round_of_16"
+    if 9 <= normalized_order <= 12:
+        return "quarterfinal"
+    if 13 <= normalized_order <= 16:
+        return "qualification_round1"
+    if region_slug == "north_region":
+        if 17 <= normalized_order <= 20:
+            return "qualification_round2"
+        if 21 <= normalized_order <= 22:
+            return "semifinal"
+        if normalized_order == 23:
+            return "third_place"
+        if normalized_order == 24:
+            return "final"
+        return None
+    if 17 <= normalized_order <= 18:
+        return "qualification_round2"
+    if 19 <= normalized_order <= 20:
+        return "semifinal"
+    if normalized_order == 21:
+        return "third_place"
+    if normalized_order == 22:
+        return "final"
+    if normalized_order == 23:
+        return "third_place"
+    if normalized_order == 24:
+        return "final"
+    return None
+
+
+def _live_match_stage(match: dict[str, Any]) -> str:
+    stage = str(match.get("stage") or "").strip()
+    if str(match.get("stageFamily") or "") == "post_group":
+        return _post_group_stage_from_order_number(
+            _optional_int(match.get("orderNumber")),
+            str(match.get("regionSlug") or ""),
+        ) or stage
+    return stage
+
+
+def _post_group_match_label_from_order_number(
+    order_number: int | None,
+    *,
+    stage: str,
+    region_slug: str,
+) -> str | None:
+    normalized_order = _post_group_normalized_order_number(order_number)
+    if normalized_order is None:
+        return None
+    if stage == "round_of_16" and 1 <= normalized_order <= 8:
+        return f"R16-{normalized_order}"
+    if stage == "quarterfinal" and 9 <= normalized_order <= 12:
+        return f"QF-{normalized_order - 8}"
+    if stage == "qualification_round1" and 13 <= normalized_order <= 16:
+        return f"QUAL-1-{normalized_order - 12}"
+    if stage == "qualification_round2":
+        if region_slug == "north_region" and 19 <= normalized_order <= 20:
+            return f"QUAL-R-{normalized_order - 18}"
+        if 17 <= normalized_order <= 18:
+            return f"QUAL-2-{normalized_order - 16}"
+    if stage == "semifinal":
+        offset = 20 if region_slug == "north_region" else 18
+        index = normalized_order - offset
+        if 1 <= index <= 2:
+            return f"SF-{index}"
+    if stage == "third_place":
+        return "THIRD-1"
+    if stage == "final":
+        return "FINAL-1"
+    return None
+
+
+def _live_match_label(match: dict[str, Any]) -> str:
+    stage = _live_match_stage(match)
+    if str(match.get("stageFamily") or "") == "post_group":
+        # The live source order is the authority once official data exists.
+        # Rule-table/mock labels are useful as a plan, but must not override
+        # a changed official knockout/qualification order.
+        return _post_group_match_label_from_order_number(
+            _optional_int(match.get("orderNumber")),
+            stage=stage,
+            region_slug=str(match.get("regionSlug") or ""),
+        ) or ""
+    match_label = str(match.get("matchLabel") or "").strip()
+    if match_label:
+        return match_label
+    if stage == "swiss":
+        return ""
+    return _post_group_match_label_from_order_number(
+        _optional_int(match.get("orderNumber")),
+        stage=stage,
+        region_slug=str(match.get("regionSlug") or ""),
+    ) or ""
+
+
+def _live_match_round_number(match: dict[str, Any]) -> int | None:
+    round_number = _optional_int(match.get("roundNumber"))
+    if round_number is not None:
+        return round_number
+    if _live_match_stage(match) == "swiss":
+        return _swiss_round_from_order_number(_optional_int(match.get("orderNumber")))
+    return 1
+
+
+def _live_match_group_name(match: dict[str, Any]) -> str:
+    group_name = str(match.get("groupName") or "").strip()
+    if group_name:
+        return group_name[:1]
+    if match.get("matchLabel"):
+        return str(match["matchLabel"]).split("-", maxsplit=1)[0][:1]
+    return _slot_group_name(match.get("redSlot"), match.get("blueSlot"))
+
+
+def _completed_stage_matches(
+    matches: list[dict[str, Any]],
+    *,
+    stage: str,
+    expected_count: int,
+) -> bool:
+    stage_matches = [match for match in matches if _live_match_stage(match) == stage]
+    return len(stage_matches) >= expected_count and all(bool(match.get("isCompleted")) for match in stage_matches)
+
+
+def _completed_post_group_match_labels(matches: list[dict[str, Any]]) -> set[str]:
+    completed: set[str] = set()
+    for match in matches:
+        if not match.get("isCompleted"):
+            continue
+        if _live_match_stage(match) == "swiss":
+            continue
+        match_label = _live_match_label(match)
+        if match_label:
+            completed.add(match_label)
+    return completed
+
+
+def _post_group_sources_complete(match: dict[str, Any], matches: list[dict[str, Any]]) -> bool:
+    match_label = _live_match_label(match)
+    source_labels = POST_GROUP_SOURCE_LABELS.get(match_label)
+    if not source_labels:
+        return False
+    completed_labels = _completed_post_group_match_labels(matches)
+    return all(source_label in completed_labels for source_label in source_labels)
+
+
+def _swiss_completed_records(matches: list[dict[str, Any]], group_name: str) -> dict[str, tuple[int, int, int]]:
+    records: dict[str, list[int]] = {}
+    for match in matches:
+        if _live_match_stage(match) != "swiss" or _live_match_group_name(match) != group_name or not match.get("isCompleted"):
+            continue
+        red_key = str(match.get("redTeamKey") or "")
+        blue_key = str(match.get("blueTeamKey") or "")
+        if not red_key or not blue_key:
+            continue
+        red_wins = int(match.get("redWins") or 0)
+        blue_wins = int(match.get("blueWins") or 0)
+        records.setdefault(red_key, [0, 0, 0])
+        records.setdefault(blue_key, [0, 0, 0])
+        records[red_key][2] += 1
+        records[blue_key][2] += 1
+        if red_wins > blue_wins:
+            records[red_key][0] += 1
+            records[blue_key][1] += 1
+        elif blue_wins > red_wins:
+            records[blue_key][0] += 1
+            records[red_key][1] += 1
+    return {team_key: (wins, losses, played) for team_key, (wins, losses, played) in records.items()}
+
+
+def _pending_swiss_match_can_feed_record(
+    match: dict[str, Any],
+    records: dict[str, tuple[int, int, int]],
+    *,
+    target_wins: int,
+    target_losses: int,
+    target_played: int,
+) -> bool:
+    for side in ("redTeamKey", "blueTeamKey"):
+        team_key = str(match.get(side) or "")
+        wins, losses, played = records.get(team_key, (0, 0, 0))
+        if played + 1 != target_played:
+            continue
+        if (wins + 1, losses) == (target_wins, target_losses):
+            return True
+        if (wins, losses + 1) == (target_wins, target_losses):
+            return True
+    return False
+
+
+def _swiss_rank_source_ready(match: dict[str, Any], matches: list[dict[str, Any]]) -> bool:
+    round_number = _live_match_round_number(match)
+    if round_number is None:
+        return False
+    if round_number <= 1:
+        return True
+    group_name = _live_match_group_name(match)
+    if not group_name:
+        return False
+
+    red_key = str(match.get("redTeamKey") or "")
+    blue_key = str(match.get("blueTeamKey") or "")
+    if not red_key or not blue_key:
+        return False
+
+    records = _swiss_completed_records(matches, group_name)
+    red_record = records.get(red_key)
+    blue_record = records.get(blue_key)
+    if red_record is None or blue_record is None:
+        return False
+    if red_record != blue_record:
+        return False
+    target_wins, target_losses, target_played = red_record
+    if target_played != round_number - 1:
+        return False
+    if target_wins >= 3 or target_losses >= 3:
+        return False
+
+    pending_sources = [
+        candidate
+        for candidate in matches
+        if _live_match_stage(candidate) == "swiss"
+        and _live_match_group_name(candidate) == group_name
+        and not candidate.get("isCompleted")
+        and (_live_match_round_number(candidate) or 0) < round_number
+    ]
+    return not any(
+        _pending_swiss_match_can_feed_record(
+            candidate,
+            records,
+            target_wins=target_wins,
+            target_losses=target_losses,
+            target_played=target_played,
+        )
+        for candidate in pending_sources
+    )
+
+
+def _live_match_dependency_ready(match: dict[str, Any], matches: list[dict[str, Any]]) -> bool:
+    stage = _live_match_stage(match)
+    if stage == "swiss":
+        return _swiss_rank_source_ready(match, matches)
+    if stage == "round_of_16":
+        return _completed_stage_matches(matches, stage="swiss", expected_count=SWISS_TOTAL_MATCHES)
+    if stage in {"quarterfinal", "qualification_round1", "qualification_round2", "semifinal", "third_place", "final"}:
+        return _post_group_sources_complete(match, matches)
+    return False
+
+
+def _live_match_can_lock(match: dict[str, Any], matches: list[dict[str, Any]]) -> bool:
+    if match.get("isCompleted"):
+        return True
+    return bool(match.get("isConfirmedMatchup")) and _live_match_dependency_ready(match, matches)
+
+
 def _normalize_match(match: dict[str, Any], *, region_slug: str, zone_name: str) -> dict[str, Any] | None:
     red = _side_team(match, "red")
     blue = _side_team(match, "blue")
@@ -213,18 +597,35 @@ def _normalize_match(match: dict[str, Any], *, region_slug: str, zone_name: str)
     result = str(match.get("result") or "").strip().upper()
     scoreline = _scoreline(match)
     stage_family = _stage_family(match, zone_name)
+    order_number = int(match.get("orderNumber") or 0)
+    stage = _stage_from_family(stage_family)
+    group_name = ""
+    round_number: int | None = None
+    if stage == "swiss":
+        group_name = _slot_group_name(red["slot"], blue["slot"])
+        round_number = _swiss_round_from_order_number(order_number)
+    elif stage_family == "post_group":
+        stage = _post_group_stage_from_order_number(order_number, region_slug) or stage
+        round_number = 1
+    match_label = (
+        _post_group_match_label_from_order_number(order_number, stage=stage, region_slug=region_slug)
+        if stage_family == "post_group"
+        else ""
+    )
     planned_start_at = str(match.get("planStartedAt") or "").strip() or None
     match_date = planned_start_at[:10] if planned_start_at else None
-    return {
+    normalized_match = {
         "officialMatchId": official_match_id,
         "matchId": f"2026RMUC:{official_match_id}",
         "regionSlug": region_slug,
         "regionName": REGION_SLUG_TO_NAME.get(region_slug, zone_name),
         "zoneName": zone_name,
         "stageFamily": stage_family,
-        "stage": _stage_from_family(stage_family),
+        "stage": stage,
         "matchType": str(match.get("matchType") or ""),
-        "orderNumber": int(match.get("orderNumber") or 0),
+        "orderNumber": order_number,
+        "roundNumber": round_number,
+        "groupName": group_name,
         "bestOf": int(match.get("planGameCount") or 3),
         "plannedStartAt": planned_start_at,
         "matchDate": match_date,
@@ -246,6 +647,9 @@ def _normalize_match(match: dict[str, Any], *, region_slug: str, zone_name: str)
         "redWins": int(scoreline.split(":", maxsplit=1)[0]),
         "blueWins": int(scoreline.split(":", maxsplit=1)[1]),
     }
+    if match_label:
+        normalized_match["matchLabel"] = match_label
+    return normalized_match
 
 
 def _collect_slot_assignments(zone: dict[str, Any]) -> dict[str, str]:
@@ -304,13 +708,25 @@ def normalize_schedule_payload(
                 if normalized_match is not None:
                     matches.append(normalized_match)
         matches.sort(key=lambda row: (row["stageFamily"], row["orderNumber"], row["officialMatchId"]))
+        slot_assignments = _collect_slot_assignments(zone)
+        region_group_rank_metrics = dict(group_rank_metrics.get(region_slug, {}))
+        for team_key, opponent_points in _computed_swiss_opponent_points(matches).items():
+            metrics = region_group_rank_metrics.setdefault(
+                team_key,
+                {
+                    "group_name": str(slot_assignments.get(team_key) or "")[:1],
+                    "ranking_metric_source": "official_live",
+                },
+            )
+            metrics["official_opponent_points"] = opponent_points
+            metrics["ranking_metric_source"] = "official_live"
         regions[region_slug] = {
             "zoneId": str(zone.get("id") or ""),
             "zoneName": zone_name,
             "regionSlug": region_slug,
             "regionName": REGION_SLUG_TO_NAME[region_slug],
-            "slotAssignments": _collect_slot_assignments(zone),
-            "groupRankMetrics": group_rank_metrics.get(region_slug, {}),
+            "slotAssignments": slot_assignments,
+            "groupRankMetrics": region_group_rank_metrics,
             "matches": matches,
         }
 
@@ -419,34 +835,45 @@ class LiveRuntimeContext:
         swiss_pairing_rows: dict[str, dict[int, list[tuple[int, str, str]]]] = {}
         completed_count = 0
         confirmed_count = 0
-        for match in region.get("matches", []):
+        matches = [match for match in region.get("matches", []) if isinstance(match, dict)]
+        for match in matches:
             if match.get("isCompleted"):
                 completed_count += 1
-            if match.get("isConfirmedMatchup"):
-                confirmed_count += 1
+            if not _live_match_can_lock(match, matches):
+                continue
             enriched = dict(match)
-            official_id = str(match["officialMatchId"])
+            official_id = str(match.get("officialMatchId") or "")
+            if not official_id:
+                continue
             if isinstance(match.get("miniProgramPrediction"), dict):
                 enriched["miniProgramPrediction"] = match["miniProgramPrediction"]
             if official_id in mini_program_predictions:
                 enriched["miniProgramPrediction"] = mini_program_predictions[official_id]
-            red_team_key = str(match["redTeamKey"])
-            blue_team_key = str(match["blueTeamKey"])
-            stage = str(match["stage"])
+            red_team_key = str(match.get("redTeamKey") or "")
+            blue_team_key = str(match.get("blueTeamKey") or "")
+            if not red_team_key or not blue_team_key:
+                continue
+            stage = _live_match_stage(match)
+            round_number = _live_match_round_number(match)
+            group_name = _live_match_group_name(match)
+            match_label = _live_match_label(match)
+            enriched["stage"] = stage
+            if round_number is not None:
+                enriched["roundNumber"] = round_number
+            if group_name and not enriched.get("groupName"):
+                enriched["groupName"] = group_name
+            if match_label and not enriched.get("matchLabel"):
+                enriched["matchLabel"] = match_label
+            confirmed_count += 1
             key = (red_team_key, blue_team_key, stage)
             matches_by_pair[key] = enriched
-            if match.get("roundNumber") is not None:
-                matches_by_pair_round[(red_team_key, blue_team_key, stage, int(match["roundNumber"]))] = enriched
-            if match.get("matchLabel"):
-                matches_by_pair_label[(red_team_key, blue_team_key, stage, str(match["matchLabel"]))] = enriched
-            if stage == "swiss" and match.get("roundNumber") is not None:
-                group_name = str(match.get("groupName") or "")
-                if not group_name and match.get("matchLabel"):
-                    group_name = str(match["matchLabel"]).split("-", maxsplit=1)[0]
-                if not group_name:
-                    group_name = str(match.get("redSlot") or "")[:1]
+            if round_number is not None:
+                matches_by_pair_round[(red_team_key, blue_team_key, stage, round_number)] = enriched
+            if match_label:
+                matches_by_pair_label[(red_team_key, blue_team_key, stage, match_label)] = enriched
+            if stage == "swiss" and round_number is not None:
                 if group_name:
-                    swiss_pairing_rows.setdefault(group_name, {}).setdefault(int(match["roundNumber"]), []).append(
+                    swiss_pairing_rows.setdefault(group_name, {}).setdefault(round_number, []).append(
                         (int(match.get("orderNumber") or 0), red_team_key, blue_team_key)
                     )
         swiss_pairings = {
@@ -496,7 +923,7 @@ class LiveRuntimeContext:
             match = self.matches_by_pair_round.get((blue_team_key, red_team_key, stage, round_number))
             if match is not None:
                 return match, "swapped"
-        if self.matches_by_pair_label or self.matches_by_pair_round:
+        if (match_label or round_number is not None) and (self.matches_by_pair_label or self.matches_by_pair_round):
             return None, "normal"
         match = self.matches_by_pair.get((red_team_key, blue_team_key, stage))
         if match is not None:
@@ -529,6 +956,7 @@ class LiveRuntimeContext:
             red_score, blue_score = scoreline.split(":", maxsplit=1)
             scoreline = f"{blue_score}:{red_score}"
         out = {
+            "match_id": match.get("matchId"),
             "official_match_id": match["officialMatchId"],
             "official_status": match["officialStatus"],
             "planned_start_at": match.get("plannedStartAt"),

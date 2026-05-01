@@ -208,15 +208,15 @@ def summarize_live_status(region_slug: str) -> dict[str, Any]:
         }
     source_status = str(normalized.get("sourceStatus") or "inactive")
     region = normalized.get("regions", {}).get(region_slug) if isinstance(normalized.get("regions"), dict) else None
-    matches = region.get("matches", []) if isinstance(region, dict) else []
+    context = rmuc_live.LiveRuntimeContext.from_normalized(normalized, region_slug)
     ledger = _read_json_if_exists(_published_live_match_ledger_path_for(RUNTIME_PUBLISHED_RATINGS_DIR))
     ledger_rows = len(ledger) if isinstance(ledger, list) else 0
     return {
         "sourceStatus": source_status if region or source_status != "active" else "inactive",
         "sourceReason": normalized.get("reason") if source_status != "active" else (None if region else "实时源未包含当前赛区"),
         "sourceUpdatedAt": normalized.get("sourceUpdatedAt") or normalized.get("fetchedAt"),
-        "completedOfficialMatches": sum(1 for match in matches if match.get("isCompleted")),
-        "confirmedOfficialMatches": sum(1 for match in matches if match.get("isConfirmedMatchup")),
+        "completedOfficialMatches": context.completed_count if context.source_status == "active" else 0,
+        "confirmedOfficialMatches": context.confirmed_count if context.source_status == "active" else 0,
         "ledgerRows": ledger_rows,
         "recentError": normalized.get("reason") if source_status != "active" else None,
     }
@@ -651,29 +651,126 @@ def _load_live_runtime_context(region_slug: str) -> rmuc_live.LiveRuntimeContext
     )
 
 
-def _rating_overrides_from_published(region_slug: str) -> dict[str, float]:
-    current_snapshot = _read_json_if_exists(_published_current_snapshot_path_for(RUNTIME_PUBLISHED_RATINGS_DIR))
-    if not isinstance(current_snapshot, list):
+def _published_match_rating_index(region_slug: str) -> dict[tuple[str, str], dict[str, Any]]:
+    rows = _read_json_if_exists(_published_live_match_ledger_path_for(RUNTIME_PUBLISHED_RATINGS_DIR))
+    if not isinstance(rows, list):
         return {}
-    region_name = resolve_region_name(region_slug)
-    ratings_rows = [row for row in load_ratings_rows() if row.get("admitted_region") == region_name]
-    school_to_team_key = {str(row.get("school_key")): str(row["team_key"]) for row in ratings_rows if row.get("school_key")}
-    overrides: dict[str, float] = {}
-    for row in current_snapshot:
+    out: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in rows:
         if not isinstance(row, dict):
             continue
+        row_region_slug = str(row.get("region_slug") or "")
+        if row_region_slug and row_region_slug != region_slug:
+            continue
+        match_id = str(row.get("match_id") or "")
         school_key = str(row.get("school_key") or "")
-        team_key = school_to_team_key.get(school_key)
-        if not team_key:
-            continue
-        rating = row.get("published_rating", row.get("currentPublishedRating"))
-        if rating is None:
-            continue
-        overrides[team_key] = float(rating)
-    return overrides
+        if match_id and school_key:
+            out[(match_id, school_key)] = row
+    return out
 
 
-def live_payload_builder_factory(context: rmuc_live.LiveRuntimeContext):
+def _school_key_from_team_key(team_key: str) -> str:
+    return team_key.split("::", maxsplit=1)[0]
+
+
+def _ledger_row_for_match(
+    rating_index: dict[tuple[str, str], dict[str, Any]],
+    *,
+    match_id: str | None,
+    official_match_id: str | None,
+    school_key: str,
+) -> dict[str, Any] | None:
+    candidate_match_ids = []
+    for candidate in (match_id, f"2026RMUC:{official_match_id}" if official_match_id else None, official_match_id):
+        if candidate and candidate not in candidate_match_ids:
+            candidate_match_ids.append(candidate)
+    for candidate in candidate_match_ids:
+        row = rating_index.get((candidate, school_key))
+        if row is not None:
+            return row
+    return None
+
+
+def _float_from_row(row: dict[str, Any] | None, key: str) -> float | None:
+    if row is None:
+        return None
+    value = row.get(key)
+    if value in (None, ""):
+        return None
+    return float(value)
+
+
+def _attach_published_match_rating_history(
+    payload: dict[str, Any],
+    *,
+    red_team_key: str,
+    blue_team_key: str,
+    rating_index: dict[tuple[str, str], dict[str, Any]],
+) -> None:
+    if not rating_index:
+        return
+    official_match_id = str(payload.get("official_match_id") or "")
+    match_id = str(payload.get("match_id") or "")
+    if not official_match_id and not match_id:
+        return
+    red_row = _ledger_row_for_match(
+        rating_index,
+        match_id=match_id,
+        official_match_id=official_match_id,
+        school_key=_school_key_from_team_key(red_team_key),
+    )
+    blue_row = _ledger_row_for_match(
+        rating_index,
+        match_id=match_id,
+        official_match_id=official_match_id,
+        school_key=_school_key_from_team_key(blue_team_key),
+    )
+    red_before = _float_from_row(red_row, "published_rating_before_match")
+    red_after = _float_from_row(red_row, "published_rating_after_match")
+    blue_before = _float_from_row(blue_row, "published_rating_before_match")
+    blue_after = _float_from_row(blue_row, "published_rating_after_match")
+    if None in (red_before, red_after, blue_before, blue_after):
+        return
+    payload["red_rating_before_match"] = red_before
+    payload["red_rating_after_match"] = red_after
+    payload["blue_rating_before_match"] = blue_before
+    payload["blue_rating_after_match"] = blue_after
+
+
+def _predicted_scoreline_from_series(p_series_red: float, best_of: int) -> str:
+    p_series_red = max(0.0, min(1.0, p_series_red))
+    if best_of == 5:
+        if p_series_red >= 0.5:
+            if p_series_red < 0.65:
+                return "3:2"
+            if p_series_red < 0.85:
+                return "3:1"
+            return "3:0"
+        if p_series_red > 0.35:
+            return "2:3"
+        if p_series_red > 0.15:
+            return "1:3"
+        return "0:3"
+
+    if p_series_red >= 0.5:
+        return "2:1" if p_series_red < 0.72 else "2:0"
+    return "1:2" if p_series_red > 0.28 else "0:2"
+
+
+def _collapse_live_prediction_distribution(payload: dict[str, Any], *, best_of: int) -> None:
+    if payload.get("fixed_scoreline"):
+        return
+    payload["scoreline_distribution"] = {
+        _predicted_scoreline_from_series(float(payload["p_series_red"]), best_of): 1.0
+    }
+
+
+def live_payload_builder_factory(
+    context: rmuc_live.LiveRuntimeContext,
+    rating_index: dict[tuple[str, str], dict[str, Any]] | None = None,
+):
+    rating_index = rating_index or {}
+
     def _builder(red_team, blue_team, *, best_of, samples, match_seed, head_to_head_index, **kwargs):
         payload = region_sim.build_prediction_payload(
             red_team,
@@ -693,29 +790,70 @@ def live_payload_builder_factory(context: rmuc_live.LiveRuntimeContext):
                 match_label=str(kwargs["match_label"]) if kwargs.get("match_label") is not None else None,
             )
         )
+        _collapse_live_prediction_distribution(payload, best_of=best_of)
+        _attach_published_match_rating_history(
+            payload,
+            red_team_key=red_team.team_key,
+            blue_team_key=blue_team.team_key,
+            rating_index=rating_index,
+        )
         return payload
 
     return _builder
 
 
+def _validated_live_slot_assignments(region_slug: str, context: rmuc_live.LiveRuntimeContext) -> tuple[dict[str, str] | None, str | None]:
+    assignments = context.slot_assignments
+    if len(assignments) != 32:
+        return None, f"官方落位数量不是 32（当前 {len(assignments)}）"
+
+    slots = list(assignments.values())
+    expected_slots = set(region_sim.region_core.ALL_SLOTS)
+    actual_slots = set(slots)
+    if len(slots) != len(actual_slots):
+        duplicate_slots = sorted({slot for slot in actual_slots if slots.count(slot) > 1})
+        return None, f"官方落位存在重复槽位：{', '.join(duplicate_slots)}"
+    if actual_slots != expected_slots:
+        missing = sorted(expected_slots - actual_slots, key=region_sim.region_core.slot_sort_key)
+        extra = sorted(actual_slots - expected_slots)
+        details = []
+        if missing:
+            details.append(f"缺少 {', '.join(missing)}")
+        if extra:
+            details.append(f"未知 {', '.join(extra)}")
+        return None, "官方落位槽位不完整：" + "；".join(details)
+
+    region_name = resolve_region_name(region_slug)
+    expected_team_keys = {
+        compute_team_key(row["college_name"], row["team_name"])
+        for row in load_ratings_rows()
+        if row.get("admitted_region") == region_name
+    }
+    actual_team_keys = set(assignments)
+    if actual_team_keys != expected_team_keys:
+        missing_count = len(expected_team_keys - actual_team_keys)
+        extra_count = len(actual_team_keys - expected_team_keys)
+        return None, f"官方落位队伍不匹配：缺少 {missing_count} 队，未知 {extra_count} 队"
+
+    return dict(assignments), None
+
+
 def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", samples: int = DEFAULT_SIMULATION_SAMPLES) -> dict[str, Any]:
     region_name = resolve_region_name(region_slug)
     slot_assignments: dict[str, str] | None = None
-    rating_overrides: dict[str, float] | None = None
     official_swiss_pairings: dict[str, dict[int, list[tuple[str, str]]]] | None = None
     official_group_rank_metrics: dict[str, dict[str, Any]] | None = None
+    live_slot_assignment_reason: str | None = None
     if mode == "live":
         context = _load_live_runtime_context(region_slug)
     else:
         context = rmuc_live.LiveRuntimeContext.inactive(region_slug)
 
     if mode == "live" and context.source_status == "active":
-        builder = live_payload_builder_factory(context)
-        if len(context.slot_assignments) == 32:
-            slot_assignments = context.slot_assignments
+        builder = live_payload_builder_factory(context, _published_match_rating_index(region_slug))
+        slot_assignments, live_slot_assignment_reason = _validated_live_slot_assignments(region_slug, context)
         official_swiss_pairings = context.swiss_pairings
         official_group_rank_metrics = context.group_rank_metrics
-        rating_overrides = _rating_overrides_from_published(region_slug)
         effective_seed = seed
     else:
         builder = None
@@ -727,8 +865,12 @@ def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", sam
         samples=samples,
         payload_builder=builder,
         slot_assignments=slot_assignments,
-        rating_overrides=rating_overrides,
         official_swiss_pairings=official_swiss_pairings,
         official_group_rank_metrics=official_group_rank_metrics,
     )
-    return _serialize_simulation(region_slug, effective_seed, simulation)
+    payload = _serialize_simulation(region_slug, effective_seed, simulation)
+    if mode == "live":
+        live_status = payload["meta"].setdefault("liveStatus", {})
+        live_status["slotAssignmentSource"] = "official" if slot_assignments is not None else "simulated_fallback"
+        live_status["slotAssignmentReason"] = live_slot_assignment_reason
+    return payload

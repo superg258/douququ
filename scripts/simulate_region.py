@@ -43,10 +43,13 @@ def parse_team_rows(region: str, ratings_csv: Path) -> list[RegionTeam]:
     for row in rating_rows:
         if row["admitted_region"] != region:
             continue
+        college_name = legacy_elo.normalize_school(row["college_name"])
+        team_name = legacy_elo.normalize_team(row["team_name"])
+        team_key = legacy_elo.make_team_key(college_name, team_name)
         team = RegionTeam(
-            team_key=row["team_key"],
-            college_name=row["college_name"],
-            team_name=row["team_name"],
+            team_key=team_key,
+            college_name=college_name,
+            team_name=team_name,
             admitted_region=row["admitted_region"],
             seed_tier=row["seed_tier"],
             seed_rank_in_region=int(row["seed_rank_in_region"]),
@@ -240,7 +243,7 @@ def simulate_region(
             samples=samples,
             payload_builder=payload_builder or build_prediction_payload,
             official_pairings=(official_swiss_pairings or {}).get(group_name),
-            use_south_round5_csv_pairings=region == "南部赛区",
+            use_csv_rank_pairings=True,
         )
         group_rankings[group_name] = ranked_group
         match_rows.extend(swiss_rows)
@@ -310,7 +313,8 @@ def simulate_region(
                 "advance_wins": 3,
                 "eliminate_losses": 3,
                 "allow_rematches": True,
-                "round5_pairing_source": "south_csv_rank_positions" if region == "南部赛区" else "dynamic_adjacent_rank",
+                "swiss_pairing_source": "round2_to_round5_csv_rank_positions",
+                "round5_pairing_source": "csv_rank_positions",
                 "official_ranking_order": [
                     "completed_rounds_to_3_wins",
                     "opponent_score",

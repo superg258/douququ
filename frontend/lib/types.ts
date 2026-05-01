@@ -403,6 +403,7 @@ export interface TeamCanvasCard extends CanvasCardBase {
   subtitle?: string;
   statLine?: string;
   meta?: string[];
+  isSimulated?: boolean;
 }
 
 export type CanvasCard = MatchCanvasCard | TeamCanvasCard;

@@ -26,7 +26,7 @@ export function RootNav() {
         </div>
         <nav className="flex space-x-4 md:space-x-8">
           <a href="/" className="text-[11px] md:text-sm font-bold uppercase tracking-widest text-rm-metal-text hover:text-white transition-colors">全景战略板</a>
-          <a href="/elo-rankings" className="text-[11px] md:text-sm font-bold uppercase tracking-widest text-rm-metal-text hover:text-white transition-colors">全局 ELO</a>
+          <a href="/elo-rankings" className="text-[11px] md:text-sm font-bold uppercase tracking-widest text-rm-metal-text hover:text-white transition-colors">全局 TS2</a>
         </nav>
       </div>
       <div className="absolute bottom-0 left-0 h-[1px] w-full bg-gradient-to-r from-transparent via-rm-blue to-transparent opacity-50" />

@@ -46,9 +46,9 @@ export function ComparisonSection({ strengths }: { strengths: RegionStrengthRow[
               <tr className="border-b border-rm-metal-border text-rm-metal-textFaint font-mono text-[10px] uppercase tracking-widest bg-rm-metal-dark/40">
                 <th className="py-3 px-4 font-bold">赛区</th>
                 <th className="py-3 px-4 font-bold text-right">强度指数</th>
-                <th className="py-3 px-4 font-bold text-right">四强均ELO</th>
-                <th className="py-3 px-4 font-bold text-right">八强均ELO</th>
-                <th className="py-3 px-4 font-bold text-right">中位ELO</th>
+                <th className="py-3 px-4 font-bold text-right">四强均TS2</th>
+                <th className="py-3 px-4 font-bold text-right">八强均TS2</th>
+                <th className="py-3 px-4 font-bold text-right">中位TS2</th>
                 <th className="py-3 px-4 font-bold text-right">头号种子夺冠率</th>
               </tr>
             </thead>
@@ -98,4 +98,3 @@ export function ComparisonSection({ strengths }: { strengths: RegionStrengthRow[
     </section>
   );
 }
-
