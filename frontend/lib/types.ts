@@ -188,6 +188,12 @@ export interface MatchRow {
   blueMu0?: number;
   redDelta?: number;
   blueDelta?: number;
+  redLiveDelta?: number;
+  blueLiveDelta?: number;
+  redPriorDelta?: number;
+  bluePriorDelta?: number;
+  redPriorAdjustmentLabel?: string;
+  bluePriorAdjustmentLabel?: string;
   confidenceLabel: string;
   winnerNext: string;
   loserNext: string;

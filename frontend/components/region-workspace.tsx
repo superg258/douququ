@@ -16,6 +16,7 @@ import { formatRankingResultLabel, translateConfidenceLabel, translateStageLabel
 import { buildPredictionRecap } from "@/lib/prediction-insights";
 import { buildRegionHref, getOrCreateSessionSeed, parseSeed, refreshSessionSeed, REGION_LABELS, REGION_VIEWS } from "@/lib/region-config";
 import { deriveRealtimeAvailability } from "@/lib/realtime";
+import { deriveMatchRatingBreakdown, formatSignedRatingDelta, ratingDeltaTone, type MatchRatingBreakdown } from "@/lib/live-rating";
 import { predictScoreline } from "@/components/canvas-card";
 import type {
   InspectorSelection,
@@ -40,6 +41,44 @@ function hasMatchElo(match: MatchRow) {
     typeof match.blueMu0 === "number" &&
     typeof match.redDelta === "number" &&
     typeof match.blueDelta === "number"
+  );
+}
+
+function RatingBreakdownLine({ breakdown, sideClassName }: { breakdown: MatchRatingBreakdown; sideClassName: string }) {
+  const showPriorAdjustment = breakdown.hasSplitAdjustment && breakdown.priorDelta !== null && Math.abs(breakdown.priorDelta) >= 0.05;
+  return (
+    <div className="col-span-2 border border-rm-metal-border/70 bg-[#05070c] px-3 py-2 space-y-1.5">
+      <div className="flex items-center justify-between gap-3">
+        <span className={cn("font-bold truncate", sideClassName)}>{breakdown.teamName}</span>
+        <span className="font-bold flex gap-2 whitespace-nowrap">
+          <span className="text-white">{breakdown.before.toFixed(1)}</span>
+          <span className={ratingDeltaTone(breakdown.totalDelta)}>
+            {formatSignedRatingDelta(breakdown.totalDelta)}
+          </span>
+          <span className={sideClassName}>→ {breakdown.after.toFixed(1)}</span>
+        </span>
+      </div>
+      {breakdown.hasSplitAdjustment ? (
+        <div className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-[9px]">
+          <span className="text-rm-metal-text">本场表现更新</span>
+          <span className={cn("font-bold", ratingDeltaTone(breakdown.liveDelta ?? 0))}>
+            {formatSignedRatingDelta(breakdown.liveDelta ?? 0)}
+          </span>
+          {showPriorAdjustment ? (
+            <>
+              <span className="text-rm-status-warn">{breakdown.priorLabel}</span>
+              <span className={cn("font-bold", ratingDeltaTone(breakdown.priorDelta ?? 0))}>
+                {formatSignedRatingDelta(breakdown.priorDelta ?? 0)}
+              </span>
+            </>
+          ) : null}
+          <span className="text-rm-metal-textFaint">合计变化</span>
+          <span className={cn("font-bold", ratingDeltaTone(breakdown.totalDelta))}>
+            {formatSignedRatingDelta(breakdown.totalDelta)}
+          </span>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -352,6 +391,8 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
     const blueGames = Number(blueGamesText);
     const actualWinnerSame = (predictedScore.scoreline[0] > predictedScore.scoreline[2]) === (redGames > blueGames);
     const actualScoreSame = predictedScore.scoreline === selectedMatch.scoreline;
+    const redRatingBreakdown = deriveMatchRatingBreakdown(selectedMatch, "red");
+    const blueRatingBreakdown = deriveMatchRatingBreakdown(selectedMatch, "blue");
 
     return (
       <div className="h-full flex flex-col bg-rm-metal-panel/95 border-l border-rm-metal-border w-full md:w-80 shadow-2xl p-4 overflow-y-auto animate-in slide-in-from-right-8 clip-chamfer-tr-bl">
@@ -418,26 +459,8 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
             {/* Show TS2 changes only for matches with an actual published result */}
             {hasMatchElo(selectedMatch) && (
               <>
-                <span className="text-rm-red opacity-80 flex items-center justify-between col-span-2 mt-1">
-                  <span className="text-rm-red font-bold">{selectedMatch.redTeam?.collegeName || "红方 TS2"}</span>
-                  <span className="font-bold flex gap-2">
-                    <span className="text-white">{selectedMatch.redMu0?.toFixed(1)}</span>
-                    <span className={selectedMatch.redDelta > 0 ? "text-rm-status-safe" : selectedMatch.redDelta < 0 ? "text-rm-red" : "text-rm-metal-text"}>
-                      {selectedMatch.redDelta > 0 ? "+" : ""}{selectedMatch.redDelta?.toFixed(1)}
-                    </span>
-                    <span className="text-rm-red">→ {((selectedMatch.redMu0 ?? 0) + (selectedMatch.redDelta ?? 0)).toFixed(1)}</span>
-                  </span>
-                </span>
-                <span className="text-rm-blue opacity-80 flex items-center justify-between col-span-2 mt-1">
-                  <span className="text-rm-blue font-bold">{selectedMatch.blueTeam?.collegeName || "蓝方 TS2"}</span>
-                  <span className="font-bold flex gap-2">
-                    <span className="text-white">{selectedMatch.blueMu0?.toFixed(1)}</span>
-                    <span className={selectedMatch.blueDelta > 0 ? "text-rm-status-safe" : selectedMatch.blueDelta < 0 ? "text-rm-red" : "text-rm-metal-text"}>
-                      {selectedMatch.blueDelta > 0 ? "+" : ""}{selectedMatch.blueDelta?.toFixed(1)}
-                    </span>
-                    <span className="text-rm-blue">→ {((selectedMatch.blueMu0 ?? 0) + (selectedMatch.blueDelta ?? 0)).toFixed(1)}</span>
-                  </span>
-                </span>
+                {redRatingBreakdown ? <RatingBreakdownLine breakdown={redRatingBreakdown} sideClassName="text-rm-red" /> : null}
+                {blueRatingBreakdown ? <RatingBreakdownLine breakdown={blueRatingBreakdown} sideClassName="text-rm-blue" /> : null}
                 <div className="col-span-2 border-t border-rm-metal-border my-1"></div>
               </>
             )}

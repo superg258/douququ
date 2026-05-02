@@ -749,6 +749,12 @@ def simulate_series(
         "red_rating_after_match",
         "blue_rating_before_match",
         "blue_rating_after_match",
+        "red_live_delta",
+        "blue_live_delta",
+        "red_prior_delta",
+        "blue_prior_delta",
+        "red_prior_adjustment_label",
+        "blue_prior_adjustment_label",
     ):
         if payload.get(optional_key) is not None:
             result[optional_key] = payload[optional_key]
@@ -856,6 +862,16 @@ def match_row(
         row["blue_mu0"] = round(blue_mu_before, 1)
         row["red_delta"] = round(update["red_delta"], 1)
         row["blue_delta"] = round(update["blue_delta"], 1)
+        if "red_live_delta" in result and "blue_live_delta" in result:
+            row["red_live_delta"] = round(float(result["red_live_delta"]), 1)
+            row["blue_live_delta"] = round(float(result["blue_live_delta"]), 1)
+        if "red_prior_delta" in result and "blue_prior_delta" in result:
+            row["red_prior_delta"] = round(float(result["red_prior_delta"]), 1)
+            row["blue_prior_delta"] = round(float(result["blue_prior_delta"]), 1)
+        if "red_prior_adjustment_label" in result:
+            row["red_prior_adjustment_label"] = str(result["red_prior_adjustment_label"])
+        if "blue_prior_adjustment_label" in result:
+            row["blue_prior_adjustment_label"] = str(result["blue_prior_adjustment_label"])
     return row
 
 
@@ -1648,6 +1664,12 @@ def write_simulation_outputs(simulation: dict[str, Any]) -> dict[str, Path]:
             "blue_mu0",
             "red_delta",
             "blue_delta",
+            "red_live_delta",
+            "blue_live_delta",
+            "red_prior_delta",
+            "blue_prior_delta",
+            "red_prior_adjustment_label",
+            "blue_prior_adjustment_label",
             "scoreline",
             "winner_college_name",
             "winner_team_name",

@@ -391,6 +391,16 @@ def _serialize_simulation(region_slug: str, seed: int, simulation: dict[str, Any
             serialized_match["blueMu0"] = float(row["blue_mu0"])
             serialized_match["redDelta"] = float(row["red_delta"])
             serialized_match["blueDelta"] = float(row["blue_delta"])
+            if "red_live_delta" in row and "blue_live_delta" in row:
+                serialized_match["redLiveDelta"] = float(row["red_live_delta"])
+                serialized_match["blueLiveDelta"] = float(row["blue_live_delta"])
+            if "red_prior_delta" in row and "blue_prior_delta" in row:
+                serialized_match["redPriorDelta"] = float(row["red_prior_delta"])
+                serialized_match["bluePriorDelta"] = float(row["blue_prior_delta"])
+            if "red_prior_adjustment_label" in row:
+                serialized_match["redPriorAdjustmentLabel"] = str(row["red_prior_adjustment_label"])
+            if "blue_prior_adjustment_label" in row:
+                serialized_match["bluePriorAdjustmentLabel"] = str(row["blue_prior_adjustment_label"])
         if row.get("official_match_id") is not None:
             serialized_match["officialMatchId"] = str(row["official_match_id"])
         if row.get("official_status") is not None:
@@ -700,6 +710,12 @@ def _float_from_row(row: dict[str, Any] | None, key: str) -> float | None:
     return float(value)
 
 
+def _prior_adjustment_label(row: dict[str, Any] | None) -> str:
+    if str((row or {}).get("stage_family") or "") == "regional_group":
+        return "前三轮先验修正"
+    return "赛前先验修正"
+
+
 def _attach_published_match_rating_history(
     payload: dict[str, Any],
     *,
@@ -735,6 +751,12 @@ def _attach_published_match_rating_history(
     payload["red_rating_after_match"] = red_after
     payload["blue_rating_before_match"] = blue_before
     payload["blue_rating_after_match"] = blue_after
+    payload["red_live_delta"] = _float_from_row(red_row, "live_update_delta_rating")
+    payload["blue_live_delta"] = _float_from_row(blue_row, "live_update_delta_rating")
+    payload["red_prior_delta"] = _float_from_row(red_row, "prior_component_delta_rating")
+    payload["blue_prior_delta"] = _float_from_row(blue_row, "prior_component_delta_rating")
+    payload["red_prior_adjustment_label"] = _prior_adjustment_label(red_row)
+    payload["blue_prior_adjustment_label"] = _prior_adjustment_label(blue_row)
 
 
 def _predicted_scoreline_from_series(p_series_red: float, best_of: int) -> str:
