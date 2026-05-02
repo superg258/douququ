@@ -123,23 +123,23 @@ function verdictLabel(verdict: MatchPredictionExplanation["verdict"]) {
 }
 
 function buildReasons(match: MatchRow, favoriteName: string, favoriteRate: number, underdogName: string, margin: number) {
-  const reasons = [`TS2 给出 ${favoriteName} ${pct(favoriteRate)} 的系列赛胜率，领先 ${underdogName} ${pct(margin)}。`];
+  const reasons = [`模型预测 ${favoriteName} 系列赛胜率 ${pct(favoriteRate)}，领先 ${underdogName} ${pct(margin)}。`];
 
   if (typeof match.redMu0 === "number" && typeof match.blueMu0 === "number") {
     const eloGap = Math.abs(match.redMu0 - match.blueMu0);
     const eloLeader = match.redMu0 >= match.blueMu0 ? match.redTeam.collegeName : match.blueTeam.collegeName;
-    reasons.push(`TS2 赛前差约 ${eloGap.toFixed(1)}，战力侧更偏向 ${eloLeader}。`);
+    reasons.push(`赛前战力差距约 ${eloGap.toFixed(1)}，更看好 ${eloLeader}。`);
   }
 
   if (Math.abs(match.deltaH2H) >= 0.1) {
-    reasons.push(`对位修正幅度 ${match.deltaH2H > 0 ? "+" : ""}${match.deltaH2H.toFixed(2)}，说明双方历史/结构差异会影响判断。`);
+    reasons.push(`历史对战修正 ${match.deltaH2H > 0 ? "+" : ""}${match.deltaH2H.toFixed(2)}，反映两队过往交锋记录的影响。`);
   }
 
   if (match.miniProgramPrediction?.status === "available") {
     const audienceRed = match.miniProgramPrediction.redRate;
     const modelRed = match.pSeriesRed;
     const delta = Math.abs(audienceRed - modelRed);
-    reasons.push(delta >= 0.15 ? `观众投票与模型红方概率相差 ${pct(delta)}，本场适合重点观察分歧。` : "观众投票与模型判断接近，分歧风险较低。");
+    reasons.push(delta >= 0.15 ? `观众投票与模型预测红方概率相差 ${pct(delta)}，本场值得关注。` : "观众投票与模型判断接近，意见较为一致。");
   }
 
   return reasons.slice(0, 3);

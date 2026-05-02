@@ -27,8 +27,8 @@ describe("realtime helpers", () => {
 
     expect(deriveRealtimeAvailability("south_region", liveState)).toEqual({
       enabled: true,
-      badge: "已接入",
-      hint: "已接入",
+      badge: "实时数据",
+      hint: "实时数据已连接",
     });
     expect(deriveRealtimeAvailability("east_region", liveState).enabled).toBe(false);
   });
@@ -53,7 +53,7 @@ describe("realtime helpers", () => {
 
     expect(deriveRealtimeAvailability("south_region", liveState)).toEqual({
       enabled: false,
-      badge: "待接入",
+      badge: "暂无实时",
       hint: "当前官方 live_json 不是 RMUC 超级对抗赛",
     });
   });
@@ -73,7 +73,7 @@ describe("realtime helpers", () => {
     };
 
     expect(formatMiniProgramPrediction(prediction)).toBe("王牌预言家 红 70.0% / 蓝 30.0%");
-    expect(formatMiniProgramPrediction({ status: "unavailable", matchId: "296001", reason: "network" })).toBe("王牌预言家 暂不可用");
+    expect(formatMiniProgramPrediction({ status: "unavailable", matchId: "296001", reason: "network" })).toBe("王牌预言家 暂未开放");
     expect(formatMiniProgramPrediction(undefined)).toBeNull();
   });
 });

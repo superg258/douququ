@@ -42,8 +42,8 @@ function audienceSignal(prediction: MiniProgramPrediction | undefined): {
       status: "unavailable",
       redRate: 0,
       blueRate: 0,
-      centerLabel: "待接入",
-      title: "王牌预言家观众投票待接入",
+      centerLabel: "暂未开放",
+      title: "王牌预言家投票通道暂未开放",
     };
   }
 
@@ -63,8 +63,8 @@ function audienceSignal(prediction: MiniProgramPrediction | undefined): {
       status: "stale",
       redRate: prediction.redRate,
       blueRate: prediction.blueRate,
-      centerLabel: "缓存 / 暂不可用",
-      title: prediction.reason ?? "王牌预言家暂不可用，展示最近一次缓存值",
+      centerLabel: "历史记录 / 暂未更新",
+      title: prediction.reason ?? "王牌预言家暂未更新，显示最近一次记录",
     };
   }
 
@@ -72,8 +72,8 @@ function audienceSignal(prediction: MiniProgramPrediction | undefined): {
     status: "unavailable",
     redRate: 0,
     blueRate: 0,
-    centerLabel: "暂不可用",
-    title: prediction.reason ?? "王牌预言家暂不可用",
+    centerLabel: "暂未开放",
+    title: prediction.reason ?? "王牌预言家暂未开放",
   };
 }
 
@@ -233,7 +233,7 @@ export function PredictionSignalsPanel({
       )}
     >
       <SignalRow
-        label="TS2 模型"
+        label="Elo 模型"
         badge={modelBadge}
         redRate={ts2RedRate}
         blueRate={ts2BlueRate}

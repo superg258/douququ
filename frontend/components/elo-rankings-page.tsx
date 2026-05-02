@@ -42,7 +42,7 @@ export function EloRankingsPage() {
           <div className="flex flex-col items-center justify-center py-20 text-rm-metal-textMuted">
             <div className="w-8 h-8 border-4 border-rm-blue/30 border-t-rm-blue rounded-full animate-spin mb-4" />
             <span className="font-machine tracking-widest uppercase text-xs">
-              建立 TS2 评分流连接...
+              加载战力数据...
             </span>
           </div>
         ) : (

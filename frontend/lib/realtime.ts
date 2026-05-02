@@ -4,7 +4,7 @@ type RealtimeState = LiveStateResponse | LiveStatusSummary | null | undefined;
 
 export interface RealtimeAvailability {
   enabled: boolean;
-  badge: "已接入" | "待接入";
+  badge: "实时数据" | "暂无实时";
   hint: string;
 }
 
@@ -16,8 +16,8 @@ export function deriveRealtimeAvailability(regionSlug: RegionSlug, state: Realti
   if (!state) {
     return {
       enabled: false,
-      badge: "待接入",
-      hint: "读取中",
+      badge: "暂无实时",
+      hint: "加载中",
     };
   }
 
@@ -25,7 +25,7 @@ export function deriveRealtimeAvailability(regionSlug: RegionSlug, state: Realti
   if (statusRegionSlug && statusRegionSlug !== regionSlug) {
     return {
       enabled: false,
-      badge: "待接入",
+      badge: "暂无实时",
       hint: "未包含当前赛区",
     };
   }
@@ -33,15 +33,15 @@ export function deriveRealtimeAvailability(regionSlug: RegionSlug, state: Realti
   if (state.sourceStatus === "active") {
     return {
       enabled: true,
-      badge: "已接入",
-      hint: "已接入",
+      badge: "实时数据",
+      hint: "实时数据已连接",
     };
   }
 
   return {
     enabled: false,
-    badge: "待接入",
-    hint: state.sourceReason || "待接入",
+    badge: "暂无实时",
+    hint: state.sourceReason || "暂无实时数据",
   };
 }
 
@@ -50,7 +50,7 @@ export function formatMiniProgramPrediction(prediction: MiniProgramPrediction | 
     return null;
   }
   if (prediction.status !== "available") {
-    return "王牌预言家 暂不可用";
+    return "王牌预言家 暂未开放";
   }
 
   const red = (prediction.redRate * 100).toFixed(1);

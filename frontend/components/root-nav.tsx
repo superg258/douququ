@@ -20,13 +20,13 @@ export function RootNav() {
           <h1 className="font-machine tracking-widest text-sm md:text-lg font-bold text-white uppercase text-glow-blue">
             赛事总控台
             <span className="hidden md:inline-block ml-3 animate-pulse text-xs tracking-normal text-rm-status-safe">
-              [ 在线运行 ]
+              实时运行中
             </span>
           </h1>
         </div>
         <nav className="flex space-x-4 md:space-x-8">
           <a href="/" className="text-[11px] md:text-sm font-bold uppercase tracking-widest text-rm-metal-text hover:text-white transition-colors">全景战略板</a>
-          <a href="/elo-rankings" className="text-[11px] md:text-sm font-bold uppercase tracking-widest text-rm-metal-text hover:text-white transition-colors">全局 TS2</a>
+          <a href="/elo-rankings" className="text-[11px] md:text-sm font-bold uppercase tracking-widest text-rm-metal-text hover:text-white transition-colors">Elo 战力榜</a>
         </nav>
       </div>
       <div className="absolute bottom-0 left-0 h-[1px] w-full bg-gradient-to-r from-transparent via-rm-blue to-transparent opacity-50" />

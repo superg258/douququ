@@ -96,7 +96,7 @@ function RaceBattle({
               守位 {pct(cutoffProbability)}
             </span>
             <span className="font-mono text-[10px] text-rm-metal-textFaint">
-              TS2 {elo(cutoffTeam.mu0)}
+              Elo {elo(cutoffTeam.mu0)}
             </span>
           </div>
         </div>
@@ -154,7 +154,7 @@ function CompactRosterTable({ teams, regionSlug }: { teams: OverviewTeam[]; regi
           战力矩阵
         </span>
         <span className="text-[8px] text-rm-metal-textFaint/50 ml-auto">
-          TS2 降序
+          战力降序
         </span>
       </div>
       <table className="w-full text-[10px] border-collapse">
@@ -162,7 +162,7 @@ function CompactRosterTable({ teams, regionSlug }: { teams: OverviewTeam[]; regi
           <tr className="border-b border-rm-metal-border text-rm-metal-textFaint text-[8px] uppercase tracking-widest">
             <td className="py-1.5 w-6">#</td>
             <td className="py-1.5">高校</td>
-            <td className="py-1.5 text-right">TS2</td>
+            <td className="py-1.5 text-right">Elo</td>
             <td className="py-1.5 text-center w-16">国赛</td>
             <td className="py-1.5 text-center w-12">夺冠</td>
           </tr>
@@ -245,10 +245,10 @@ export function RegionCard({ region }: { region: RegionDashboardCard }) {
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <span className="text-[8px] font-mono uppercase tracking-[0.2em] text-rm-metal-textFaint">
-              赛程入口 · {realtimeEnabled ? "REALTIME" : "SIMULATION"}
+              赛程入口 · {realtimeEnabled ? "实时模式" : "模拟模式"}
             </span>
             <span className="block truncate text-sm font-bold tracking-wide text-rm-metal-textLight mt-0.5">
-              {realtimeEnabled ? "实时赛程结果" : "模拟赛程入口"}
+              {realtimeEnabled ? "实时赛程" : "模拟赛程"}
             </span>
           </div>
           <span className={cn(
@@ -262,8 +262,8 @@ export function RegionCard({ region }: { region: RegionDashboardCard }) {
         </div>
         <p className="mt-2 text-[10px] leading-relaxed text-rm-metal-textMuted">
           {realtimeEnabled
-            ? "官方赛果进入赛程画布，TS2 与观众投票并列展示。"
-            : "实时赛程源待接入，已切换到模拟赛程入口。"}
+            ? "官方赛果已接入，Elo 战力预测与观众投票并列展示。"
+            : "实时赛程暂未开放，已自动切换至模拟赛程。"}
         </p>
         <div className="mt-2.5 flex items-start gap-2 text-[8px] font-mono font-bold tracking-widest">
           <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
@@ -273,7 +273,7 @@ export function RegionCard({ region }: { region: RegionDashboardCard }) {
             </span>
             <span className="border border-rm-blue/30 bg-rm-blue/8 text-rm-blue/80 px-1.5 py-0.5
                             group-hover/entry:border-rm-blue/50 group-hover/entry:bg-rm-blue/15 group-hover/entry:text-rm-blue transition-all duration-200">
-              TS2 预测
+              Elo 预测
             </span>
             <span className="border border-rm-status-pending/30 bg-rm-status-pending/8 text-rm-status-pending/80 px-1.5 py-0.5
                             group-hover/entry:border-rm-status-pending/50 group-hover/entry:bg-rm-status-pending/15 group-hover/entry:text-rm-status-pending transition-all duration-200">
@@ -301,7 +301,7 @@ export function RegionCard({ region }: { region: RegionDashboardCard }) {
             {region.favorite.collegeName}
           </div>
           <span className={cn("text-[11px] font-bold font-mono", accent.link)}>
-            夺冠率 {pct(region.favorite.probabilities.champion)} · TS2 {elo(region.favorite.mu0)}
+            夺冠率 {pct(region.favorite.probabilities.champion)} · Elo {elo(region.favorite.mu0)}
           </span>
         </div>
         <div className="text-right">

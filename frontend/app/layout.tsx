@@ -12,7 +12,7 @@ const quantico = Quantico({
 
 export const metadata: Metadata = {
   title: "RoboMaster 赛事总控台 | 区域赛胜率侦测仪",
-  description: "机甲机位战斗胜率预测与赛程沙盘推演中控台",
+  description: "RoboMaster 机甲大师赛区胜率预测与赛程推演中控台",
   icons: {
     icon: "/icon.svg",
     shortcut: "/icon.svg",

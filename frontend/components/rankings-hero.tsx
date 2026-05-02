@@ -34,7 +34,7 @@ export function RankingsHero({
             </Link>
             <div className="h-5 w-px bg-rm-metal-border" />
             <h1 className="font-machine text-lg font-bold tracking-widest text-rm-metal-textLight">
-              全局 TS2 排名
+              Elo 战力排名
             </h1>
           </div>
           <span className="font-mono text-[10px] text-rm-metal-textFaint">

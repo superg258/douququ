@@ -612,7 +612,7 @@ function buildSlotsStage(simulation: SimulationResponse): WorkspaceStage {
           y: 134 + index * 96,
           orderLabel: slot.slot ?? "--",
           subtitle: slot.teamName,
-          statLine: `${slot.seedTier} / TS2 #${slot.eloGlobalRank}`,
+          statLine: `${slot.seedTier} / Elo #${slot.eloGlobalRank}`,
           tone: "cyan",
         })
       );
@@ -623,7 +623,7 @@ function buildSlotsStage(simulation: SimulationResponse): WorkspaceStage {
     id: "slots",
     label: "抽签落位",
     title: "小组抽签落位",
-    description: "先看两组抽签位置、种子档位与 TS2 顺位，再进入后续赛程。",
+    description: "先看两组抽签位置、种子档位与 Elo 顺位，再进入后续赛程。",
     width: 1160,
     height: 1040,
     headers,

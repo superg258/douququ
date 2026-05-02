@@ -203,10 +203,10 @@ function SouthSwissReplayList({ view, simulation }: { view: WorkspaceView; simul
           const postLine = isCompleted
             ? (
               predictionHit
-                ? `赛前主胜判断命中，置信等级：${translateConfidenceLabel(row.confidenceLabel)}。`
-                : `赛前主胜判断未命中，出现逆转，置信等级：${translateConfidenceLabel(row.confidenceLabel)}。`
+                ? `赛前预测命中，置信等级：${translateConfidenceLabel(row.confidenceLabel)}。`
+                : `赛前预测未命中，实际结果出现逆转，置信等级：${translateConfidenceLabel(row.confidenceLabel)}。`
             )
-            : `本场尚未产生正式赛果，当前仅展示预计走向，置信等级：${translateConfidenceLabel(row.confidenceLabel)}。`;
+            : `本场尚未产生正式赛果，以下为赛前预测走向，置信等级：${translateConfidenceLabel(row.confidenceLabel)}。`;
 
           return (
             <article 
@@ -301,7 +301,7 @@ function SouthSwissReplayList({ view, simulation }: { view: WorkspaceView; simul
                       <span className={cn("font-bold mt-[1px]", isCompleted ? "text-rm-status-safe" : "text-rm-blue opacity-50")}>{'>'}</span>
                       <span className="leading-relaxed flex-1">
                         <span className={cn("font-bold mr-2", isCompleted ? "text-white" : "text-rm-metal-text")}>
-                          {isCompleted ? "赛后 //" : "摘要 //"}
+                          {isCompleted ? "赛后" : "摘要"}
                         </span>
                         {postLine}
                       </span>
@@ -325,7 +325,7 @@ function SearchModal({ open, title, onClose, children }: { open: boolean; title:
         <div className="flex justify-between items-center bg-rm-metal-panel p-4 border-b border-rm-metal-border">
           <h3 className="font-machine uppercase tracking-widest text-white">{title}</h3>
           <button onClick={onClose} className="text-rm-metal-text hover:text-rm-red font-mono text-xs focus:outline-none">
-            [ CLOSE ]
+            关闭
           </button>
         </div>
         <div className="p-4 overflow-y-auto no-scrollbar">{children}</div>
@@ -350,7 +350,7 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
         
         <div className="space-y-6">
           <div className="bg-rm-metal-dark border border-rm-metal-border p-3 grid grid-cols-2 gap-2 text-[10px] font-mono">
-            <span className="text-rm-metal-text">TS2 {selectedOverviewTeam.mu0.toFixed(1)}</span>
+            <span className="text-rm-metal-text">Elo {selectedOverviewTeam.mu0.toFixed(1)}</span>
             <span className="text-rm-metal-text">全球 #{selectedOverviewTeam.eloGlobalRank}</span>
             <span className="col-span-2 text-rm-status-safe">国赛率 {percent(selectedOverviewTeam.probabilities.national)}</span>
             <span className="col-span-2 text-rm-status-warn">复活赛 {percent(selectedOverviewTeam.probabilities.repechage)}</span>
@@ -449,10 +449,10 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
             <div className="col-span-2 border-t border-rm-metal-border my-1"></div>
             {selectedMatch.officialMatchId ? (
               <>
-                <span className="text-rm-metal-text">官方赛程 ID</span>
+                <span className="text-rm-metal-text">官方赛程编号</span>
                 <span className="text-white font-bold text-right">{selectedMatch.officialMatchId}</span>
                 <span className="text-rm-metal-text">官方状态</span>
-                <span className="text-white font-bold text-right">{selectedMatch.officialStatus ?? "未返回"}</span>
+                <span className="text-white font-bold text-right">{selectedMatch.officialStatus ?? "暂无数据"}</span>
                 <div className="col-span-2 border-t border-rm-metal-border my-1"></div>
               </>
             ) : null}
@@ -467,7 +467,7 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
             {!hasMatchElo(selectedMatch) && (
               <>
                 <span className="col-span-2 text-rm-metal-text">
-                  本场尚未产生实际赛果，不计算 TS2 变化，避免把模拟分支误当成真实总榜更新。
+                  本场尚未产生实际赛果，暂不更新战力变化，待正式结果公布后同步。
                 </span>
                 <div className="col-span-2 border-t border-rm-metal-border my-1"></div>
               </>
@@ -862,7 +862,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
                     : "text-rm-metal-text hover:text-white"
               )}
             >
-              {realtimeEnabled ? "实时" : "离线"}
+              {realtimeEnabled ? "实时" : "暂无实时"}
             </button>
             <button
               onClick={() => updateQuery({ mode: "sim" })}
@@ -973,7 +973,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
             <span className="text-[10px] font-bold border border-rm-blue bg-rm-blue/10 text-rm-blue px-1.5 py-0.5 shadow-[0_0_5px_rgba(0,163,255,0.3)]">模拟预测</span>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] font-mono">
-            <span className="border border-rm-blue/35 bg-rm-blue/10 text-rm-blue px-2 py-1">预测池 {matchPhaseOverview.counters.pre}</span>
+            <span className="border border-rm-blue/35 bg-rm-blue/10 text-rm-blue px-2 py-1">待验证 {matchPhaseOverview.counters.pre}</span>
             <span className="border border-rm-status-safe/35 bg-rm-status-safe/10 text-rm-status-safe px-2 py-1">已完赛 {matchPhaseOverview.counters.post}</span>
             <span className="col-span-2 border border-white/15 bg-white/5 text-white px-2 py-1">胜负命中率 {predictionRecap ? percent(predictionRecap.winnerHitRate) : "0.0%"}</span>
             <span className="border border-rm-status-safe/35 bg-rm-status-safe/10 text-rm-status-safe px-2 py-1">精准 {matchPhaseOverview.accuracy.correct}</span>

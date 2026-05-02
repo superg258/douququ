@@ -10,10 +10,13 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
+import build_rmuc_elo as legacy_elo  # noqa: E402
+
 if "build_rmuc_ts2_backend" not in sys.modules:
     ts2_stub = types.ModuleType("build_rmuc_ts2_backend")
     ts2_stub.ROOT = ROOT
     ts2_stub.DERIVED_DIR = ROOT / "data" / "derived" / "2026_rmuc_ts2"
+    ts2_stub.make_team_key = legacy_elo.make_team_key
     sys.modules["build_rmuc_ts2_backend"] = ts2_stub
 
 import simulate_region  # noqa: E402
@@ -54,7 +57,60 @@ def _team(index: int) -> region_core.RegionTeam:
     )
 
 
+def _capture_qualification_pairs(region: str) -> list[tuple[str, list[tuple[str, str]]]]:
+    losers = [_team(index) for index in range(1, 9)]
+    captured: list[tuple[str, list[tuple[str, str]]]] = []
+    original = region_core.simulate_named_round
+
+    def fake_simulate_named_round(
+        stage: str,
+        match_names: list[str],
+        pairs: list[tuple[region_core.RegionTeam, region_core.RegionTeam]],
+        **_: Any,
+    ) -> tuple[list[region_core.RegionTeam], list[region_core.RegionTeam], list[dict[str, str]]]:
+        captured.append((stage, [(left.college_name, right.college_name) for left, right in pairs]))
+        rows = [{"winner_next": "tbd", "loser_next": "tbd"} for _pair in pairs]
+        return [left for left, _right in pairs], [right for _left, right in pairs], rows
+
+    region_core.simulate_named_round = fake_simulate_named_round
+    try:
+        region_core.simulate_qualification_path(
+            region,
+            losers,
+            rng=random.Random(20260414),
+            head_to_head_index={},
+            samples=0,
+        )
+    finally:
+        region_core.simulate_named_round = original
+
+    return captured
+
+
 class SouthOfficialScheduleTests(unittest.TestCase):
+    def test_school_rename_aliases_share_one_canonical_team_key(self) -> None:
+        self.assertEqual(legacy_elo.normalize_school("华北科技学院"), "应急管理大学")
+        self.assertEqual(legacy_elo.normalize_school("应急管理学院"), "应急管理大学")
+        self.assertEqual(legacy_elo.normalize_school("应急管理大学"), "应急管理大学")
+        self.assertEqual(legacy_elo.make_team_key("华北科技学院", "风暴"), "应急管理大学::风暴")
+        self.assertEqual(legacy_elo.make_team_key("应急管理学院", "风暴"), "应急管理大学::风暴")
+
+    def test_official_seed_lists_match_2026_manual_corrections(self) -> None:
+        east = simulate_region.parse_team_rows("东部赛区", simulate_region.DEFAULT_RATINGS_CSV)
+        north = simulate_region.parse_team_rows("北部赛区", simulate_region.DEFAULT_RATINGS_CSV)
+
+        east_by_name = {(team.college_name, team.team_name): team for team in east}
+        north_by_name = {(team.college_name, team.team_name): team for team in north}
+
+        hefei = east_by_name[("合肥工业大学", "苍穹")]
+        zhongbei = east_by_name[("中北大学", "606")]
+        emergency = north_by_name[("应急管理大学", "风暴")]
+
+        self.assertEqual((hefei.seed_rank_in_region, hefei.seed_tier), (16, "tier2"))
+        self.assertEqual((zhongbei.seed_rank_in_region, zhongbei.seed_tier), (17, "unseeded"))
+        self.assertEqual(emergency.team_key, "应急管理大学::风暴")
+        self.assertEqual((emergency.seed_rank_in_region, emergency.seed_tier), (13, "tier2"))
+
     def test_south_draw_slots_keep_second_tier_out_of_unseeded_positions(self) -> None:
         for seed in (20260414, 20261111, 20260512):
             with self.subTest(seed=seed):
@@ -76,34 +132,8 @@ class SouthOfficialScheduleTests(unittest.TestCase):
         )
 
     def test_south_qualification_pairs_follow_official_winner_paths(self) -> None:
-        losers = [_team(index) for index in range(1, 9)]
-        captured: list[tuple[str, list[tuple[str, str]]]] = []
-        original = region_core.simulate_named_round
-
-        def fake_simulate_named_round(
-            stage: str,
-            match_names: list[str],
-            pairs: list[tuple[region_core.RegionTeam, region_core.RegionTeam]],
-            **_: Any,
-        ) -> tuple[list[region_core.RegionTeam], list[region_core.RegionTeam], list[dict[str, str]]]:
-            captured.append((stage, [(left.college_name, right.college_name) for left, right in pairs]))
-            rows = [{"winner_next": "tbd", "loser_next": "tbd"} for _pair in pairs]
-            return [left for left, _right in pairs], [right for _left, right in pairs], rows
-
-        region_core.simulate_named_round = fake_simulate_named_round
-        try:
-            region_core.simulate_qualification_path(
-                "南部赛区",
-                losers,
-                rng=random.Random(20260414),
-                head_to_head_index={},
-                samples=0,
-            )
-        finally:
-            region_core.simulate_named_round = original
-
         self.assertEqual(
-            captured,
+            _capture_qualification_pairs("南部赛区"),
             [
                 (
                     "qualification_round1",
@@ -124,7 +154,75 @@ class SouthOfficialScheduleTests(unittest.TestCase):
             ],
         )
 
-    def test_south_round5_pairings_follow_csv_rank_positions(self) -> None:
+    def test_east_qualification_repechage_pairs_follow_csv_loser_paths(self) -> None:
+        self.assertEqual(
+            _capture_qualification_pairs("东部赛区"),
+            [
+                (
+                    "qualification_round1",
+                    [
+                        ("Team 1", "Team 2"),
+                        ("Team 4", "Team 3"),
+                        ("Team 5", "Team 6"),
+                        ("Team 8", "Team 7"),
+                    ],
+                ),
+                (
+                    "qualification_round2",
+                    [
+                        ("Team 2", "Team 6"),
+                        ("Team 3", "Team 7"),
+                    ],
+                ),
+            ],
+        )
+
+    def test_north_qualification_paths_follow_csv_winner_and_loser_paths(self) -> None:
+        self.assertEqual(
+            _capture_qualification_pairs("北部赛区"),
+            [
+                (
+                    "qualification_round1",
+                    [
+                        ("Team 1", "Team 2"),
+                        ("Team 4", "Team 3"),
+                        ("Team 5", "Team 6"),
+                        ("Team 8", "Team 7"),
+                    ],
+                ),
+                (
+                    "qualification_round2",
+                    [
+                        ("Team 1", "Team 5"),
+                        ("Team 4", "Team 8"),
+                    ],
+                ),
+                (
+                    "qualification_round2",
+                    [
+                        ("Team 2", "Team 6"),
+                        ("Team 3", "Team 7"),
+                    ],
+                ),
+            ],
+        )
+
+    def test_swiss_round1_b_group_red_blue_orientation_follows_csv(self) -> None:
+        self.assertEqual(
+            region_core.SWISS_ROUND1_PAIRINGS["B"],
+            [
+                ("B9", "B1"),
+                ("B10", "B2"),
+                ("B3", "B11"),
+                ("B4", "B12"),
+                ("B13", "B5"),
+                ("B14", "B6"),
+                ("B7", "B15"),
+                ("B8", "B16"),
+            ],
+        )
+
+    def test_round5_pairings_follow_csv_rank_positions_for_all_regions(self) -> None:
         teams = [_team(index) for index in range(1, 17)]
         for index, team in enumerate(teams, start=1):
             team.group_name = "A"
@@ -145,7 +243,7 @@ class SouthOfficialScheduleTests(unittest.TestCase):
         teams_by_key = {team.team_key: team for team in teams}
 
         self.assertEqual(
-            [(left.college_name, right.college_name) for left, right in region_core.south_round5_csv_pairings("A", teams, teams_by_key)],
+            [(left.college_name, right.college_name) for left, right in region_core.round5_csv_pairings("A", teams, teams_by_key)],
             [
                 ("Team 6", "Team 11"),
                 ("Team 10", "Team 7"),
@@ -154,11 +252,95 @@ class SouthOfficialScheduleTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            [(left.college_name, right.college_name) for left, right in region_core.south_round5_csv_pairings("B", teams, teams_by_key)],
+            [(left.college_name, right.college_name) for left, right in region_core.round5_csv_pairings("B", teams, teams_by_key)],
             [
                 ("Team 11", "Team 6"),
                 ("Team 7", "Team 10"),
                 ("Team 9", "Team 8"),
+            ],
+        )
+
+    def test_swiss_round2_to_round4_red_blue_orientation_follows_csv_rank_positions(self) -> None:
+        teams = [_team(index) for index in range(1, 17)]
+        for index, team in enumerate(teams, start=1):
+            team.group_name = "A"
+            team.slot = f"A{index}"
+            team.mu0 = 1500.0
+
+        teams_by_key = {team.team_key: team for team in teams}
+
+        for round_number in (2, 3):
+            with self.subTest(round=round_number, group="A"):
+                self.assertEqual(
+                    [
+                        (left.college_name, right.college_name)
+                        for left, right in region_core.swiss_csv_rank_pairings(round_number, "A", teams, teams_by_key)
+                    ],
+                    [
+                        ("Team 1", "Team 2"),
+                        ("Team 3", "Team 4"),
+                        ("Team 6", "Team 5"),
+                        ("Team 8", "Team 7"),
+                        ("Team 9", "Team 10"),
+                        ("Team 11", "Team 12"),
+                        ("Team 14", "Team 13"),
+                        ("Team 16", "Team 15"),
+                    ],
+                )
+
+            with self.subTest(round=round_number, group="B"):
+                self.assertEqual(
+                    [
+                        (left.college_name, right.college_name)
+                        for left, right in region_core.swiss_csv_rank_pairings(round_number, "B", teams, teams_by_key)
+                    ],
+                    [
+                        ("Team 2", "Team 1"),
+                        ("Team 4", "Team 3"),
+                        ("Team 5", "Team 6"),
+                        ("Team 7", "Team 8"),
+                        ("Team 10", "Team 9"),
+                        ("Team 12", "Team 11"),
+                        ("Team 13", "Team 14"),
+                        ("Team 15", "Team 16"),
+                    ],
+                )
+
+        for team in teams[:2]:
+            team.swiss_wins = 3
+            team.swiss_losses = 0
+            team.swiss_qualified_round = 3
+        for team in teams[-2:]:
+            team.swiss_wins = 0
+            team.swiss_losses = 3
+            team.swiss_eliminated_round = 3
+
+        self.assertEqual(
+            [
+                (left.college_name, right.college_name)
+                for left, right in region_core.swiss_csv_rank_pairings(4, "A", teams, teams_by_key)
+            ],
+            [
+                ("Team 3", "Team 4"),
+                ("Team 6", "Team 5"),
+                ("Team 8", "Team 7"),
+                ("Team 9", "Team 10"),
+                ("Team 11", "Team 12"),
+                ("Team 14", "Team 13"),
+            ],
+        )
+        self.assertEqual(
+            [
+                (left.college_name, right.college_name)
+                for left, right in region_core.swiss_csv_rank_pairings(4, "B", teams, teams_by_key)
+            ],
+            [
+                ("Team 4", "Team 3"),
+                ("Team 5", "Team 6"),
+                ("Team 7", "Team 8"),
+                ("Team 10", "Team 9"),
+                ("Team 12", "Team 11"),
+                ("Team 13", "Team 14"),
             ],
         )
 

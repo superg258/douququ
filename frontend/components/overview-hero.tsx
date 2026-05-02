@@ -59,7 +59,7 @@ export function OverviewHero({ generatedLabel }: { generatedLabel: string }) {
               <div className="flex items-center gap-2 mb-3">
                 <div className="h-px w-6 bg-rm-metal-textMuted/20" />
                 <span className="font-mono text-[9px] text-rm-metal-textFaint/50 tracking-[0.3em] uppercase">
-                  // TACTICAL COMMAND //
+                  战术指挥中心
                 </span>
               </div>
 
@@ -141,7 +141,7 @@ export function OverviewHero({ generatedLabel }: { generatedLabel: string }) {
                   覆盖南部 · 东部 · 北部三赛区
                 </p>
                 <p className="font-mono text-[11px] sm:text-xs text-rm-metal-textFaint leading-relaxed tracking-[0.08em]">
-                  TrueSkill 2 模型与蒙特卡洛引擎实时推演各赛区抽签、瑞士轮、资格赛、淘汰赛与最终排名晋级形势。
+                  基于 Elo 评分与蒙特卡洛模拟，实时推演各赛区从抽签、瑞士轮、资格赛、淘汰赛到最终排名的完整晋级形势。
                 </p>
               </div>
 
@@ -152,7 +152,7 @@ export function OverviewHero({ generatedLabel }: { generatedLabel: string }) {
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-rm-status-confirmed shadow-[0_0_6px_rgba(0,232,120,0.7)]" />
                 </span>
                 <span className="font-mono text-[9px] text-rm-metal-textFaint/60 tracking-[0.2em]">
-                  SYS.NOMINAL &nbsp;//&nbsp; {generatedLabel}
+                  系统运行正常 &nbsp;|&nbsp; {generatedLabel}
                 </span>
               </div>
             </div>

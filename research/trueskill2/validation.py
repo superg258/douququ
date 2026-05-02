@@ -42,7 +42,7 @@ def build_baseline_intersection_compare(snapshot_path: Path, out_path: Path) -> 
     pd, _ = require_dataframe_deps()
     new_snapshot = pd.read_parquet(snapshot_path).copy()
     new_snapshot = new_snapshot[new_snapshot["is_rmuc_2026_team"].fillna(False)].copy()
-    legacy = pd.read_csv(ROOT / "data" / "derived" / "2026_rmuc_elo" / "preseason_ratings.csv")
+    legacy = pd.DataFrame(load_legacy_outputs()["preseason_rows"])
     compare = new_snapshot.merge(
         legacy[["school_key", "college_name", "mu0", "sigma0"]],
         on="school_key",

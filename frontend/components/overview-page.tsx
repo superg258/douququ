@@ -40,7 +40,7 @@ export function OverviewPage() {
       <div className="flex flex-col items-center justify-center py-20 animate-pulse">
         <div className="w-8 h-8 border-4 border-rm-blue/30 border-t-rm-blue rounded-full animate-spin mb-4" />
         <span className="font-machine text-rm-blue tracking-widest uppercase text-xs">
-          接入预测引擎...
+          加载赛事数据...
         </span>
       </div>
     );

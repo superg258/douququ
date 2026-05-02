@@ -259,9 +259,9 @@ function audienceSignal(prediction: MatchCanvasCard["match"]["miniProgramPredict
     return {
       redRate: 0,
       blueRate: 0,
-      statusLabel: "待接入",
+      statusLabel: "暂未开放",
       available: false,
-      title: "王牌预言家观众投票待接入",
+      title: "王牌预言家投票通道暂未开放",
     };
   }
 
@@ -279,9 +279,9 @@ function audienceSignal(prediction: MatchCanvasCard["match"]["miniProgramPredict
   return {
     redRate: hasCache ? (prediction.redRate ?? 0) : 0,
     blueRate: hasCache ? (prediction.blueRate ?? 0) : 0,
-    statusLabel: hasCache ? "缓存" : "暂不可用",
+    statusLabel: hasCache ? "历史记录" : "暂未开放",
     available: hasCache,
-    title: prediction.reason ?? "王牌预言家暂不可用",
+    title: prediction.reason ?? "王牌预言家暂未开放",
   };
 }
 
@@ -755,12 +755,12 @@ function MatchCanvasCardComponent({
       {/* Prediction signal bars: TS2 + 王牌 */}
       <div className="shrink-0 border-t border-white/[0.06] px-2.5 py-1.5 flex flex-col gap-1.5">
         <SignalMicroRow
-          label="TS2"
+          label="Elo"
           redRate={row.pSeriesRed}
           blueRate={row.pSeriesBlue}
           statusLabel={row.pSeriesRed >= row.pSeriesBlue ? "红方占优" : "蓝方占优"}
           variant="model"
-          title={`TS2 预测胜率：红 ${formatRate(row.pSeriesRed)}，蓝 ${formatRate(row.pSeriesBlue)}`}
+          title={`战力预测胜率：红 ${formatRate(row.pSeriesRed)}，蓝 ${formatRate(row.pSeriesBlue)}`}
         />
         <SignalMicroRow
           label="王牌"
