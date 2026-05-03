@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildOverviewDashboard } from "@/lib/overview-builders";
+import { buildEloRankingsDashboard, buildOverviewDashboard } from "@/lib/overview-builders";
 import type { OverviewResponse, OverviewTeam } from "@/lib/types";
 
 function makeTeam(
@@ -158,5 +158,31 @@ describe("buildOverviewDashboard", () => {
     const south = dashboard.regionStrength.find((row) => row.regionSlug === "south_region");
 
     expect(east?.powerIndex).toBeGreaterThan(south?.powerIndex ?? 0);
+  });
+});
+
+describe("buildEloRankingsDashboard", () => {
+  it("ranks and displays teams by current Elo while keeping preseason probability fields unchanged", () => {
+    const overview = makeOverview();
+    overview.regions[0].teams[0].currentElo = 1650;
+    overview.regions[0].teams[0].preseasonElo = 1800;
+    overview.regions[0].teams[0].eloDeltaFromPreseason = -150;
+    overview.regions[0].teams[1].currentElo = 1900;
+    overview.regions[0].teams[1].preseasonElo = 1760;
+    overview.regions[0].teams[1].eloDeltaFromPreseason = 140;
+
+    const dashboard = buildEloRankingsDashboard(overview);
+    const rows = dashboard.sections[0].rows;
+
+    expect(rows.map((row) => row.teamKey).slice(0, 2)).toEqual(["beta", "gamma"]);
+    expect(rows[0]).toMatchObject({
+      teamKey: "beta",
+      mu0: 1760,
+      currentElo: 1900,
+      preseasonElo: 1760,
+      eloDeltaFromPreseason: 140,
+      nationalProbability: 0.7,
+      championProbability: 0.28,
+    });
   });
 });

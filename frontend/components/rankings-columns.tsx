@@ -6,7 +6,7 @@ import { RankingsColumn } from "@/components/rankings-column";
 export function RankingsColumns({ sections }: { sections: EloRankingSection[] }) {
   const globalRanks = useMemo(() => {
     const allTeams = sections.flatMap((s) => s.rows);
-    allTeams.sort((a, b) => b.mu0 - a.mu0);
+    allTeams.sort((a, b) => (b.currentElo ?? b.mu0) - (a.currentElo ?? a.mu0));
     const ranks = new Map<string, number>();
     allTeams.forEach((team, i) => ranks.set(team.teamKey, i + 1));
     return ranks;

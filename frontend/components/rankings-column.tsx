@@ -13,6 +13,11 @@ function elo(value: number) {
   return value.toFixed(1);
 }
 
+function signedEloDelta(value: number) {
+  if (Math.abs(value) < 0.05) return "±0.0";
+  return `${value > 0 ? "+" : ""}${value.toFixed(1)}`;
+}
+
 /* ─── 概率颜色（按类型区分） ─── */
 
 function repechageColor(value: number) {
@@ -86,6 +91,8 @@ function RankingRow({
   const a = ACCENT[regionSlug] ?? ACCENT.north_region;
   const playoffUrl = buildRegionHref(regionSlug, "playoff", { highlight: row.teamKey });
   const isTop3 = row.rankInRegion <= 3;
+  const currentElo = row.currentElo ?? row.mu0;
+  const eloDelta = row.eloDeltaFromPreseason ?? currentElo - row.mu0;
 
   return (
     <Link
@@ -147,7 +154,13 @@ function RankingRow({
             "font-mono text-base font-bold tabular-nums",
             isTop3 ? a.text : "text-rm-metal-textLight",
           )}>
-            {elo(row.mu0)}
+            {elo(currentElo)}
+          </div>
+          <div className={cn(
+            "font-mono text-[9px] tabular-nums",
+            eloDelta > 0.05 ? "text-rm-status-safe" : eloDelta < -0.05 ? "text-rm-red/80" : "text-rm-metal-textFaint",
+          )}>
+            {signedEloDelta(eloDelta)}
           </div>
         </div>
       </div>

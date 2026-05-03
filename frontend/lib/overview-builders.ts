@@ -46,12 +46,16 @@ function sum(values: number[]) {
   return values.reduce((total, value) => total + value, 0);
 }
 
+function displayElo(team: Pick<OverviewTeam, "mu0" | "currentElo">) {
+  return team.currentElo ?? team.mu0;
+}
+
 function favoriteOf(region: OverviewRegion) {
   return [...region.teams].sort((left, right) => {
     if (right.probabilities.champion !== left.probabilities.champion) {
       return right.probabilities.champion - left.probabilities.champion;
     }
-    return right.mu0 - left.mu0;
+    return displayElo(right) - displayElo(left);
   })[0];
 }
 
@@ -66,14 +70,16 @@ function rankTeamsByProbability(
     if (rightValue !== leftValue) {
       return rightValue - leftValue;
     }
-    return right.mu0 - left.mu0;
+    return displayElo(right) - displayElo(left);
   });
 }
 
 function rankTeamsByElo(region: OverviewRegion) {
   return [...region.teams].sort((left, right) => {
-    if (right.mu0 !== left.mu0) {
-      return right.mu0 - left.mu0;
+    const leftElo = displayElo(left);
+    const rightElo = displayElo(right);
+    if (rightElo !== leftElo) {
+      return rightElo - leftElo;
     }
     if (left.eloRegionRank !== right.eloRegionRank) {
       return left.eloRegionRank - right.eloRegionRank;
@@ -201,12 +207,12 @@ function buildRegionCards(regions: OverviewRegion[]): RegionDashboardCard[] {
     .map((region) => {
       const nationalSelector = (team: OverviewTeam) => team.probabilities.national;
       const repechageOrBetterSelector = (team: OverviewTeam) => team.probabilities.national + team.probabilities.repechage;
-      const eloValues = region.teams.map((team) => team.mu0).sort((left, right) => right - left);
+      const eloValues = region.teams.map((team) => displayElo(team)).sort((left, right) => right - left);
       const championTeams = [...region.teams].sort((left, right) => {
         if (right.probabilities.champion !== left.probabilities.champion) {
           return right.probabilities.champion - left.probabilities.champion;
         }
-        return right.mu0 - left.mu0;
+        return displayElo(right) - displayElo(left);
       });
       const avgTop4Elo = average(eloValues.slice(0, 4));
       const avgTop8Elo = average(eloValues.slice(0, 8));
@@ -277,7 +283,7 @@ function buildContenders(regions: OverviewRegion[]) {
       if (right.probabilities.champion !== left.probabilities.champion) {
         return right.probabilities.champion - left.probabilities.champion;
       }
-      return right.mu0 - left.mu0;
+      return displayElo(right) - displayElo(left);
     })
     .slice(0, 8);
 }
@@ -393,12 +399,16 @@ function buildEloRankingSections(regions: OverviewRegion[]): EloRankingSection[]
         collegeName: team.collegeName,
         teamName: team.teamName,
         mu0: team.mu0,
+        currentElo: displayElo(team),
+        preseasonElo: team.preseasonElo ?? team.mu0,
+        eloDeltaFromPreseason: team.eloDeltaFromPreseason ?? displayElo(team) - team.mu0,
+        eloRankSource: team.eloRankSource ?? "preseason",
         repechageProbability: team.probabilities.repechage,
         nationalProbability: team.probabilities.national,
         championProbability: team.probabilities.champion,
       }));
 
-      const elos = rankedTeams.map((team) => team.mu0);
+      const elos = rankedTeams.map((team) => displayElo(team));
 
       return {
         regionSlug: region.regionSlug,

@@ -47,8 +47,16 @@ def _read_json(path: Path) -> Any:
 def load_ratings_rows() -> list[dict[str, str]]:
     return _read_csv(PRESEASON_RATINGS_CSV)
 
+
+def _school_key_from_rating_row(row: dict[str, str]) -> str:
+    school_key = str(row.get("school_key") or "")
+    if school_key:
+        return school_key
+    return rmuc_live.legacy_elo.make_school_key(str(row["college_name"]))
+
+
 @lru_cache(maxsize=1)
-def load_global_elo_rank_map() -> dict[str, int]:
+def load_preseason_global_elo_rank_map() -> dict[str, int]:
     rows = sorted(
         load_ratings_rows(),
         key=lambda row: (
@@ -58,6 +66,70 @@ def load_global_elo_rank_map() -> dict[str, int]:
         ),
     )
     return {row["team_key"]: index for index, row in enumerate(rows, start=1)}
+
+
+@lru_cache(maxsize=1)
+def load_current_rating_index() -> dict[str, dict[str, Any]]:
+    snapshot_path = _published_current_snapshot_path_for(RUNTIME_PUBLISHED_RATINGS_DIR)
+    snapshot_rows = _read_json_if_exists(snapshot_path)
+    snapshot_by_school_key: dict[str, dict[str, Any]] = {}
+    if isinstance(snapshot_rows, list):
+        snapshot_by_school_key = {
+            str(row.get("school_key")): row
+            for row in snapshot_rows
+            if isinstance(row, dict) and row.get("school_key") and row.get("published_rating") is not None
+        }
+
+    out: dict[str, dict[str, Any]] = {}
+    for row in load_ratings_rows():
+        team_key = str(row["team_key"])
+        school_key = _school_key_from_rating_row(row)
+        preseason_elo = float(row["mu0"])
+        snapshot = snapshot_by_school_key.get(school_key)
+        current_elo = float(snapshot["published_rating"]) if snapshot is not None else preseason_elo
+        out[team_key] = {
+            "teamKey": team_key,
+            "schoolKey": school_key,
+            "currentElo": current_elo,
+            "preseasonElo": preseason_elo,
+            "eloDeltaFromPreseason": current_elo - preseason_elo,
+            "eloRankSource": "live" if snapshot is not None else "preseason",
+        }
+    return out
+
+
+@lru_cache(maxsize=1)
+def load_global_elo_rank_map() -> dict[str, int]:
+    current_rows = sorted(
+        load_current_rating_index().values(),
+        key=lambda row: (
+            -float(row["currentElo"]),
+            str(row["teamKey"]),
+        ),
+    )
+    return {str(row["teamKey"]): index for index, row in enumerate(current_rows, start=1)}
+
+
+def _rating_fields_for_team(
+    team_key: str,
+    preseason_elo: float,
+    current_rating_index: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    rating = current_rating_index.get(team_key)
+    if rating is None:
+        current_elo = float(preseason_elo)
+        return {
+            "currentElo": current_elo,
+            "preseasonElo": float(preseason_elo),
+            "eloDeltaFromPreseason": 0.0,
+            "eloRankSource": "preseason",
+        }
+    return {
+        "currentElo": float(rating["currentElo"]),
+        "preseasonElo": float(rating["preseasonElo"]),
+        "eloDeltaFromPreseason": float(rating["eloDeltaFromPreseason"]),
+        "eloRankSource": str(rating["eloRankSource"]),
+    }
 
 
 def compute_team_key(college_name: str, team_name: str) -> str:
@@ -176,6 +248,8 @@ def _reset_live_state_caches() -> None:
     load_published_manifest.cache_clear()
     load_published_current_snapshot_rows.cache_clear()
     load_published_live_match_ledger_rows.cache_clear()
+    load_current_rating_index.cache_clear()
+    load_global_elo_rank_map.cache_clear()
 
 
 def live_state_unavailable_payload(region_slug: str, reason: str) -> dict[str, Any]:
@@ -223,6 +297,7 @@ def summarize_live_status(region_slug: str) -> dict[str, Any]:
 
 
 def build_overview_payload() -> dict[str, Any]:
+    current_rating_index = load_current_rating_index()
     global_rank_map = load_global_elo_rank_map()
     generated_at = current_generated_at()
     regions: list[dict[str, Any]] = []
@@ -235,14 +310,20 @@ def build_overview_payload() -> dict[str, Any]:
 
         for row in rows:
             team_key = compute_team_key(row["college_name"], row["team_name"])
+            preseason_elo = float(row["mu0"])
+            rating_fields = _rating_fields_for_team(team_key, preseason_elo, current_rating_index)
             teams.append(
                 {
                     "teamKey": team_key,
                     "collegeName": row["college_name"],
                     "teamName": row["team_name"],
-                    "mu0": round(float(row["mu0"]), 6),
+                    "mu0": round(preseason_elo, 6),
                     "sigma0": round(float(row["sigma0"]), 6),
                     "eloGlobalRank": global_rank_map[team_key],
+                    "currentElo": round(float(rating_fields["currentElo"]), 6),
+                    "preseasonElo": round(float(rating_fields["preseasonElo"]), 6),
+                    "eloDeltaFromPreseason": round(float(rating_fields["eloDeltaFromPreseason"]), 6),
+                    "eloRankSource": rating_fields["eloRankSource"],
                     "seedTier": row["seed_tier"],
                     "seedRankInRegion": int(row["seed_rank_in_region"]),
                     "probabilities": {
@@ -256,7 +337,7 @@ def build_overview_payload() -> dict[str, Any]:
 
         teams.sort(
             key=lambda team: (
-                -team["mu0"],
+                -team["currentElo"],
                 team["collegeName"],
                 team["teamName"],
             )
@@ -320,32 +401,44 @@ def _optional_float(value: Any) -> float | None:
     return float(value)
 
 
-def _serialize_simulation(region_slug: str, seed: int, simulation: dict[str, Any]) -> dict[str, Any]:
+def _serialize_simulation(
+    region_slug: str,
+    seed: int,
+    simulation: dict[str, Any],
+    *,
+    include_current_ratings: bool = False,
+) -> dict[str, Any]:
     region_name = resolve_region_name(region_slug)
     monte_carlo = serialize_region_monte_carlo(region_slug)
     team_lookup = _team_lookup_from_simulation(simulation)
     final_rankings = simulation["summary"]["final_rankings"]
     final_rankings_by_key = _final_rankings_by_team_key(final_rankings, team_lookup)
-    global_elo_rank_map = load_global_elo_rank_map()
+    current_rating_index = load_current_rating_index() if include_current_ratings else {}
+    global_elo_rank_map = load_global_elo_rank_map() if include_current_ratings else load_preseason_global_elo_rank_map()
+    preseason_elo_by_team_key = {
+        team_lookup[(row["college_name"], row["team_name"])]: float(row["mu0"])
+        for row in simulation["slot_rows"]
+    }
 
     slots = []
     for row in simulation["slot_rows"]:
         team_key = team_lookup[(row["college_name"], row["team_name"])]
-        slots.append(
-            {
-                "teamKey": team_key,
-                "collegeName": row["college_name"],
-                "teamName": row["team_name"],
-                "groupName": row["group_name"],
-                "slot": row["slot"],
-                "drawBox": row["draw_box"],
-                "seedTier": row["seed_tier"],
-                "seedRankInRegion": int(row["seed_rank_in_region"]),
-                "mu0": float(row["mu0"]),
-                "sigma0": float(row["sigma0"]),
-                "eloGlobalRank": global_elo_rank_map[team_key],
-            }
-        )
+        slot_payload = {
+            "teamKey": team_key,
+            "collegeName": row["college_name"],
+            "teamName": row["team_name"],
+            "groupName": row["group_name"],
+            "slot": row["slot"],
+            "drawBox": row["draw_box"],
+            "seedTier": row["seed_tier"],
+            "seedRankInRegion": int(row["seed_rank_in_region"]),
+            "mu0": float(row["mu0"]),
+            "sigma0": float(row["sigma0"]),
+            "eloGlobalRank": global_elo_rank_map[team_key],
+        }
+        if include_current_ratings:
+            slot_payload.update(_rating_fields_for_team(team_key, float(row["mu0"]), current_rating_index))
+        slots.append(slot_payload)
 
     match_rows = []
     for row in simulation["match_rows"]:
@@ -386,6 +479,13 @@ def _serialize_simulation(region_slug: str, seed: int, simulation: dict[str, Any
             "winnerNext": row["winner_next"],
             "loserNext": row["loser_next"],
         }
+        if include_current_ratings:
+            serialized_match["redCurrentElo"] = float(
+                _rating_fields_for_team(red_key, preseason_elo_by_team_key.get(red_key, 0.0), current_rating_index)["currentElo"]
+            )
+            serialized_match["blueCurrentElo"] = float(
+                _rating_fields_for_team(blue_key, preseason_elo_by_team_key.get(blue_key, 0.0), current_rating_index)["currentElo"]
+            )
         if "red_mu0" in row and "blue_mu0" in row and "red_delta" in row and "blue_delta" in row:
             serialized_match["redMu0"] = float(row["red_mu0"])
             serialized_match["blueMu0"] = float(row["blue_mu0"])
@@ -441,30 +541,31 @@ def _serialize_simulation(region_slug: str, seed: int, simulation: dict[str, Any
     serialized_rankings = []
     for row in final_rankings:
         team_key = team_lookup[(row["college_name"], row["team_name"])]
-        serialized_rankings.append(
-            {
-                "rank": int(row["rank"]),
-                "teamKey": team_key,
-                "collegeName": row["college_name"],
-                "teamName": row["team_name"],
-                "groupName": row["group_name"],
-                "slot": row["slot"],
-                "seedTier": row["seed_tier"],
-                "seedRankInRegion": int(row["seed_rank_in_region"]),
-                "swissWins": int(row["swiss_wins"]),
-                "swissLosses": int(row["swiss_losses"]),
-                "swissGroupRank": int(row["swiss_group_rank"]) if row["swiss_group_rank"] != "" else None,
-                "opponentScore": _optional_float(row.get("opponent_score")),
-                "calculatedOpponentScore": _optional_float(row.get("calculated_opponent_score")),
-                "officialOpponentPoints": _optional_float(row.get("official_opponent_points")),
-                "officialAvgBaseHpDiff": _optional_float(row.get("official_avg_base_hp_diff")),
-                "officialAvgTeamDamage": _optional_float(row.get("official_avg_team_damage")),
-                "rankingMetricSource": str(row.get("ranking_metric_source") or "simulation_proxy"),
-                "mu0": float(row["mu0"]),
-                "finalBucket": row["final_bucket"],
-                "advancement": row["advancement"],
-            }
-        )
+        ranking_payload = {
+            "rank": int(row["rank"]),
+            "teamKey": team_key,
+            "collegeName": row["college_name"],
+            "teamName": row["team_name"],
+            "groupName": row["group_name"],
+            "slot": row["slot"],
+            "seedTier": row["seed_tier"],
+            "seedRankInRegion": int(row["seed_rank_in_region"]),
+            "swissWins": int(row["swiss_wins"]),
+            "swissLosses": int(row["swiss_losses"]),
+            "swissGroupRank": int(row["swiss_group_rank"]) if row["swiss_group_rank"] != "" else None,
+            "opponentScore": _optional_float(row.get("opponent_score")),
+            "calculatedOpponentScore": _optional_float(row.get("calculated_opponent_score")),
+            "officialOpponentPoints": _optional_float(row.get("official_opponent_points")),
+            "officialAvgBaseHpDiff": _optional_float(row.get("official_avg_base_hp_diff")),
+            "officialAvgTeamDamage": _optional_float(row.get("official_avg_team_damage")),
+            "rankingMetricSource": str(row.get("ranking_metric_source") or "simulation_proxy"),
+            "mu0": float(row["mu0"]),
+            "finalBucket": row["final_bucket"],
+            "advancement": row["advancement"],
+        }
+        if include_current_ratings:
+            ranking_payload.update(_rating_fields_for_team(team_key, float(row["mu0"]), current_rating_index))
+        serialized_rankings.append(ranking_payload)
 
     summary = simulation["summary"]
     return {
@@ -579,6 +680,8 @@ def build_live_state_payload(region_slug: str) -> dict[str, Any]:
                 "liveStateRatingComponent": rating_scale * float(current_row.get("rmuc_live_state_theta", 0.0)) if current_row else 0.0,
                 "confirmedPriorRatingComponent": rating_scale * float(current_row.get("confirmed_prior_theta", 0.0)) if current_row else 0.0,
                 "residualPriorRatingComponent": rating_scale * float(current_row.get("residual_prior_theta", 0.0)) if current_row else 0.0,
+                "priorRetentionFraction": float(current_row.get("prior_retention_fraction", 1.0)) if current_row else 1.0,
+                "priorAbsorptionFraction": float(current_row.get("prior_absorption_fraction", 0.0)) if current_row else 0.0,
                 "regionalGroupMatchesPlayed": int(current_row.get("regional_group_matches_played", 0)) if current_row else 0,
                 "currentStageFamily": str(current_row.get("current_stage_family", "regional_pre")) if current_row else "regional_pre",
                 "latestMatchId": str(latest_match.get("match_id")) if latest_match else None,
@@ -614,6 +717,10 @@ def build_live_state_payload(region_slug: str) -> dict[str, Any]:
                 "publishedDeltaRating": float(row["published_delta_rating"]),
                 "liveUpdateDeltaRating": float(row["live_update_delta_rating"]),
                 "priorComponentDeltaRating": float(row["prior_component_delta_rating"]),
+                "priorRetentionFractionBeforeMatch": float(row.get("prior_retention_fraction_before_match", 1.0)),
+                "priorRetentionFractionAfterMatch": float(row.get("prior_retention_fraction_after_match", 1.0)),
+                "priorAbsorptionFractionBeforeMatch": float(row.get("prior_absorption_fraction_before_match", 0.0)),
+                "priorAbsorptionFractionAfterMatch": float(row.get("prior_absorption_fraction_after_match", 0.0)),
                 "confirmedPriorRatingAfterMatch": float(row["confirmed_prior_rating_after_match"]),
                 "residualPriorRatingAfterMatch": float(row["residual_prior_rating_after_match"]),
             }
@@ -711,7 +818,13 @@ def _float_from_row(row: dict[str, Any] | None, key: str) -> float | None:
 
 
 def _prior_adjustment_label(row: dict[str, Any] | None) -> str:
-    if str((row or {}).get("stage_family") or "") == "regional_group":
+    if row is None:
+        return "赛前先验修正"
+    try:
+        group_matches_played = int(row.get("regional_group_matches_played") or 0)
+    except (TypeError, ValueError):
+        group_matches_played = 0
+    if str(row.get("stage_family") or "") == "regional_group" and group_matches_played <= 3:
         return "前三轮先验修正"
     return "赛前先验修正"
 
@@ -890,7 +1003,12 @@ def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", sam
         official_swiss_pairings=official_swiss_pairings,
         official_group_rank_metrics=official_group_rank_metrics,
     )
-    payload = _serialize_simulation(region_slug, effective_seed, simulation)
+    payload = _serialize_simulation(
+        region_slug,
+        effective_seed,
+        simulation,
+        include_current_ratings=mode == "live" and context.source_status == "active",
+    )
     if mode == "live":
         live_status = payload["meta"].setdefault("liveStatus", {})
         live_status["slotAssignmentSource"] = "official" if slot_assignments is not None else "simulated_fallback"

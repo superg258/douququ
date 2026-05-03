@@ -661,6 +661,39 @@ def compute_online_match_live_deltas(
     return delta_red, -delta_red
 
 
+def _resolve_runtime_prior_components_after_match(
+    *,
+    prior_theta: float,
+    live_update_delta_theta: float,
+    prior_retention_fraction_before: float,
+    prior_absorption_fraction_before: float,
+    stage_family: str,
+    regional_group_matches_played: int,
+    pre_decay_matches: int,
+) -> tuple[float, float, float, float]:
+    prior_theta = float(prior_theta)
+    retention = min(max(float(prior_retention_fraction_before), 0.0), 1.0)
+    absorption = min(max(float(prior_absorption_fraction_before), 0.0), 1.0)
+    pre_decay_matches = max(int(pre_decay_matches), 1)
+    if str(stage_family) == "regional_group" and int(regional_group_matches_played) <= int(pre_decay_matches):
+        absorption = max(absorption, min(max(int(regional_group_matches_played), 0), pre_decay_matches) / pre_decay_matches)
+        if abs(prior_theta) > 1e-9:
+            alignment = float(np.sign(prior_theta)) * float(live_update_delta_theta)
+            if alignment < 0.0:
+                scale = max(abs(prior_theta), 0.35)
+                deduction = min(retention, (1.0 / pre_decay_matches) * min(max((-alignment) / scale, 0.0), 1.0))
+                retention = max(0.0, retention - deduction)
+
+    retained_prior = prior_theta * retention
+    confirmed_prior = retained_prior * absorption
+    residual_prior = retained_prior - confirmed_prior
+    if abs(confirmed_prior) < 1e-12:
+        confirmed_prior = 0.0
+    if abs(residual_prior) < 1e-12:
+        residual_prior = 0.0
+    return confirmed_prior, residual_prior, retention, absorption
+
+
 def calibrate_online_live_update_scale(
     calibration_bundles: list[dict[str, Any]],
     beta_perf: float,
@@ -827,6 +860,10 @@ def build_published_live_state_updates(
                 "regional_group_matches_played",
                 "pre_decay_factor_before_match",
                 "pre_decay_factor_after_match",
+                "prior_retention_fraction_before_match",
+                "prior_retention_fraction_after_match",
+                "prior_absorption_fraction_before_match",
+                "prior_absorption_fraction_after_match",
                 "published_rating_before_match",
                 "published_rating_after_match",
                 "published_delta_rating",
@@ -854,13 +891,35 @@ def build_published_live_state_updates(
     current_live_map = {key: 0.0 for key in base_theta_map}
     current_group_count_map = {key: 0 for key in base_theta_map}
     current_confirmed_prior_map = {key: 0.0 for key in base_theta_map}
+    current_residual_prior_map = {key: float(prior_theta_map.get(key, 0.0)) for key in base_theta_map}
+    current_prior_retention_fraction_map = {key: 1.0 for key in base_theta_map}
+    current_prior_absorption_fraction_map = {key: 0.0 for key in base_theta_map}
     if not existing.empty:
         latest_existing = existing.sort_values(["match_date", "match_id"], kind="stable").groupby("school_key", as_index=False).tail(1)
         for row in latest_existing.to_dict(orient="records"):
             school_key = str(row["school_key"])
             current_live_map[school_key] = float(row["live_state_theta_after_match"])
             current_group_count_map[school_key] = int(row["regional_group_matches_played"])
-            current_confirmed_prior_map[school_key] = float(row.get("confirmed_prior_theta_after_match", 0.0))
+            confirmed_prior = float(row.get("confirmed_prior_theta_after_match", 0.0))
+            residual_prior = float(row.get("residual_prior_theta_after_match", 0.0))
+            current_confirmed_prior_map[school_key] = confirmed_prior
+            current_residual_prior_map[school_key] = residual_prior
+            prior_theta = float(prior_theta_map.get(school_key, 0.0))
+            retained_prior = confirmed_prior + residual_prior
+            if "prior_retention_fraction_after_match" in row and row.get("prior_retention_fraction_after_match") not in (None, ""):
+                retention = float(row["prior_retention_fraction_after_match"])
+            elif abs(prior_theta) > 1e-9:
+                retention = retained_prior / prior_theta
+            else:
+                retention = 1.0
+            if "prior_absorption_fraction_after_match" in row and row.get("prior_absorption_fraction_after_match") not in (None, ""):
+                absorption = float(row["prior_absorption_fraction_after_match"])
+            elif abs(retained_prior) > 1e-9:
+                absorption = confirmed_prior / retained_prior
+            else:
+                absorption = min(max(int(current_group_count_map.get(school_key, 0)), 0), max(pre_decay_matches, 1)) / max(pre_decay_matches, 1)
+            current_prior_retention_fraction_map[school_key] = min(max(float(retention), 0.0), 1.0)
+            current_prior_absorption_fraction_map[school_key] = min(max(float(absorption), 0.0), 1.0)
 
     update_rows: list[dict[str, Any]] = []
     for match in new_matches.sort_values(["match_date", "match_id"], kind="stable").to_dict(orient="records"):
@@ -881,25 +940,21 @@ def build_published_live_state_updates(
             continue
 
         pre_match_decay_red = (
-            0.0
-            if stage_family in {"post_group", "repechage", "nationals"}
-            else _regional_group_decay_factor(int(current_group_count_map.get(red_school_key, 0)), pre_decay_matches)
+            1.0 - float(current_prior_absorption_fraction_map.get(red_school_key, 0.0))
         )
         pre_match_decay_blue = (
-            0.0
-            if stage_family in {"post_group", "repechage", "nationals"}
-            else _regional_group_decay_factor(int(current_group_count_map.get(blue_school_key, 0)), pre_decay_matches)
+            1.0 - float(current_prior_absorption_fraction_map.get(blue_school_key, 0.0))
         )
         theta_red = (
             float(base_theta_map.get(red_school_key, 0.0))
             + float(current_confirmed_prior_map.get(red_school_key, 0.0))
-            + (float(prior_theta_map.get(red_school_key, 0.0)) * float(pre_match_decay_red))
+            + float(current_residual_prior_map.get(red_school_key, 0.0))
             + float(current_live_map.get(red_school_key, 0.0))
         )
         theta_blue = (
             float(base_theta_map.get(blue_school_key, 0.0))
             + float(current_confirmed_prior_map.get(blue_school_key, 0.0))
-            + (float(prior_theta_map.get(blue_school_key, 0.0)) * float(pre_match_decay_blue))
+            + float(current_residual_prior_map.get(blue_school_key, 0.0))
             + float(current_live_map.get(blue_school_key, 0.0))
         )
         actual_red_score = _match_actual_red_score(match)
@@ -923,9 +978,21 @@ def build_published_live_state_updates(
             red_school_key: float(current_confirmed_prior_map.get(red_school_key, 0.0)),
             blue_school_key: float(current_confirmed_prior_map.get(blue_school_key, 0.0)),
         }
+        before_residual_map = {
+            red_school_key: float(current_residual_prior_map.get(red_school_key, 0.0)),
+            blue_school_key: float(current_residual_prior_map.get(blue_school_key, 0.0)),
+        }
         before_decay_map = {
             red_school_key: float(pre_match_decay_red),
             blue_school_key: float(pre_match_decay_blue),
+        }
+        before_retention_map = {
+            red_school_key: float(current_prior_retention_fraction_map.get(red_school_key, 1.0)),
+            blue_school_key: float(current_prior_retention_fraction_map.get(blue_school_key, 1.0)),
+        }
+        before_absorption_map = {
+            red_school_key: float(current_prior_absorption_fraction_map.get(red_school_key, 0.0)),
+            blue_school_key: float(current_prior_absorption_fraction_map.get(blue_school_key, 0.0)),
         }
         current_live_map[red_school_key] = float(current_live_map.get(red_school_key, 0.0)) + float(delta_red)
         current_live_map[blue_school_key] = float(current_live_map.get(blue_school_key, 0.0)) + float(delta_blue)
@@ -937,35 +1004,39 @@ def build_published_live_state_updates(
             if stage_family == "regional_group":
                 current_group_count_map[school_key] = int(current_group_count_map.get(school_key, 0)) + 1
             new_live = float(current_live_map.get(school_key, 0.0))
-            decay_factor = (
-                0.0
-                if stage_family in {"post_group", "repechage", "nationals"}
-                else _regional_group_decay_factor(int(current_group_count_map.get(school_key, 0)), pre_decay_matches)
-            )
-            confirmed_prior_theta, residual_prior_theta = compute_regional_prior_runtime_components(
+            group_matches_after = int(current_group_count_map.get(school_key, 0))
+            confirmed_prior_theta, residual_prior_theta, retention_fraction, absorption_fraction = _resolve_runtime_prior_components_after_match(
                 prior_theta=float(prior_theta_map.get(school_key, 0.0)),
-                live_state_theta=float(new_live),
-                decay_factor=float(decay_factor),
+                live_update_delta_theta=float(update_delta_map.get(school_key, 0.0)),
+                prior_retention_fraction_before=float(before_retention_map.get(school_key, 1.0)),
+                prior_absorption_fraction_before=float(before_absorption_map.get(school_key, 0.0)),
+                stage_family=stage_family,
+                regional_group_matches_played=group_matches_after,
+                pre_decay_matches=pre_decay_matches,
             )
+            decay_factor = 1.0 - float(absorption_fraction)
             current_confirmed_prior_map[school_key] = float(confirmed_prior_theta)
+            current_residual_prior_map[school_key] = float(residual_prior_theta)
+            current_prior_retention_fraction_map[school_key] = float(retention_fraction)
+            current_prior_absorption_fraction_map[school_key] = float(absorption_fraction)
             prior_theta = float(prior_theta_map.get(school_key, 0.0))
             before_live = float(before_live_map.get(school_key, 0.0))
             before_confirmed = float(before_confirmed_map.get(school_key, 0.0))
+            before_residual = float(before_residual_map.get(school_key, 0.0))
             before_decay_factor = float(before_decay_map.get(school_key, 0.0))
-            before_residual = prior_theta * before_decay_factor
             published_before = compute_published_rating(
                 program_base_theta=float(base_theta_map.get(school_key, 0.0)),
-                prior_theta=prior_theta,
-                confirmed_prior_theta=before_confirmed,
-                decay_factor=before_decay_factor,
+                prior_theta=0.0,
+                confirmed_prior_theta=before_confirmed + before_residual,
+                decay_factor=0.0,
                 live_state_theta=before_live,
                 rating_scale=float(rating_scale),
             )
             published_after = compute_published_rating(
                 program_base_theta=float(base_theta_map.get(school_key, 0.0)),
-                prior_theta=prior_theta,
-                confirmed_prior_theta=float(confirmed_prior_theta),
-                decay_factor=float(decay_factor),
+                prior_theta=0.0,
+                confirmed_prior_theta=float(confirmed_prior_theta) + float(residual_prior_theta),
+                decay_factor=0.0,
                 live_state_theta=float(new_live),
                 rating_scale=float(rating_scale),
             )
@@ -1002,6 +1073,10 @@ def build_published_live_state_updates(
                     "regional_group_matches_played": int(current_group_count_map.get(school_key, 0)),
                     "pre_decay_factor_before_match": before_decay_factor,
                     "pre_decay_factor_after_match": float(decay_factor),
+                    "prior_retention_fraction_before_match": float(before_retention_map.get(school_key, 1.0)),
+                    "prior_retention_fraction_after_match": float(retention_fraction),
+                    "prior_absorption_fraction_before_match": float(before_absorption_map.get(school_key, 0.0)),
+                    "prior_absorption_fraction_after_match": float(absorption_fraction),
                     "published_rating_before_match": float(published_before),
                     "published_rating_after_match": float(published_after),
                     "published_delta_rating": float(published_delta_rating),
@@ -1027,33 +1102,43 @@ def _build_published_current_snapshot(
     current["residual_prior_theta"] = current["regional_prior_theta"]
     current["regional_group_matches_played"] = 0
     current["regional_pre_decay_factor"] = 1.0
+    current["prior_retention_fraction"] = 1.0
+    current["prior_absorption_fraction"] = 0.0
     current["current_stage_family"] = "regional_pre"
     if not live_state_store.empty:
-        latest = (
+        latest_source = (
             live_state_store.sort_values(["match_date", "match_id"], kind="stable")
             .groupby("school_key", as_index=False)
             .tail(1)
-            .rename(
-                columns={
-                    "live_state_theta_after_match": "rmuc_live_state_theta",
-                    "confirmed_prior_theta_after_match": "confirmed_prior_theta",
-                    "residual_prior_theta_after_match": "residual_prior_theta",
-                    "pre_decay_factor_after_match": "regional_pre_decay_factor",
-                    "stage_family": "current_stage_family",
-                }
-            )[
-                [
-                    "school_key",
-                    "rmuc_live_state_theta",
-                    "confirmed_prior_theta",
-                    "residual_prior_theta",
-                    "regional_group_matches_played",
-                    "regional_pre_decay_factor",
-                    "current_stage_family",
-                ]
-            ]
         )
-        current = current.drop(columns=["rmuc_live_state_theta", "confirmed_prior_theta", "residual_prior_theta", "regional_group_matches_played", "regional_pre_decay_factor", "current_stage_family"]).merge(
+        if "prior_retention_fraction_after_match" not in latest_source.columns:
+            latest_source["prior_retention_fraction_after_match"] = 1.0
+        if "prior_absorption_fraction_after_match" not in latest_source.columns:
+            latest_source["prior_absorption_fraction_after_match"] = latest_source["regional_group_matches_played"].astype(float).clip(upper=3.0) / 3.0
+        latest = latest_source.rename(
+            columns={
+                "live_state_theta_after_match": "rmuc_live_state_theta",
+                "confirmed_prior_theta_after_match": "confirmed_prior_theta",
+                "residual_prior_theta_after_match": "residual_prior_theta",
+                "pre_decay_factor_after_match": "regional_pre_decay_factor",
+                "prior_retention_fraction_after_match": "prior_retention_fraction",
+                "prior_absorption_fraction_after_match": "prior_absorption_fraction",
+                "stage_family": "current_stage_family",
+            }
+        )[
+            [
+                "school_key",
+                "rmuc_live_state_theta",
+                "confirmed_prior_theta",
+                "residual_prior_theta",
+                "regional_group_matches_played",
+                "regional_pre_decay_factor",
+                "prior_retention_fraction",
+                "prior_absorption_fraction",
+                "current_stage_family",
+            ]
+        ]
+        current = current.drop(columns=["rmuc_live_state_theta", "confirmed_prior_theta", "residual_prior_theta", "regional_group_matches_played", "regional_pre_decay_factor", "prior_retention_fraction", "prior_absorption_fraction", "current_stage_family"]).merge(
             latest,
             on="school_key",
             how="left",
@@ -1063,6 +1148,8 @@ def _build_published_current_snapshot(
         current["residual_prior_theta"] = current["residual_prior_theta"].fillna(current["regional_prior_theta"])
         current["regional_group_matches_played"] = current["regional_group_matches_played"].fillna(0).astype(int)
         current["regional_pre_decay_factor"] = current["regional_pre_decay_factor"].fillna(1.0)
+        current["prior_retention_fraction"] = current["prior_retention_fraction"].fillna(1.0)
+        current["prior_absorption_fraction"] = current["prior_absorption_fraction"].fillna(0.0)
         current["current_stage_family"] = current["current_stage_family"].fillna("regional_pre")
 
     current["season"] = int(season)

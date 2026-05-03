@@ -2,6 +2,7 @@ export type RegionSlug = "east_region" | "south_region" | "north_region";
 export type WorkspaceView = "slots" | "swiss-a" | "swiss-b" | "qualification" | "playoff" | "final-rankings";
 export type CanvasTone = "cyan" | "amber" | "steel" | "emerald";
 export type LiveSourceStatus = "active" | "inactive" | "missing" | "error";
+export type EloRankSource = "live" | "preseason";
 
 export interface LiveStatusSummary {
   sourceStatus: LiveSourceStatus;
@@ -24,6 +25,8 @@ export interface LiveStateTeam {
   liveStateRatingComponent: number;
   confirmedPriorRatingComponent: number;
   residualPriorRatingComponent: number;
+  priorRetentionFraction: number;
+  priorAbsorptionFraction: number;
   regionalGroupMatchesPlayed: number;
   currentStageFamily: string;
   latestMatchId: string | null;
@@ -45,6 +48,10 @@ export interface LiveStateLedgerRow {
   publishedDeltaRating: number;
   liveUpdateDeltaRating: number;
   priorComponentDeltaRating: number;
+  priorRetentionFractionBeforeMatch: number;
+  priorRetentionFractionAfterMatch: number;
+  priorAbsorptionFractionBeforeMatch: number;
+  priorAbsorptionFractionAfterMatch: number;
   confirmedPriorRatingAfterMatch: number;
   residualPriorRatingAfterMatch: number;
 }
@@ -103,6 +110,10 @@ export interface OverviewTeam {
   collegeName: string;
   teamName: string;
   mu0: number;
+  currentElo?: number;
+  preseasonElo?: number;
+  eloDeltaFromPreseason?: number;
+  eloRankSource?: EloRankSource;
   sigma0: number;
   eloGlobalRank: number;
   eloRegionRank: number;
@@ -153,6 +164,10 @@ export interface SlotRow extends TeamRef {
   seedTier: string;
   seedRankInRegion: number;
   mu0: number;
+  currentElo?: number;
+  preseasonElo?: number;
+  eloDeltaFromPreseason?: number;
+  eloRankSource?: EloRankSource;
   sigma0: number;
   eloGlobalRank: number;
 }
@@ -186,6 +201,8 @@ export interface MatchRow {
   deltaH2H: number;
   redMu0?: number;
   blueMu0?: number;
+  redCurrentElo?: number;
+  blueCurrentElo?: number;
   redDelta?: number;
   blueDelta?: number;
   redLiveDelta?: number;
@@ -212,6 +229,10 @@ export interface FinalRankingRow extends TeamRef {
   swissLosses: number;
   swissGroupRank: number | null;
   mu0: number;
+  currentElo?: number;
+  preseasonElo?: number;
+  eloDeltaFromPreseason?: number;
+  eloRankSource?: EloRankSource;
   finalBucket: string;
   advancement: string;
 }
@@ -326,6 +347,10 @@ export interface EloRankingRow {
   collegeName: string;
   teamName: string;
   mu0: number;
+  currentElo?: number;
+  preseasonElo?: number;
+  eloDeltaFromPreseason?: number;
+  eloRankSource?: EloRankSource;
   repechageProbability: number;
   nationalProbability: number;
   championProbability: number;

@@ -17,6 +17,8 @@ TS2_DERIVED_DIR = ROOT / "data" / "derived" / "2026_rmuc_ts2"
 
 def teardown_function() -> None:
     service.load_ratings_rows.cache_clear()
+    service.load_preseason_global_elo_rank_map.cache_clear()
+    service.load_current_rating_index.cache_clear()
     service.load_global_elo_rank_map.cache_clear()
     service._reset_live_state_caches()
 
@@ -24,6 +26,34 @@ def teardown_function() -> None:
 def _read_csv(path: Path) -> list[dict[str, str]]:
     with path.open(encoding="utf-8-sig", newline="") as handle:
         return list(csv.DictReader(handle))
+
+
+def _write_csv(path: Path, rows: list[dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fieldnames = list(rows[0].keys())
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _write_region_summary(root: Path, region_slug: str) -> None:
+    region_dir = root / region_slug
+    region_dir.mkdir(parents=True, exist_ok=True)
+    (region_dir / "monte_carlo_summary.json").write_text(
+        json.dumps(
+            {
+                "aggregation_mode": "single_seed",
+                "seed_count": 1,
+                "iterations_per_seed": 100,
+                "effective_iterations": 100,
+                "seeds": [20260414],
+                "pair_probability_samples": 1200,
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
 
 
 def test_health() -> None:
@@ -80,9 +110,11 @@ def test_overview_contains_three_regions_sorted_by_elo() -> None:
     ]
     for region in payload["regions"]:
         assert region["teams"]
-        mu_values = [team["mu0"] for team in region["teams"]]
-        assert mu_values == sorted(mu_values, reverse=True)
+        current_elo_values = [team["currentElo"] for team in region["teams"]]
+        assert current_elo_values == sorted(current_elo_values, reverse=True)
         first_team = region["teams"][0]
+        assert abs(first_team["currentElo"] - (first_team["preseasonElo"] + first_team["eloDeltaFromPreseason"])) < 1e-6
+        assert first_team["eloRankSource"] in {"live", "preseason"}
         assert set(first_team["probabilities"]) == {"roundOf16", "repechage", "national", "champion"}
         assert first_team["eloGlobalRank"] >= 1
         assert first_team["eloRegionRank"] == 1
@@ -104,6 +136,145 @@ def test_overview_uses_ts2_preseason_ratings() -> None:
             source = ratings_by_team_key[team["teamKey"]]
             assert abs(team["mu0"] - float(source["mu0"])) < 1e-6
             assert abs(team["sigma0"] - float(source["sigma0"])) < 1e-6
+
+
+def test_overview_ranks_teams_by_current_live_elo_without_changing_probabilities(tmp_path, monkeypatch) -> None:
+    ratings_path = tmp_path / "preseason_ratings.csv"
+    region_sim_dir = tmp_path / "region_simulations"
+    published_dir = tmp_path / "published_2026"
+    published_dir.mkdir(parents=True)
+
+    teams = [
+        {
+            "team_key": service.compute_team_key("South Alpha", "Main"),
+            "school_key": "south_alpha",
+            "college_name": "South Alpha",
+            "team_name": "Main",
+            "admitted_region": "南部赛区",
+            "mu0": 1700,
+            "sigma0": 40,
+            "seed_tier": "tier1",
+            "seed_rank_in_region": 1,
+        },
+        {
+            "team_key": service.compute_team_key("South Beta", "Main"),
+            "school_key": "south_beta",
+            "college_name": "South Beta",
+            "team_name": "Main",
+            "admitted_region": "南部赛区",
+            "mu0": 1600,
+            "sigma0": 40,
+            "seed_tier": "tier2",
+            "seed_rank_in_region": 2,
+        },
+        {
+            "team_key": service.compute_team_key("East Alpha", "Main"),
+            "school_key": "east_alpha",
+            "college_name": "East Alpha",
+            "team_name": "Main",
+            "admitted_region": "东部赛区",
+            "mu0": 1500,
+            "sigma0": 40,
+            "seed_tier": "tier1",
+            "seed_rank_in_region": 1,
+        },
+        {
+            "team_key": service.compute_team_key("North Alpha", "Main"),
+            "school_key": "north_alpha",
+            "college_name": "North Alpha",
+            "team_name": "Main",
+            "admitted_region": "北部赛区",
+            "mu0": 1400,
+            "sigma0": 40,
+            "seed_tier": "tier1",
+            "seed_rank_in_region": 1,
+        },
+    ]
+    _write_csv(ratings_path, teams)
+    for region_slug in ("south_region", "east_region", "north_region"):
+        _write_region_summary(region_sim_dir, region_slug)
+
+    _write_csv(
+        region_sim_dir / "south_region" / "monte_carlo_team_rates.csv",
+        [
+            {
+                "college_name": "South Alpha",
+                "team_name": "Main",
+                "mu0": 1700,
+                "sigma0": 40,
+                "seed_tier": "tier1",
+                "seed_rank_in_region": 1,
+                "round_of_16_rate": 0.9,
+                "repechage_rate": 0.2,
+                "national_rate": 0.77,
+                "champion_rate": 0.31,
+            },
+            {
+                "college_name": "South Beta",
+                "team_name": "Main",
+                "mu0": 1600,
+                "sigma0": 40,
+                "seed_tier": "tier2",
+                "seed_rank_in_region": 2,
+                "round_of_16_rate": 0.8,
+                "repechage_rate": 0.1,
+                "national_rate": 0.11,
+                "champion_rate": 0.03,
+            },
+        ],
+    )
+    for region_slug, college_name, mu0 in (("east_region", "East Alpha", 1500), ("north_region", "North Alpha", 1400)):
+        _write_csv(
+            region_sim_dir / region_slug / "monte_carlo_team_rates.csv",
+            [
+                {
+                    "college_name": college_name,
+                    "team_name": "Main",
+                    "mu0": mu0,
+                    "sigma0": 40,
+                    "seed_tier": "tier1",
+                    "seed_rank_in_region": 1,
+                    "round_of_16_rate": 0.9,
+                    "repechage_rate": 0.1,
+                    "national_rate": 0.5,
+                    "champion_rate": 0.05,
+                }
+            ],
+        )
+    (published_dir / "current_snapshot.json").write_text(
+        json.dumps(
+            [
+                {"school_key": "south_alpha", "published_rating": 1580.0},
+                {"school_key": "south_beta", "published_rating": 1810.0},
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(service, "PRESEASON_RATINGS_CSV", ratings_path)
+    monkeypatch.setattr(service, "REGION_SIM_DIR", region_sim_dir)
+    monkeypatch.setattr(service, "RUNTIME_PUBLISHED_RATINGS_DIR", published_dir)
+    service.load_ratings_rows.cache_clear()
+    service.load_region_probability_rows.cache_clear()
+    service.load_region_summary.cache_clear()
+    service.load_preseason_global_elo_rank_map.cache_clear()
+    service.load_current_rating_index.cache_clear()
+    service.load_global_elo_rank_map.cache_clear()
+    service._reset_live_state_caches()
+
+    payload = service.build_overview_payload()
+    south = next(region for region in payload["regions"] if region["regionSlug"] == "south_region")
+
+    assert [team["collegeName"] for team in south["teams"]] == ["South Beta", "South Alpha"]
+    assert south["teams"][0]["currentElo"] == 1810.0
+    assert south["teams"][0]["preseasonElo"] == 1600.0
+    assert south["teams"][0]["eloDeltaFromPreseason"] == 210.0
+    assert south["teams"][0]["eloRankSource"] == "live"
+    assert south["teams"][0]["eloRegionRank"] == 1
+    assert south["teams"][0]["probabilities"]["national"] == 0.11
+    assert south["teams"][1]["currentElo"] == 1580.0
+    assert south["teams"][1]["probabilities"]["national"] == 0.77
 
 
 def test_simulation_returns_expected_shape_for_all_regions() -> None:
@@ -129,6 +300,175 @@ def test_simulation_returns_expected_shape_for_all_regions() -> None:
         assert len(payload["summary"]["repechageQualifiers"]) == expected["repechageSlots"]
         assert payload["matches"]
         assert {"round_of_16", "quarterfinal", "semifinal", "final"}.issubset(payload["summary"]["matchCountByStage"].keys())
+
+
+def test_live_simulation_serialization_exposes_current_elo_without_replacing_mu0(tmp_path, monkeypatch) -> None:
+    ratings_path = tmp_path / "preseason_ratings.csv"
+    region_sim_dir = tmp_path / "region_simulations"
+    published_dir = tmp_path / "published_2026"
+    published_dir.mkdir(parents=True)
+    _write_region_summary(region_sim_dir, "south_region")
+    _write_csv(
+        ratings_path,
+        [
+            {
+                "team_key": service.compute_team_key("Alpha", "Main"),
+                "school_key": "alpha",
+                "college_name": "Alpha",
+                "team_name": "Main",
+                "admitted_region": "南部赛区",
+                "mu0": 1700,
+                "sigma0": 40,
+                "seed_tier": "tier1",
+                "seed_rank_in_region": 1,
+            },
+            {
+                "team_key": service.compute_team_key("Beta", "Main"),
+                "school_key": "beta",
+                "college_name": "Beta",
+                "team_name": "Main",
+                "admitted_region": "南部赛区",
+                "mu0": 1600,
+                "sigma0": 40,
+                "seed_tier": "tier2",
+                "seed_rank_in_region": 2,
+            },
+        ],
+    )
+    (published_dir / "current_snapshot.json").write_text(
+        json.dumps(
+            [
+                {"school_key": "alpha", "published_rating": 1665.0},
+                {"school_key": "beta", "published_rating": 1735.0},
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(service, "PRESEASON_RATINGS_CSV", ratings_path)
+    monkeypatch.setattr(service, "REGION_SIM_DIR", region_sim_dir)
+    monkeypatch.setattr(service, "RUNTIME_PUBLISHED_RATINGS_DIR", published_dir)
+    service.load_ratings_rows.cache_clear()
+    service.load_region_summary.cache_clear()
+    service.load_preseason_global_elo_rank_map.cache_clear()
+    service.load_current_rating_index.cache_clear()
+    service.load_global_elo_rank_map.cache_clear()
+    service._reset_live_state_caches()
+
+    simulation = {
+        "slot_rows": [
+            {
+                "college_name": "Alpha",
+                "team_name": "Main",
+                "group_name": "A",
+                "slot": "A1",
+                "draw_box": "box1",
+                "seed_tier": "tier1",
+                "seed_rank_in_region": 1,
+                "mu0": 1700,
+                "sigma0": 40,
+            },
+            {
+                "college_name": "Beta",
+                "team_name": "Main",
+                "group_name": "A",
+                "slot": "A2",
+                "draw_box": "box2",
+                "seed_tier": "tier2",
+                "seed_rank_in_region": 2,
+                "mu0": 1600,
+                "sigma0": 40,
+            },
+        ],
+        "match_rows": [
+            {
+                "match_label": "A-SWISS-1-1",
+                "stage": "swiss",
+                "stage_order": 1,
+                "round_number": 1,
+                "group_name": "A",
+                "best_of": 3,
+                "is_actual_result": True,
+                "is_confirmed_matchup": True,
+                "red_college_name": "Alpha",
+                "red_team_name": "Main",
+                "red_slot": "A1",
+                "blue_college_name": "Beta",
+                "blue_team_name": "Main",
+                "blue_slot": "A2",
+                "winner_college_name": "Beta",
+                "winner_team_name": "Main",
+                "loser_college_name": "Alpha",
+                "loser_team_name": "Main",
+                "scoreline": "0:2",
+                "p_game_red": 0.6,
+                "p_game_blue": 0.4,
+                "p_series_red": 0.65,
+                "p_series_blue": 0.35,
+                "delta_h2h": 100,
+                "confidence_label": "test",
+                "winner_next": "",
+                "loser_next": "",
+            }
+        ],
+        "summary": {
+            "samples_per_match": 32,
+            "configuration": {"national_slots": 1, "repechage_slots": 1},
+            "group_rankings": {
+                "A": [
+                    {"college_name": "Beta", "team_name": "Main", "slot": "A2", "group_rank": 1, "wins": 1, "losses": 0, "status": "qualified"},
+                    {"college_name": "Alpha", "team_name": "Main", "slot": "A1", "group_rank": 2, "wins": 0, "losses": 1, "status": "active"},
+                ]
+            },
+            "final_rankings": [
+                {
+                    "rank": 1,
+                    "college_name": "Beta",
+                    "team_name": "Main",
+                    "group_name": "A",
+                    "slot": "A2",
+                    "seed_tier": "tier2",
+                    "seed_rank_in_region": 2,
+                    "swiss_wins": 1,
+                    "swiss_losses": 0,
+                    "swiss_group_rank": 1,
+                    "mu0": 1600,
+                    "final_bucket": "champion",
+                    "advancement": "national_qualified",
+                },
+                {
+                    "rank": 2,
+                    "college_name": "Alpha",
+                    "team_name": "Main",
+                    "group_name": "A",
+                    "slot": "A1",
+                    "seed_tier": "tier1",
+                    "seed_rank_in_region": 1,
+                    "swiss_wins": 0,
+                    "swiss_losses": 1,
+                    "swiss_group_rank": 2,
+                    "mu0": 1700,
+                    "final_bucket": "runner_up",
+                    "advancement": "repechage_qualified",
+                },
+            ],
+            "champion": {"college_name": "Beta", "team_name": "Main"},
+            "runner_up": {"college_name": "Alpha", "team_name": "Main"},
+            "third_place": {"college_name": "Alpha", "team_name": "Main"},
+            "fourth_place": {"college_name": "Alpha", "team_name": "Main"},
+            "match_count_by_stage": {"swiss": 1},
+        },
+    }
+
+    payload = service._serialize_simulation("south_region", 20260414, simulation, include_current_ratings=True)
+
+    assert payload["slots"][0]["mu0"] == 1700.0
+    assert payload["slots"][0]["currentElo"] == 1665.0
+    assert payload["slots"][0]["eloDeltaFromPreseason"] == -35.0
+    assert payload["slots"][1]["eloGlobalRank"] == 1
+    assert payload["matches"][0]["redCurrentElo"] == 1665.0
+    assert payload["matches"][0]["blueCurrentElo"] == 1735.0
+    assert payload["finalRankings"][0]["currentElo"] == 1735.0
 
 
 def test_simulation_uses_ts2_preseason_ratings() -> None:
@@ -352,6 +692,8 @@ def test_live_state_uses_published_artifacts_when_present(tmp_path, monkeypatch)
     monkeypatch.setattr(service, "NORMALIZED_LIVE_SCHEDULE_PATH", normalized_path)
     monkeypatch.setattr(service, "RUNTIME_PUBLISHED_RATINGS_DIR", published_dir)
     service.load_ratings_rows.cache_clear()
+    service.load_preseason_global_elo_rank_map.cache_clear()
+    service.load_current_rating_index.cache_clear()
     service.load_global_elo_rank_map.cache_clear()
     service._reset_live_state_caches()
 

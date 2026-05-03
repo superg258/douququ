@@ -35,6 +35,10 @@ function percent(value: number) {
   return `${(value * 100).toFixed(1)}%`;
 }
 
+function displayElo(team: OverviewTeam) {
+  return team.currentElo ?? team.mu0;
+}
+
 function hasMatchElo(match: MatchRow) {
   return (
     typeof match.redMu0 === "number" &&
@@ -350,7 +354,7 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
         
         <div className="space-y-6">
           <div className="bg-rm-metal-dark border border-rm-metal-border p-3 grid grid-cols-2 gap-2 text-[10px] font-mono">
-            <span className="text-rm-metal-text">Elo {selectedOverviewTeam.mu0.toFixed(1)}</span>
+            <span className="text-rm-metal-text">Elo {displayElo(selectedOverviewTeam).toFixed(1)}</span>
             <span className="text-rm-metal-text">全球 #{selectedOverviewTeam.eloGlobalRank}</span>
             <span className="col-span-2 text-rm-status-safe">国赛率 {percent(selectedOverviewTeam.probabilities.national)}</span>
             <span className="col-span-2 text-rm-status-warn">复活赛 {percent(selectedOverviewTeam.probabilities.repechage)}</span>
