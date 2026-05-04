@@ -7,6 +7,7 @@ import { buildOverviewDashboard } from "@/lib/overview-builders";
 import type { OverviewDashboard } from "@/lib/types";
 
 import { OverviewHero } from "@/components/overview-hero";
+import { PrematchCenter } from "@/components/prematch-center";
 import { RegionCardGrid } from "@/components/region-card-grid";
 import { ComparisonSection } from "@/components/comparison-section";
 import { OverviewFooter } from "@/components/overview-footer";
@@ -50,6 +51,7 @@ export function OverviewPage() {
     <div className="min-h-screen">
       <div className="max-w-screen-2xl mx-auto px-4 py-8 space-y-10">
         <OverviewHero generatedLabel={dashboard.generatedLabel} />
+        <PrematchCenter />
         <RegionCardGrid regions={dashboard.regions} />
         <ComparisonSection strengths={dashboard.regionStrength} />
         <OverviewFooter />

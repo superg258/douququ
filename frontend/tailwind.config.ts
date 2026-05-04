@@ -77,6 +77,30 @@ const config: Config = {
       clipPath: {
         'chamfer': 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
         'chamfer-lg': 'polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px)',
+      },
+      keyframes: {
+        scanlineMove: {
+          '0%': { transform: 'translateY(-100%)' },
+          '100%': { transform: 'translateY(100%)' },
+        },
+        glowBreathe: {
+          '0%, 100%': { boxShadow: '0 0 12px rgba(232,48,42,0.08), 0 0 12px rgba(42,159,255,0.06)' },
+          '50%': { boxShadow: '0 0 20px rgba(232,48,42,0.15), 0 0 20px rgba(42,159,255,0.12)' },
+        },
+        borderGlow: {
+          '0%, 100%': { borderColor: 'rgba(42,159,255,0.15)' },
+          '50%': { borderColor: 'rgba(42,159,255,0.35)' },
+        },
+        dotPulse: {
+          '0%, 100%': { opacity: '0.6', transform: 'scale(1)' },
+          '50%': { opacity: '1', transform: 'scale(1.3)' },
+        },
+      },
+      animation: {
+        'scanline': 'scanlineMove 4s linear infinite',
+        'glow-breathe': 'glowBreathe 3s ease-in-out infinite',
+        'border-glow': 'borderGlow 3s ease-in-out infinite',
+        'dot-pulse': 'dotPulse 2s ease-in-out infinite',
       }
     },
   },

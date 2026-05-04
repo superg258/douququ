@@ -5,7 +5,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
-from .service import build_live_state_payload, build_overview_payload, build_simulation_payload
+from .service import build_live_state_payload, build_overview_payload, build_prematch_center_payload, build_simulation_payload
 
 
 app = FastAPI(title="RMUC Results API", version="0.1.0")
@@ -26,6 +26,18 @@ def health() -> dict[str, str]:
 @app.get("/api/overview")
 def overview() -> dict[str, Any]:
     return build_overview_payload()
+
+
+@app.get("/api/prematch-center")
+def prematch_center(
+    seed: int = Query(20260414, ge=1),
+    mode: str = Query("live"),
+    date: str | None = Query(None),
+) -> dict[str, Any]:
+    try:
+        return build_prematch_center_payload(seed=seed, mode=mode, date=date)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/api/regions/{region_slug}/simulation")

@@ -1,0 +1,222 @@
+import { buildRegionHref, REGION_LABELS } from "@/lib/region-config";
+import type { PrematchCenterMatch, PrematchDataSource } from "@/lib/types";
+
+const DATA_SOURCE_LABELS: Record<PrematchDataSource, string> = {
+  official_live: "官方实时",
+  simulation: "模拟预测",
+  simulation_proxy: "模拟代理",
+};
+
+export function getDataSourceLabel(source: PrematchDataSource) {
+  return DATA_SOURCE_LABELS[source] ?? source;
+}
+
+export function buildPrematchHref(match: PrematchCenterMatch) {
+  const targetMode = match.dataSource === "simulation" ? "sim" : "live";
+  return buildRegionHref(match.regionSlug, match.workspaceView, {
+    seed: match.seed,
+    mode: targetMode,
+    highlight: match.predictedWinnerTeamKey,
+  });
+}
+
+export function formatPrematchTime(value: string | null) {
+  if (!value) return null;
+  try {
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return null;
+    return d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
+  } catch {
+    return null;
+  }
+}
+
+export function formatEmptyStateCount(completedCount: number) {
+  return `已完赛 ${completedCount} 场。可以进入赛区沙盘查看实时回放、预测命中情况与最终排名。`;
+}
+
+export function buildRegionRankingHref(regionSlug: string) {
+  return buildRegionHref(regionSlug as PrematchCenterMatch["regionSlug"], "final-rankings");
+}
+
+export const EMPTY_STATE_REGION_LINKS = (
+  ["south_region", "east_region", "north_region"] as const
+).map((slug) => ({
+  regionSlug: slug,
+  label: `${REGION_LABELS[slug]}最终排名`,
+  href: buildRegionRankingHref(slug),
+}));
+
+export type TimeBlock = "上午" | "下午" | "晚间";
+
+const SPOTLIGHT_LIMIT = 3;
+const STRONG_TEAM_RANK_CUTOFF = 16;
+const CLOSE_MATCH_BONUS_MARGIN = 0.3;
+const CLOSE_MATCH_MAX_BONUS = 15;
+const MODERATE_BLOWOUT_MARGIN = 0.6;
+const HEAVY_BLOWOUT_MARGIN = 0.75;
+const MODERATE_BLOWOUT_PENALTY = 15;
+const HEAVY_BLOWOUT_PENALTY = 35;
+const COMBINED_SIGNAL_SECONDARY_FACTOR = 0.35;
+
+export function getTimeBlockLabel(isoString: string | null): TimeBlock | null {
+  if (!isoString) return null;
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return null;
+    const hour = d.getHours();
+    if (hour < 12) return "上午";
+    if (hour < 18) return "下午";
+    return "晚间";
+  } catch {
+    return null;
+  }
+}
+
+const TIME_BLOCK_ORDER: Record<TimeBlock, number> = { 上午: 0, 下午: 1, 晚间: 2 };
+
+export function groupByTimeBlock<T extends { plannedStartAt: string | null }>(
+  items: T[]
+): { block: TimeBlock; items: T[] }[] {
+  const groups = new Map<TimeBlock, T[]>();
+  for (const item of items) {
+    const block = getTimeBlockLabel(item.plannedStartAt) ?? "上午";
+    if (!groups.has(block)) groups.set(block, []);
+    groups.get(block)!.push(item);
+  }
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => TIME_BLOCK_ORDER[a] - TIME_BLOCK_ORDER[b])
+    .map(([block, items]) => ({ block, items }));
+}
+
+export function formatPrematchDate(
+  dateStr: string | null
+): { dateLabel: string; weekday: string } | null {
+  if (!dateStr) return null;
+  try {
+    const d = new Date(dateStr + "T00:00:00");
+    if (isNaN(d.getTime())) return null;
+    const weekdays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+    return {
+      dateLabel: `${d.getMonth() + 1}月${d.getDate()}日`,
+      weekday: weekdays[d.getDay()],
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function groupByDate<T extends { plannedLocalDate: string | null }>(
+  items: T[]
+): { dateLabel: string; weekday: string; items: T[] }[] {
+  const groups = new Map<string, { dateLabel: string; weekday: string; items: T[] }>();
+  for (const item of items) {
+    const key = item.plannedLocalDate ?? "__none__";
+    if (!groups.has(key)) {
+      const fmt = formatPrematchDate(item.plannedLocalDate);
+      groups.set(key, {
+        dateLabel: fmt?.dateLabel ?? "待定",
+        weekday: fmt?.weekday ?? "",
+        items: [],
+      });
+    }
+    groups.get(key)!.items.push(item);
+  }
+  return Array.from(groups.values());
+}
+
+function plannedStartTimestamp(value: string | null | undefined) {
+  if (!value) return Number.POSITIVE_INFINITY;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : Number.POSITIVE_INFINITY;
+}
+
+function comparePrematchTime(a: PrematchCenterMatch, b: PrematchCenterMatch) {
+  const timeDelta = plannedStartTimestamp(a.plannedStartAt) - plannedStartTimestamp(b.plannedStartAt);
+  if (timeDelta !== 0) return timeDelta;
+  const stageDelta = a.stageOrder - b.stageOrder;
+  if (stageDelta !== 0) return stageDelta;
+  const roundDelta = a.roundNumber - b.roundNumber;
+  if (roundDelta !== 0) return roundDelta;
+  return a.matchLabel.localeCompare(b.matchLabel, "zh-CN");
+}
+
+export function sortPrematchMatchesByTime<T extends PrematchCenterMatch>(matches: T[]): T[] {
+  return [...matches].sort(comparePrematchTime);
+}
+
+function strongTeamSignalScore(rank: number | null | undefined) {
+  if (typeof rank !== "number" || rank > STRONG_TEAM_RANK_CUTOFF) return 0;
+  if (rank <= 4) return 70;
+  if (rank <= 8) return 60;
+  return 50;
+}
+
+function overperformerSignalScore(
+  isSeasonOverperformer: boolean | undefined,
+  delta: number | null | undefined
+) {
+  if (!isSeasonOverperformer) return 0;
+  if (typeof delta !== "number") return 60;
+  if (delta >= 60) return 80;
+  if (delta >= 40) return 70;
+  return 60;
+}
+
+function combineTeamSignal(primary: number, secondary: number) {
+  if (primary <= 0 && secondary <= 0) return 0;
+  const high = Math.max(primary, secondary);
+  const low = Math.min(primary, secondary);
+  return high + low * COMBINED_SIGNAL_SECONDARY_FACTOR;
+}
+
+function teamSpotlightSignal(match: PrematchCenterMatch, side: "red" | "blue") {
+  const strongScore = strongTeamSignalScore(
+    side === "red" ? match.redTeamGlobalRank : match.blueTeamGlobalRank
+  );
+  const overperformerScore = overperformerSignalScore(
+    side === "red" ? match.redSeasonOverperformer : match.blueSeasonOverperformer,
+    side === "red" ? match.redEloDeltaFromPreseason : match.blueEloDeltaFromPreseason
+  );
+  return combineTeamSignal(strongScore, overperformerScore);
+}
+
+function competitiveBonus(match: PrematchCenterMatch) {
+  if (match.margin >= CLOSE_MATCH_BONUS_MARGIN) return 0;
+  return ((CLOSE_MATCH_BONUS_MARGIN - match.margin) / CLOSE_MATCH_BONUS_MARGIN) * CLOSE_MATCH_MAX_BONUS;
+}
+
+function blowoutPenalty(match: PrematchCenterMatch) {
+  if (match.margin >= HEAVY_BLOWOUT_MARGIN) return HEAVY_BLOWOUT_PENALTY;
+  if (match.margin >= MODERATE_BLOWOUT_MARGIN) return MODERATE_BLOWOUT_PENALTY;
+  return 0;
+}
+
+function isSpotlightCandidate(match: PrematchCenterMatch) {
+  return teamSpotlightSignal(match, "red") > 0 && teamSpotlightSignal(match, "blue") > 0;
+}
+
+function spotlightPriority(match: PrematchCenterMatch) {
+  if (!isSpotlightCandidate(match)) return 0;
+  return (
+    teamSpotlightSignal(match, "red") +
+    teamSpotlightSignal(match, "blue") +
+    competitiveBonus(match) -
+    blowoutPenalty(match)
+  );
+}
+
+export function selectSpotlightMatches<T extends PrematchCenterMatch>(
+  matches: T[],
+  limit = SPOTLIGHT_LIMIT
+): T[] {
+  return [...matches]
+    .filter(isSpotlightCandidate)
+    .sort((a, b) => {
+      const priorityDelta = spotlightPriority(b) - spotlightPriority(a);
+      if (priorityDelta !== 0) return priorityDelta;
+      return comparePrematchTime(a, b);
+    })
+    .slice(0, limit)
+    .sort(comparePrematchTime);
+}

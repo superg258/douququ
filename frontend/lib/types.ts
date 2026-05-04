@@ -476,3 +476,123 @@ export interface WorkspaceStage {
 export type InspectorSelection =
   | { kind: "team"; teamKey: string }
   | { kind: "match"; matchLabel: string };
+
+/* ═══════════════════════════════════════════════════════════
+   Prematch Center
+   ═══════════════════════════════════════════════════════════ */
+
+export type PrematchDataSource = "official_live" | "simulation" | "simulation_proxy";
+export type PrematchScheduleState = "simulation" | "simulation_proxy" | "scheduled" | "confirmed_unfinished";
+export type PrematchRequestedMode = "live" | "sim";
+export type PrematchEffectiveMode = "live" | "sim" | "simulation_proxy";
+
+export interface PrematchRegionStatus {
+  regionSlug: RegionSlug;
+  regionName: string;
+  sourceStatus: LiveSourceStatus | null;
+  sourceReason: string | null;
+  sourceUpdatedAt: string | null;
+  completedOfficialMatches: number;
+  confirmedOfficialMatches: number;
+  slotAssignmentSource?: string | null;
+  slotAssignmentReason?: string | null;
+}
+
+export interface PrematchAudience {
+  status: "available" | "stale" | "unavailable";
+  available: boolean;
+  redRate: number | null;
+  blueRate: number | null;
+  tieRate: number | null;
+  totalCount: number | null;
+  favoriteSide: "red" | "blue" | "tie" | null;
+  label: string;
+  fetchedAt: string | null;
+}
+
+export interface PrematchDivergence {
+  available: boolean;
+  redDelta: number | null;
+  absoluteDelta: number | null;
+  label: string;
+  audienceFavoriteSide: "red" | "blue" | "tie" | null;
+}
+
+export interface PrematchUpsetRisk {
+  score: number;
+  label: string;
+  reason: string;
+}
+
+export interface PrematchCenterMatch {
+  id: string;
+  regionSlug: RegionSlug;
+  regionName: string;
+  seed: number;
+  mode: string;
+  dataSource: PrematchDataSource;
+  scheduleState: PrematchScheduleState;
+  workspaceView: WorkspaceView;
+  matchLabel: string;
+  stage: string;
+  stageLabel: string;
+  stageOrder: number;
+  roundNumber: number;
+  groupName: string;
+  bestOf: number;
+  plannedStartAt: string | null;
+  plannedLocalDate: string | null;
+  officialMatchId: string | null;
+  officialStatus: string | null;
+  redTeam: TeamRef;
+  blueTeam: TeamRef;
+  pGameRed: number;
+  pGameBlue: number;
+  pSeriesRed: number;
+  pSeriesBlue: number;
+  favoriteRate: number;
+  margin: number;
+  predictedWinnerSide: "red" | "blue";
+  predictedWinnerTeamKey: string;
+  predictedWinnerName: string;
+  predictedScoreline: string;
+  confidenceLabel: string;
+  confidenceText: string;
+  audience: PrematchAudience;
+  modelAudienceDivergence: PrematchDivergence;
+  upsetRisk: PrematchUpsetRisk;
+  redTeamGlobalRank?: number | null;
+  blueTeamGlobalRank?: number | null;
+  redCurrentElo?: number | null;
+  blueCurrentElo?: number | null;
+  redPreseasonElo?: number | null;
+  bluePreseasonElo?: number | null;
+  redEloDeltaFromPreseason?: number | null;
+  blueEloDeltaFromPreseason?: number | null;
+  redSeasonOverperformer?: boolean;
+  blueSeasonOverperformer?: boolean;
+  strongTeamInvolved?: boolean;
+  priorUpsetTeamKeys?: string[];
+  hasPriorUpsetTeam?: boolean;
+  seasonOverperformerTeamKeys?: string[];
+  hasSeasonOverperformerTeam?: boolean;
+}
+
+export interface PrematchCenterResponse {
+  generatedAt: string;
+  seed: number;
+  targetDate: string;
+  timezone: string;
+  source: {
+    requestedMode: PrematchRequestedMode;
+    effectiveMode: PrematchEffectiveMode;
+    regionStatuses: PrematchRegionStatus[];
+  };
+  completedMatchCount: number;
+  pendingMatchCount: number;
+  confirmedPendingMatchCount: number;
+  scheduledPendingMatchCount: number;
+  nextMatch: PrematchCenterMatch | null;
+  todayMatches: PrematchCenterMatch[];
+  allUpcomingMatches: PrematchCenterMatch[];
+}

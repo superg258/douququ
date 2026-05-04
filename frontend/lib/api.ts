@@ -1,4 +1,4 @@
-import type { LiveStateResponse, OverviewResponse, RegionSlug, SimulationResponse } from "@/lib/types";
+import type { LiveStateResponse, OverviewResponse, PrematchCenterResponse, RegionSlug, SimulationResponse } from "@/lib/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8001";
 
@@ -22,4 +22,9 @@ export function getSimulation(regionSlug: RegionSlug, seed: number, mode: "sim" 
 
 export function getLiveState(regionSlug: RegionSlug): Promise<LiveStateResponse> {
   return requestJson<LiveStateResponse>(`/api/regions/${regionSlug}/live-state`);
+}
+
+export function getPrematchCenter(seed = 20260414, mode: "live" | "sim" = "live") {
+  const params = new URLSearchParams({ seed: String(seed), mode });
+  return requestJson<PrematchCenterResponse>(`/api/prematch-center?${params}`);
 }

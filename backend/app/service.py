@@ -4,10 +4,11 @@ import csv
 import json
 import os
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -21,6 +22,9 @@ from . import rmuc_live
 
 
 DEFAULT_SIMULATION_SAMPLES = int(os.getenv("RMUC_SIMULATION_SAMPLES", "1200"))
+DEFAULT_PREMATCH_TIMEZONE = "Asia/Shanghai"
+PREMATCH_STRONG_GLOBAL_RANK_CUTOFF = 16
+PREMATCH_OVERPERFORMER_ELO_DELTA_CUTOFF = 20.0
 REGION_SLUG_ORDER = ["south_region", "east_region", "north_region"]
 REGION_SLUG_ORDER_INDEX = {region_slug: index for index, region_slug in enumerate(REGION_SLUG_ORDER)}
 REGION_SLUG_TO_NAME = {config["slug"]: region for region, config in region_sim.REGION_CONFIGS.items()}
@@ -768,6 +772,43 @@ def _load_live_runtime_context(region_slug: str) -> rmuc_live.LiveRuntimeContext
     )
 
 
+def _live_schedule_metadata_by_label(region_slug: str) -> dict[str, dict[str, Any]]:
+    normalized = load_normalized_live_schedule()
+    if not normalized or str(normalized.get("sourceStatus") or "") != "active":
+        return {}
+    regions = normalized.get("regions")
+    if not isinstance(regions, dict):
+        return {}
+    region = regions.get(region_slug)
+    if not isinstance(region, dict):
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for match in region.get("matches", []):
+        if not isinstance(match, dict):
+            continue
+        match_label = str(match.get("matchLabel") or "")
+        if not match_label:
+            continue
+        out[match_label] = match
+    return out
+
+
+def _attach_live_schedule_metadata(payload: dict[str, Any], region_slug: str) -> None:
+    schedule_by_label = _live_schedule_metadata_by_label(region_slug)
+    if not schedule_by_label:
+        return
+    for match in payload.get("matches", []):
+        if not isinstance(match, dict):
+            continue
+        schedule = schedule_by_label.get(str(match.get("matchLabel") or ""))
+        if not schedule:
+            continue
+        if not match.get("plannedStartAt") and schedule.get("plannedStartAt"):
+            match["plannedStartAt"] = str(schedule["plannedStartAt"])
+        if not match.get("miniProgramPrediction") and isinstance(schedule.get("miniProgramPrediction"), dict):
+            match["miniProgramPrediction"] = schedule["miniProgramPrediction"]
+
+
 def _published_match_rating_index(region_slug: str) -> dict[tuple[str, str], dict[str, Any]]:
     rows = _read_json_if_exists(_published_live_match_ledger_path_for(RUNTIME_PUBLISHED_RATINGS_DIR))
     if not isinstance(rows, list):
@@ -900,6 +941,449 @@ def _collapse_live_prediction_distribution(payload: dict[str, Any], *, best_of: 
     }
 
 
+def _stage_label(stage: str, group_name: str | None = None) -> str:
+    labels = {
+        "swiss": "瑞士轮",
+        "qualification_round1": "资格赛第一轮",
+        "qualification_round2": "资格赛第二轮",
+        "round_of_16": "16 进 8",
+        "quarterfinal": "8 进 4",
+        "semifinal": "半决赛",
+        "third_place": "季军战",
+        "final": "冠军战",
+    }
+    label = labels.get(stage, stage)
+    if stage == "swiss" and group_name:
+        return f"{group_name} 组瑞士轮"
+    return label
+
+
+def _workspace_view_for_match(match: dict[str, Any]) -> str:
+    stage = str(match.get("stage") or "")
+    if stage == "swiss":
+        return "swiss-b" if str(match.get("groupName") or "") == "B" else "swiss-a"
+    if stage.startswith("qualification"):
+        return "qualification"
+    return "playoff"
+
+
+def _confidence_label(confidence: str) -> str:
+    labels = {
+        "high": "高置信",
+        "medium": "中等置信",
+        "low": "低置信",
+    }
+    return labels.get(confidence, confidence)
+
+
+def _parse_datetime(value: Any) -> datetime | None:
+    if not value:
+        return None
+    try:
+        text = str(value)
+        if text.endswith("Z"):
+            text = f"{text[:-1]}+00:00"
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed
+
+
+def _target_prematch_date(date_text: str | None, timezone_name: str) -> str:
+    if date_text:
+        try:
+            return datetime.fromisoformat(date_text).date().isoformat()
+        except ValueError:
+            return datetime.now(tz=_prematch_timezone(timezone_name)).date().isoformat()
+    return datetime.now(tz=_prematch_timezone(timezone_name)).date().isoformat()
+
+
+def _local_date(value: Any, timezone_name: str) -> str | None:
+    parsed = _parse_datetime(value)
+    if parsed is None:
+        return None
+    return parsed.astimezone(_prematch_timezone(timezone_name)).date().isoformat()
+
+
+def _prematch_timezone(timezone_name: str) -> timezone | ZoneInfo:
+    try:
+        return ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError:
+        if timezone_name == DEFAULT_PREMATCH_TIMEZONE:
+            return timezone(timedelta(hours=8), name=DEFAULT_PREMATCH_TIMEZONE)
+        return UTC
+
+
+def _audience_signal(prediction: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(prediction, dict):
+        return {
+            "status": "unavailable",
+            "available": False,
+            "redRate": None,
+            "blueRate": None,
+            "tieRate": None,
+            "totalCount": None,
+            "favoriteSide": None,
+            "label": "暂无观众预测",
+        }
+
+    red_rate = prediction.get("redRate")
+    blue_rate = prediction.get("blueRate")
+    tie_rate = prediction.get("tieRate")
+    has_rates = isinstance(red_rate, (int, float)) and isinstance(blue_rate, (int, float))
+    available = str(prediction.get("status") or "") == "available" and has_rates
+    favorite_side = None
+    if has_rates:
+        favorite_side = "red" if float(red_rate) >= float(blue_rate) else "blue"
+        if isinstance(tie_rate, (int, float)) and float(tie_rate) > max(float(red_rate), float(blue_rate)):
+            favorite_side = "tie"
+    status = "available" if available else "stale" if has_rates else "unavailable"
+    total_count = prediction.get("totalCount") if isinstance(prediction.get("totalCount"), int) else None
+    if status == "available":
+        label = f"{total_count or 0} 票"
+    elif status == "stale":
+        label = "历史记录"
+    else:
+        label = str(prediction.get("reason") or "暂无观众预测")
+    return {
+        "status": status,
+        "available": has_rates,
+        "redRate": float(red_rate) if has_rates else None,
+        "blueRate": float(blue_rate) if has_rates else None,
+        "tieRate": float(tie_rate) if isinstance(tie_rate, (int, float)) else None,
+        "totalCount": total_count,
+        "favoriteSide": favorite_side,
+        "label": label,
+        "fetchedAt": prediction.get("fetchedAt"),
+    }
+
+
+def _model_audience_divergence(model_red_rate: float, audience: dict[str, Any]) -> dict[str, Any]:
+    if audience.get("redRate") is None:
+        return {
+            "available": False,
+            "redDelta": None,
+            "absoluteDelta": None,
+            "label": "暂无观众预测",
+            "audienceFavoriteSide": None,
+        }
+    red_delta = float(audience["redRate"]) - model_red_rate
+    absolute_delta = abs(red_delta)
+    if absolute_delta >= 0.20:
+        label = "明显分歧"
+    elif absolute_delta >= 0.10:
+        label = "轻微分歧"
+    else:
+        label = "基本一致"
+    return {
+        "available": True,
+        "redDelta": round(red_delta, 6),
+        "absoluteDelta": round(absolute_delta, 6),
+        "label": label,
+        "audienceFavoriteSide": audience.get("favoriteSide"),
+    }
+
+
+def _upset_risk(red_rate: float, blue_rate: float, divergence: dict[str, Any]) -> dict[str, Any]:
+    underdog_rate = min(red_rate, blue_rate)
+    margin = abs(red_rate - blue_rate)
+    divergence_delta = float(divergence.get("absoluteDelta") or 0.0)
+    score = max(0.0, min(1.0, underdog_rate + divergence_delta * 0.25))
+    if margin < 0.12:
+        label = "均势"
+        reason = "模型胜率接近，赛果本身不宜按爆冷理解"
+    elif score >= 0.40:
+        label = "高"
+        reason = "下位方胜率和外部意见分歧都偏高"
+    elif score >= 0.30:
+        label = "中"
+        reason = "下位方有可观胜率，需关注临场波动"
+    elif score >= 0.18:
+        label = "低"
+        reason = "模型优势较清楚，但仍存在常规波动"
+    else:
+        label = "极低"
+        reason = "模型优势明显，爆冷需要较强外部扰动"
+    return {
+        "score": round(score, 6),
+        "label": label,
+        "reason": reason,
+    }
+
+
+def _prematch_data_source(requested_mode: str, live_status: dict[str, Any], match: dict[str, Any]) -> str:
+    if requested_mode == "sim":
+        return "simulation"
+    if live_status.get("sourceStatus") == "active" and match.get("officialMatchId"):
+        return "official_live"
+    return "simulation_proxy"
+
+
+def _prematch_schedule_state(data_source: str, match: dict[str, Any]) -> str:
+    if data_source == "simulation":
+        return "simulation"
+    if data_source == "simulation_proxy":
+        return "simulation_proxy"
+    if match.get("plannedStartAt"):
+        return "scheduled"
+    return "confirmed_unfinished"
+
+
+def _team_key_for_side(match: dict[str, Any], side: str) -> str:
+    team = match.get(f"{side}Team")
+    if not isinstance(team, dict):
+        return ""
+    return str(team.get("teamKey") or "")
+
+
+def _prior_upset_winner_key(match: dict[str, Any]) -> str | None:
+    winner_key = str(match.get("winnerTeamKey") or "")
+    red_key = _team_key_for_side(match, "red")
+    blue_key = _team_key_for_side(match, "blue")
+    if not winner_key or winner_key not in {red_key, blue_key}:
+        return None
+    try:
+        red_rate = float(match["pSeriesRed"])
+        blue_rate = float(match["pSeriesBlue"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if winner_key == red_key and red_rate < blue_rate:
+        return red_key
+    if winner_key == blue_key and blue_rate < red_rate:
+        return blue_key
+    return None
+
+
+def _global_rank_for_team(team_key: str, global_rank_map: dict[str, int]) -> int | None:
+    rank = global_rank_map.get(team_key)
+    return int(rank) if rank is not None else None
+
+
+def _prematch_rating_signal_for_team(
+    team_key: str,
+    current_rating_index: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    rating = current_rating_index.get(team_key)
+    if rating is None:
+        return {
+            "currentElo": None,
+            "preseasonElo": None,
+            "eloDeltaFromPreseason": None,
+            "seasonOverperformer": False,
+        }
+    current_elo = float(rating["currentElo"])
+    preseason_elo = float(rating["preseasonElo"])
+    delta = float(rating["eloDeltaFromPreseason"])
+    source = str(rating.get("eloRankSource") or "")
+    return {
+        "currentElo": current_elo,
+        "preseasonElo": preseason_elo,
+        "eloDeltaFromPreseason": delta,
+        "seasonOverperformer": source == "live" and delta >= PREMATCH_OVERPERFORMER_ELO_DELTA_CUTOFF,
+    }
+
+
+def _serialize_prematch_item(
+    *,
+    region_slug: str,
+    region_name: str,
+    seed: int,
+    requested_mode: str,
+    live_status: dict[str, Any],
+    match: dict[str, Any],
+    timezone_name: str,
+    prior_upset_team_keys: set[str],
+    global_rank_map: dict[str, int],
+    current_rating_index: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    red_rate = float(match["pSeriesRed"])
+    blue_rate = float(match["pSeriesBlue"])
+    predicted_winner_side = "red" if red_rate >= blue_rate else "blue"
+    predicted_winner = match["redTeam"] if predicted_winner_side == "red" else match["blueTeam"]
+    audience = _audience_signal(match.get("miniProgramPrediction"))
+    divergence = _model_audience_divergence(red_rate, audience)
+    data_source = _prematch_data_source(requested_mode, live_status, match)
+    planned_start_at = match.get("plannedStartAt")
+    red_team_key = _team_key_for_side(match, "red")
+    blue_team_key = _team_key_for_side(match, "blue")
+    red_global_rank = _global_rank_for_team(red_team_key, global_rank_map)
+    blue_global_rank = _global_rank_for_team(blue_team_key, global_rank_map)
+    red_rating = _prematch_rating_signal_for_team(red_team_key, current_rating_index)
+    blue_rating = _prematch_rating_signal_for_team(blue_team_key, current_rating_index)
+    prior_upset_keys = [
+        team_key
+        for team_key in (red_team_key, blue_team_key)
+        if team_key and team_key in prior_upset_team_keys
+    ]
+    season_overperformer_keys = [
+        team_key
+        for team_key, rating in ((red_team_key, red_rating), (blue_team_key, blue_rating))
+        if team_key and rating["seasonOverperformer"]
+    ]
+    strong_team_involved = any(
+        rank is not None and rank <= PREMATCH_STRONG_GLOBAL_RANK_CUTOFF
+        for rank in (red_global_rank, blue_global_rank)
+    )
+    return {
+        "id": f"{region_slug}:{match.get('officialMatchId') or match['matchLabel']}",
+        "regionSlug": region_slug,
+        "regionName": region_name,
+        "seed": seed,
+        "mode": requested_mode,
+        "dataSource": data_source,
+        "scheduleState": _prematch_schedule_state(data_source, match),
+        "workspaceView": _workspace_view_for_match(match),
+        "matchLabel": match["matchLabel"],
+        "stage": match["stage"],
+        "stageLabel": _stage_label(str(match["stage"]), str(match.get("groupName") or "")),
+        "stageOrder": int(match["stageOrder"]),
+        "roundNumber": int(match["roundNumber"]),
+        "groupName": match["groupName"],
+        "bestOf": int(match["bestOf"]),
+        "plannedStartAt": planned_start_at,
+        "plannedLocalDate": _local_date(planned_start_at, timezone_name),
+        "officialMatchId": match.get("officialMatchId"),
+        "officialStatus": match.get("officialStatus"),
+        "redTeam": match["redTeam"],
+        "blueTeam": match["blueTeam"],
+        "pGameRed": float(match["pGameRed"]),
+        "pGameBlue": float(match["pGameBlue"]),
+        "pSeriesRed": red_rate,
+        "pSeriesBlue": blue_rate,
+        "favoriteRate": max(red_rate, blue_rate),
+        "margin": abs(red_rate - blue_rate),
+        "predictedWinnerSide": predicted_winner_side,
+        "predictedWinnerTeamKey": predicted_winner["teamKey"],
+        "predictedWinnerName": predicted_winner["collegeName"],
+        "predictedScoreline": _predicted_scoreline_from_series(red_rate, int(match["bestOf"])),
+        "confidenceLabel": match["confidenceLabel"],
+        "confidenceText": _confidence_label(str(match["confidenceLabel"])),
+        "audience": audience,
+        "modelAudienceDivergence": divergence,
+        "upsetRisk": _upset_risk(red_rate, blue_rate, divergence),
+        "redTeamGlobalRank": red_global_rank,
+        "blueTeamGlobalRank": blue_global_rank,
+        "redCurrentElo": red_rating["currentElo"],
+        "blueCurrentElo": blue_rating["currentElo"],
+        "redPreseasonElo": red_rating["preseasonElo"],
+        "bluePreseasonElo": blue_rating["preseasonElo"],
+        "redEloDeltaFromPreseason": red_rating["eloDeltaFromPreseason"],
+        "blueEloDeltaFromPreseason": blue_rating["eloDeltaFromPreseason"],
+        "redSeasonOverperformer": red_rating["seasonOverperformer"],
+        "blueSeasonOverperformer": blue_rating["seasonOverperformer"],
+        "strongTeamInvolved": strong_team_involved,
+        "priorUpsetTeamKeys": prior_upset_keys,
+        "hasPriorUpsetTeam": bool(prior_upset_keys),
+        "seasonOverperformerTeamKeys": season_overperformer_keys,
+        "hasSeasonOverperformerTeam": bool(season_overperformer_keys),
+    }
+
+
+def _prematch_sort_key(item: dict[str, Any]) -> tuple[Any, ...]:
+    planned = _parse_datetime(item.get("plannedStartAt"))
+    return (
+        0 if planned else 1,
+        planned or datetime.max.replace(tzinfo=UTC),
+        REGION_SLUG_ORDER_INDEX.get(str(item["regionSlug"]), len(REGION_SLUG_ORDER_INDEX)),
+        int(item["stageOrder"]),
+        int(item["roundNumber"]),
+        str(item["matchLabel"]),
+    )
+
+
+def build_prematch_center_payload(
+    *,
+    seed: int = region_sim.DEFAULT_SIMULATION_SEED,
+    mode: str = "live",
+    date: str | None = None,
+    timezone_name: str = DEFAULT_PREMATCH_TIMEZONE,
+    region_slugs: list[str] | None = None,
+) -> dict[str, Any]:
+    if mode not in {"live", "sim"}:
+        raise ValueError(f"Unsupported prematch mode: {mode}")
+    selected_region_slugs = region_slugs or REGION_SLUG_ORDER
+    target_date = _target_prematch_date(date, timezone_name)
+    upcoming_matches: list[dict[str, Any]] = []
+    completed_count = 0
+    pending_count = 0
+    confirmed_pending_count = 0
+    scheduled_count = 0
+    region_statuses: list[dict[str, Any]] = []
+    current_rating_index = load_current_rating_index()
+    global_rank_map = load_global_elo_rank_map()
+
+    for region_slug in selected_region_slugs:
+        simulation = build_simulation_payload(region_slug, seed, mode)
+        meta = simulation["meta"]
+        region_name = str(meta["regionName"])
+        live_status = meta.get("liveStatus") if isinstance(meta.get("liveStatus"), dict) else summarize_live_status(region_slug)
+        prior_upset_team_keys: set[str] = set()
+        region_statuses.append(
+            {
+                "regionSlug": region_slug,
+                "regionName": region_name,
+                "sourceStatus": live_status.get("sourceStatus"),
+                "sourceReason": live_status.get("sourceReason"),
+                "sourceUpdatedAt": live_status.get("sourceUpdatedAt"),
+                "completedOfficialMatches": live_status.get("completedOfficialMatches", 0),
+                "confirmedOfficialMatches": live_status.get("confirmedOfficialMatches", 0),
+                "slotAssignmentSource": live_status.get("slotAssignmentSource"),
+                "slotAssignmentReason": live_status.get("slotAssignmentReason"),
+            }
+        )
+        for match in simulation["matches"]:
+            if match.get("isRealResult"):
+                completed_count += 1
+                upset_winner_key = _prior_upset_winner_key(match)
+                if upset_winner_key:
+                    prior_upset_team_keys.add(upset_winner_key)
+                continue
+            pending_count += 1
+            if match.get("officialMatchId"):
+                confirmed_pending_count += 1
+            if match.get("plannedStartAt"):
+                scheduled_count += 1
+            upcoming_matches.append(
+                _serialize_prematch_item(
+                    region_slug=region_slug,
+                    region_name=region_name,
+                    seed=int(meta.get("seed", seed)),
+                    requested_mode=mode,
+                    live_status=live_status,
+                    match=match,
+                    timezone_name=timezone_name,
+                    prior_upset_team_keys=prior_upset_team_keys,
+                    global_rank_map=global_rank_map,
+                    current_rating_index=current_rating_index,
+                )
+            )
+
+    upcoming_matches.sort(key=_prematch_sort_key)
+    today_matches = [match for match in upcoming_matches if match.get("plannedLocalDate") == target_date]
+    active_live_regions = sum(1 for status in region_statuses if status.get("sourceStatus") == "active")
+    effective_mode = mode if mode == "sim" else "live" if active_live_regions else "simulation_proxy"
+    return {
+        "generatedAt": datetime.now(tz=UTC).isoformat(),
+        "seed": seed,
+        "targetDate": target_date,
+        "timezone": timezone_name,
+        "source": {
+            "requestedMode": mode,
+            "effectiveMode": effective_mode,
+            "regionStatuses": region_statuses,
+        },
+        "completedMatchCount": completed_count,
+        "pendingMatchCount": pending_count,
+        "confirmedPendingMatchCount": confirmed_pending_count,
+        "scheduledPendingMatchCount": scheduled_count,
+        "nextMatch": upcoming_matches[0] if upcoming_matches else None,
+        "todayMatches": today_matches,
+        "allUpcomingMatches": upcoming_matches,
+    }
+
+
 def live_payload_builder_factory(
     context: rmuc_live.LiveRuntimeContext,
     rating_index: dict[tuple[str, str], dict[str, Any]] | None = None,
@@ -1009,6 +1493,8 @@ def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", sam
         simulation,
         include_current_ratings=mode == "live" and context.source_status == "active",
     )
+    if mode == "live" and context.source_status == "active":
+        _attach_live_schedule_metadata(payload, region_slug)
     if mode == "live":
         live_status = payload["meta"].setdefault("liveStatus", {})
         live_status["slotAssignmentSource"] = "official" if slot_assignments is not None else "simulated_fallback"
