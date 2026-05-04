@@ -13,7 +13,7 @@ function toneClass(tone: CanvasCard["tone"]) {
     case "steel":
       return "border-white/10 bg-black/80 opacity-40 grayscale";
     default:
-      return "border-white/10 hover:border-white/30 bg-black/80";
+      return "border-white/10 hover:brightness-110 bg-black/80";
   }
 }
 
@@ -646,7 +646,7 @@ function MatchCanvasCardComponent({
       tabIndex={0}
       className={cn(
         "absolute touch-none group flex flex-col outline-none transition-all clip-chamfer cursor-pointer",
-        "hover:border-white/60",
+        "hover:brightness-110",
         isSelected ? "ring-1 ring-rm-result-winner z-30" : "z-10",
         containerBorder
       )}
