@@ -1,9 +1,10 @@
 // frontend/components/region-card.tsx
 import Link from "next/link";
-import type { OverviewTeam, RegionDashboardCard, WorkspaceView } from "@/lib/types";
+import type { OverviewTeam, RegionDashboardCard } from "@/lib/types";
 import { buildRegionHref } from "@/lib/region-config";
 import { buildTeamHref } from "@/lib/team-profile";
 import { deriveRealtimeAvailability } from "@/lib/realtime";
+import { getRepechageRaceProbability } from "@/lib/overview-builders";
 import { cn } from "@/lib/utils";
 
 function pct(value: number) {
@@ -14,11 +15,6 @@ function elo(value: number) {
   return value.toFixed(1);
 }
 
-const QUICK_VIEWS: Array<{ id: WorkspaceView; label: string }> = [
-  { id: "qualification", label: "资格赛" },
-  { id: "playoff", label: "淘汰赛" },
-  { id: "final-rankings", label: "最终排名" },
-];
 
 const REGION_ACCENT: Record<string, { bar: string; glow: string; link: string; btnHover: string }> = {
   south_region: {
@@ -44,9 +40,10 @@ const REGION_ACCENT: Record<string, { bar: string; glow: string; link: string; b
 /* ─── 稳进国赛标签 ─── */
 function LockedTeamBadge({ team }: { team: OverviewTeam }) {
   return (
-    <Link href={buildTeamHref(team.teamKey)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-rm-metal-border
-                     text-rm-metal-textLight text-[12px] font-bold
-                     hover:border-rm-metal-textMuted/40 transition-all duration-200">
+    <Link href={buildTeamHref(team.teamKey)} className="inline-flex items-center gap-1.5 px-2 py-1 border border-rm-status-safe/30
+                     bg-rm-status-safe/10 text-rm-status-safe text-xs font-bold rounded-sm
+                     shadow-[0_0_5px_rgba(0,255,157,0.1)]
+                     hover:border-rm-status-safe/50 hover:bg-rm-status-safe/15 transition-all duration-200">
       {team.collegeName}
       <span className="font-mono text-[10px] text-rm-status-confirmed font-semibold">
         {pct(team.probabilities.national)}
@@ -102,10 +99,10 @@ function RaceBattle({
           </div>
         </Link>
         <span className={cn(
-          "w-20 text-center text-[9px] font-bold py-1.5 tracking-widest border transition-colors duration-150 shrink-0",
+          "w-20 text-center text-[9px] font-bold py-1.5 tracking-widest border shrink-0",
           isStable
             ? "border-rm-metal-border bg-rm-metal-dark/10 text-rm-metal-textMuted"
-            : cn(colorClass.badge),
+            : cn(colorClass.badge, "animate-pulse-slow"),
         )}>
           {isStable ? "稳固" : `共 追赶${totalChasingCount}队`}
         </span>
@@ -295,7 +292,7 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
       </Link>
 
       {/* ═══ 3. 赛区Hero指标 ═══ */}
-      <div className={cn("grid grid-cols-2 gap-4 px-4 py-4 border-b-2 border-rm-metal-border")}>
+      <div className={cn("grid grid-cols-2 gap-4 px-4 py-4 border-b-2 border-rm-metal-border bg-rm-metal-dark/50")}>
         <div>
           <span className="text-[9px] text-rm-metal-textFaint uppercase tracking-widest font-bold">
             头号种子
@@ -320,11 +317,11 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
 
       {/* ═══ 4. 战术摘要 + 标签 ═══ */}
       <div className={cn(
-        "px-4 py-3 border-b-2 border-rm-metal-border border-l-2 min-h-[88px]",
+        "px-4 py-3 border-b-2 border-rm-metal-border border-l-2 min-h-[88px] bg-rm-metal-dark/50",
         region.regionSlug === "south_region" ? "border-l-rm-red/40" :
         region.regionSlug === "east_region" ? "border-l-rm-blue/40" : "border-l-rm-violet/40",
       )}>
-        <p className="text-[11px] text-rm-metal-textMuted leading-relaxed font-sans line-clamp-2">
+        <p className="text-[11px] text-rm-metal-text leading-relaxed font-mono line-clamp-2">
           {region.summarySentence}
         </p>
         <div className="flex flex-wrap gap-1.5 mt-2">
@@ -346,7 +343,7 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
 
       {/* ═══ 5. 稳进国赛阵容 ═══ */}
       {region.nationalLocks.length > 0 ? (
-        <div className="border-b-2 border-rm-metal-border px-4 py-3 border-l-2 border-l-rm-status-confirmed/50">
+        <div className="border-b-2 border-rm-metal-border px-4 py-3 border-l-2 border-l-rm-status-confirmed/50 bg-rm-metal-dark/50">
           <h4 className="text-[9px] font-bold text-rm-status-confirmed tracking-widest uppercase mb-2 flex items-center gap-2">
             <span className="w-1 h-3 bg-rm-status-confirmed/60 shadow-[0_0_6px_rgba(0,232,120,0.25)]" />
             稳进国赛阵容
@@ -361,7 +358,7 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
 
       {/* ═══ 6. 国赛卡位战圈 ═══ */}
       {region.nationalRace.cutoffTeam ? (
-        <div className="border-b-2 border-rm-metal-border px-4 py-3 border-l-2 border-l-rm-red/40">
+        <div className="border-b-2 border-rm-metal-border px-4 py-3 border-l-2 border-l-rm-red/40 bg-rm-metal-dark/50">
           <h4 className="text-[9px] font-bold text-rm-red tracking-widest uppercase mb-2 flex items-center gap-2">
             <span className="w-1 h-3 bg-rm-red/60 shadow-[0_0_4px_rgba(232,48,42,0.2)]" />
             国赛卡位战圈 · 最后 {region.nationalSlots - region.nationalRace.locksCount} 席
@@ -385,7 +382,7 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
 
       {/* ═══ 7. 复活赛卡位战圈 ═══ */}
       {region.repechageRace.cutoffTeam ? (
-        <div className="border-b-2 border-rm-metal-border px-4 py-3 border-l-2 border-l-rm-status-pending/50">
+        <div className="border-b-2 border-rm-metal-border px-4 py-3 border-l-2 border-l-rm-status-pending/50 bg-rm-metal-dark/50">
           <h4 className="text-[9px] font-bold text-rm-status-pending tracking-widest uppercase mb-2 flex items-center gap-2">
             <span className="w-1 h-3 bg-rm-status-pending/60 shadow-[0_0_6px_rgba(255,176,0,0.25)]" />
             复活赛卡位战圈
@@ -395,7 +392,7 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
             chasingTeams={region.repechageRace.chasingTeams}
             totalChasingCount={region.repechageRace.totalChasingCount}
             cutoffProbability={region.repechageRace.cutoffProbability}
-            getProb={(t) => t.probabilities.repechage}
+            getProb={getRepechageRaceProbability}
             colorClass={{
               border: "border-rm-status-pending/30 hover:border-rm-status-pending/50",
               bg: "bg-[rgba(255,176,0,0.06)]",
@@ -408,7 +405,7 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
       ) : <div />}
 
       {/* ═══ 6. 精简战力矩阵 ═══ */}
-      <div className={cn("px-4 py-3 border-b-2 border-rm-metal-border min-h-[268px]")}>
+      <div className={cn("px-4 py-3 border-b-2 border-rm-metal-border min-h-[268px] bg-rm-metal-dark/50")}>
         <CompactRosterTable teams={region.teams} regionSlug={region.regionSlug} />
       </div>
 
@@ -429,22 +426,16 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
           </Link>
           <Link
             href="/forecast-center"
-            className="border border-rm-blue/30 bg-rm-blue/8 px-3 py-1.5 font-mono text-[11px] text-rm-blue transition-colors hover:border-rm-blue/60 hover:text-white"
+            className={cn(
+              "font-sans text-sm font-semibold transition-all duration-200 flex items-center gap-1.5",
+              "px-3 py-1.5 border rounded-sm",
+              "border-rm-blue/50 bg-rm-blue/12 text-rm-blue",
+              "hover:bg-rm-blue/22 hover:shadow-[0_0_16px_rgba(42,159,255,0.3)]",
+            )}
           >
             实时预测
+            <span className="group-hover/card:translate-x-0.5 transition-transform duration-200">→</span>
           </Link>
-        </div>
-        <div className="flex gap-3">
-          {QUICK_VIEWS.map((view) => (
-            <Link
-              key={view.id}
-              href={buildRegionHref(region.regionSlug, view.id, { mode: fallbackMode })}
-              className="font-mono text-[10px] text-rm-metal-textMuted hover:text-rm-metal-textLight
-                         hover:underline underline-offset-4 transition-all duration-150"
-            >
-              {view.label}
-            </Link>
-          ))}
         </div>
       </div>
     </div>

@@ -56,6 +56,8 @@ export function deriveMatchCardState(row: MatchRow, mode?: "sim" | "live") {
   const hasRealResult = Boolean(row.isRealResult);
   const isOfficialScheduled = !isSimulationMode && !hasRealResult && Boolean(row.officialMatchId);
   const isPrediction = !isSimulationMode && !hasRealResult && !isOfficialScheduled;
+  const showsResolvedScoreline = isSimulationMode || hasRealResult;
+  const usesActualResultVisuals = isSimulationMode || hasRealResult;
   const statusLabel = (() => {
     if (isPrediction) return "预测";
     if (hasRealResult) return "已完赛";
@@ -69,12 +71,14 @@ export function deriveMatchCardState(row: MatchRow, mode?: "sim" | "live") {
     hasRealResult,
     isOfficialScheduled,
     isPrediction,
+    showsResolvedScoreline,
+    usesActualResultVisuals,
     statusLabel,
   };
 }
 
 export function deriveTeamCardState(card: TeamCanvasCard, mode?: "sim" | "live") {
-  const isSimulated = card.isSimulated ?? (card.variant === "summary" ? true : mode === "sim");
+  const isSimulated = mode === "sim" ? false : (card.isSimulated ?? card.variant === "summary");
   const isSafe = card.tone === "emerald" || card.tone === "amber";
   const isSummary = card.variant === "summary";
   const certaintyLabel = isSimulated ? "预期" : "实际";
@@ -589,8 +593,8 @@ function MatchCanvasCardComponent({
   const row = card.match;
   const expectedRed = row.pSeriesRed ?? card.redSide.probability;
   const cardState = deriveMatchCardState(row, mode);
-  const { isSimulationMode, hasRealResult, isOfficialScheduled, isPrediction } = cardState;
-  const showsResolvedScoreline = isSimulationMode || hasRealResult;
+  const { isSimulationMode, isOfficialScheduled, isPrediction, showsResolvedScoreline, usesActualResultVisuals } = cardState;
+  const rendersDimmedPredictionOutcome = showsResolvedScoreline && !usesActualResultVisuals;
   const [redGamesText, blueGamesText] = (row.scoreline || "0:0").split(":");
   const redGames = Number(redGamesText);
   const blueGames = Number(blueGamesText);
@@ -713,7 +717,7 @@ function MatchCanvasCardComponent({
         score={displayScore.red}
         resultResolved={showsResolvedScoreline}
         isPrediction={isPrediction}
-        isSimulated={isSimulationMode}
+        isSimulated={rendersDimmedPredictionOutcome}
         isScheduled={isOfficialScheduled}
         selectedTeamKey={selectedTeamKey}
         highlightedTeamKey={highlightedTeamKey}
@@ -724,18 +728,12 @@ function MatchCanvasCardComponent({
       <div
         className="h-[2px] shrink-0"
         style={{
-          background: isSimulationMode
-            ? "linear-gradient(90deg, rgba(232,48,42,0.25), rgba(42,159,255,0.25))"
-            : hasRealResult
+          background: usesActualResultVisuals
             ? "linear-gradient(90deg, rgba(232,48,42,0.6), rgba(42,159,255,0.6))"
             : isOfficialScheduled
             ? "linear-gradient(90deg, rgba(232,48,42,0.35), rgba(42,159,255,0.35))"
             : "linear-gradient(90deg, rgba(232,48,42,0.2), rgba(42,159,255,0.2))",
-          boxShadow: isSimulationMode
-            ? "0 0 4px rgba(100,80,200,0.08)"
-            : hasRealResult
-            ? "0 0 6px rgba(100,80,200,0.2)"
-            : "none",
+          boxShadow: usesActualResultVisuals ? "0 0 6px rgba(100,80,200,0.2)" : "none",
         }}
       />
 
@@ -745,7 +743,7 @@ function MatchCanvasCardComponent({
         score={displayScore.blue}
         resultResolved={showsResolvedScoreline}
         isPrediction={isPrediction}
-        isSimulated={isSimulationMode}
+        isSimulated={rendersDimmedPredictionOutcome}
         isScheduled={isOfficialScheduled}
         selectedTeamKey={selectedTeamKey}
         highlightedTeamKey={highlightedTeamKey}

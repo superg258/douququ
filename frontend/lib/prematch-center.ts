@@ -1,5 +1,10 @@
 import { buildRegionHref, REGION_LABELS } from "@/lib/region-config";
-import type { PrematchCenterMatch, PrematchDataSource, PrematchTimelineState } from "@/lib/types";
+import type {
+  PrematchCenterMatch,
+  PrematchCenterResponse,
+  PrematchDataSource,
+  PrematchTimelineState,
+} from "@/lib/types";
 
 const DATA_SOURCE_LABELS: Record<PrematchDataSource, string> = {
   official_live: "官方实时",
@@ -47,6 +52,27 @@ export function formatPrematchTime(value: string | null) {
 
 export function formatEmptyStateCount(completedCount: number) {
   return `已完赛 ${completedCount} 场。可以进入赛区沙盘查看实时回放、预测命中情况与最终排名。`;
+}
+
+export function isPrematchCompleteState(
+  data: Pick<PrematchCenterResponse, "completedMatchCount" | "pendingMatchCount">
+) {
+  return data.pendingMatchCount === 0 && data.completedMatchCount > 0;
+}
+
+export function getNoScheduledStateCopy(pendingMatchCount: number) {
+  if (pendingMatchCount === 0) {
+    return {
+      title: "官方赛程尚未开始同步",
+      description:
+        "当前还没有接入已排期或已开赛的官方赛程。待官方同步排期后，这里会展示下一场、焦点战和实时预测入口。",
+    };
+  }
+
+  return {
+    title: "暂无已排期赛程",
+    description: `当前 ${pendingMatchCount} 场未赛均为模拟推演。待官方同步赛程后，已排期场次将在此展示。`,
+  };
 }
 
 export function buildRegionRankingHref(regionSlug: string) {

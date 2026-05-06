@@ -7,7 +7,9 @@ import { getPrematchCenter } from "@/lib/api";
 import {
   formatEmptyStateCount,
   EMPTY_STATE_REGION_LINKS,
+  getNoScheduledStateCopy,
   getTimelineStateLabel,
+  isPrematchCompleteState,
   selectSpotlightMatches,
   sortPrematchMatchesByTime,
 } from "@/lib/prematch-center";
@@ -99,7 +101,9 @@ export function PrematchCenter() {
     nextActionMatch,
     allUpcomingMatches,
   } = data;
-  const isAllDone = pendingMatchCount === 0;
+  const isAllDone = isPrematchCompleteState(data);
+  const isPrestartEmpty = pendingMatchCount === 0 && completedMatchCount === 0;
+  const showSummaryEmptyState = isAllDone || isPrestartEmpty;
 
   // Only show scheduled/confirmed matches — never pure simulation
   const scheduledMatches = sortPrematchMatchesByTime(allUpcomingMatches.filter(isScheduled));
@@ -111,6 +115,12 @@ export function PrematchCenter() {
     : scheduledMatches;
   const scheduledCount = scheduledMatches.length;
   const spotlightMatches = selectSpotlightMatches(scheduledOthers);
+  const noScheduledCopy = getNoScheduledStateCopy(pendingMatchCount);
+  const summaryEmptyStateLabel = isAllDone ? "赛事完结" : "赛程待同步";
+  const summaryEmptyStateTitle = isAllDone ? "已接入赛区赛程完赛，后续赛区待同步" : noScheduledCopy.title;
+  const summaryEmptyStateDescription = isAllDone
+    ? formatEmptyStateCount(completedMatchCount)
+    : noScheduledCopy.description;
 
   return (
     <section>
@@ -125,16 +135,16 @@ export function PrematchCenter() {
         </h2>
         <Link
           href="/forecast-center"
-          className="ml-auto border border-rm-blue/30 bg-rm-blue/8 px-3 py-1.5 font-mono text-[11px] text-rm-blue transition-colors hover:border-rm-blue/60 hover:text-white"
+          className="ml-auto font-sans text-sm font-semibold transition-all duration-200 flex items-center gap-1.5 px-3 py-1.5 border rounded-sm border-rm-blue/50 bg-rm-blue/12 text-rm-blue hover:bg-rm-blue/22 hover:shadow-[0_0_16px_rgba(42,159,255,0.3)]"
         >
           进入实时预测中心
         </Link>
       </div>
 
       {/* ══════════════════════════════════════
-          Empty state — all matches completed
+          Empty state — completed or waiting for official schedule
           ══════════════════════════════════════ */}
-      {isAllDone && (
+      {showSummaryEmptyState && (
         <div className="relative bg-rm-metal-panel border border-rm-metal-border
           overflow-hidden"
           style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.02), inset 0 -1px 0 rgba(0,0,0,0.2)" }}
@@ -144,7 +154,7 @@ export function PrematchCenter() {
 
           {/* Animated scanline overlay */}
           <div className="absolute inset-0 pointer-events-none opacity-[0.025] overflow-hidden">
-            <div className="absolute inset-0 animate-scanline"
+            <div className="absolute inset-0 animate-scanline-slow"
               style={{
                 backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(255,255,255,0.6) 3px, rgba(255,255,255,0.6) 4px)",
                 backgroundSize: "100% 8px",
@@ -164,15 +174,15 @@ export function PrematchCenter() {
               <div className="flex items-center justify-center gap-3 mb-1">
                 <span className="h-px w-8 bg-rm-metal-textFaint/20" />
                 <span className="font-mono text-[9px] text-rm-metal-textFaint/40 tracking-[0.3em] uppercase">
-                  赛事完结
+                  {summaryEmptyStateLabel}
                 </span>
                 <span className="h-px w-8 bg-rm-metal-textFaint/20" />
               </div>
               <p className="font-sans text-base font-semibold text-rm-metal-textLight">
-                当前接入赛程均已完赛
+                {summaryEmptyStateTitle}
               </p>
               <p className="font-mono text-xs text-rm-metal-textMuted leading-relaxed max-w-lg mx-auto">
-                {formatEmptyStateCount(completedMatchCount)}
+                {summaryEmptyStateDescription}
               </p>
             </div>
 
@@ -210,7 +220,7 @@ export function PrematchCenter() {
       {/* ══════════════════════════════════════
           Layer 2 — Next match hero (scheduled only)
           ══════════════════════════════════════ */}
-      {!isAllDone && scheduledNext && (
+      {!showSummaryEmptyState && scheduledNext && (
         <div className="mb-5">
           {scheduledNext.timelineState && (
             <div className="mb-2 font-mono text-[10px] tracking-widest text-rm-status-warn">
@@ -224,7 +234,7 @@ export function PrematchCenter() {
       {/* ══════════════════════════════════════
           Layer 3 — Spotlight matches
           ══════════════════════════════════════ */}
-      {!isAllDone && scheduledOthers.length > 0 && spotlightMatches.length > 0 && (
+      {!showSummaryEmptyState && scheduledOthers.length > 0 && spotlightMatches.length > 0 && (
         <div>
           <SectionHeader
             label="▸ 焦点战局"
@@ -236,14 +246,14 @@ export function PrematchCenter() {
       )}
 
       {/* ── No scheduled matches at all ── */}
-      {!isAllDone && scheduledCount === 0 && (
+      {!showSummaryEmptyState && scheduledCount === 0 && (
         <div className="bg-rm-metal-panel border border-rm-metal-border px-6 py-6 text-center space-y-4">
           <div>
             <p className="font-sans text-sm font-semibold text-rm-metal-textLight mb-1">
-              暂无已排期赛程
+              {noScheduledCopy.title}
             </p>
             <p className="font-mono text-[11px] text-rm-metal-textMuted leading-relaxed max-w-md mx-auto">
-              当前 {pendingMatchCount} 场未赛均为模拟推演。待官方同步赛程后，已排期场次将在此展示。
+              {noScheduledCopy.description}
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3">

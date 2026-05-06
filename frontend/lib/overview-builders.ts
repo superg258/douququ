@@ -50,6 +50,10 @@ function displayElo(team: Pick<OverviewTeam, "mu0" | "currentElo">) {
   return team.currentElo ?? team.mu0;
 }
 
+export function getRepechageRaceProbability(team: OverviewTeam) {
+  return team.probabilities.national + team.probabilities.repechage;
+}
+
 function favoriteOf(region: OverviewRegion) {
   return [...region.teams].sort((left, right) => {
     if (right.probabilities.champion !== left.probabilities.champion) {
@@ -206,7 +210,6 @@ function buildRegionCards(regions: OverviewRegion[]): RegionDashboardCard[] {
     .sort((left, right) => compareRegionOrder(left.regionSlug, right.regionSlug))
     .map((region) => {
       const nationalSelector = (team: OverviewTeam) => team.probabilities.national;
-      const repechageOrBetterSelector = (team: OverviewTeam) => team.probabilities.national + team.probabilities.repechage;
       const eloValues = region.teams.map((team) => displayElo(team)).sort((left, right) => right - left);
       const championTeams = [...region.teams].sort((left, right) => {
         if (right.probabilities.champion !== left.probabilities.champion) {
@@ -225,12 +228,12 @@ function buildRegionCards(regions: OverviewRegion[]): RegionDashboardCard[] {
         (championTeams[0]?.probabilities.champion ?? 0) - (championTeams[1]?.probabilities.champion ?? 0);
       const nationalLocks = buildLockTeams(region, nationalSelector, NATIONAL_LOCK_THRESHOLD);
       const nationalRace = buildRaceBucket(region, nationalSelector, region.nationalSlots, NATIONAL_LOCK_THRESHOLD);
-      const repechageLocks = buildLockTeams(region, repechageOrBetterSelector, NATIONAL_LOCK_THRESHOLD);
+      const repechageLocks = buildLockTeams(region, getRepechageRaceProbability, NATIONAL_LOCK_THRESHOLD);
       // `repechage` on the API means "exactly enters repechage". The homepage race band needs
       // the total seat line, so it uses "national or repechage" as the ordering metric.
       const repechageRace = buildRaceBucket(
         region,
-        repechageOrBetterSelector,
+        getRepechageRaceProbability,
         region.nationalSlots + region.repechageSlots,
       );
 

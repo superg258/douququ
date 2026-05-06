@@ -344,23 +344,23 @@ export function WorkspaceStageView({
           </button>
         </div>
 
-      <div className="pointer-events-none absolute bottom-3 left-3 z-20 flex flex-col gap-2 md:hidden">
-        <div className="border border-rm-blue/45 bg-black/70 px-2 py-1 text-[10px] font-mono text-rm-blue shadow-[0_0_12px_rgba(0,163,255,0.25)] clip-chamfer">
-          拖拽查看完整赛程
+      <div className="pointer-events-none absolute top-3 left-3 z-20 flex flex-col gap-2 md:hidden">
+        <div className="border border-rm-blue/35 bg-black/55 px-2 py-1 text-[10px] font-mono text-rm-blue/85 shadow-[0_0_10px_rgba(0,163,255,0.18)] clip-chamfer">
+          拖拽查看
         </div>
         {minimapViewport ? (
           <div
-            className="relative border border-rm-metal-border bg-rm-metal-dark/80"
-            style={{ width: 112, height: minimapViewport.mapHeight }}
+            className="relative hidden border border-rm-metal-border bg-rm-metal-dark/70 sm:block"
+            style={{ width: 72, height: Math.max(28, Math.round(minimapViewport.mapHeight * (72 / 112))) }}
           >
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[length:16px_16px]" />
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.07)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.07)_1px,transparent_1px)] bg-[length:12px_12px]" />
             <div
               className="absolute border border-rm-blue bg-rm-blue/20 shadow-[0_0_8px_rgba(0,163,255,0.45)]"
               style={{
-                left: minimapViewport.left,
-                top: minimapViewport.top,
-                width: minimapViewport.width,
-                height: minimapViewport.height,
+                left: minimapViewport.left * (72 / 112),
+                top: minimapViewport.top * (72 / 112),
+                width: Math.max(6, minimapViewport.width * (72 / 112)),
+                height: Math.max(6, minimapViewport.height * (72 / 112)),
               }}
             />
           </div>

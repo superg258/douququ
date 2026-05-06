@@ -79,6 +79,14 @@ describe("deriveMatchCardState", () => {
   it("keeps pure simulation mode out of the scheduled status", () => {
     expect(deriveMatchCardState(match(), "sim").statusLabel).toBe("模拟战果");
   });
+
+  it("uses actual-result visual semantics for pure simulation mode", () => {
+    expect(deriveMatchCardState(match({ isRealResult: false }), "sim")).toMatchObject({
+      statusLabel: "模拟战果",
+      showsResolvedScoreline: true,
+      usesActualResultVisuals: true,
+    });
+  });
 });
 
 describe("deriveTeamCardState", () => {
@@ -105,6 +113,21 @@ describe("deriveTeamCardState", () => {
       summaryLabel: "预期淘汰",
       visualTier: "predicted-eliminated",
       hasDashedFrame: true,
+    });
+  });
+
+  it("uses actual outcome visuals for summary cards in pure simulation mode", () => {
+    expect(deriveTeamCardState(teamCard({ tone: "amber", isSimulated: true }), "sim")).toMatchObject({
+      isSimulated: false,
+      summaryLabel: "实际晋级",
+      visualTier: "actual-safe",
+      hasDashedFrame: false,
+    });
+    expect(deriveTeamCardState(teamCard({ tone: "steel", isSimulated: true }), "sim")).toMatchObject({
+      isSimulated: false,
+      summaryLabel: "实际淘汰",
+      visualTier: "actual-eliminated",
+      hasDashedFrame: false,
     });
   });
 });

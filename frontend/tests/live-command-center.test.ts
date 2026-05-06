@@ -60,8 +60,8 @@ const baseMatch = {
 } satisfies CommandCenterResponse["timelineBuckets"]["upNext"][number];
 
 describe("live command center", () => {
-  it("builds populated sections from command center timeline buckets", () => {
-    const command = buildLiveCommandCenter({
+  function buildCommand(overrides: Partial<CommandCenterResponse> = {}): CommandCenterResponse {
+    return {
       generatedAt: "2026-05-06T00:00:00+00:00",
       seed: 20260414,
       targetDate: "2099-01-01",
@@ -97,12 +97,43 @@ describe("live command center", () => {
         simulationUnassigned: [{ ...baseMatch, id: "south_region:SIM-TBD", matchLabel: "SIM-TBD" }],
         reviewPending: [{ ...baseMatch, id: "south_region:DONE-1", matchLabel: "DONE-1", timelineState: "review_pending" }],
       },
-    });
+      ...overrides,
+    };
+  }
+
+  it("builds populated sections from command center timeline buckets", () => {
+    const command = buildLiveCommandCenter(buildCommand());
 
     expect(command.sections.find((section) => section.id === "up-next")?.items).toHaveLength(1);
     expect(command.sections.find((section) => section.id === "up-next")?.items[0].matchLabel).toBe("NEXT-1");
     expect(command.sections.map((section) => section.id)).not.toContain("simulation-unassigned");
     expect(command.sections.map((section) => section.id)).not.toContain("review-pending");
     expect(command.unavailableReason).toBe("");
+  });
+
+  it("keeps only the source unavailable reason when all live data is proxied", () => {
+    const command = buildLiveCommandCenter(
+      buildCommand({
+        source: {
+          requestedMode: "live",
+          effectiveMode: "simulation_proxy",
+          regionStatuses: [],
+        },
+        sourceFreshness: {
+          serviceGeneratedAt: "2026-05-06T00:00:00+00:00",
+          modelGeneratedAt: "2026-05-06T00:00:00+00:00",
+          officialScheduleUpdatedAt: null,
+          liveEloUpdatedAt: null,
+          officialScheduleAgeMinutes: null,
+          liveEloStatus: "missing",
+          activeRegionCount: 0,
+          totalRegionCount: 3,
+          coverageLabel: "官方实时源未接入，全部使用模拟代理",
+          regionStatuses: [],
+        },
+      })
+    );
+
+    expect(command.unavailableReason).toBe("官方实时源未接入");
   });
 });

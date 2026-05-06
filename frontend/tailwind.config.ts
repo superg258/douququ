@@ -98,9 +98,11 @@ const config: Config = {
       },
       animation: {
         'scanline': 'scanlineMove 4s linear infinite',
+        'scanline-slow': 'scanlineMove 8s linear infinite',
         'glow-breathe': 'glowBreathe 3s ease-in-out infinite',
         'border-glow': 'borderGlow 3s ease-in-out infinite',
         'dot-pulse': 'dotPulse 2s ease-in-out infinite',
+        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       }
     },
   },

@@ -3,6 +3,7 @@
 /.vscode
 /.agents
 /.playwright-mcp
+/.claude
 
 # Python
 /.pytest_cache

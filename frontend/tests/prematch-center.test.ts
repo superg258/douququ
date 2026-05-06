@@ -10,7 +10,9 @@ import {
   getTimeBlockLabel,
   groupByTimeBlock,
   formatPrematchDate,
+  getNoScheduledStateCopy,
   groupByDate,
+  isPrematchCompleteState,
   selectSpotlightMatches,
   sortPrematchMatchesByTime,
   getTimelineStateLabel,
@@ -162,9 +164,24 @@ describe("prematch-center helpers", () => {
     expect(formatEmptyStateCount(266)).toBe(
       "已完赛 266 场。可以进入赛区沙盘查看实时回放、预测命中情况与最终排名。"
     );
-    expect(formatEmptyStateCount(0)).toBe(
-      "已完赛 0 场。可以进入赛区沙盘查看实时回放、预测命中情况与最终排名。"
-    );
+  });
+
+  it("does not treat an empty not-yet-started schedule as completed", () => {
+    expect(isPrematchCompleteState({ completedMatchCount: 0, pendingMatchCount: 0 })).toBe(false);
+    expect(isPrematchCompleteState({ completedMatchCount: 12, pendingMatchCount: 0 })).toBe(true);
+    expect(isPrematchCompleteState({ completedMatchCount: 12, pendingMatchCount: 3 })).toBe(false);
+  });
+
+  it("describes zero official schedule activity as not started", () => {
+    expect(getNoScheduledStateCopy(0)).toEqual({
+      title: "官方赛程尚未开始同步",
+      description:
+        "当前还没有接入已排期或已开赛的官方赛程。待官方同步排期后，这里会展示下一场、焦点战和实时预测入口。",
+    });
+    expect(getNoScheduledStateCopy(3)).toEqual({
+      title: "暂无已排期赛程",
+      description: "当前 3 场未赛均为模拟推演。待官方同步赛程后，已排期场次将在此展示。",
+    });
   });
 
   it("provides three empty-state region links in order", () => {

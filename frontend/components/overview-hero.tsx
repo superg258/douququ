@@ -71,7 +71,7 @@ export function OverviewHero({
               </div>
 
               {/* Title with golden rain + chromatic aberration */}
-              <h1 className="relative inline-block font-['Quantico'] font-black tracking-[0.12em] leading-[0.85] select-none">
+              <h1 className="relative inline-block max-w-full whitespace-nowrap font-['Quantico'] font-black tracking-normal sm:tracking-[0.12em] leading-[0.85] select-none">
                 {/* ── Golden rain particles ── */}
                 <span aria-hidden="true" className="absolute inset-0 overflow-hidden pointer-events-none">
                   {[...Array(50)].map((_, i) => (
@@ -97,7 +97,7 @@ export function OverviewHero({
                 {/* Red-gold ghost (offset left) */}
                 <span
                   aria-hidden="true"
-                  className="absolute inset-0 text-5xl sm:text-6xl lg:text-7xl xl:text-8xl text-transparent bg-clip-text
+                  className="absolute inset-0 text-[2.5rem] sm:text-6xl lg:text-7xl xl:text-8xl text-transparent bg-clip-text
                              bg-gradient-to-r from-rm-red/60 via-[#E8C44A]/50 to-rm-red/40
                              translate-x-[-2px] opacity-[0.13]"
                 >
@@ -106,14 +106,14 @@ export function OverviewHero({
                 {/* Blue ghost (offset right) */}
                 <span
                   aria-hidden="true"
-                  className="absolute inset-0 text-5xl sm:text-6xl lg:text-7xl xl:text-8xl text-transparent bg-clip-text
+                  className="absolute inset-0 text-[2.5rem] sm:text-6xl lg:text-7xl xl:text-8xl text-transparent bg-clip-text
                              bg-gradient-to-r from-rm-blue/50 via-[#D4A830]/30 to-rm-blue/60
                              translate-x-[2px] opacity-[0.10]"
                 >
                   ROBOMASTER
                 </span>
                 {/* Main — champagne gold gradient */}
-                <span className="relative text-5xl sm:text-6xl lg:text-7xl xl:text-8xl">
+                <span className="relative text-[2.5rem] sm:text-6xl lg:text-7xl xl:text-8xl">
                   <span className="bg-gradient-to-b from-[#E8C44A] via-white to-[#F5D76E] bg-clip-text text-transparent
                                  [text-shadow:0_0_30px_rgba(232,196,74,0.15),0_0_60px_rgba(245,215,110,0.08)]">
                     ROBOMASTER

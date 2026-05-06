@@ -23,7 +23,7 @@ export interface LiveCommandCenter {
 export function buildLiveCommandCenter(command: CommandCenterResponse): LiveCommandCenter {
   const coverageLabel = command.sourceFreshness.coverageLabel;
   const unavailableReason =
-    command.source.effectiveMode === "simulation_proxy" ? coverageLabel : "";
+    command.source.effectiveMode === "simulation_proxy" ? coverageLabel.split("，")[0] : "";
 
   return {
     source: "live",
