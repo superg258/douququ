@@ -1,5 +1,5 @@
 import { buildRegionHref, REGION_LABELS } from "@/lib/region-config";
-import type { PrematchCenterMatch, PrematchDataSource } from "@/lib/types";
+import type { PrematchCenterMatch, PrematchDataSource, PrematchTimelineState } from "@/lib/types";
 
 const DATA_SOURCE_LABELS: Record<PrematchDataSource, string> = {
   official_live: "官方实时",
@@ -9,6 +9,20 @@ const DATA_SOURCE_LABELS: Record<PrematchDataSource, string> = {
 
 export function getDataSourceLabel(source: PrematchDataSource) {
   return DATA_SOURCE_LABELS[source] ?? source;
+}
+
+const TIMELINE_STATE_LABELS: Record<PrematchTimelineState, string> = {
+  live_now: "正在进行",
+  up_next: "即将开赛",
+  today_pending: "尚未开赛",
+  confirmed_upcoming: "已确认未开赛",
+  overdue_unresolved: "已过期未同步",
+  simulation_unassigned: "待排期",
+  review_pending: "已完赛",
+};
+
+export function getTimelineStateLabel(state: PrematchTimelineState) {
+  return TIMELINE_STATE_LABELS[state] ?? state;
 }
 
 export function buildPrematchHref(match: PrematchCenterMatch) {
@@ -50,7 +64,7 @@ export const EMPTY_STATE_REGION_LINKS = (
 export type TimeBlock = "上午" | "下午" | "晚间";
 
 const SPOTLIGHT_LIMIT = 3;
-const STRONG_TEAM_RANK_CUTOFF = 16;
+const STRONG_TEAM_RANK_CUTOFF = 32;
 const CLOSE_MATCH_BONUS_MARGIN = 0.3;
 const CLOSE_MATCH_MAX_BONUS = 15;
 const MODERATE_BLOWOUT_MARGIN = 0.6;

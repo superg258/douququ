@@ -13,6 +13,7 @@ import {
   groupByDate,
   selectSpotlightMatches,
   sortPrematchMatchesByTime,
+  getTimelineStateLabel,
 } from "@/lib/prematch-center";
 import type { PrematchCenterMatch } from "@/lib/types";
 
@@ -82,7 +83,7 @@ function buildMockMatch(overrides: Partial<PrematchCenterMatch> = {}): PrematchC
       label: "中",
       reason: "下位方有可观胜率，需关注临场波动",
     },
-    redTeamGlobalRank: 24,
+    redTeamGlobalRank: 48,
     blueTeamGlobalRank: 48,
     strongTeamInvolved: false,
     priorUpsetTeamKeys: [],
@@ -107,6 +108,15 @@ describe("prematch-center helpers", () => {
     expect(getDataSourceLabel("official_live")).toBe("官方实时");
     expect(getDataSourceLabel("simulation")).toBe("模拟预测");
     expect(getDataSourceLabel("simulation_proxy")).toBe("模拟代理");
+  });
+
+  it("returns Chinese labels for timeline states", () => {
+    expect(getTimelineStateLabel("live_now")).toBe("正在进行");
+    expect(getTimelineStateLabel("up_next")).toBe("即将开赛");
+    expect(getTimelineStateLabel("today_pending")).toBe("尚未开赛");
+    expect(getTimelineStateLabel("overdue_unresolved")).toBe("已过期未同步");
+    expect(getTimelineStateLabel("simulation_unassigned")).toBe("待排期");
+    expect(getTimelineStateLabel("review_pending")).toBe("已完赛");
   });
 
   /* ── buildPrematchHref ── */
@@ -273,6 +283,27 @@ describe("prematch-center helpers", () => {
     ]);
   });
 
+  it("treats top-32 teams as strong signals for spotlight selection", () => {
+    const items = [
+      buildMockMatch({
+        id: "south-china-tigers-vs-imca",
+        redTeamGlobalRank: 10,
+        blueTeamGlobalRank: 28,
+        margin: 0.48,
+      }),
+      buildMockMatch({
+        id: "single-top-32",
+        redTeamGlobalRank: 24,
+        blueTeamGlobalRank: 48,
+        margin: 0.12,
+      }),
+    ];
+
+    expect(selectSpotlightMatches(items).map((match) => match.id)).toEqual([
+      "south-china-tigers-vs-imca",
+    ]);
+  });
+
   it("prioritizes bilateral strong-team and season-overperformer signals", () => {
     const items = [
       buildMockMatch({
@@ -421,6 +452,22 @@ describe("prematch-center helpers", () => {
         hasSeasonOverperformerTeam: true,
         seasonOverperformerTeamKeys: ["red-team", "blue-team"],
         margin: 0.35,
+      }),
+      buildMockMatch({
+        id: "solid-fifth",
+        plannedStartAt: "2026-04-14T11:00:00+08:00",
+        redTeamGlobalRank: 12,
+        blueTeamGlobalRank: 20,
+        strongTeamInvolved: true,
+        margin: 0.1,
+      }),
+      buildMockMatch({
+        id: "solid-sixth",
+        plannedStartAt: "2026-04-14T11:30:00+08:00",
+        redTeamGlobalRank: 18,
+        blueTeamGlobalRank: 22,
+        strongTeamInvolved: true,
+        margin: 0.2,
       }),
       buildMockMatch({
         id: "high-latest",

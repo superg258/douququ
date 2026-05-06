@@ -7,6 +7,7 @@ import { getPrematchCenter } from "@/lib/api";
 import {
   formatEmptyStateCount,
   EMPTY_STATE_REGION_LINKS,
+  getTimelineStateLabel,
   selectSpotlightMatches,
   sortPrematchMatchesByTime,
 } from "@/lib/prematch-center";
@@ -92,26 +93,24 @@ export function PrematchCenter() {
   }
 
   const {
-    targetDate,
-    source,
     completedMatchCount,
     pendingMatchCount,
     nextMatch,
+    nextActionMatch,
     allUpcomingMatches,
   } = data;
-  const isProxy = source.effectiveMode === "simulation_proxy";
   const isAllDone = pendingMatchCount === 0;
 
   // Only show scheduled/confirmed matches — never pure simulation
   const scheduledMatches = sortPrematchMatchesByTime(allUpcomingMatches.filter(isScheduled));
-  const scheduledNext = nextMatch && isScheduled(nextMatch) ? nextMatch : null;
+  const actionMatch = nextActionMatch ?? nextMatch;
+  const scheduledNext =
+    actionMatch && isScheduled(actionMatch) && actionMatch.timelineState !== "overdue_unresolved" ? actionMatch : null;
   const scheduledOthers = scheduledNext
     ? scheduledMatches.filter((m) => m.id !== scheduledNext.id)
     : scheduledMatches;
   const scheduledCount = scheduledMatches.length;
   const spotlightMatches = selectSpotlightMatches(scheduledOthers);
-  const spotlightIds = new Set(spotlightMatches.map((m) => m.id));
-  const remainingScheduledMatches = scheduledOthers.filter((m) => !spotlightIds.has(m.id));
 
   return (
     <section>
@@ -124,70 +123,12 @@ export function PrematchCenter() {
         <h2 className="font-sans text-lg font-semibold text-rm-metal-textLight tracking-wide">
           赛前预测中心
         </h2>
-      </div>
-
-      {/* ══════════════════════════════════════
-          Layer 1 — Top status bar
-          ══════════════════════════════════════ */}
-      <div className="relative bg-rm-metal-panel border border-rm-metal-border mb-5
-        overflow-hidden"
-        style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.02), inset 0 -1px 0 rgba(0,0,0,0.2)" }}
-      >
-        {/* Left accent bar */}
-        <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-rm-red/60 via-rm-red/20 to-rm-blue/20 via-rm-blue/60" />
-
-        {/* Animated scanline overlay */}
-        <div className="absolute inset-0 pointer-events-none opacity-[0.025] overflow-hidden">
-          <div className="absolute inset-0 animate-scanline"
-            style={{
-              backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(255,255,255,0.6) 3px, rgba(255,255,255,0.6) 4px)",
-              backgroundSize: "100% 8px",
-              height: "200%",
-            }}
-          />
-        </div>
-
-        <div className="relative px-4 py-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 font-mono text-xs">
-          <div className="flex items-center gap-2">
-            <span className="text-rm-metal-textFaint/60 tracking-[0.15em] text-[10px]">DATE</span>
-            <span className="text-rm-metal-textLight font-semibold">{targetDate}</span>
-          </div>
-
-          <span className="text-rm-metal-textFaint/30 select-none">|</span>
-
-          {isAllDone ? (
-            <span className="text-rm-status-safe flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-rm-status-safe shadow-[0_0_4px_rgba(0,232,120,0.6)] animate-dot-pulse" />
-              全部完赛 · 已完赛 {completedMatchCount} 场
-            </span>
-          ) : (
-            <span className="text-rm-status-warn flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-rm-status-warn shadow-[0_0_4px_rgba(255,176,0,0.6)] animate-dot-pulse" />
-              未赛 {pendingMatchCount} 场 / 已完赛 {completedMatchCount} 场
-            </span>
-          )}
-
-          <span className="text-rm-metal-textFaint/30 select-none">|</span>
-
-          {/* Data source status */}
-          {isProxy && (
-            <span className="text-rm-status-warn bg-rm-status-warn/8 px-2 py-0.5 border border-rm-status-warn/20">
-              实时源不可用，当前展示模拟代理预测
-            </span>
-          )}
-          {!isProxy && source.effectiveMode === "live" && (
-            <span className="text-rm-status-safe flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-rm-status-safe shadow-[0_0_4px_rgba(0,232,120,0.6)] animate-dot-pulse" />
-              官方实时数据已连接
-            </span>
-          )}
-          {!isProxy && source.effectiveMode === "sim" && (
-            <span className="text-rm-status-prediction flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-rm-status-prediction shadow-[0_0_4px_rgba(42,159,255,0.6)] animate-dot-pulse" />
-              模拟推演模式
-            </span>
-          )}
-        </div>
+        <Link
+          href="/forecast-center"
+          className="ml-auto border border-rm-blue/30 bg-rm-blue/8 px-3 py-1.5 font-mono text-[11px] text-rm-blue transition-colors hover:border-rm-blue/60 hover:text-white"
+        >
+          进入实时预测中心
+        </Link>
       </div>
 
       {/* ══════════════════════════════════════
@@ -271,47 +212,26 @@ export function PrematchCenter() {
           ══════════════════════════════════════ */}
       {!isAllDone && scheduledNext && (
         <div className="mb-5">
+          {scheduledNext.timelineState && (
+            <div className="mb-2 font-mono text-[10px] tracking-widest text-rm-status-warn">
+              {getTimelineStateLabel(scheduledNext.timelineState)}
+            </div>
+          )}
           <PrematchMatchCard match={scheduledNext} variant="hero" />
         </div>
       )}
 
       {/* ══════════════════════════════════════
-          Layer 3 — Scheduled match list
+          Layer 3 — Spotlight matches
           ══════════════════════════════════════ */}
-      {!isAllDone && scheduledOthers.length > 0 && (
-        <div className="space-y-5">
-          {spotlightMatches.length > 0 && (
-            <div>
-              <SectionHeader
-                label="▸ 焦点战局"
-                count={spotlightMatches.length}
-                accent="bg-rm-status-warn/60"
-              />
-              <CardGrid matches={spotlightMatches} />
-            </div>
-          )}
-
-          {(() => {
-            if (remainingScheduledMatches.length === 0) return null;
-            const shown = remainingScheduledMatches.slice(0, 12);
-            const overflow = remainingScheduledMatches.length - shown.length;
-
-            return (
-              <div>
-                <SectionHeader
-                  label="▸ 其他已排期赛程"
-                  count={remainingScheduledMatches.length}
-                  accent="bg-rm-status-scheduled/60"
-                />
-                <CardGrid matches={shown} />
-                {overflow > 0 && (
-                  <p className="text-center mt-3 font-mono text-[10px] text-rm-metal-textFaint/50">
-                    另有 {overflow} 场已排期赛程可在赛区沙盘查看
-                  </p>
-                )}
-              </div>
-            );
-          })()}
+      {!isAllDone && scheduledOthers.length > 0 && spotlightMatches.length > 0 && (
+        <div>
+          <SectionHeader
+            label="▸ 焦点战局"
+            count={spotlightMatches.length}
+            accent="bg-rm-status-warn/60"
+          />
+          <CardGrid matches={spotlightMatches} />
         </div>
       )}
 
