@@ -1160,6 +1160,8 @@ def test_team_profile_endpoint_returns_team_path_and_region_link(monkeypatch) ->
                     red_team_key=team_key,
                     blue_team_key="beta::main",
                     winner_team_key=team_key,
+                    official_match_id="DONE-ALPHA",
+                    official_status="DONE",
                     scoreline="2:0",
                 ),
                 _fake_match(
@@ -1170,6 +1172,17 @@ def test_team_profile_endpoint_returns_team_path_and_region_link(monkeypatch) ->
                     p_game_red=0.54,
                     red_team_key=team_key,
                     blue_team_key="gamma::main",
+                    official_match_id="NEXT-ALPHA",
+                ),
+                _fake_match(
+                    match_label="PROJECTED-AFTER-NEXT",
+                    planned_start_at=None,
+                    is_real_result=False,
+                    p_series_red=0.51,
+                    p_game_red=0.5,
+                    red_team_key=team_key,
+                    blue_team_key="delta::main",
+                    official_status=None,
                 ),
             ],
             "finalRankings": [
@@ -1206,12 +1219,229 @@ def test_team_profile_endpoint_returns_team_path_and_region_link(monkeypatch) ->
     assert payload["team"]["teamKey"] == team_key
     assert payload["team"]["currentElo"] == 1712.0
     assert payload["region"]["regionSlug"] == "south_region"
-    assert payload["slot"]["slot"] == "A1"
-    assert payload["finalRanking"]["rank"] == 2
+    assert payload["slot"] is None
+    assert payload["finalRanking"] is None
     assert [match["matchLabel"] for match in payload["matchPath"]] == ["DONE-ALPHA", "NEXT-ALPHA"]
     assert payload["completedMatches"][0]["resultForTeam"] == "win"
-    assert payload["upcomingMatches"][0]["opponent"]["teamKey"] == "gamma::main"
+    assert [match["matchLabel"] for match in payload["upcomingMatches"]] == ["PROJECTED-AFTER-NEXT"]
+    assert payload["upcomingMatches"][0]["opponent"]["teamKey"] == "delta::main"
     assert payload["regionEntry"]["highlightTeamKey"] == team_key
+
+
+def test_team_profile_hides_simulation_path_before_confirmed_live_data(monkeypatch) -> None:
+    team_key = "alpha::main"
+
+    def fake_overview() -> dict[str, object]:
+        return {
+            "generatedAt": "2026-05-06T00:00:00+00:00",
+            "regions": [
+                {
+                    "regionSlug": "south_region",
+                    "regionName": "南部赛区",
+                    "nationalSlots": 8,
+                    "repechageSlots": 4,
+                    "liveStatus": service.summarize_live_status("south_region"),
+                    "teams": [
+                        {
+                            "teamKey": team_key,
+                            "collegeName": "Alpha University",
+                            "teamName": "Main",
+                            "mu0": 1700.0,
+                            "sigma0": 40.0,
+                            "eloGlobalRank": 3,
+                            "eloRegionRank": 1,
+                            "currentElo": 1712.0,
+                            "preseasonElo": 1700.0,
+                            "eloDeltaFromPreseason": 12.0,
+                            "eloRankSource": "live",
+                            "seedTier": "tier1",
+                            "seedRankInRegion": 1,
+                            "regionSlug": "south_region",
+                            "regionName": "南部赛区",
+                            "probabilities": {
+                                "roundOf16": 1.0,
+                                "repechage": 0.42,
+                                "national": 0.81,
+                                "champion": 0.2,
+                            },
+                        }
+                    ],
+                }
+            ],
+        }
+
+    def fake_simulation(region_slug: str, seed: int, mode: str = "sim", samples: int = service.DEFAULT_SIMULATION_SAMPLES) -> dict[str, object]:
+        assert region_slug == "south_region"
+        return {
+            "meta": {
+                "regionSlug": "south_region",
+                "regionName": "南部赛区",
+                "seed": seed,
+                "generatedAt": "2026-05-06T00:00:00+00:00",
+                "liveStatus": service.summarize_live_status("south_region"),
+            },
+            "slots": [
+                {
+                    "teamKey": team_key,
+                    "collegeName": "Alpha University",
+                    "teamName": "Main",
+                    "groupName": "A",
+                    "slot": "A1",
+                    "drawBox": "A",
+                    "seedTier": "tier1",
+                    "seedRankInRegion": 1,
+                    "mu0": 1700.0,
+                    "sigma0": 40.0,
+                    "eloGlobalRank": 3,
+                    "currentElo": 1712.0,
+                    "preseasonElo": 1700.0,
+                    "eloDeltaFromPreseason": 12.0,
+                    "eloRankSource": "live",
+                }
+            ],
+            "matches": [
+                _fake_match(
+                    match_label="SIM-ONLY",
+                    planned_start_at=None,
+                    is_real_result=False,
+                    p_series_red=0.58,
+                    p_game_red=0.54,
+                    red_team_key=team_key,
+                    blue_team_key="beta::main",
+                    official_status=None,
+                ),
+            ],
+            "finalRankings": [
+                {
+                    "rank": 1,
+                    "teamKey": team_key,
+                    "collegeName": "Alpha University",
+                    "teamName": "Main",
+                    "groupName": "A",
+                    "slot": "A1",
+                    "seedTier": "tier1",
+                    "seedRankInRegion": 1,
+                    "swissWins": 5,
+                    "swissLosses": 0,
+                    "swissGroupRank": 1,
+                    "mu0": 1700.0,
+                    "currentElo": 1712.0,
+                    "preseasonElo": 1700.0,
+                    "eloDeltaFromPreseason": 12.0,
+                    "eloRankSource": "live",
+                    "finalBucket": "champion",
+                    "advancement": "national_qualified",
+                }
+            ],
+        }
+
+    monkeypatch.setattr(service, "build_overview_payload", fake_overview)
+    monkeypatch.setattr(service, "build_simulation_payload", fake_simulation)
+
+    response = client.get(f"/api/teams/{quote(team_key, safe='')}?seed=20260414&mode=live")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["slot"] is None
+    assert payload["finalRanking"] is None
+    assert payload["matchPath"] == []
+    assert payload["completedMatches"] == []
+    assert payload["upcomingMatches"] == []
+
+
+def test_team_profile_keeps_official_live_slot_assignment(monkeypatch) -> None:
+    team_key = "alpha::main"
+
+    def fake_overview() -> dict[str, object]:
+        return {
+            "generatedAt": "2026-05-06T00:00:00+00:00",
+            "regions": [
+                {
+                    "regionSlug": "south_region",
+                    "regionName": "南部赛区",
+                    "nationalSlots": 8,
+                    "repechageSlots": 4,
+                    "liveStatus": service.summarize_live_status("south_region"),
+                    "teams": [
+                        {
+                            "teamKey": team_key,
+                            "collegeName": "Alpha University",
+                            "teamName": "Main",
+                            "mu0": 1700.0,
+                            "sigma0": 40.0,
+                            "eloGlobalRank": 3,
+                            "eloRegionRank": 1,
+                            "currentElo": 1712.0,
+                            "preseasonElo": 1700.0,
+                            "eloDeltaFromPreseason": 12.0,
+                            "eloRankSource": "live",
+                            "seedTier": "tier1",
+                            "seedRankInRegion": 1,
+                            "regionSlug": "south_region",
+                            "regionName": "南部赛区",
+                            "probabilities": {
+                                "roundOf16": 1.0,
+                                "repechage": 0.42,
+                                "national": 0.81,
+                                "champion": 0.2,
+                            },
+                        }
+                    ],
+                }
+            ],
+        }
+
+    def fake_simulation(region_slug: str, seed: int, mode: str = "sim", samples: int = service.DEFAULT_SIMULATION_SAMPLES) -> dict[str, object]:
+        assert region_slug == "south_region"
+        return {
+            "meta": {
+                "regionSlug": "south_region",
+                "regionName": "南部赛区",
+                "seed": seed,
+                "generatedAt": "2026-05-06T00:00:00+00:00",
+                "liveStatus": {
+                    "sourceStatus": "active",
+                    "sourceReason": None,
+                    "sourceUpdatedAt": "2026-05-06T00:00:00+00:00",
+                    "completedOfficialMatches": 0,
+                    "confirmedOfficialMatches": 0,
+                    "ledgerRows": 0,
+                    "slotAssignmentSource": "official",
+                    "slotAssignmentReason": None,
+                },
+            },
+            "slots": [
+                {
+                    "teamKey": team_key,
+                    "collegeName": "Alpha University",
+                    "teamName": "Main",
+                    "groupName": "A",
+                    "slot": "A1",
+                    "drawBox": "A",
+                    "seedTier": "tier1",
+                    "seedRankInRegion": 1,
+                    "mu0": 1700.0,
+                    "sigma0": 40.0,
+                    "eloGlobalRank": 3,
+                    "currentElo": 1712.0,
+                    "preseasonElo": 1700.0,
+                    "eloDeltaFromPreseason": 12.0,
+                    "eloRankSource": "live",
+                }
+            ],
+            "matches": [],
+            "finalRankings": [],
+        }
+
+    monkeypatch.setattr(service, "build_overview_payload", fake_overview)
+    monkeypatch.setattr(service, "build_simulation_payload", fake_simulation)
+    monkeypatch.setattr(service, "build_live_state_payload", lambda region_slug: {"available": False})
+
+    response = client.get(f"/api/teams/{quote(team_key, safe='')}?seed=20260414&mode=live")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["slot"]["slot"] == "A1"
 
 
 def test_prematch_center_marks_only_previous_upset_winners_for_spotlight(monkeypatch) -> None:

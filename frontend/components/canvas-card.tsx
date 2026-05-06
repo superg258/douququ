@@ -108,16 +108,19 @@ function TeamCanvasCardComponent({
   mode,
   selectedTeamKey,
   highlightedTeamKey,
+  hasActiveHighlight,
   onTeamSelect,
 }: {
   card: TeamCanvasCard;
   mode?: "sim" | "live";
   selectedTeamKey: string | null;
   highlightedTeamKey: string | null;
+  hasActiveHighlight: boolean;
   onTeamSelect: (teamKey: string) => void;
 }) {
   const isSelected = selectedTeamKey === card.teamKey;
   const isHighlighted = highlightedTeamKey === card.teamKey;
+  const dimmed = hasActiveHighlight && !isSelected && !isHighlighted;
   const teamState = deriveTeamCardState(card, mode);
   const { isSimulated, isSafe, isSummary, summaryLabel, visualTier } = teamState;
   const shellClass = (() => {
@@ -173,7 +176,13 @@ function TeamCanvasCardComponent({
       className={cn(
         "absolute touch-none flex transition-all text-left outline-none border",
         shellClass,
-        isSelected || isHighlighted ? "border-rm-blue ring-1 ring-rm-blue z-20 bg-black" : "z-10"
+        isSelected
+          ? "border-rm-blue ring-[3px] ring-rm-blue shadow-[0_0_12px_rgba(42,159,255,0.5),0_0_24px_rgba(42,159,255,0.2)] z-20 bg-black"
+          : isHighlighted
+            ? "z-20"
+            : dimmed
+              ? "opacity-[0.50] grayscale-[30%] z-10"
+              : "z-10"
       )}
       style={{
         transform: `translate3d(${card.x}px, ${card.y}px, 0)`,
@@ -238,6 +247,12 @@ function TeamCanvasCardComponent({
           {card.subtitle ?? card.teamName} {card.statLine ? ` / ${card.statLine}` : ""}
         </div>
       </div>
+
+      {isHighlighted && !isSelected ? (
+        <span className="absolute -top-1.5 -right-1.5 w-[15px] h-[15px] flex items-center justify-center bg-rm-result-winner text-black text-[11px] font-extrabold leading-none animate-dot-pulse z-30 clip-chamfer shadow-[0_0_10px_rgba(240,151,44,0.7)]">
+          ◆
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -448,7 +463,7 @@ function MatchTeamLine({
         isSimWinner && "hover:brightness-105",
         isRealLoser && "hover:bg-white/[0.02]",
         isSimLoser && "hover:bg-white/[0.01]",
-        isFocused && "ring-1 ring-white/30 z-10"
+        isFocused && "z-20"
       )}
       onClick={onTeamSelect ? (e) => {
         if (pointerIntentRef.current?.moved) {
@@ -482,7 +497,7 @@ function MatchTeamLine({
       {/* Left: 6px color bar — dim by tier */}
       <div
         className={cn(
-          "h-full",
+          "h-full relative",
           isRed ? "bg-rm-red" : "bg-rm-blue",
           isRealWinner && "shadow-[0_0_10px_rgba(255,255,255,0.5)] brightness-125",
           isSimWinner && "opacity-50",
@@ -491,7 +506,11 @@ function MatchTeamLine({
           !resultResolved && !isSimulated && (isScheduled ? "opacity-35" : "opacity-20"),
           !resultResolved && !isSimulated && !isScheduled && "border-dashed"
         )}
-      />
+      >
+        {isFocused ? (
+          <span className="absolute -left-[3px] top-1/2 -translate-y-1/2 w-[8px] h-[8px] rounded-full bg-rm-result-winner animate-dot-pulse shadow-[0_0_8px_rgba(240,151,44,0.8)]" />
+        ) : null}
+      </div>
 
       {/* Center: 校名 | 队名 */}
       <div className="min-w-0 px-3 flex items-center gap-2">
@@ -576,6 +595,7 @@ function MatchCanvasCardComponent({
   mode,
   selectedTeamKey,
   highlightedTeamKey,
+  hasActiveHighlight,
   onTeamSelect,
   onMatchSelect,
   selectedMatchLabel,
@@ -584,11 +604,15 @@ function MatchCanvasCardComponent({
   mode?: "sim" | "live";
   selectedTeamKey: string | null;
   highlightedTeamKey: string | null;
+  hasActiveHighlight: boolean;
   onTeamSelect: (teamKey: string) => void;
   onMatchSelect: (matchLabel: string) => void;
   selectedMatchLabel: string | null;
 }) {
   const isSelected = selectedMatchLabel === card.match.matchLabel;
+  const matchDimmed = hasActiveHighlight && !isSelected &&
+    highlightedTeamKey !== card.redSide.teamKey &&
+    highlightedTeamKey !== card.blueSide.teamKey;
   const pointerIntentRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const row = card.match;
   const expectedRed = row.pSeriesRed ?? card.redSide.probability;
@@ -652,7 +676,8 @@ function MatchCanvasCardComponent({
         "absolute touch-none group flex flex-col outline-none transition-all clip-chamfer cursor-pointer",
         "hover:brightness-110",
         isSelected ? "ring-1 ring-rm-result-winner z-30" : "z-10",
-        containerBorder
+        containerBorder,
+        matchDimmed && "opacity-[0.50] grayscale-[30%]"
       )}
       style={{
         transform: `translate3d(${card.x}px, ${card.y}px, 0)`,
@@ -778,22 +803,19 @@ export function CanvasCardView({
   mode,
   selectedTeamKey,
   highlightedTeamKey,
-
+  hasActiveHighlight,
   onTeamSelect,
   onMatchSelect,
   selectedMatchLabel,
-
-
 }: {
   card: CanvasCard;
   mode?: "sim" | "live";
   selectedTeamKey: string | null;
   highlightedTeamKey: string | null;
-
+  hasActiveHighlight: boolean;
   onTeamSelect: (teamKey: string) => void;
   onMatchSelect: (matchLabel: string) => void;
   selectedMatchLabel: string | null;
-
 }) {
   if (card.kind === "match") {
     return (
@@ -802,6 +824,7 @@ export function CanvasCardView({
         mode={mode}
         selectedTeamKey={selectedTeamKey}
         highlightedTeamKey={highlightedTeamKey}
+        hasActiveHighlight={hasActiveHighlight}
         selectedMatchLabel={selectedMatchLabel}
         onTeamSelect={onTeamSelect}
         onMatchSelect={onMatchSelect}
@@ -815,6 +838,7 @@ export function CanvasCardView({
       mode={mode}
       selectedTeamKey={selectedTeamKey}
       highlightedTeamKey={highlightedTeamKey}
+      hasActiveHighlight={hasActiveHighlight}
       onTeamSelect={onTeamSelect}
     />
   );

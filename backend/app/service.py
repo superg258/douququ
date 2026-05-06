@@ -1746,6 +1746,20 @@ def _team_path_sort_key(match: dict[str, Any]) -> tuple[Any, ...]:
     )
 
 
+def _is_confirmed_team_profile_match(match: dict[str, Any]) -> bool:
+    return bool(match.get("isRealResult")) or bool(match.get("officialMatchId"))
+
+
+def _has_actual_team_profile_final(match_path: list[dict[str, Any]]) -> bool:
+    return bool(match_path) and all(bool(match.get("isRealResult")) for match in match_path)
+
+
+def _has_official_team_profile_slot(simulation: dict[str, Any]) -> bool:
+    meta = simulation.get("meta")
+    live_status = meta.get("liveStatus") if isinstance(meta, dict) else None
+    return isinstance(live_status, dict) and live_status.get("slotAssignmentSource") == "official"
+
+
 def build_team_profile_payload(
     team_key: str,
     *,
@@ -1774,10 +1788,13 @@ def build_team_profile_payload(
     region_slug = str(overview_region["regionSlug"])
     simulation = build_simulation_payload(region_slug, seed, mode)
     slot = next((row for row in simulation.get("slots", []) if row.get("teamKey") == decoded_team_key), None)
+    if mode == "live" and not _has_official_team_profile_slot(simulation):
+        slot = None
     final_ranking = next((row for row in simulation.get("finalRankings", []) if row.get("teamKey") == decoded_team_key), None)
     match_path = []
     completed_matches = []
     upcoming_matches = []
+    team_matches = []
     for match in sorted(simulation.get("matches", []), key=_team_path_sort_key):
         context = _team_match_context(match, decoded_team_key)
         if context is None:
@@ -1788,11 +1805,28 @@ def build_team_profile_payload(
             "stageLabel": _stage_label(str(match.get("stage") or ""), str(match.get("groupName") or "")),
             "workspaceView": _workspace_view_for_match(match),
         }
-        match_path.append(item)
-        if match.get("isRealResult"):
-            completed_matches.append(item)
-        else:
-            upcoming_matches.append(item)
+        team_matches.append(item)
+
+    if mode == "sim":
+        match_path = team_matches
+        completed_matches = [match for match in team_matches if match.get("isRealResult")]
+        upcoming_matches = [match for match in team_matches if not match.get("isRealResult")]
+    else:
+        last_confirmed_index = -1
+        for index, match in enumerate(team_matches):
+            if _is_confirmed_team_profile_match(match):
+                last_confirmed_index = index
+                match_path.append(match)
+                if match.get("isRealResult"):
+                    completed_matches.append(match)
+        if last_confirmed_index >= 0:
+            upcoming_matches = [
+                match
+                for match in team_matches[last_confirmed_index + 1 :]
+                if not _is_confirmed_team_profile_match(match)
+            ]
+        if not _has_actual_team_profile_final(team_matches):
+            final_ranking = None
 
     live_state = None
     if mode == "live":

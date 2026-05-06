@@ -8,11 +8,11 @@ function toneClass(connector: CanvasConnector) {
     case "amber":
       return strong
         ? "stroke-rm-result-winner opacity-100"
-        : "stroke-rm-result-winner opacity-30";
+        : "stroke-rm-result-winner opacity-85";
     case "emerald":
       return strong
         ? "stroke-rm-status-safe opacity-100"
-        : "stroke-rm-status-safe opacity-30";
+        : "stroke-rm-status-safe opacity-85";
     case "steel":
       return "stroke-white/15 opacity-25";
     default:
@@ -72,7 +72,7 @@ export function CanvasConnectorView({
   const d = connector.kind !== "bracket" && connector.kind !== "merge" ? connectorPath(connector) : bracketPath(connector);
   const isSelected = connector.teamKey && connector.teamKey === selectedTeamKey;
   const isHighlighted = connector.teamKey && connector.teamKey === highlightedTeamKey;
-  const strokeWidth = connector.weight === "strong" ? "stroke-[2.5px]" : "stroke-[1.5px]";
+  const strokeWidth = "stroke-[3px]";
   const styleAttr = "stroke-linecap: round; stroke-linejoin: round";
   const labelX = (connector.viaX ?? (connector.fromX + connector.toX) / 2) + 10;
   const labelToneClass =
@@ -85,11 +85,10 @@ export function CanvasConnectorView({
           : "fill-rm-blue";
 
   if (isSelected || isHighlighted) {
-    const isAmber = connector.tone === "amber";
-    const clr = isAmber ? "stroke-rm-result-winner" : "stroke-rm-blue";
+    const clr = "stroke-rm-result-winner";
     return (
       <g>
-        <path d={d} className={`fill-none ${clr} stroke-[2.5px]`} style={{ strokeLinecap: "round", strokeLinejoin: "round" }} />
+        <path d={d} className={`fill-none ${clr} stroke-[3px]`} style={{ strokeLinecap: "round", strokeLinejoin: "round" }} />
       </g>
     );
   }

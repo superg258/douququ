@@ -46,10 +46,18 @@ export function WorkspaceStageView({
   const [frameSize, setFrameSize] = useState({ width: 0, height: 0 });
   const [viewport, setViewport] = useState({ scale: 1, x: 0, y: 0 });
   const [fullscreen, setFullscreen] = useState(false);
+  const hasActiveHighlight = highlightedTeamKey !== null;
   const [portalReady, setPortalReady] = useState(false);
+  const [panning, setPanning] = useState(false);
   const frameSizeRef = useRef(frameSize);
   const viewportRef = useRef(viewport);
   const suppressClickRef = useRef(false);
+  const suppressAutoPanRef = useRef(false);
+  const handleTeamSelect = (teamKey: string) => {
+    suppressAutoPanRef.current = true;
+    onTeamSelect(teamKey);
+  };
+  const panTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activePointers = useRef(new Map<number, { x: number; y: number }>());
   const dragState = useRef<{
     pointerId: number;
@@ -105,6 +113,12 @@ export function WorkspaceStageView({
   }, [fullscreen, onFullscreenChange]);
 
   useEffect(() => {
+    return () => {
+      if (panTimerRef.current) clearTimeout(panTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!fullscreen || typeof window === "undefined") return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -121,6 +135,36 @@ export function WorkspaceStageView({
     if (!frameSize.width || !frameSize.height) return;
     setViewport(fitWorkspaceViewport(stage, frameSize.width, frameSize.height));
   }, [stage, frameSize.height, frameSize.width]);
+
+  // Auto-pan to highlighted team card (skip if triggered by canvas click)
+  useEffect(() => {
+    if (suppressAutoPanRef.current) {
+      suppressAutoPanRef.current = false;
+      return;
+    }
+    if (!highlightedTeamKey || !frameSize.width || !frameSize.height) return;
+    const targetCard = stage.cards.find(
+      (card) =>
+        (card.kind === "team" && card.teamKey === highlightedTeamKey) ||
+        (card.kind === "match" &&
+          (card.redSide.teamKey === highlightedTeamKey || card.blueSide.teamKey === highlightedTeamKey))
+    );
+    if (!targetCard) return;
+    const cx = targetCard.x + targetCard.width / 2;
+    const cy = targetCard.y + targetCard.height / 2;
+    const targetX = frameSize.width / 2 - cx * viewportRef.current.scale;
+    const targetY = frameSize.height / 2 - cy * viewportRef.current.scale;
+    const nextViewport = clampViewportPosition(stage, frameSize, {
+      scale: viewportRef.current.scale,
+      x: targetX,
+      y: targetY,
+    });
+    setPanning(true);
+    viewportRef.current = nextViewport;
+    setViewport(nextViewport);
+    if (panTimerRef.current) clearTimeout(panTimerRef.current);
+    panTimerRef.current = setTimeout(() => setPanning(false), 700);
+  }, [highlightedTeamKey, stage, frameSize]);
 
   const resetViewport = () => {
     if (!frameSize.width || !frameSize.height) return;
@@ -212,6 +256,8 @@ export function WorkspaceStageView({
     if (!frameElement) return;
 
     const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("button, [role='button']")) return;
       if (event.pointerType === "mouse" && event.button !== 0) return;
       suppressClickRef.current = false;
       activePointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
@@ -383,6 +429,7 @@ export function WorkspaceStageView({
             transform: `translate3d(${viewport.x}px, ${viewport.y}px, 0) scale(${viewport.scale})`,
             width: stage.width,
             height: stage.height,
+            transition: panning ? "transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1)" : "none",
           }}
         >
           {/* Header Banners (e.g. Round 1, Round 2, Final Band) */}
@@ -391,7 +438,8 @@ export function WorkspaceStageView({
                key={header.id}
                className={cn(
                 "absolute flex h-12 items-center justify-between gap-3 overflow-hidden px-3 py-2 font-mono clip-chamfer min-w-0 border-y border-r border-y-white/10 border-r-white/10 glass-panel",
-                 headerToneClass(header.tone)
+                 headerToneClass(header.tone),
+                 hasActiveHighlight && "opacity-30 grayscale-[30%]"
                )}
                style={{
                  left: header.x,
@@ -438,7 +486,8 @@ export function WorkspaceStageView({
               selectedMatchLabel={selectedMatchLabel}
               selectedTeamKey={selectedTeamKey}
               highlightedTeamKey={highlightedTeamKey}
-              onTeamSelect={onTeamSelect}
+              hasActiveHighlight={hasActiveHighlight}
+              onTeamSelect={handleTeamSelect}
             />
           ))}
         </div>
