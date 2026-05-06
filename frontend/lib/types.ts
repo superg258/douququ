@@ -485,6 +485,14 @@ export type PrematchDataSource = "official_live" | "simulation" | "simulation_pr
 export type PrematchScheduleState = "simulation" | "simulation_proxy" | "scheduled" | "confirmed_unfinished";
 export type PrematchRequestedMode = "live" | "sim";
 export type PrematchEffectiveMode = "live" | "sim" | "simulation_proxy";
+export type PrematchTimelineState =
+  | "live_now"
+  | "up_next"
+  | "today_pending"
+  | "confirmed_upcoming"
+  | "overdue_unresolved"
+  | "simulation_unassigned"
+  | "review_pending";
 
 export interface PrematchRegionStatus {
   regionSlug: RegionSlug;
@@ -496,6 +504,19 @@ export interface PrematchRegionStatus {
   confirmedOfficialMatches: number;
   slotAssignmentSource?: string | null;
   slotAssignmentReason?: string | null;
+}
+
+export interface SourceFreshness {
+  serviceGeneratedAt: string;
+  modelGeneratedAt: string;
+  officialScheduleUpdatedAt: string | null;
+  liveEloUpdatedAt: string | null;
+  officialScheduleAgeMinutes: number | null;
+  liveEloStatus: "active" | "missing" | string;
+  activeRegionCount: number;
+  totalRegionCount: number;
+  coverageLabel: string;
+  regionStatuses: PrematchRegionStatus[];
 }
 
 export interface PrematchAudience {
@@ -532,6 +553,7 @@ export interface PrematchCenterMatch {
   mode: string;
   dataSource: PrematchDataSource;
   scheduleState: PrematchScheduleState;
+  timelineState?: PrematchTimelineState;
   workspaceView: WorkspaceView;
   matchLabel: string;
   stage: string;
@@ -588,13 +610,39 @@ export interface PrematchCenterResponse {
     effectiveMode: PrematchEffectiveMode;
     regionStatuses: PrematchRegionStatus[];
   };
+  sourceFreshness?: SourceFreshness;
   completedMatchCount: number;
   pendingMatchCount: number;
   confirmedPendingMatchCount: number;
   scheduledPendingMatchCount: number;
   nextMatch: PrematchCenterMatch | null;
+  nextActionMatch?: PrematchCenterMatch | null;
+  timelineBuckets?: {
+    liveNow: PrematchCenterMatch[];
+    upNext: PrematchCenterMatch[];
+    todayPending: PrematchCenterMatch[];
+    confirmedUpcoming: PrematchCenterMatch[];
+    overdueUnresolved: PrematchCenterMatch[];
+    simulationUnassigned: PrematchCenterMatch[];
+    reviewPending: PrematchCenterMatch[];
+  };
   todayMatches: PrematchCenterMatch[];
   allUpcomingMatches: PrematchCenterMatch[];
+}
+
+export interface CommandCenterResponse {
+  generatedAt: string;
+  seed: number;
+  targetDate: string;
+  timezone: string;
+  source: PrematchCenterResponse["source"];
+  sourceFreshness: SourceFreshness;
+  completedMatchCount: number;
+  pendingMatchCount: number;
+  confirmedPendingMatchCount: number;
+  scheduledPendingMatchCount: number;
+  nextActionMatch: PrematchCenterMatch | null;
+  timelineBuckets: NonNullable<PrematchCenterResponse["timelineBuckets"]>;
 }
 
 export interface PredictionRecapGroup {
@@ -641,4 +689,43 @@ export interface PredictionRecapResponse {
   byConfidence: Record<string, PredictionRecapGroup>;
   byStage: Record<string, PredictionRecapGroup>;
   notableMatches: PredictionRecapMatch[];
+}
+
+export type TeamProfileMatch = MatchRow & {
+  side: "red" | "blue";
+  opponent: TeamRef;
+  resultForTeam: "win" | "loss" | "pending" | string;
+  winProbability: number;
+  stageLabel: string;
+  workspaceView: WorkspaceView;
+};
+
+export interface TeamProfileResponse {
+  generatedAt: string;
+  seed: number;
+  mode: "live" | "sim";
+  team: OverviewTeam;
+  region: {
+    regionSlug: RegionSlug;
+    regionName: string;
+    nationalSlots: number;
+    repechageSlots: number;
+  };
+  slot: SlotRow | null;
+  finalRanking: FinalRankingRow | null;
+  matchPath: TeamProfileMatch[];
+  completedMatches: TeamProfileMatch[];
+  upcomingMatches: TeamProfileMatch[];
+  liveState: {
+    snapshot: LiveStateTeam | null;
+    ledger: LiveStateLedgerRow[];
+  } | null;
+  regionEntry: {
+    regionSlug: RegionSlug;
+    view: WorkspaceView;
+    seed: number;
+    mode: "live" | "sim";
+    highlightTeamKey: string;
+  };
+  sourceFreshness: SourceFreshness;
 }

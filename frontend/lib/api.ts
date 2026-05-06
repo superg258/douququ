@@ -1,4 +1,13 @@
-import type { LiveStateResponse, OverviewResponse, PrematchCenterResponse, RegionSlug, SimulationResponse } from "@/lib/types";
+import type {
+  CommandCenterResponse,
+  LiveStateResponse,
+  OverviewResponse,
+  PredictionRecapResponse,
+  PrematchCenterResponse,
+  RegionSlug,
+  SimulationResponse,
+  TeamProfileResponse,
+} from "@/lib/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8001";
 
@@ -27,4 +36,20 @@ export function getLiveState(regionSlug: RegionSlug): Promise<LiveStateResponse>
 export function getPrematchCenter(seed = 20260414, mode: "live" | "sim" = "live") {
   const params = new URLSearchParams({ seed: String(seed), mode });
   return requestJson<PrematchCenterResponse>(`/api/prematch-center?${params}`);
+}
+
+export function getCommandCenter(seed = 20260414, mode: "live" | "sim" = "live", date?: string) {
+  const params = new URLSearchParams({ seed: String(seed), mode });
+  if (date) params.set("date", date);
+  return requestJson<CommandCenterResponse>(`/api/command-center?${params}`);
+}
+
+export function getPredictionRecap(seed = 20260414, mode: "live" | "sim" = "live") {
+  const params = new URLSearchParams({ seed: String(seed), mode });
+  return requestJson<PredictionRecapResponse>(`/api/prediction-recap?${params}`);
+}
+
+export function getTeamProfile(teamKey: string, seed = 20260414, mode: "live" | "sim" = "live") {
+  const params = new URLSearchParams({ seed: String(seed), mode });
+  return requestJson<TeamProfileResponse>(`/api/teams/${encodeURIComponent(teamKey)}?${params}`);
 }

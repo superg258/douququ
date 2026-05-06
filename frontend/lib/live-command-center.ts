@@ -1,12 +1,17 @@
-import type { OverviewResponse } from "@/lib/types";
+import type { CommandCenterResponse, PrematchCenterMatch } from "@/lib/types";
 
 export interface LiveCommandCenterBucket {
-  id: "live-now" | "up-next" | "confirmed-upcoming" | "upset-results" | "vote-split" | "review-pending";
+  id:
+    | "live-now"
+    | "up-next"
+    | "today-pending"
+    | "confirmed-upcoming"
+    | "overdue-unresolved";
   title: string;
   description: string;
   tone: "blue" | "red" | "amber" | "green" | "steel";
   emptyLabel: string;
-  items: [];
+  items: PrematchCenterMatch[];
 }
 
 export interface LiveCommandCenter {
@@ -15,58 +20,54 @@ export interface LiveCommandCenter {
   sections: LiveCommandCenterBucket[];
 }
 
-export function buildLiveCommandCenter(_overview: OverviewResponse): LiveCommandCenter {
+export function buildLiveCommandCenter(command: CommandCenterResponse): LiveCommandCenter {
+  const coverageLabel = command.sourceFreshness.coverageLabel;
+  const unavailableReason =
+    command.source.effectiveMode === "simulation_proxy" ? coverageLabel : "";
+
   return {
     source: "live",
-    unavailableReason: "实时赛程源尚未接入，当前只预留官方赛程、官方赛果与观众投票分歧入口。",
+    unavailableReason,
     sections: [
       {
         id: "live-now",
         title: "正在进行",
-        description: "官方赛程返回进行中状态后，集中展示可实时追踪的比赛。",
+        description: "实时追踪当前正在直播的比赛，见证每一场对决的胜负走向。",
         tone: "green",
-        emptyLabel: "等待官方源",
-        items: [],
+        emptyLabel: "暂无进行中比赛",
+        items: command.timelineBuckets.liveNow,
       },
       {
         id: "up-next",
         title: "即将开赛",
-        description: "用于赛前短时间窗口内的重点入口，方便用户快速进入观赛判断。",
+        description: "下一场即将打响的焦点对决，提前锁定关注目标。",
         tone: "amber",
-        emptyLabel: "等待官方源",
-        items: [],
+        emptyLabel: "暂无即将开赛",
+        items: command.timelineBuckets.upNext,
+      },
+      {
+        id: "today-pending",
+        title: "尚未开赛",
+        description: "今日赛程中仍未开赛的场次，赛程状态以官方同步为准。",
+        tone: "blue",
+        emptyLabel: "今日没有尚未开赛的比赛",
+        items: command.timelineBuckets.todayPending,
       },
       {
         id: "confirmed-upcoming",
-        title: "已确认未开赛",
-        description: "仅收录官方已经确认对阵、但尚未开赛的比赛。",
+        title: "后续已确认",
+        description: "已排定时间与对阵的后续比赛，提前预览未来的精彩碰撞。",
         tone: "blue",
-        emptyLabel: "等待官方源",
-        items: [],
+        emptyLabel: "暂无后续确认赛程",
+        items: command.timelineBuckets.confirmedUpcoming,
       },
       {
-        id: "upset-results",
-        title: "赛后爆冷",
-        description: "赛果确认后，归档与赛前判断明显反向的比赛。",
+        id: "overdue-unresolved",
+        title: "已过期未同步",
+        description: "计划开赛时间已过但仍在等待官方赛果同步，数据更新后将自动移至对应分区。",
         tone: "red",
-        emptyLabel: "等待官方源",
-        items: [],
-      },
-      {
-        id: "vote-split",
-        title: "投票分歧",
-        description: "观众投票与赛前判断差异明显时，作为争议观察入口。",
-        tone: "steel",
-        emptyLabel: "等待官方源",
-        items: [],
-      },
-      {
-        id: "review-pending",
-        title: "赛果待复盘",
-        description: "已完赛但还未完成命中率、比分和爆冷归档的比赛。",
-        tone: "steel",
-        emptyLabel: "等待官方源",
-        items: [],
+        emptyLabel: "无过期未同步比赛",
+        items: command.timelineBuckets.overdueUnresolved,
       },
     ],
   };
