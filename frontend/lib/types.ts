@@ -596,3 +596,49 @@ export interface PrematchCenterResponse {
   todayMatches: PrematchCenterMatch[];
   allUpcomingMatches: PrematchCenterMatch[];
 }
+
+export interface PredictionRecapGroup {
+  completedMatches: number;
+  pendingMatches: number;
+  winnerHits: number;
+  scorelineHits: number;
+  upsetMisses: number;
+  winnerHitRate: number | null;
+  scorelineHitRate: number | null;
+  regionName?: string;
+  confidenceText?: string;
+  stageLabel?: string;
+}
+
+export interface PredictionRecapMatch {
+  id: string;
+  regionSlug: RegionSlug;
+  regionName: string;
+  seed: number;
+  workspaceView: WorkspaceView;
+  matchLabel: string;
+  stage: string;
+  stageLabel: string;
+  plannedStartAt?: string | null;
+  predictedWinnerTeamKey: string;
+  predictedWinnerName: string;
+  actualWinnerTeamKey: string | null;
+  actualWinnerName: string | null;
+  predictedScoreline: string;
+  actualScoreline: string | null;
+  favoriteRate: number;
+  confidenceLabel: string;
+  confidenceText: string;
+  deviationType: "upset_miss" | "scoreline_miss" | string;
+}
+
+export interface PredictionRecapResponse {
+  generatedAt: string;
+  seed: number;
+  mode: "live" | "sim";
+  summary: PredictionRecapGroup;
+  byRegion: Record<RegionSlug, PredictionRecapGroup>;
+  byConfidence: Record<string, PredictionRecapGroup>;
+  byStage: Record<string, PredictionRecapGroup>;
+  notableMatches: PredictionRecapMatch[];
+}
