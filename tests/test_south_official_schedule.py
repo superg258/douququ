@@ -260,6 +260,26 @@ class SouthOfficialScheduleTests(unittest.TestCase):
             ],
         )
 
+    def test_mock_south_rules_schedule_maps_today_to_day2_and_keeps_day5_label_times(self) -> None:
+        import seed_rmuc_live_mock
+
+        schedule = seed_rmuc_live_mock.load_rules_schedule(
+            seed_rmuc_live_mock.DEFAULT_RULES_SCHEDULE,
+            today_date_text="2026-05-06",
+            today_day=2,
+            timezone_name="Asia/Shanghai",
+        )
+
+        self.assertEqual(len(schedule), 88)
+        self.assertEqual(schedule["A-SWISS-2-1"].planned_start_at, "2026-05-05T20:00:00+08:00")
+        self.assertEqual(schedule["A-SWISS-2-5"].planned_start_at, "2026-05-06T08:30:00+08:00")
+        self.assertEqual(schedule["A-SWISS-3-8"].planned_start_at, "2026-05-06T21:35:00+08:00")
+        self.assertEqual(schedule["SF-1"].planned_start_at, "2026-05-09T10:50:00+08:00")
+        self.assertEqual(schedule["SF-2"].planned_start_at, "2026-05-09T11:25:00+08:00")
+        self.assertEqual(schedule["QUAL-2-1"].planned_start_at, "2026-05-09T13:00:00+08:00")
+        self.assertEqual(schedule["QUAL-2-2"].planned_start_at, "2026-05-09T13:35:00+08:00")
+        self.assertEqual(schedule["FINAL-1"].planned_start_at, "2026-05-09T15:10:00+08:00")
+
     def test_swiss_round2_to_round4_red_blue_orientation_follows_csv_rank_positions(self) -> None:
         teams = [_team(index) for index in range(1, 17)]
         for index, team in enumerate(teams, start=1):
