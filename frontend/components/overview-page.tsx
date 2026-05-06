@@ -2,25 +2,55 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getOverview } from "@/lib/api";
+import { getOverview, getPrematchCenter } from "@/lib/api";
 import { buildOverviewDashboard } from "@/lib/overview-builders";
-import type { OverviewDashboard } from "@/lib/types";
+import { buildRegionHref } from "@/lib/region-config";
+import { sortPrematchMatchesByTime } from "@/lib/prematch-center";
+import type { OverviewDashboard, PrematchCenterMatch, RegionSlug } from "@/lib/types";
 
 import { OverviewHero } from "@/components/overview-hero";
 import { PrematchCenter } from "@/components/prematch-center";
+import { OverviewModelRecap } from "@/components/overview-model-recap";
 import { RegionCardGrid } from "@/components/region-card-grid";
 import { ComparisonSection } from "@/components/comparison-section";
 import { OverviewFooter } from "@/components/overview-footer";
 
 export function OverviewPage() {
   const [dashboard, setDashboard] = useState<OverviewDashboard | null>(null);
+  const [nextMatchHref, setNextMatchHref] = useState<string | null>(null);
+  const [regionEntryHrefs, setRegionEntryHrefs] = useState<Record<string, string | null>>({});
   const [error, setError] = useState("");
 
   useEffect(() => {
     let canceled = false;
-    getOverview()
-      .then((res) => {
-        if (!canceled) setDashboard(buildOverviewDashboard(res));
+    Promise.all([getOverview(), getPrematchCenter()])
+      .then(([overviewRes, prematchRes]) => {
+        if (!canceled) {
+          setDashboard(buildOverviewDashboard(overviewRes));
+          const next = prematchRes.nextActionMatch ?? prematchRes.nextMatch;
+          if (next) {
+            const mode = next.dataSource === "simulation" ? "sim" : "live";
+            setNextMatchHref(buildRegionHref(next.regionSlug, next.workspaceView, { seed: next.seed, mode }));
+          }
+          // Per-region next-match hrefs for region card entry buttons
+          const hrefs: Record<string, string | null> = {};
+          const scheduled = sortPrematchMatchesByTime(
+            prematchRes.allUpcomingMatches.filter(
+              (m: PrematchCenterMatch) =>
+                m.scheduleState === "scheduled" || m.scheduleState === "confirmed_unfinished"
+            )
+          );
+          for (const slug of ["south_region", "east_region", "north_region"] as RegionSlug[]) {
+            const match = scheduled.find((m: PrematchCenterMatch) => m.regionSlug === slug);
+            if (match) {
+              const mode = match.dataSource === "simulation" ? "sim" : "live";
+              hrefs[slug] = buildRegionHref(match.regionSlug, match.workspaceView, { seed: match.seed, mode });
+            } else {
+              hrefs[slug] = null;
+            }
+          }
+          setRegionEntryHrefs(hrefs);
+        }
       })
       .catch((err) => {
         if (!canceled) setError(err instanceof Error ? err.message : String(err));
@@ -50,9 +80,10 @@ export function OverviewPage() {
   return (
     <div className="min-h-screen">
       <div className="max-w-screen-2xl mx-auto px-4 py-8 space-y-10">
-        <OverviewHero generatedLabel={dashboard.generatedLabel} />
+        <OverviewHero generatedLabel={dashboard.generatedLabel} nextMatchHref={nextMatchHref} />
         <PrematchCenter />
-        <RegionCardGrid regions={dashboard.regions} />
+        <OverviewModelRecap />
+        <RegionCardGrid regions={dashboard.regions} regionEntryHrefs={regionEntryHrefs} />
         <ComparisonSection strengths={dashboard.regionStrength} />
         <OverviewFooter />
       </div>

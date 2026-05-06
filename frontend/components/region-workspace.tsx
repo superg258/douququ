@@ -15,6 +15,7 @@ import { buildWorkspaceStage } from "@/lib/canvas-builders";
 import { formatRankingResultLabel, translateConfidenceLabel, translateStageLabel } from "@/lib/display";
 import { buildPredictionRecap } from "@/lib/prediction-insights";
 import { buildRegionHref, getOrCreateSessionSeed, parseSeed, refreshSessionSeed, REGION_LABELS, REGION_VIEWS } from "@/lib/region-config";
+import { buildTeamHref } from "@/lib/team-profile";
 import { deriveRealtimeAvailability } from "@/lib/realtime";
 import { deriveMatchRatingBreakdown, formatSignedRatingDelta, ratingDeltaTone, type MatchRatingBreakdown } from "@/lib/live-rating";
 import { predictScoreline } from "@/components/canvas-card";
@@ -348,6 +349,12 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
             
             <h3 className="text-lg font-machine text-white truncate w-56">{selectedOverviewTeam.collegeName}</h3>
             <p className="text-xs text-rm-blue font-mono">{selectedOverviewTeam.teamName}</p>
+            <Link
+              href={buildTeamHref(selectedOverviewTeam.teamKey)}
+              className="mt-2 inline-flex border border-rm-blue/30 bg-rm-blue/8 px-2 py-1 font-mono text-[10px] text-rm-blue hover:border-rm-blue/60 hover:text-white"
+            >
+              打开队伍档案
+            </Link>
           </div>
           <button onClick={onClose} className="text-rm-metal-text hover:text-rm-red font-mono text-[10px]">X</button>
         </div>
@@ -1057,20 +1064,27 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
           />
           <div className="flex flex-col gap-2 max-h-96 overflow-y-auto pr-2 no-scrollbar">
             {searchResults.map((team: any) => (
-              <button 
-                key={team.teamKey} 
-                onClick={() => chooseSearchTeam(team)}
-                className="group flex flex-col items-start p-3 bg-rm-metal-panel border border-rm-metal-border hover:border-rm-blue hover:bg-rm-blue/10 text-left transition-all"
+              <div
+                key={team.teamKey}
+                className="group flex items-stretch bg-rm-metal-panel border border-rm-metal-border hover:border-rm-blue hover:bg-rm-blue/10 text-left transition-all"
               >
-                <div className="flex items-center justify-between w-full mb-1">
-                   <strong className="text-white font-bold group-hover:text-rm-blue transition-colors text-sm">{team.collegeName}</strong>
-                   <span className="text-[10px] text-rm-metal-text font-mono border border-rm-metal-border px-1.5">{team.regionName}</span>
-                </div>
-                <div className="flex items-center justify-between w-full mt-1">
-                   <span className="text-xs text-rm-metal-text font-mono">{team.teamName}</span>
-                   <span className="text-[10px] text-rm-status-safe font-bold font-mono">国赛率 {percent(team.probabilities.national)}</span>
-                </div>
-              </button>
+                <button onClick={() => chooseSearchTeam(team)} className="flex-1 p-3 text-left">
+                  <div className="flex items-center justify-between w-full mb-1">
+                     <strong className="text-white font-bold group-hover:text-rm-blue transition-colors text-sm">{team.collegeName}</strong>
+                     <span className="text-[10px] text-rm-metal-text font-mono border border-rm-metal-border px-1.5">{team.regionName}</span>
+                  </div>
+                  <div className="flex items-center justify-between w-full mt-1">
+                     <span className="text-xs text-rm-metal-text font-mono">{team.teamName}</span>
+                     <span className="text-[10px] text-rm-status-safe font-bold font-mono">国赛率 {percent(team.probabilities.national)}</span>
+                  </div>
+                </button>
+                <Link
+                  href={buildTeamHref(team.teamKey)}
+                  className="flex items-center border-l border-rm-metal-border px-3 font-mono text-[10px] text-rm-blue hover:text-white"
+                >
+                  档案
+                </Link>
+              </div>
             ))}
             {searchResults.length === 0 ? <div className="text-rm-metal-text/50 font-mono text-xs italic p-4 text-center">未找到与“{searchText}”匹配的队伍</div> : null}
           </div>

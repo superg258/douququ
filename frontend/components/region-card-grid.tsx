@@ -2,7 +2,13 @@
 import type { RegionDashboardCard } from "@/lib/types";
 import { RegionCard } from "@/components/region-card";
 
-export function RegionCardGrid({ regions }: { regions: RegionDashboardCard[] }) {
+export function RegionCardGrid({
+  regions,
+  regionEntryHrefs,
+}: {
+  regions: RegionDashboardCard[];
+  regionEntryHrefs: Record<string, string | null>;
+}) {
   return (
     <section>
       <div className="flex items-center gap-3 mb-4">
@@ -19,7 +25,7 @@ export function RegionCardGrid({ regions }: { regions: RegionDashboardCard[] }) 
         style={{ gridTemplateRows: "repeat(8, auto)" }}
       >
         {regions.map((region) => (
-          <RegionCard key={region.regionSlug} region={region} />
+          <RegionCard key={region.regionSlug} region={region} entryHref={regionEntryHrefs[region.regionSlug] ?? null} />
         ))}
       </div>
     </section>

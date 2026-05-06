@@ -2,6 +2,7 @@
 import Link from "next/link";
 import type { OverviewTeam, RegionDashboardCard, WorkspaceView } from "@/lib/types";
 import { buildRegionHref } from "@/lib/region-config";
+import { buildTeamHref } from "@/lib/team-profile";
 import { deriveRealtimeAvailability } from "@/lib/realtime";
 import { cn } from "@/lib/utils";
 
@@ -43,14 +44,14 @@ const REGION_ACCENT: Record<string, { bar: string; glow: string; link: string; b
 /* ─── 稳进国赛标签 ─── */
 function LockedTeamBadge({ team }: { team: OverviewTeam }) {
   return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-rm-metal-border
+    <Link href={buildTeamHref(team.teamKey)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-rm-metal-border
                      text-rm-metal-textLight text-[12px] font-bold
                      hover:border-rm-metal-textMuted/40 transition-all duration-200">
       {team.collegeName}
       <span className="font-mono text-[10px] text-rm-status-confirmed font-semibold">
         {pct(team.probabilities.national)}
       </span>
-    </span>
+    </Link>
   );
 }
 
@@ -85,7 +86,7 @@ function RaceBattle({
     <div className="space-y-2">
       {/* 守门员行 */}
       <div className="flex items-center gap-3">
-        <div className={cn("flex-1 flex items-center justify-between border px-3 py-2 transition-colors duration-150",
+        <Link href={buildTeamHref(cutoffTeam.teamKey)} className={cn("flex-1 flex items-center justify-between border px-3 py-2 transition-colors duration-150",
           colorClass.bg, colorClass.border,
         )}>
           <span className="text-sm font-black text-rm-metal-textLight">
@@ -99,7 +100,7 @@ function RaceBattle({
               Elo {elo(cutoffTeam.mu0)}
             </span>
           </div>
-        </div>
+        </Link>
         <span className={cn(
           "w-20 text-center text-[9px] font-bold py-1.5 tracking-widest border transition-colors duration-150 shrink-0",
           isStable
@@ -114,12 +115,12 @@ function RaceBattle({
       {chasingCount > 0 && (
         <div className={cn("pl-3 border-l-2 space-y-1.5", colorClass.line)}>
           {chasingTeams.slice(0, 3).map((team) => (
-            <div key={team.teamKey} className="flex items-center justify-between text-[11px]">
+            <Link key={team.teamKey} href={buildTeamHref(team.teamKey)} className="flex items-center justify-between text-[11px] hover:text-white">
               <span className="text-rm-metal-textLight font-semibold">{team.collegeName}</span>
               <span className={cn("font-mono font-medium", colorClass.text)}>
                 {pct(getProb(team))}
               </span>
-            </div>
+            </Link>
           ))}
           {totalChasingCount > 3 && (
             <div className="text-[9px] text-rm-metal-textFaint/60">
@@ -134,7 +135,7 @@ function RaceBattle({
 
 /* ─── 精简战力矩阵 ─── */
 function CompactRosterTable({ teams, regionSlug }: { teams: OverviewTeam[]; regionSlug: string }) {
-  const sorted = [...teams].sort((a, b) => b.mu0 - a.mu0);
+  const sorted = [...teams].sort((a, b) => (b.currentElo ?? b.mu0) - (a.currentElo ?? a.mu0));
   const topN = sorted.slice(0, 6);
 
   const barColor =
@@ -154,7 +155,7 @@ function CompactRosterTable({ teams, regionSlug }: { teams: OverviewTeam[]; regi
           战力矩阵
         </span>
         <span className="text-[8px] text-rm-metal-textFaint/50 ml-auto">
-          战力降序
+          实时战力降序
         </span>
       </div>
       <table className="w-full text-[10px] border-collapse">
@@ -170,6 +171,7 @@ function CompactRosterTable({ teams, regionSlug }: { teams: OverviewTeam[]; regi
         <tbody className="font-mono divide-y divide-rm-metal-border/30">
           {topN.map((team, idx) => {
             const isTop = idx < 2;
+            const currentElo = team.currentElo ?? team.mu0;
             return (
               <tr
                 key={team.teamKey}
@@ -180,7 +182,7 @@ function CompactRosterTable({ teams, regionSlug }: { teams: OverviewTeam[]; regi
               >
                 <td className="py-1.5 text-rm-metal-textFaint">{idx + 1}</td>
                 <td className="py-1.5 font-sans text-[11px] truncate max-w-[80px]">{team.collegeName}</td>
-                <td className={cn("py-1.5 text-right tracking-tight font-semibold", eloColor)}>{elo(team.mu0)}</td>
+                <td className={cn("py-1.5 text-right tracking-tight font-semibold", eloColor)}>{elo(currentElo)}</td>
                 <td className="py-1.5 text-center">{pct(team.probabilities.national)}</td>
                 <td className="py-1.5 text-center">{pct(team.probabilities.champion)}</td>
               </tr>
@@ -200,10 +202,11 @@ function CompactRosterTable({ teams, regionSlug }: { teams: OverviewTeam[]; regi
 /* ══════════════════════════════════════════
    RegionCard
    ══════════════════════════════════════════ */
-export function RegionCard({ region }: { region: RegionDashboardCard }) {
+export function RegionCard({ region, entryHref }: { region: RegionDashboardCard; entryHref: string | null }) {
   const realtimeAvailability = deriveRealtimeAvailability(region.regionSlug, region.liveStatus);
   const realtimeEnabled = realtimeAvailability.enabled;
   const fallbackMode = realtimeEnabled ? "live" : "sim";
+  const fallbackHref = buildRegionHref(region.regionSlug, realtimeEnabled ? "qualification" : "playoff", { mode: fallbackMode });
   const accent = REGION_ACCENT[region.regionSlug] ?? REGION_ACCENT.north_region;
 
   return (
@@ -219,7 +222,7 @@ export function RegionCard({ region }: { region: RegionDashboardCard }) {
 
       {/* ═══ 1. 实时/模拟入口面板 ═══ */}
       <Link
-        href={buildRegionHref(region.regionSlug, realtimeEnabled ? "qualification" : "playoff", { mode: fallbackMode })}
+        href={entryHref ?? fallbackHref}
         className={cn(
           "block px-4 py-4 border-b-2 border-rm-metal-border transition-all duration-300 group/entry min-h-[138px] relative overflow-hidden",
           "border-l-2",
@@ -410,19 +413,27 @@ export function RegionCard({ region }: { region: RegionDashboardCard }) {
       </div>
 
       {/* ═══ 7. 快捷链接 ═══ */}
-      <div className={cn("px-4 py-3 flex items-center justify-between")}>
-        <Link
-          href={buildRegionHref(region.regionSlug, "playoff", { mode: fallbackMode })}
-          className={cn(
-            "font-sans text-sm font-semibold transition-all duration-200 flex items-center gap-1.5",
-            "px-3 py-1.5 border rounded-sm",
-            "border-rm-accent/50 bg-rm-accent/12 text-rm-accent",
-            "hover:bg-rm-accent/22 hover:shadow-[0_0_16px_rgba(45,212,191,0.3)]",
-          )}
-        >
-          进入赛区沙盘
-          <span className="group-hover/card:translate-x-0.5 transition-transform duration-200">→</span>
-        </Link>
+      <div className={cn("px-4 py-3 flex items-center justify-between gap-3")}>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={buildRegionHref(region.regionSlug, "playoff", { mode: fallbackMode })}
+            className={cn(
+              "font-sans text-sm font-semibold transition-all duration-200 flex items-center gap-1.5",
+              "px-3 py-1.5 border rounded-sm",
+              "border-rm-accent/50 bg-rm-accent/12 text-rm-accent",
+              "hover:bg-rm-accent/22 hover:shadow-[0_0_16px_rgba(45,212,191,0.3)]",
+            )}
+          >
+            进入赛区沙盘
+            <span className="group-hover/card:translate-x-0.5 transition-transform duration-200">→</span>
+          </Link>
+          <Link
+            href="/forecast-center"
+            className="border border-rm-blue/30 bg-rm-blue/8 px-3 py-1.5 font-mono text-[11px] text-rm-blue transition-colors hover:border-rm-blue/60 hover:text-white"
+          >
+            实时预测
+          </Link>
+        </div>
         <div className="flex gap-3">
           {QUICK_VIEWS.map((view) => (
             <Link

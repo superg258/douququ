@@ -1,7 +1,7 @@
 // frontend/components/rankings-column.tsx
 import Link from "next/link";
 import type { EloRankingRow, RegionSlug } from "@/lib/types";
-import { buildRegionHref } from "@/lib/region-config";
+import { buildTeamHref } from "@/lib/team-profile";
 import { cn } from "@/lib/utils";
 
 function pct(value: number) {
@@ -89,14 +89,14 @@ function RankingRow({
   globalRank: number;
 }) {
   const a = ACCENT[regionSlug] ?? ACCENT.north_region;
-  const playoffUrl = buildRegionHref(regionSlug, "playoff", { highlight: row.teamKey });
+  const profileUrl = buildTeamHref(row.teamKey);
   const isTop3 = row.rankInRegion <= 3;
   const currentElo = row.currentElo ?? row.mu0;
   const eloDelta = row.eloDeltaFromPreseason ?? currentElo - row.mu0;
 
   return (
     <Link
-      href={playoffUrl}
+      href={profileUrl}
       className={cn(
         "group flex flex-col p-3 mb-1 bg-rm-metal-panel border border-rm-metal-border transition-all duration-200",
         a.rowHover,

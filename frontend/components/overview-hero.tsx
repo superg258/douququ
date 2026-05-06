@@ -1,5 +1,12 @@
 // frontend/components/overview-hero.tsx
-export function OverviewHero({ generatedLabel }: { generatedLabel: string }) {
+import Link from "next/link";
+export function OverviewHero({
+  generatedLabel,
+  nextMatchHref,
+}: {
+  generatedLabel: string;
+  nextMatchHref: string | null;
+}) {
   return (
     <div>
       <div className="relative">
@@ -155,6 +162,13 @@ export function OverviewHero({ generatedLabel }: { generatedLabel: string }) {
                   系统运行正常 &nbsp;|&nbsp; {generatedLabel}
                 </span>
               </div>
+
+              <Link
+                href={nextMatchHref ?? "/regions/south_region"}
+                className="inline-flex w-full items-center justify-center border border-rm-red/60 bg-rm-red/15 px-4 py-2.5 font-mono text-sm font-bold tracking-wider text-rm-red shadow-[0_0_10px_rgba(232,48,42,0.2)] transition-all hover:bg-rm-red hover:text-white hover:shadow-[0_0_20px_rgba(232,48,42,0.4)] active:scale-[0.98]"
+              >
+                进入实时赛程
+              </Link>
             </div>
           </div>
         </div>
