@@ -59,3 +59,4 @@ Thumbs.db
 /data/derived/2026_rmuc_region_simulations/*/region_match_results.csv
 /data/derived/2026_rmuc_region_simulations/*/region_slot_assignments.csv
 /data/derived/2026_rmuc_region_simulations/*/region_summary.json
+/.worktrees
