@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import csv
 import json
+from datetime import UTC, datetime
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi.testclient import TestClient
 
@@ -722,6 +724,7 @@ def _fake_match(
     red_team_key: str | None = None,
     blue_team_key: str | None = None,
     winner_team_key: str | None = None,
+    scoreline: str = "0:0",
 ) -> dict[str, object]:
     red_key = red_team_key or f"red::{match_label}"
     blue_key = blue_team_key or f"blue::{match_label}"
@@ -738,7 +741,7 @@ def _fake_match(
         "isConfirmedMatchup": True,
         "redTeam": {"teamKey": red_key, "collegeName": f"红方{match_label}", "teamName": "Red"},
         "blueTeam": {"teamKey": blue_key, "collegeName": f"蓝方{match_label}", "teamName": "Blue"},
-        "scoreline": "0:0",
+        "scoreline": scoreline,
         "winnerTeamKey": winner_key,
         "loserTeamKey": loser_key,
         "pGameRed": p_game_red,
@@ -888,6 +891,7 @@ def test_prematch_center_groups_today_next_and_prediction_signals(monkeypatch) -
     assert payload["nextMatch"]["matchLabel"] == "NEXT-1"
     assert [match["matchLabel"] for match in payload["todayMatches"]] == ["NEXT-1"]
     assert [match["matchLabel"] for match in payload["allUpcomingMatches"]] == ["NEXT-1", "LATER-1"]
+    assert [match["matchLabel"] for match in payload["timelineBuckets"]["reviewPending"]] == ["DONE-1"]
     next_match = payload["nextMatch"]
     assert next_match["workspaceView"] == "swiss-a"
     assert next_match["predictedScoreline"] == "2:1"
@@ -895,6 +899,319 @@ def test_prematch_center_groups_today_next_and_prediction_signals(monkeypatch) -
     assert next_match["modelAudienceDivergence"]["label"] == "明显分歧"
     assert next_match["modelAudienceDivergence"]["audienceFavoriteSide"] == "blue"
     assert next_match["upsetRisk"]["label"] in {"中", "高"}
+
+
+def test_prematch_center_timeline_keeps_overdue_out_of_next_action(monkeypatch) -> None:
+    def fake_simulation(region_slug: str, seed: int, mode: str = "sim", samples: int = service.DEFAULT_SIMULATION_SAMPLES) -> dict[str, object]:
+        assert region_slug == "south_region"
+        return {
+            "meta": {
+                "regionSlug": "south_region",
+                "regionName": "南部赛区",
+                "seed": seed,
+                "generatedAt": "2026-05-06T00:00:00+00:00",
+                "liveStatus": {
+                    "sourceStatus": "active",
+                    "sourceReason": None,
+                    "sourceUpdatedAt": "2026-05-06T01:30:00+00:00",
+                    "completedOfficialMatches": 4,
+                    "confirmedOfficialMatches": 7,
+                    "ledgerRows": 8,
+                },
+            },
+            "matches": [
+                _fake_match(
+                    match_label="PAST-UNSYNC",
+                    planned_start_at="2026-05-01T02:00:00+00:00",
+                    is_real_result=False,
+                    p_series_red=0.7,
+                    p_game_red=0.62,
+                    official_match_id="PAST-UNSYNC",
+                ),
+                _fake_match(
+                    match_label="NEXT-FUTURE",
+                    planned_start_at="2026-05-06T13:00:00+00:00",
+                    is_real_result=False,
+                    p_series_red=0.58,
+                    p_game_red=0.55,
+                    official_match_id="NEXT-FUTURE",
+                ),
+                _fake_match(
+                    match_label="SIM-TBD",
+                    planned_start_at=None,
+                    is_real_result=False,
+                    p_series_red=0.53,
+                    p_game_red=0.51,
+                    official_match_id=None,
+                    official_status=None,
+                ),
+            ],
+        }
+
+    monkeypatch.setattr(service, "build_simulation_payload", fake_simulation)
+
+    payload = service.build_prematch_center_payload(
+        seed=20260414,
+        mode="live",
+        date="2026-05-06",
+        region_slugs=["south_region"],
+        now=datetime(2026, 5, 6, 10, 0, tzinfo=UTC),
+    )
+
+    states = {match["matchLabel"]: match["timelineState"] for match in payload["allUpcomingMatches"]}
+    assert states["PAST-UNSYNC"] == "overdue_unresolved"
+    assert states["NEXT-FUTURE"] == "up_next"
+    assert "SIM-TBD" not in states
+    assert payload["nextMatch"]["matchLabel"] == "PAST-UNSYNC"
+    assert payload["nextActionMatch"]["matchLabel"] == "NEXT-FUTURE"
+    assert [match["matchLabel"] for match in payload["timelineBuckets"]["overdueUnresolved"]] == ["PAST-UNSYNC"]
+    assert [match["matchLabel"] for match in payload["timelineBuckets"]["upNext"]] == ["NEXT-FUTURE"]
+    assert payload["timelineBuckets"]["simulationUnassigned"] == []
+    assert payload["sourceFreshness"]["officialScheduleUpdatedAt"] == "2026-05-06T01:30:00+00:00"
+    assert payload["sourceFreshness"]["regionStatuses"][0]["regionSlug"] == "south_region"
+
+
+def test_command_center_endpoint_returns_timeline_buckets(monkeypatch) -> None:
+    def fake_simulation(region_slug: str, seed: int, mode: str = "sim", samples: int = service.DEFAULT_SIMULATION_SAMPLES) -> dict[str, object]:
+        return {
+            "meta": {
+                "regionSlug": region_slug,
+                "regionName": service.resolve_region_name(region_slug),
+                "seed": seed,
+                "generatedAt": "2099-01-01T00:00:00+00:00",
+                "liveStatus": {
+                    "sourceStatus": "active",
+                    "sourceReason": None,
+                    "sourceUpdatedAt": "2099-01-01T00:00:00+00:00",
+                    "completedOfficialMatches": 0,
+                    "confirmedOfficialMatches": 1,
+                    "ledgerRows": 0,
+                },
+            },
+            "matches": [
+                _fake_match(
+                    match_label=f"NEXT-{region_slug}",
+                    planned_start_at="2099-01-01T09:00:00+08:00",
+                    is_real_result=False,
+                    p_series_red=0.62,
+                    p_game_red=0.58,
+                    official_match_id=f"NEXT-{region_slug}",
+                )
+            ],
+        }
+
+    monkeypatch.setattr(service, "build_simulation_payload", fake_simulation)
+
+    response = client.get("/api/command-center?seed=20260414&mode=live&date=2099-01-01")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["nextActionMatch"]["matchLabel"] == "NEXT-south_region"
+    assert [match["matchLabel"] for match in payload["timelineBuckets"]["upNext"]] == [
+        "NEXT-south_region"
+    ]
+    assert [match["matchLabel"] for match in payload["timelineBuckets"]["todayPending"]] == [
+        "NEXT-east_region",
+        "NEXT-north_region",
+    ]
+    assert payload["sourceFreshness"]["activeRegionCount"] == 3
+
+
+def test_prediction_recap_endpoint_aggregates_cross_region_accuracy(monkeypatch) -> None:
+    def fake_simulation(region_slug: str, seed: int, mode: str = "sim", samples: int = service.DEFAULT_SIMULATION_SAMPLES) -> dict[str, object]:
+        if region_slug == "north_region":
+            matches = [
+                _fake_match(
+                    match_label="PENDING",
+                    planned_start_at="2099-01-01T10:00:00+08:00",
+                    is_real_result=False,
+                    p_series_red=0.55,
+                    p_game_red=0.52,
+                )
+            ]
+        elif region_slug == "east_region":
+            matches = [
+                _fake_match(
+                    match_label="UPSET-MISS",
+                    planned_start_at="2026-05-01T10:00:00+08:00",
+                    is_real_result=True,
+                    p_series_red=0.78,
+                    p_game_red=0.72,
+                    winner_team_key="blue::UPSET-MISS",
+                    scoreline="0:2",
+                )
+            ]
+        else:
+            matches = [
+                _fake_match(
+                    match_label="HIT-EXACT",
+                    planned_start_at="2026-05-01T09:00:00+08:00",
+                    is_real_result=True,
+                    p_series_red=0.8,
+                    p_game_red=0.74,
+                    scoreline="2:0",
+                )
+            ]
+        return {
+            "meta": {
+                "regionSlug": region_slug,
+                "regionName": service.resolve_region_name(region_slug),
+                "seed": seed,
+                "generatedAt": "2026-05-06T00:00:00+00:00",
+                "liveStatus": service.summarize_live_status(region_slug),
+            },
+            "matches": matches,
+        }
+
+    monkeypatch.setattr(service, "build_simulation_payload", fake_simulation)
+
+    response = client.get("/api/prediction-recap?seed=20260414&mode=live")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["summary"]["completedMatches"] == 2
+    assert payload["summary"]["pendingMatches"] == 1
+    assert payload["summary"]["winnerHits"] == 1
+    assert payload["summary"]["scorelineHits"] == 1
+    assert payload["summary"]["upsetMisses"] == 1
+    assert payload["byRegion"]["south_region"]["winnerHits"] == 1
+    assert payload["byRegion"]["east_region"]["upsetMisses"] == 1
+    assert payload["notableMatches"][0]["matchLabel"] == "UPSET-MISS"
+
+
+def test_team_profile_endpoint_returns_team_path_and_region_link(monkeypatch) -> None:
+    team_key = "alpha::main"
+
+    def fake_overview() -> dict[str, object]:
+        return {
+            "generatedAt": "2026-05-06T00:00:00+00:00",
+            "regions": [
+                {
+                    "regionSlug": "south_region",
+                    "regionName": "南部赛区",
+                    "nationalSlots": 8,
+                    "repechageSlots": 4,
+                    "liveStatus": service.summarize_live_status("south_region"),
+                    "teams": [
+                        {
+                            "teamKey": team_key,
+                            "collegeName": "Alpha University",
+                            "teamName": "Main",
+                            "mu0": 1700.0,
+                            "sigma0": 40.0,
+                            "eloGlobalRank": 3,
+                            "eloRegionRank": 1,
+                            "currentElo": 1712.0,
+                            "preseasonElo": 1700.0,
+                            "eloDeltaFromPreseason": 12.0,
+                            "eloRankSource": "live",
+                            "seedTier": "tier1",
+                            "seedRankInRegion": 1,
+                            "regionSlug": "south_region",
+                            "regionName": "南部赛区",
+                            "probabilities": {
+                                "roundOf16": 1.0,
+                                "repechage": 0.42,
+                                "national": 0.81,
+                                "champion": 0.2,
+                            },
+                        }
+                    ],
+                }
+            ],
+        }
+
+    def fake_simulation(region_slug: str, seed: int, mode: str = "sim", samples: int = service.DEFAULT_SIMULATION_SAMPLES) -> dict[str, object]:
+        assert region_slug == "south_region"
+        return {
+            "meta": {
+                "regionSlug": "south_region",
+                "regionName": "南部赛区",
+                "seed": seed,
+                "generatedAt": "2026-05-06T00:00:00+00:00",
+                "liveStatus": service.summarize_live_status("south_region"),
+            },
+            "slots": [
+                {
+                    "teamKey": team_key,
+                    "collegeName": "Alpha University",
+                    "teamName": "Main",
+                    "groupName": "A",
+                    "slot": "A1",
+                    "drawBox": "A",
+                    "seedTier": "tier1",
+                    "seedRankInRegion": 1,
+                    "mu0": 1700.0,
+                    "sigma0": 40.0,
+                    "eloGlobalRank": 3,
+                    "currentElo": 1712.0,
+                    "preseasonElo": 1700.0,
+                    "eloDeltaFromPreseason": 12.0,
+                    "eloRankSource": "live",
+                }
+            ],
+            "matches": [
+                _fake_match(
+                    match_label="DONE-ALPHA",
+                    planned_start_at="2026-05-01T09:00:00+08:00",
+                    is_real_result=True,
+                    p_series_red=0.72,
+                    p_game_red=0.66,
+                    red_team_key=team_key,
+                    blue_team_key="beta::main",
+                    winner_team_key=team_key,
+                    scoreline="2:0",
+                ),
+                _fake_match(
+                    match_label="NEXT-ALPHA",
+                    planned_start_at="2099-01-01T09:00:00+08:00",
+                    is_real_result=False,
+                    p_series_red=0.58,
+                    p_game_red=0.54,
+                    red_team_key=team_key,
+                    blue_team_key="gamma::main",
+                ),
+            ],
+            "finalRankings": [
+                {
+                    "rank": 2,
+                    "teamKey": team_key,
+                    "collegeName": "Alpha University",
+                    "teamName": "Main",
+                    "groupName": "A",
+                    "slot": "A1",
+                    "seedTier": "tier1",
+                    "seedRankInRegion": 1,
+                    "swissWins": 5,
+                    "swissLosses": 1,
+                    "swissGroupRank": 1,
+                    "mu0": 1700.0,
+                    "currentElo": 1712.0,
+                    "preseasonElo": 1700.0,
+                    "eloDeltaFromPreseason": 12.0,
+                    "eloRankSource": "live",
+                    "finalBucket": "runner_up",
+                    "advancement": "national_qualified",
+                }
+            ],
+        }
+
+    monkeypatch.setattr(service, "build_overview_payload", fake_overview)
+    monkeypatch.setattr(service, "build_simulation_payload", fake_simulation)
+
+    response = client.get(f"/api/teams/{quote(team_key, safe='')}?seed=20260414&mode=live")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["team"]["teamKey"] == team_key
+    assert payload["team"]["currentElo"] == 1712.0
+    assert payload["region"]["regionSlug"] == "south_region"
+    assert payload["slot"]["slot"] == "A1"
+    assert payload["finalRanking"]["rank"] == 2
+    assert [match["matchLabel"] for match in payload["matchPath"]] == ["DONE-ALPHA", "NEXT-ALPHA"]
+    assert payload["completedMatches"][0]["resultForTeam"] == "win"
+    assert payload["upcomingMatches"][0]["opponent"]["teamKey"] == "gamma::main"
+    assert payload["regionEntry"]["highlightTeamKey"] == team_key
 
 
 def test_prematch_center_marks_only_previous_upset_winners_for_spotlight(monkeypatch) -> None:
@@ -967,9 +1284,9 @@ def test_prematch_center_marks_only_previous_upset_winners_for_spotlight(monkeyp
     assert by_label["CURRENT-RISK-ONLY"]["priorUpsetTeamKeys"] == []
 
 
-def test_prematch_center_exposes_live_elo_overperformer_signals(monkeypatch) -> None:
+def test_prematch_center_exposes_live_elo_overperformer_threshold_signals(monkeypatch) -> None:
     overperformer_key = "team::live-overperformer"
-    preseason_only_key = "team::preseason-only"
+    below_threshold_key = "team::below-threshold"
 
     def fake_simulation(region_slug: str, seed: int, mode: str = "sim", samples: int = service.DEFAULT_SIMULATION_SAMPLES) -> dict[str, object]:
         return {
@@ -995,7 +1312,7 @@ def test_prematch_center_exposes_live_elo_overperformer_signals(monkeypatch) -> 
                     p_series_red=0.58,
                     p_game_red=0.54,
                     red_team_key=overperformer_key,
-                    blue_team_key=preseason_only_key,
+                    blue_team_key=below_threshold_key,
                     official_match_id="ELO-SIGNAL",
                 ),
             ],
@@ -1009,22 +1326,22 @@ def test_prematch_center_exposes_live_elo_overperformer_signals(monkeypatch) -> 
             overperformer_key: {
                 "teamKey": overperformer_key,
                 "schoolKey": "live-overperformer",
-                "currentElo": 1725.0,
+                "currentElo": 1755.0,
                 "preseasonElo": 1700.0,
-                "eloDeltaFromPreseason": 25.0,
+                "eloDeltaFromPreseason": 55.0,
                 "eloRankSource": "live",
             },
-            preseason_only_key: {
-                "teamKey": preseason_only_key,
-                "schoolKey": "preseason-only",
-                "currentElo": 1680.0,
+            below_threshold_key: {
+                "teamKey": below_threshold_key,
+                "schoolKey": "below-threshold",
+                "currentElo": 1649.0,
                 "preseasonElo": 1600.0,
-                "eloDeltaFromPreseason": 80.0,
-                "eloRankSource": "preseason",
+                "eloDeltaFromPreseason": 49.0,
+                "eloRankSource": "live",
             },
         },
     )
-    monkeypatch.setattr(service, "load_global_elo_rank_map", lambda: {overperformer_key: 7, preseason_only_key: 18})
+    monkeypatch.setattr(service, "load_global_elo_rank_map", lambda: {overperformer_key: 7, below_threshold_key: 18})
 
     payload = service.build_prematch_center_payload(
         seed=20260414,
@@ -1034,19 +1351,70 @@ def test_prematch_center_exposes_live_elo_overperformer_signals(monkeypatch) -> 
     )
 
     match = payload["allUpcomingMatches"][0]
-    assert match["redCurrentElo"] == 1725.0
+    assert match["redCurrentElo"] == 1755.0
     assert match["redPreseasonElo"] == 1700.0
-    assert match["redEloDeltaFromPreseason"] == 25.0
+    assert match["redEloDeltaFromPreseason"] == 55.0
     assert match["redSeasonOverperformer"] is True
-    assert match["blueCurrentElo"] == 1680.0
+    assert match["blueCurrentElo"] == 1649.0
     assert match["bluePreseasonElo"] == 1600.0
-    assert match["blueEloDeltaFromPreseason"] == 80.0
+    assert match["blueEloDeltaFromPreseason"] == 49.0
     assert match["blueSeasonOverperformer"] is False
     assert match["seasonOverperformerTeamKeys"] == [overperformer_key]
     assert match["hasSeasonOverperformerTeam"] is True
 
 
-def test_prematch_center_marks_live_fallback_as_simulation_proxy(monkeypatch) -> None:
+def test_prematch_center_treats_top32_as_strong_team_signal(monkeypatch) -> None:
+    red_key = "team::rank-32"
+    blue_key = "team::rank-40"
+
+    def fake_simulation(region_slug: str, seed: int, mode: str = "sim", samples: int = service.DEFAULT_SIMULATION_SAMPLES) -> dict[str, object]:
+        return {
+            "meta": {
+                "regionSlug": region_slug,
+                "regionName": "南部赛区",
+                "seed": seed,
+                "generatedAt": "2026-05-03T00:00:00+00:00",
+                "liveStatus": {
+                    "sourceStatus": "active",
+                    "sourceReason": None,
+                    "sourceUpdatedAt": "2026-05-03T00:00:00+00:00",
+                    "completedOfficialMatches": 0,
+                    "confirmedOfficialMatches": 1,
+                    "ledgerRows": 0,
+                },
+            },
+            "matches": [
+                _fake_match(
+                    match_label="RANK-32-SIGNAL",
+                    planned_start_at="2026-05-03T02:00:00+00:00",
+                    is_real_result=False,
+                    p_series_red=0.58,
+                    p_game_red=0.54,
+                    red_team_key=red_key,
+                    blue_team_key=blue_key,
+                    official_match_id="RANK-32-SIGNAL",
+                ),
+            ],
+        }
+
+    monkeypatch.setattr(service, "build_simulation_payload", fake_simulation)
+    monkeypatch.setattr(service, "load_current_rating_index", lambda: {})
+    monkeypatch.setattr(service, "load_global_elo_rank_map", lambda: {red_key: 32, blue_key: 40})
+
+    payload = service.build_prematch_center_payload(
+        seed=20260414,
+        mode="live",
+        date="2026-05-03",
+        region_slugs=["south_region"],
+    )
+
+    match = payload["allUpcomingMatches"][0]
+    assert match["redTeamGlobalRank"] == 32
+    assert match["blueTeamGlobalRank"] == 40
+    assert match["strongTeamInvolved"] is True
+
+
+def test_prematch_center_excludes_live_fallback_simulation_proxy_matches(monkeypatch) -> None:
     def fake_simulation(region_slug: str, seed: int, mode: str = "sim", samples: int = service.DEFAULT_SIMULATION_SAMPLES) -> dict[str, object]:
         return {
             "meta": {
@@ -1087,6 +1455,68 @@ def test_prematch_center_marks_live_fallback_as_simulation_proxy(monkeypatch) ->
 
     assert payload["source"]["effectiveMode"] == "simulation_proxy"
     assert payload["source"]["regionStatuses"][0]["sourceStatus"] == "missing"
-    assert payload["allUpcomingMatches"][0]["dataSource"] == "simulation_proxy"
-    assert payload["allUpcomingMatches"][0]["scheduleState"] == "simulation_proxy"
-    assert payload["allUpcomingMatches"][0]["plannedStartAt"] is None
+    assert payload["allUpcomingMatches"] == []
+    assert payload["todayMatches"] == []
+    assert all(not matches for matches in payload["timelineBuckets"].values())
+    assert payload["nextMatch"] is None
+    assert payload["nextActionMatch"] is None
+    assert payload["pendingMatchCount"] == 0
+    assert payload["scheduledPendingMatchCount"] == 0
+
+
+def test_prematch_center_excludes_simulation_proxy_matches_from_mixed_live_payload(monkeypatch) -> None:
+    def fake_simulation(region_slug: str, seed: int, mode: str = "sim", samples: int = service.DEFAULT_SIMULATION_SAMPLES) -> dict[str, object]:
+        return {
+            "meta": {
+                "regionSlug": region_slug,
+                "regionName": "南部赛区",
+                "seed": seed,
+                "generatedAt": "2026-05-03T00:00:00+00:00",
+                "liveStatus": {
+                    "sourceStatus": "active",
+                    "sourceReason": None,
+                    "sourceUpdatedAt": "2026-05-03T00:00:00+00:00",
+                    "completedOfficialMatches": 0,
+                    "confirmedOfficialMatches": 1,
+                    "ledgerRows": 0,
+                },
+            },
+            "matches": [
+                _fake_match(
+                    match_label="OFFICIAL-1",
+                    planned_start_at="2026-05-03T09:00:00+08:00",
+                    is_real_result=False,
+                    p_series_red=0.62,
+                    p_game_red=0.56,
+                    official_match_id="OFFICIAL-1",
+                    official_status="PENDING",
+                ),
+                _fake_match(
+                    match_label="SIM-PROXY-1",
+                    planned_start_at="2026-05-03T10:00:00+08:00",
+                    is_real_result=False,
+                    p_series_red=0.58,
+                    p_game_red=0.54,
+                    official_match_id=None,
+                    official_status=None,
+                ),
+            ],
+        }
+
+    monkeypatch.setattr(service, "build_simulation_payload", fake_simulation)
+
+    payload = service.build_prematch_center_payload(
+        seed=20260414,
+        mode="live",
+        date="2026-05-03",
+        region_slugs=["south_region"],
+        now=datetime(2026, 5, 3, 8, 0, tzinfo=service._prematch_timezone("Asia/Shanghai")),
+    )
+
+    assert payload["source"]["effectiveMode"] == "live"
+    assert [match["matchLabel"] for match in payload["allUpcomingMatches"]] == ["OFFICIAL-1"]
+    assert [match["matchLabel"] for match in payload["todayMatches"]] == ["OFFICIAL-1"]
+    assert [match["matchLabel"] for match in payload["timelineBuckets"]["upNext"]] == ["OFFICIAL-1"]
+    assert payload["pendingMatchCount"] == 1
+    assert payload["confirmedPendingMatchCount"] == 1
+    assert payload["scheduledPendingMatchCount"] == 1

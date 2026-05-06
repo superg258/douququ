@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
@@ -23,8 +24,8 @@ from . import rmuc_live
 
 DEFAULT_SIMULATION_SAMPLES = int(os.getenv("RMUC_SIMULATION_SAMPLES", "1200"))
 DEFAULT_PREMATCH_TIMEZONE = "Asia/Shanghai"
-PREMATCH_STRONG_GLOBAL_RANK_CUTOFF = 16
-PREMATCH_OVERPERFORMER_ELO_DELTA_CUTOFF = 20.0
+PREMATCH_STRONG_GLOBAL_RANK_CUTOFF = 32
+PREMATCH_OVERPERFORMER_ELO_DELTA_CUTOFF = 50.0
 REGION_SLUG_ORDER = ["south_region", "east_region", "north_region"]
 REGION_SLUG_ORDER_INDEX = {region_slug: index for index, region_slug in enumerate(REGION_SLUG_ORDER)}
 REGION_SLUG_TO_NAME = {config["slug"]: region for region, config in region_sim.REGION_CONFIGS.items()}
@@ -1293,6 +1294,118 @@ def _prematch_sort_key(item: dict[str, Any]) -> tuple[Any, ...]:
     )
 
 
+def _timeline_bucket_template() -> dict[str, list[dict[str, Any]]]:
+    return {
+        "liveNow": [],
+        "upNext": [],
+        "todayPending": [],
+        "confirmedUpcoming": [],
+        "overdueUnresolved": [],
+        "simulationUnassigned": [],
+        "reviewPending": [],
+    }
+
+
+TIMELINE_BUCKET_BY_STATE = {
+    "live_now": "liveNow",
+    "up_next": "upNext",
+    "today_pending": "todayPending",
+    "confirmed_upcoming": "confirmedUpcoming",
+    "overdue_unresolved": "overdueUnresolved",
+    "simulation_unassigned": "simulationUnassigned",
+    "review_pending": "reviewPending",
+}
+
+
+def _is_official_running_status(status: Any) -> bool:
+    return str(status or "").strip().upper() in {"RUNNING", "STARTED", "ONGOING", "IN_PROGRESS", "LIVE"}
+
+
+def _timeline_state_for_prematch(
+    item: dict[str, Any],
+    *,
+    now: datetime,
+    target_date: str,
+    timezone_name: str,
+    up_next_id: str | None,
+) -> str:
+    if _is_official_running_status(item.get("officialStatus")):
+        return "live_now"
+    planned = _parse_datetime(item.get("plannedStartAt"))
+    if planned is None:
+        return "simulation_unassigned"
+    if planned.astimezone(UTC) < now.astimezone(UTC):
+        return "overdue_unresolved"
+    if item.get("id") == up_next_id:
+        return "up_next"
+    if _local_date(item.get("plannedStartAt"), timezone_name) == target_date:
+        return "today_pending"
+    return "confirmed_upcoming"
+
+
+def _source_updated_candidates(region_statuses: list[dict[str, Any]]) -> list[datetime]:
+    candidates: list[datetime] = []
+    for status in region_statuses:
+        parsed = _parse_datetime(status.get("sourceUpdatedAt"))
+        if parsed is not None:
+            candidates.append(parsed)
+    return candidates
+
+
+def _live_elo_updated_at() -> str | None:
+    manifest_path = _published_manifest_path_for(_effective_published_dir())
+    manifest = _read_json_if_exists(manifest_path)
+    if not isinstance(manifest, dict):
+        return None
+    value = manifest.get("generated_at") or manifest.get("generatedAt")
+    return str(value) if value else None
+
+
+def _coverage_label(region_statuses: list[dict[str, Any]]) -> str:
+    active = [
+        str(status.get("regionName") or status.get("regionSlug"))
+        for status in region_statuses
+        if status.get("sourceStatus") == "active"
+    ]
+    inactive = [
+        str(status.get("regionName") or status.get("regionSlug"))
+        for status in region_statuses
+        if status.get("sourceStatus") != "active"
+    ]
+    if not active:
+        return "官方实时源未接入，全部使用模拟代理"
+    if not inactive:
+        return "官方实时覆盖全部赛区"
+    return f"{'、'.join(active)}官方实时，{'、'.join(inactive)}模拟代理"
+
+
+def build_source_freshness(
+    *,
+    generated_at: str,
+    now: datetime,
+    region_statuses: list[dict[str, Any]],
+) -> dict[str, Any]:
+    source_updates = _source_updated_candidates(region_statuses)
+    official_schedule_updated_at = max(source_updates).astimezone(UTC).isoformat() if source_updates else None
+    official_age_minutes = None
+    if source_updates:
+        latest = max(source_updates).astimezone(UTC)
+        official_age_minutes = max(0, int((now.astimezone(UTC) - latest).total_seconds() // 60))
+    live_elo_updated_at = _live_elo_updated_at()
+    return {
+        "serviceGeneratedAt": generated_at,
+        "modelGeneratedAt": current_generated_at(),
+        "officialScheduleUpdatedAt": official_schedule_updated_at,
+        "liveEloUpdatedAt": live_elo_updated_at,
+        "officialScheduleAgeMinutes": official_age_minutes,
+        "liveEloStatus": "active" if live_elo_updated_at else "missing",
+        "activeRegionCount": sum(1 for status in region_statuses if status.get("sourceStatus") == "active"),
+        "totalRegionCount": len(region_statuses),
+        "coverageLabel": _coverage_label(region_statuses),
+        "regionStatuses": region_statuses,
+    }
+
+
 def build_prematch_center_payload(
     *,
     seed: int = region_sim.DEFAULT_SIMULATION_SEED,
@@ -1300,12 +1413,15 @@ def build_prematch_center_payload(
     date: str | None = None,
     timezone_name: str = DEFAULT_PREMATCH_TIMEZONE,
     region_slugs: list[str] | None = None,
+    now: datetime | None = None,
 ) -> dict[str, Any]:
     if mode not in {"live", "sim"}:
         raise ValueError(f"Unsupported prematch mode: {mode}")
     selected_region_slugs = region_slugs or REGION_SLUG_ORDER
     target_date = _target_prematch_date(date, timezone_name)
+    now_dt = now or datetime.now(tz=_prematch_timezone(timezone_name))
     upcoming_matches: list[dict[str, Any]] = []
+    review_matches: list[dict[str, Any]] = []
     completed_count = 0
     pending_count = 0
     confirmed_pending_count = 0
@@ -1334,11 +1450,27 @@ def build_prematch_center_payload(
             }
         )
         for match in simulation["matches"]:
+            if _prematch_data_source(mode, live_status, match) == "simulation_proxy":
+                continue
             if match.get("isRealResult"):
                 completed_count += 1
                 upset_winner_key = _prior_upset_winner_key(match)
                 if upset_winner_key:
                     prior_upset_team_keys.add(upset_winner_key)
+                review_item = _serialize_prematch_item(
+                    region_slug=region_slug,
+                    region_name=region_name,
+                    seed=int(meta.get("seed", seed)),
+                    requested_mode=mode,
+                    live_status=live_status,
+                    match=match,
+                    timezone_name=timezone_name,
+                    prior_upset_team_keys=prior_upset_team_keys,
+                    global_rank_map=global_rank_map,
+                    current_rating_index=current_rating_index,
+                )
+                review_item["timelineState"] = "review_pending"
+                review_matches.append(review_item)
                 continue
             pending_count += 1
             if match.get("officialMatchId"):
@@ -1361,11 +1493,48 @@ def build_prematch_center_payload(
             )
 
     upcoming_matches.sort(key=_prematch_sort_key)
+    next_action_match = next(
+        (
+            match
+            for match in upcoming_matches
+            if _parse_datetime(match.get("plannedStartAt")) is not None
+            and _parse_datetime(match.get("plannedStartAt")).astimezone(UTC) >= now_dt.astimezone(UTC)
+        ),
+        None,
+    )
+    up_next_id = str(next_action_match.get("id")) if isinstance(next_action_match, dict) else None
+    timeline_buckets = _timeline_bucket_template()
+    for match in upcoming_matches:
+        timeline_state = _timeline_state_for_prematch(
+            match,
+            now=now_dt,
+            target_date=target_date,
+            timezone_name=timezone_name,
+            up_next_id=up_next_id,
+        )
+        match["timelineState"] = timeline_state
+        timeline_buckets[TIMELINE_BUCKET_BY_STATE[timeline_state]].append(match)
+    review_matches.sort(key=_prematch_sort_key, reverse=True)
+    timeline_buckets["reviewPending"].extend(review_matches[:24])
+    live_now = timeline_buckets["liveNow"]
+    if live_now:
+        next_action_match = live_now[0]
+    else:
+        next_action_match = next(
+            (
+                match
+                for match in upcoming_matches
+                if match.get("timelineState")
+                in {"up_next", "today_pending", "confirmed_upcoming"}
+            ),
+            None,
+        )
     today_matches = [match for match in upcoming_matches if match.get("plannedLocalDate") == target_date]
     active_live_regions = sum(1 for status in region_statuses if status.get("sourceStatus") == "active")
     effective_mode = mode if mode == "sim" else "live" if active_live_regions else "simulation_proxy"
+    generated_at = datetime.now(tz=UTC).isoformat()
     return {
-        "generatedAt": datetime.now(tz=UTC).isoformat(),
+        "generatedAt": generated_at,
         "seed": seed,
         "targetDate": target_date,
         "timezone": timezone_name,
@@ -1374,13 +1543,315 @@ def build_prematch_center_payload(
             "effectiveMode": effective_mode,
             "regionStatuses": region_statuses,
         },
+        "sourceFreshness": build_source_freshness(
+            generated_at=generated_at,
+            now=now_dt,
+            region_statuses=region_statuses,
+        ),
         "completedMatchCount": completed_count,
         "pendingMatchCount": pending_count,
         "confirmedPendingMatchCount": confirmed_pending_count,
         "scheduledPendingMatchCount": scheduled_count,
         "nextMatch": upcoming_matches[0] if upcoming_matches else None,
+        "nextActionMatch": next_action_match,
+        "timelineBuckets": timeline_buckets,
         "todayMatches": today_matches,
         "allUpcomingMatches": upcoming_matches,
+    }
+
+
+def build_command_center_payload(
+    *,
+    seed: int = region_sim.DEFAULT_SIMULATION_SEED,
+    mode: str = "live",
+    date: str | None = None,
+    timezone_name: str = DEFAULT_PREMATCH_TIMEZONE,
+) -> dict[str, Any]:
+    prematch = build_prematch_center_payload(
+        seed=seed,
+        mode=mode,
+        date=date,
+        timezone_name=timezone_name,
+    )
+    return {
+        "generatedAt": prematch["generatedAt"],
+        "seed": prematch["seed"],
+        "targetDate": prematch["targetDate"],
+        "timezone": prematch["timezone"],
+        "source": prematch["source"],
+        "sourceFreshness": prematch["sourceFreshness"],
+        "completedMatchCount": prematch["completedMatchCount"],
+        "pendingMatchCount": prematch["pendingMatchCount"],
+        "confirmedPendingMatchCount": prematch["confirmedPendingMatchCount"],
+        "scheduledPendingMatchCount": prematch["scheduledPendingMatchCount"],
+        "nextActionMatch": prematch["nextActionMatch"],
+        "timelineBuckets": prematch["timelineBuckets"],
+    }
+
+
+def _empty_recap_group() -> dict[str, Any]:
+    return {
+        "completedMatches": 0,
+        "pendingMatches": 0,
+        "winnerHits": 0,
+        "scorelineHits": 0,
+        "upsetMisses": 0,
+        "winnerHitRate": None,
+        "scorelineHitRate": None,
+    }
+
+
+def _finalize_recap_group(group: dict[str, Any]) -> dict[str, Any]:
+    completed = int(group["completedMatches"])
+    return {
+        **group,
+        "winnerHitRate": round(group["winnerHits"] / completed, 6) if completed else None,
+        "scorelineHitRate": round(group["scorelineHits"] / completed, 6) if completed else None,
+    }
+
+
+def _actual_winner_side(match: dict[str, Any]) -> str | None:
+    winner_key = str(match.get("winnerTeamKey") or "")
+    if winner_key == _team_key_for_side(match, "red"):
+        return "red"
+    if winner_key == _team_key_for_side(match, "blue"):
+        return "blue"
+    return None
+
+
+def _record_recap_result(group: dict[str, Any], *, winner_hit: bool, score_hit: bool, upset_miss: bool) -> None:
+    group["completedMatches"] += 1
+    group["winnerHits"] += 1 if winner_hit else 0
+    group["scorelineHits"] += 1 if score_hit else 0
+    group["upsetMisses"] += 1 if upset_miss else 0
+
+
+def build_prediction_recap_payload(
+    *,
+    seed: int = region_sim.DEFAULT_SIMULATION_SEED,
+    mode: str = "live",
+    region_slugs: list[str] | None = None,
+) -> dict[str, Any]:
+    if mode not in {"live", "sim"}:
+        raise ValueError(f"Unsupported recap mode: {mode}")
+    selected_region_slugs = region_slugs or REGION_SLUG_ORDER
+    generated_at = datetime.now(tz=UTC).isoformat()
+    summary = _empty_recap_group()
+    by_region: dict[str, dict[str, Any]] = {}
+    by_confidence: dict[str, dict[str, Any]] = {}
+    by_stage: dict[str, dict[str, Any]] = {}
+    notable_matches: list[dict[str, Any]] = []
+
+    for region_slug in selected_region_slugs:
+        simulation = build_simulation_payload(region_slug, seed, mode)
+        meta = simulation["meta"]
+        region_group = by_region.setdefault(region_slug, {**_empty_recap_group(), "regionName": meta["regionName"]})
+        for match in simulation.get("matches", []):
+            confidence = str(match.get("confidenceLabel") or "unknown")
+            stage = str(match.get("stage") or "unknown")
+            confidence_group = by_confidence.setdefault(confidence, {**_empty_recap_group(), "confidenceText": _confidence_label(confidence)})
+            stage_group = by_stage.setdefault(stage, {**_empty_recap_group(), "stageLabel": _stage_label(stage, str(match.get("groupName") or ""))})
+            if not match.get("isRealResult"):
+                summary["pendingMatches"] += 1
+                region_group["pendingMatches"] += 1
+                confidence_group["pendingMatches"] += 1
+                stage_group["pendingMatches"] += 1
+                continue
+
+            predicted_side = "red" if float(match["pSeriesRed"]) >= float(match["pSeriesBlue"]) else "blue"
+            actual_side = _actual_winner_side(match)
+            winner_hit = predicted_side == actual_side
+            predicted_scoreline = _predicted_scoreline_from_series(float(match["pSeriesRed"]), int(match["bestOf"]))
+            score_hit = winner_hit and str(match.get("scoreline") or "") == predicted_scoreline
+            upset_miss = actual_side is not None and not winner_hit
+            for group in (summary, region_group, confidence_group, stage_group):
+                _record_recap_result(group, winner_hit=winner_hit, score_hit=score_hit, upset_miss=upset_miss)
+
+            if upset_miss or not score_hit:
+                favorite = match["redTeam"] if predicted_side == "red" else match["blueTeam"]
+                actual = match["redTeam"] if actual_side == "red" else match["blueTeam"] if actual_side == "blue" else None
+                notable_matches.append(
+                    {
+                        "id": f"{region_slug}:{match['matchLabel']}",
+                        "regionSlug": region_slug,
+                        "regionName": meta["regionName"],
+                        "seed": int(meta.get("seed", seed)),
+                        "workspaceView": _workspace_view_for_match(match),
+                        "matchLabel": match["matchLabel"],
+                        "stage": stage,
+                        "stageLabel": _stage_label(stage, str(match.get("groupName") or "")),
+                        "plannedStartAt": match.get("plannedStartAt"),
+                        "predictedWinnerTeamKey": favorite["teamKey"],
+                        "predictedWinnerName": favorite["collegeName"],
+                        "actualWinnerTeamKey": actual["teamKey"] if actual else None,
+                        "actualWinnerName": actual["collegeName"] if actual else None,
+                        "predictedScoreline": predicted_scoreline,
+                        "actualScoreline": match.get("scoreline"),
+                        "favoriteRate": max(float(match["pSeriesRed"]), float(match["pSeriesBlue"])),
+                        "confidenceLabel": confidence,
+                        "confidenceText": _confidence_label(confidence),
+                        "deviationType": "upset_miss" if upset_miss else "scoreline_miss",
+                    }
+                )
+
+    notable_matches.sort(
+        key=lambda match: (
+            0 if match["deviationType"] == "upset_miss" else 1,
+            -float(match["favoriteRate"]),
+            str(match.get("plannedStartAt") or ""),
+        )
+    )
+    return {
+        "generatedAt": generated_at,
+        "seed": seed,
+        "mode": mode,
+        "summary": _finalize_recap_group(summary),
+        "byRegion": {key: _finalize_recap_group(value) for key, value in by_region.items()},
+        "byConfidence": {key: _finalize_recap_group(value) for key, value in by_confidence.items()},
+        "byStage": {key: _finalize_recap_group(value) for key, value in by_stage.items()},
+        "notableMatches": notable_matches[:16],
+    }
+
+
+def _team_match_context(match: dict[str, Any], team_key: str) -> dict[str, Any] | None:
+    if _team_key_for_side(match, "red") == team_key:
+        side = "red"
+        opponent = match["blueTeam"]
+        win_probability = float(match["pSeriesRed"])
+    elif _team_key_for_side(match, "blue") == team_key:
+        side = "blue"
+        opponent = match["redTeam"]
+        win_probability = float(match["pSeriesBlue"])
+    else:
+        return None
+    if match.get("isRealResult"):
+        result = "win" if str(match.get("winnerTeamKey") or "") == team_key else "loss"
+    else:
+        result = "pending"
+    return {
+        "side": side,
+        "opponent": opponent,
+        "resultForTeam": result,
+        "winProbability": round(win_probability, 6),
+    }
+
+
+def _team_path_sort_key(match: dict[str, Any]) -> tuple[Any, ...]:
+    planned = _parse_datetime(match.get("plannedStartAt"))
+    return (
+        int(match.get("stageOrder") or 0),
+        int(match.get("roundNumber") or 0),
+        planned or datetime.max.replace(tzinfo=UTC),
+        str(match.get("matchLabel") or ""),
+    )
+
+
+def build_team_profile_payload(
+    team_key: str,
+    *,
+    seed: int = region_sim.DEFAULT_SIMULATION_SEED,
+    mode: str = "live",
+) -> dict[str, Any]:
+    if mode not in {"live", "sim"}:
+        raise ValueError(f"Unsupported team profile mode: {mode}")
+    decoded_team_key = unquote(team_key)
+    overview = build_overview_payload()
+    overview_team: dict[str, Any] | None = None
+    overview_region: dict[str, Any] | None = None
+    for region in overview.get("regions", []):
+        if not isinstance(region, dict):
+            continue
+        for team in region.get("teams", []):
+            if isinstance(team, dict) and str(team.get("teamKey") or "") == decoded_team_key:
+                overview_team = team
+                overview_region = region
+                break
+        if overview_team is not None:
+            break
+    if overview_team is None or overview_region is None:
+        raise KeyError(decoded_team_key)
+
+    region_slug = str(overview_region["regionSlug"])
+    simulation = build_simulation_payload(region_slug, seed, mode)
+    slot = next((row for row in simulation.get("slots", []) if row.get("teamKey") == decoded_team_key), None)
+    final_ranking = next((row for row in simulation.get("finalRankings", []) if row.get("teamKey") == decoded_team_key), None)
+    match_path = []
+    completed_matches = []
+    upcoming_matches = []
+    for match in sorted(simulation.get("matches", []), key=_team_path_sort_key):
+        context = _team_match_context(match, decoded_team_key)
+        if context is None:
+            continue
+        item = {
+            **match,
+            **context,
+            "stageLabel": _stage_label(str(match.get("stage") or ""), str(match.get("groupName") or "")),
+            "workspaceView": _workspace_view_for_match(match),
+        }
+        match_path.append(item)
+        if match.get("isRealResult"):
+            completed_matches.append(item)
+        else:
+            upcoming_matches.append(item)
+
+    live_state = None
+    if mode == "live":
+        live_payload = build_live_state_payload(region_slug)
+        if live_payload.get("available"):
+            live_state = {
+                "snapshot": next(
+                    (row for row in live_payload.get("currentSnapshot", []) if row.get("teamKey") == decoded_team_key),
+                    None,
+                ),
+                "ledger": [
+                    row
+                    for row in live_payload.get("matchLedger", [])
+                    if row.get("teamKey") == decoded_team_key
+                ],
+            }
+
+    generated_at = datetime.now(tz=UTC).isoformat()
+    region_status = simulation.get("meta", {}).get("liveStatus") if isinstance(simulation.get("meta"), dict) else None
+    region_statuses = [
+        {
+            "regionSlug": region_slug,
+            "regionName": overview_region["regionName"],
+            "sourceStatus": region_status.get("sourceStatus") if isinstance(region_status, dict) else None,
+            "sourceReason": region_status.get("sourceReason") if isinstance(region_status, dict) else None,
+            "sourceUpdatedAt": region_status.get("sourceUpdatedAt") if isinstance(region_status, dict) else None,
+            "completedOfficialMatches": region_status.get("completedOfficialMatches", 0) if isinstance(region_status, dict) else 0,
+            "confirmedOfficialMatches": region_status.get("confirmedOfficialMatches", 0) if isinstance(region_status, dict) else 0,
+        }
+    ]
+    return {
+        "generatedAt": generated_at,
+        "seed": seed,
+        "mode": mode,
+        "team": overview_team,
+        "region": {
+            "regionSlug": region_slug,
+            "regionName": overview_region["regionName"],
+            "nationalSlots": overview_region.get("nationalSlots"),
+            "repechageSlots": overview_region.get("repechageSlots"),
+        },
+        "slot": slot,
+        "finalRanking": final_ranking,
+        "matchPath": match_path,
+        "completedMatches": completed_matches,
+        "upcomingMatches": upcoming_matches,
+        "liveState": live_state,
+        "regionEntry": {
+            "regionSlug": region_slug,
+            "view": "playoff",
+            "seed": seed,
+            "mode": mode,
+            "highlightTeamKey": decoded_team_key,
+        },
+        "sourceFreshness": build_source_freshness(
+            generated_at=generated_at,
+            now=datetime.now(tz=UTC),
+            region_statuses=region_statuses,
+        ),
     }
 
 

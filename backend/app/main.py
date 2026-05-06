@@ -5,7 +5,15 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
-from .service import build_live_state_payload, build_overview_payload, build_prematch_center_payload, build_simulation_payload
+from .service import (
+    build_command_center_payload,
+    build_live_state_payload,
+    build_overview_payload,
+    build_prediction_recap_payload,
+    build_prematch_center_payload,
+    build_simulation_payload,
+    build_team_profile_payload,
+)
 
 
 app = FastAPI(title="RMUC Results API", version="0.1.0")
@@ -36,6 +44,36 @@ def prematch_center(
 ) -> dict[str, Any]:
     try:
         return build_prematch_center_payload(seed=seed, mode=mode, date=date)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/command-center")
+def command_center(
+    seed: int = Query(20260414, ge=1),
+    mode: str = Query("live"),
+    date: str | None = Query(None),
+) -> dict[str, Any]:
+    try:
+        return build_command_center_payload(seed=seed, mode=mode, date=date)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/prediction-recap")
+def prediction_recap(seed: int = Query(20260414, ge=1), mode: str = Query("live")) -> dict[str, Any]:
+    try:
+        return build_prediction_recap_payload(seed=seed, mode=mode)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/teams/{team_key}")
+def team_profile(team_key: str, seed: int = Query(20260414, ge=1), mode: str = Query("live")) -> dict[str, Any]:
+    try:
+        return build_team_profile_payload(team_key, seed=seed, mode=mode)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"Unknown team: {team_key}") from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
