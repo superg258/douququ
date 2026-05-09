@@ -149,10 +149,9 @@ function RaceBattle({
   );
 }
 
-/* ─── 精简战力矩阵 ─── */
+/* ─── 战力矩阵 ─── */
 function CompactRosterTable({ teams, regionSlug }: { teams: OverviewTeam[]; regionSlug: string }) {
   const sorted = [...teams].sort((a, b) => (b.currentElo ?? b.mu0) - (a.currentElo ?? a.mu0));
-  const topN = sorted.slice(0, 6);
 
   const barColor =
     regionSlug === "south_region" ? "bg-rm-red/50 shadow-[0_0_6px_rgba(232,48,42,0.3)]" :
@@ -171,46 +170,43 @@ function CompactRosterTable({ teams, regionSlug }: { teams: OverviewTeam[]; regi
           战力矩阵
         </span>
         <span className="text-[8px] text-rm-metal-textFaint/50 ml-auto">
-          实时战力降序
+          共 {sorted.length} 支 · 滚动查看
         </span>
       </div>
-      <table className="w-full text-[10px] border-collapse">
-        <thead>
-          <tr className="border-b border-rm-metal-border text-rm-metal-textFaint text-[8px] uppercase tracking-widest">
-            <td className="py-1.5 w-6">#</td>
-            <td className="py-1.5">高校</td>
-            <td className="py-1.5 text-right">Elo</td>
-            <td className="py-1.5 text-center w-16">国赛</td>
-            <td className="py-1.5 text-center w-12">夺冠</td>
-          </tr>
-        </thead>
-        <tbody className="font-mono divide-y divide-rm-metal-border/30">
-          {topN.map((team, idx) => {
-            const isTop = idx < 2;
-            const currentElo = team.currentElo ?? team.mu0;
-            return (
-              <tr
-                key={team.teamKey}
-                className={cn(
-                  "hover:bg-rm-metal-panel/50 transition-colors",
-                  isTop ? "text-rm-metal-textLight font-semibold" : "text-rm-metal-textMuted",
-                )}
-              >
-                <td className="py-1.5 text-rm-metal-textFaint">{idx + 1}</td>
-                <td className="py-1.5 font-sans text-[11px] truncate max-w-[80px]">{team.collegeName}</td>
-                <td className={cn("py-1.5 text-right tracking-tight font-semibold", eloColor)}>{elo(currentElo)}</td>
-                <td className="py-1.5 text-center">{pct(team.probabilities.national)}</td>
-                <td className="py-1.5 text-center">{pct(team.probabilities.champion)}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      {sorted.length > 6 && (
-        <div className="text-[9px] text-rm-metal-textFaint/50 mt-1.5 text-center">
-          ... 等 {sorted.length - 6} 支队伍 · 进入沙盘查看完整数据
-        </div>
-      )}
+      <div className="max-h-64 overflow-y-auto pr-1 border-y border-rm-metal-border/40">
+        <table className="w-full text-[10px] border-collapse table-fixed">
+          <thead className="sticky top-0 z-10 bg-rm-metal-dark/95 backdrop-blur">
+            <tr className="border-b border-rm-metal-border text-rm-metal-textFaint text-[8px] uppercase tracking-widest">
+              <td className="py-1.5 w-6">#</td>
+              <td className="py-1.5">高校</td>
+              <td className="py-1.5 text-right w-14">Elo</td>
+              <td className="py-1.5 text-center w-14">国赛</td>
+              <td className="py-1.5 text-center w-12">夺冠</td>
+            </tr>
+          </thead>
+          <tbody className="font-mono divide-y divide-rm-metal-border/30">
+            {sorted.map((team, idx) => {
+              const isTop = idx < 2;
+              const currentElo = team.currentElo ?? team.mu0;
+              return (
+                <tr
+                  key={team.teamKey}
+                  className={cn(
+                    "hover:bg-rm-metal-panel/50 transition-colors",
+                    isTop ? "text-rm-metal-textLight font-semibold" : "text-rm-metal-textMuted",
+                  )}
+                >
+                  <td className="py-1.5 text-rm-metal-textFaint">{idx + 1}</td>
+                  <td className="py-1.5 pr-2 font-sans text-[11px] leading-snug break-words">{team.collegeName}</td>
+                  <td className={cn("py-1.5 text-right tracking-tight font-semibold", eloColor)}>{elo(currentElo)}</td>
+                  <td className="py-1.5 text-center">{pct(team.probabilities.national)}</td>
+                  <td className="py-1.5 text-center">{pct(team.probabilities.champion)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -423,12 +419,12 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
         </div>
       ) : <div />}
 
-      {/* ═══ 6. 精简战力矩阵 ═══ */}
+      {/* ═══ 8. 战力矩阵 ═══ */}
       <div className={cn("px-4 py-3 border-b-2 border-rm-metal-border min-h-[268px] bg-rm-metal-dark/50")}>
         <CompactRosterTable teams={region.teams} regionSlug={region.regionSlug} />
       </div>
 
-      {/* ═══ 7. 快捷链接 ═══ */}
+      {/* ═══ 9. 快捷链接 ═══ */}
       <div className={cn("px-4 py-3 flex items-center justify-between gap-3")}>
         <div className="flex flex-wrap gap-2">
           <Link

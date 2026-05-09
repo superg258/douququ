@@ -90,4 +90,25 @@ describe("RegionCard", () => {
     expect(markup).toMatch(/复活赛卡位战圈[\s\S]*丙校[\s\S]*24\.0%/);
     expect(markup).not.toMatch(/复活赛卡位战圈[\s\S]*丙校[\s\S]*5\.0%/);
   });
+
+  it("renders every team in the strength matrix instead of truncating after six schools", () => {
+    const response = overview();
+    response.regions[0].teams = [
+      team("alpha", "甲校", 1800, 0.9, 0.05, 0.7),
+      team("beta", "乙校", 1760, 0.5, 0.2, 0.2),
+      team("gamma", "丙校", 1720, 0.3, 0.2, 0.1),
+      team("delta", "丁校", 1680, 0.2, 0.1, 0.05),
+      team("epsilon", "戊校", 1640, 0.12, 0.1, 0.03),
+      team("zeta", "己校", 1600, 0.08, 0.09, 0.02),
+      team("eta", "庚校", 1560, 0.05, 0.08, 0.01),
+      team("theta", "辛校", 1520, 0.03, 0.07, 0.005),
+    ];
+
+    const region = buildOverviewDashboard(response).regions[0];
+    const markup = renderToStaticMarkup(createElement(RegionCard, { region, entryHref: null }));
+
+    expect(markup).toContain("庚校");
+    expect(markup).toContain("辛校");
+    expect(markup).not.toContain("进入沙盘查看完整数据");
+  });
 });
