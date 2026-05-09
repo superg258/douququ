@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatMatchLabel } from "@/lib/display";
 import { buildRegionHref } from "@/lib/region-config";
 import type { PredictionRecapMatch, PredictionRecapResponse, TeamRef } from "@/lib/types";
 
@@ -191,7 +192,7 @@ export function ModelRecapPanel({
                   {/* Header: match context + deviation badge */}
                   <div className="px-3 pt-2.5 pb-1.5 border-b border-white/[0.04] flex items-center gap-2">
                     <span className="truncate font-mono text-[10px] text-rm-metal-textFaint/70">
-                      {match.regionName} · {match.stageLabel} · {match.matchLabel}
+                      {match.regionName} · {formatMatchLabel(match.matchLabel)}
                     </span>
                     <span className={`ml-auto shrink-0 font-mono text-[10px] px-1.5 py-0.5 border ${
                       isUpset

@@ -9,6 +9,12 @@ import { cn } from "@/lib/utils";
 import { isPageFullscreenActive, setPageFullscreenLock } from "@/lib/fullscreen-api";
 import { clampViewportPosition, fitWorkspaceViewport, scaleViewportAroundFramePoint } from "@/lib/workspace-viewport";
 
+const CANVAS_PAN_BLOCK_SELECTOR = "input, textarea, select, a, [data-canvas-pan-exempt]";
+
+export function shouldBlockCanvasPanTarget(target: Pick<HTMLElement, "closest"> | null) {
+  return Boolean(target?.closest(CANVAS_PAN_BLOCK_SELECTOR));
+}
+
 function headerToneClass(tone: WorkspaceStage["headers"][number]["tone"]) {
   switch (tone) {
     case "amber":
@@ -257,7 +263,7 @@ export function WorkspaceStageView({
 
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target as HTMLElement | null;
-      if (target?.closest("button, [role='button']")) return;
+      if (shouldBlockCanvasPanTarget(target)) return;
       if (event.pointerType === "mouse" && event.button !== 0) return;
       suppressClickRef.current = false;
       activePointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });

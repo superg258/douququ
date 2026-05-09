@@ -12,7 +12,7 @@ import { WorkspaceStageView } from "@/components/workspace-stage";
 import { getLiveState, getOverview, getSimulation } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { buildWorkspaceStage } from "@/lib/canvas-builders";
-import { formatRankingResultLabel, translateConfidenceLabel, translateStageLabel } from "@/lib/display";
+import { formatMatchLabel, formatRankingResultLabel, translateConfidenceLabel, translateStageLabel } from "@/lib/display";
 import { buildPredictionRecap } from "@/lib/prediction-insights";
 import { buildRegionHref, getOrCreateSessionSeed, parseSeed, refreshSessionSeed, REGION_LABELS, REGION_VIEWS } from "@/lib/region-config";
 import { buildTeamHref } from "@/lib/team-profile";
@@ -233,7 +233,7 @@ function SouthSwissReplayList({ view, simulation }: { view: WorkspaceView; simul
                   )}>
                     {isCompleted ? "已完赛" : "待开赛"}
                   </span>
-                  <span className="text-sm font-machine tracking-widest text-white">{row.matchLabel}</span>
+                  <span className="text-sm font-machine tracking-widest text-white">{formatMatchLabel(row.matchLabel)}</span>
                 </div>
                 <div className="flex items-center gap-2 text-[10px] font-mono">
                   <span className="text-rm-metal-text opacity-70">第 {row.roundNumber} 轮 / BO{row.bestOf}</span>
@@ -410,7 +410,7 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
         <div className="flex justify-between items-start border-b border-rm-metal-border pb-4 mb-4">
           <div>
             <p className="text-[10px] text-rm-metal-text font-bold uppercase tracking-widest leading-tight">赛事对战情报</p>
-            <h3 className="text-lg font-machine text-white">{selectedMatch.matchLabel}</h3>
+            <h3 className="text-lg font-machine text-white">{formatMatchLabel(selectedMatch.matchLabel)}</h3>
             <p className="text-xs text-rm-blue font-mono">{translateStageLabel(selectedMatch.stage)}</p>
           </div>
           <button onClick={onClose} className="text-rm-metal-text hover:text-rm-red font-mono text-[10px]">X</button>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getCommandCenter, getPredictionRecap } from "@/lib/api";
+import { formatMatchLabel } from "@/lib/display";
 import type { CommandCenterResponse, PredictionRecapResponse, RegionSlug } from "@/lib/types";
 import { LiveCommandCenterPanel } from "@/components/live-command-center-panel";
 import { ModelRecapPanel } from "@/components/model-recap-panel";
@@ -205,7 +206,7 @@ export function ForecastCenterPage() {
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-rm-status-warn shadow-[0_0_6px_rgba(255,176,0,0.7)]" />
                 </span>
                 <span className="font-mono text-[11px] text-rm-metal-textMuted">
-                  下一行动：{command.nextActionMatch ? `${command.nextActionMatch.regionName} · ${command.nextActionMatch.matchLabel}` : "暂无"}
+                  下一行动：{command.nextActionMatch ? `${command.nextActionMatch.regionName} · ${formatMatchLabel(command.nextActionMatch.matchLabel)}` : "暂无"}
                 </span>
               </div>
             </div>

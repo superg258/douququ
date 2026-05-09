@@ -2,6 +2,7 @@
 "use client";
 
 import Link from "next/link";
+import { formatMatchLabel } from "@/lib/display";
 import { buildPrematchHref, getDataSourceLabel, formatPrematchTime } from "@/lib/prematch-center";
 import type { PrematchCenterMatch } from "@/lib/types";
 
@@ -253,10 +254,7 @@ export function PrematchMatchCard({
             </span>
           )}
           <span className="font-mono text-[10px] text-rm-metal-textMuted truncate">
-            {match.regionName} · {match.stageLabel}
-          </span>
-          <span className="font-mono text-[10px] text-rm-metal-textFaint/70 shrink-0">
-            {match.matchLabel}
+            {match.regionName} · {formatMatchLabel(match.matchLabel)}
           </span>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">

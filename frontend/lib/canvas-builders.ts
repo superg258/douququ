@@ -15,6 +15,8 @@ import type {
   WorkspaceView,
 } from "@/lib/types";
 import {
+  formatMatchLabel,
+  formatSeedTierLabel,
   formatSwissRecordLabel,
   translateAdvancementLabel,
   translateFinalBucket,
@@ -225,7 +227,7 @@ function buildMatchCard(
     height: options?.height ?? MATCH_CARD_HEIGHT,
     tone: stageTone(match.stage),
     orderLabel: options?.orderLabel ?? compactMatchCode(match.matchLabel),
-    displayLabel: options?.displayLabel ?? match.matchLabel,
+    displayLabel: options?.displayLabel ?? formatMatchLabel(match.matchLabel),
     metaLabel: options?.metaLabel ?? stageMeta(match),
     variant: options?.variant ?? "standard",
     showProbability: options?.showProbability ?? false,
@@ -612,7 +614,7 @@ function buildSlotsStage(simulation: SimulationResponse): WorkspaceStage {
           y: 134 + index * 96,
           orderLabel: slot.slot ?? "--",
           subtitle: slot.teamName,
-          statLine: `${slot.seedTier} / Elo #${slot.eloGlobalRank}`,
+          statLine: `${formatSeedTierLabel(slot.seedTier)} / Elo #${slot.eloGlobalRank}`,
           tone: "cyan",
         })
       );

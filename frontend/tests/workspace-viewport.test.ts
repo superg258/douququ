@@ -92,4 +92,22 @@ describe("workspace-viewport", () => {
     expect(Math.abs(nextWorldX - currentWorldX)).toBeLessThan(0.001);
     expect(Math.abs(nextWorldY - currentWorldY)).toBeLessThan(0.001);
   });
+
+  it("allows desktop users to zoom out to 10 percent", () => {
+    const stage = makeStage("playoff", 2120, 1591, 0.76);
+    const current = { scale: 0.42, x: 24, y: 30 };
+
+    const next = scaleViewportAroundFramePoint(stage, { width: 1440, height: 914 }, current, 720, 420, 0.01);
+
+    expect(next.scale).toBe(0.1);
+  });
+
+  it("allows mobile users to zoom out to 10 percent", () => {
+    const stage = makeStage("playoff", 1938, 1240, 0.74);
+    const current = { scale: 0.42, x: 18, y: 34 };
+
+    const next = scaleViewportAroundFramePoint(stage, { width: 390, height: 844 }, current, 180, 260, 0.01);
+
+    expect(next.scale).toBe(0.1);
+  });
 });

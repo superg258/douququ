@@ -15,6 +15,8 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
+const INTERACTIVE_MIN_SCALE = 0.1;
+
 function mobileMinScaleForStage(stage: WorkspaceStage) {
   switch (stage.id) {
     case "playoff":
@@ -95,7 +97,7 @@ export function scaleViewportAroundFramePoint(
   frameY: number,
   nextScale: number
 ): ViewportState {
-  const scale = clamp(nextScale, 0.4, 2);
+  const scale = clamp(nextScale, INTERACTIVE_MIN_SCALE, 2);
   const worldX = (frameX - viewport.x) / viewport.scale;
   const worldY = (frameY - viewport.y) / viewport.scale;
 

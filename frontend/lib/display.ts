@@ -42,6 +42,15 @@ const CONFIDENCE_LABELS: Record<string, string> = {
   very_low: "较低",
 };
 
+const SEED_TIER_LABELS: Record<string, string> = {
+  tier1: "一档种子",
+  tier2: "二档种子",
+  unseeded: "非种子",
+  S1: "一档种子",
+  S2: "二档种子",
+  U: "非种子",
+};
+
 function fallbackLabel(value: string) {
   return value
     .replaceAll("_", " ")
@@ -85,6 +94,57 @@ export function translateDestinationLabel(destination: string) {
 
 export function translateConfidenceLabel(confidence: string) {
   return CONFIDENCE_LABELS[confidence] ?? fallbackLabel(confidence);
+}
+
+export function formatSeedTierLabel(seedTier: string) {
+  return SEED_TIER_LABELS[seedTier] ?? fallbackLabel(seedTier);
+}
+
+export function formatMatchLabel(matchLabel: string) {
+  let match = /^([AB])-SWISS-(\d+)-(\d+)$/.exec(matchLabel);
+  if (match) {
+    return `${match[1]} 组瑞士轮第 ${Number(match[2])} 轮第 ${Number(match[3])} 场`;
+  }
+
+  match = /^QUAL-1-(\d+)$/.exec(matchLabel);
+  if (match) {
+    return `资格赛第一轮第 ${Number(match[1])} 场`;
+  }
+
+  match = /^QUAL-2-(\d+)$/.exec(matchLabel);
+  if (match) {
+    return `国赛席位战第 ${Number(match[1])} 场`;
+  }
+
+  match = /^QUAL-R-(\d+)$/.exec(matchLabel);
+  if (match) {
+    return `复活赛席位战第 ${Number(match[1])} 场`;
+  }
+
+  match = /^R16-(\d+)$/.exec(matchLabel);
+  if (match) {
+    return `16 进 8 第 ${Number(match[1])} 场`;
+  }
+
+  match = /^QF-(\d+)$/.exec(matchLabel);
+  if (match) {
+    return `8 进 4 第 ${Number(match[1])} 场`;
+  }
+
+  match = /^SF-(\d+)$/.exec(matchLabel);
+  if (match) {
+    return `半决赛第 ${Number(match[1])} 场`;
+  }
+
+  if (/^FINAL(?:-\d+)?$/.test(matchLabel)) {
+    return "冠军战";
+  }
+
+  if (/^THIRD(?:-\d+)?$/.test(matchLabel)) {
+    return "季军战";
+  }
+
+  return fallbackLabel(matchLabel);
 }
 
 export function formatSwissRecordLabel(wins: number, losses: number) {

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getTeamProfile } from "@/lib/api";
-import { formatRankingResultLabel } from "@/lib/display";
+import { formatMatchLabel, formatRankingResultLabel } from "@/lib/display";
 import { buildTeamRegionHref, buildTeamHref, formatTeamProfileSubtitle } from "@/lib/team-profile";
 import type { TeamProfileMatch, TeamProfileResponse } from "@/lib/types";
 import { SourceFreshnessStrip } from "@/components/source-freshness-strip";
@@ -168,7 +168,7 @@ function MatchPathRow({
                 {isWin ? "已胜" : isLoss ? "已负" : "未赛"}
               </span>
               <span className="font-sans text-sm font-semibold text-rm-metal-textLight truncate">
-                {match.stageLabel} · {match.matchLabel}
+                {formatMatchLabel(match.matchLabel)}
               </span>
             </div>
             <div className="mt-1.5 font-mono text-[11px] text-rm-metal-textMuted">
