@@ -114,7 +114,10 @@ export function fitWorkspaceViewport(stage: WorkspaceStage, width: number, heigh
   const fittedScale = Math.min((width - gutterX * 2) / stage.width, (height - gutterY * 2) / stage.height, 1);
   const desktopMinScale = stage.viewport?.minScale ?? 0.56;
   const desktopScale = desktopTargetScale(stage, width, height, fittedScale, gutterX, gutterY);
-  const minScale = width < 768 ? Math.max(mobileMinScaleForStage(stage), Math.min(desktopMinScale, 0.5)) : desktopMinScale;
+  const nonClippingDesktopMinScale = Math.min(desktopMinScale, (width - gutterX * 2) / stage.width);
+  const minScale = width < 768
+    ? Math.max(mobileMinScaleForStage(stage), Math.min(desktopMinScale, 0.5))
+    : nonClippingDesktopMinScale;
   const targetScale = width < 768 ? fittedScale : desktopScale;
   const scale = clamp(Math.max(targetScale, minScale), minScale, 1);
   const align = width < 768

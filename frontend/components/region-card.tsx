@@ -1,4 +1,5 @@
 // frontend/components/region-card.tsx
+import { useState } from "react";
 import Link from "next/link";
 import type { OverviewTeam, RegionDashboardCard } from "@/lib/types";
 import { buildRegionHref } from "@/lib/region-config";
@@ -78,6 +79,7 @@ function RaceBattle({
 
   const chasingCount = chasingTeams.length;
   const isStable = cutoffProbability > 0.5 && chasingCount === 0;
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <div className="space-y-2">
@@ -120,9 +122,26 @@ function RaceBattle({
             </Link>
           ))}
           {totalChasingCount > 3 && (
-            <div className="text-[9px] text-rm-metal-textFaint/60">
-              ... 等 {totalChasingCount - 3} 支队伍
-            </div>
+            <>
+              {expanded && (
+                <div className="space-y-1.5 max-h-48 overflow-y-auto no-scrollbar">
+                  {chasingTeams.slice(3).map((team) => (
+                    <Link key={team.teamKey} href={buildTeamHref(team.teamKey)} className="flex items-center justify-between text-[11px] hover:text-white">
+                      <span className="text-rm-metal-textLight font-semibold">{team.collegeName}</span>
+                      <span className={cn("font-mono font-medium", colorClass.text)}>
+                        {pct(getProb(team))}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+              <button
+                onClick={() => setExpanded((v) => !v)}
+                className="text-[9px] text-rm-metal-textFaint/60 hover:text-rm-metal-textFaint transition-colors duration-150 cursor-pointer"
+              >
+                {expanded ? "收起" : `... 等 ${totalChasingCount - 3} 支队伍`}
+              </button>
+            </>
           )}
         </div>
       )}

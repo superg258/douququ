@@ -678,6 +678,9 @@ export interface PredictionRecapMatch {
   confidenceLabel: string;
   confidenceText: string;
   deviationType: "upset_miss" | "scoreline_miss" | string;
+  redTeam: TeamRef;
+  blueTeam: TeamRef;
+  predictedWinnerSide: "red" | "blue";
 }
 
 export interface PredictionRecapResponse {

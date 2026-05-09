@@ -26,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="zh-CN" className="dark">
+    <html lang="zh-CN" className="dark" suppressHydrationWarning>
       <body className={`min-h-screen bg-rm-metal-dark text-rm-metal-text antialiased ${quantico.variable}`}>
         <div className="flex min-h-screen w-full flex-col">
           <RootNav />

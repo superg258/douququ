@@ -51,6 +51,15 @@ describe("workspace-viewport", () => {
     expect(viewport.scale).toBeGreaterThan(0.9);
   });
 
+  it("backs off the desktop preferred scale so playoff brackets are not clipped horizontally on entry", () => {
+    const playoffStage = makeStage("playoff", 2120, 1591, 0.76);
+
+    const viewport = fitWorkspaceViewport(playoffStage, 1440, 914);
+
+    expect(viewport.x).toBeGreaterThanOrEqual(0);
+    expect(viewport.x + playoffStage.width * viewport.scale).toBeLessThanOrEqual(1440);
+  });
+
   it("clamps panning so the stage cannot be dragged completely out of view", () => {
     const stage = makeStage("playoff", 1938, 1240, 0.74);
 

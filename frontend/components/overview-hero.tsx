@@ -1,5 +1,25 @@
 // frontend/components/overview-hero.tsx
 import Link from "next/link";
+
+const GOLDEN_RAIN_PARTICLES = Array.from({ length: 50 }, (_, index) => {
+  const seed = index + 1;
+  const pick = (multiplier: number, modulo: number) => (seed * multiplier) % modulo;
+  const colors = ["#F5D76E", "#E8C44A", "#FFF1B0", "#D4A830", "#FBE68C", "#FFEAA7", "#C8962E", "#FDE68A"];
+  const glowColors = ["#F5D76E", "#E8C44A", "#FFF1B0"];
+
+  return {
+    left: `${pick(37, 100)}%`,
+    animationDelay: `${(pick(17, 60) / 10).toFixed(1)}s`,
+    animationDuration: `${(3.5 + pick(23, 40) / 10).toFixed(1)}s`,
+    width: `${1 + pick(11, 30) / 10}px`,
+    height: `${2 + pick(19, 80) / 10}px`,
+    background: colors[index % colors.length],
+    boxShadow: `0 0 ${2 + pick(29, 40) / 10}px ${glowColors[index % glowColors.length]}`,
+    borderRadius: pick(31, 10) > 5 ? "1px" : "50%",
+    transform: `rotate(${pick(13, 30) - 15}deg)`,
+  };
+});
+
 export function OverviewHero({
   generatedLabel,
   nextMatchHref,
@@ -74,21 +94,21 @@ export function OverviewHero({
               <h1 className="relative inline-block max-w-full whitespace-nowrap font-['Quantico'] font-black tracking-normal sm:tracking-[0.12em] leading-[0.85] select-none">
                 {/* ── Golden rain particles ── */}
                 <span aria-hidden="true" className="absolute inset-0 overflow-hidden pointer-events-none">
-                  {[...Array(50)].map((_, i) => (
+                  {GOLDEN_RAIN_PARTICLES.map((particle, i) => (
                     <span
                       key={i}
                       className="absolute animate-[goldenRain_6s_linear_infinite]"
                       style={{
-                        left: `${Math.random() * 100}%`,
-                        animationDelay: `${Math.random() * 6}s`,
-                        animationDuration: `${3.5 + Math.random() * 4}s`,
-                        width: `${1 + Math.random() * 3}px`,
-                        height: `${2 + Math.random() * 8}px`,
-                        background: ['#F5D76E','#E8C44A','#FFF1B0','#D4A830','#FBE68C','#FFEAA7','#C8962E','#FDE68A'][i % 8],
-                        boxShadow: `0 0 ${2 + Math.random() * 4}px ${['#F5D76E','#E8C44A','#FFF1B0'][i % 3]}`,
-                        borderRadius: Math.random() > 0.6 ? '1px' : '50%',
+                        left: particle.left,
+                        animationDelay: particle.animationDelay,
+                        animationDuration: particle.animationDuration,
+                        width: particle.width,
+                        height: particle.height,
+                        background: particle.background,
+                        boxShadow: particle.boxShadow,
+                        borderRadius: particle.borderRadius,
                         opacity: 0,
-                        transform: `rotate(${Math.random() * 30 - 15}deg)`,
+                        transform: particle.transform,
                       }}
                     />
                   ))}

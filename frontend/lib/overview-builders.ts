@@ -107,7 +107,7 @@ function buildRaceBucket(
   const allChasing = ranked.slice(cutoffIndex + 1);
   const validChasing = allChasing.filter(team => cutoffProb - selector(team) <= 0.20 && selector(team) > 0);
   
-  const chasingTeams = validChasing.slice(0, 3);
+  const chasingTeams = validChasing;
   const totalChasingCount = validChasing.length;
 
   return {
@@ -117,7 +117,7 @@ function buildRaceBucket(
     totalChasingCount,
     cutoffProbability: cutoffTeam ? selector(cutoffTeam) : 0,
     gap: Math.max((cutoffTeam ? selector(cutoffTeam) : 0) - (nextTeam ? selector(nextTeam) : 0), 0),
-    bandSize: Math.min(1 + chasingTeams.length, 4),
+    bandSize: Math.min(1 + Math.min(validChasing.length, 3), 4),
   };
 }
 

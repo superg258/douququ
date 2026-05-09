@@ -74,4 +74,20 @@ describe("RegionCard", () => {
     expect(markup).toContain("45.0%");
     expect(markup).not.toContain("37.0%");
   });
+
+  it("renders repechage chasers with national plus repechage probability", () => {
+    const response = overview();
+    response.regions[0].teams = [
+      team("alpha", "甲校", 1800, 0.9, 0.05, 0.7),
+      team("beta", "乙校", 1760, 0.2, 0.2, 0.2),
+      team("gamma", "丙校", 1720, 0.19, 0.05, 0.1),
+    ];
+
+    const region = buildOverviewDashboard(response).regions[0];
+    const markup = renderToStaticMarkup(createElement(RegionCard, { region, entryHref: null }));
+
+    expect(markup).toMatch(/复活赛卡位战圈[\s\S]*乙校[\s\S]*守位 40\.0%/);
+    expect(markup).toMatch(/复活赛卡位战圈[\s\S]*丙校[\s\S]*24\.0%/);
+    expect(markup).not.toMatch(/复活赛卡位战圈[\s\S]*丙校[\s\S]*5\.0%/);
+  });
 });

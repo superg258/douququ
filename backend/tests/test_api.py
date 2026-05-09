@@ -1077,6 +1077,9 @@ def test_prediction_recap_endpoint_aggregates_cross_region_accuracy(monkeypatch)
     assert payload["byRegion"]["south_region"]["winnerHits"] == 1
     assert payload["byRegion"]["east_region"]["upsetMisses"] == 1
     assert payload["notableMatches"][0]["matchLabel"] == "UPSET-MISS"
+    assert payload["notableMatches"][0]["redTeam"]["teamKey"] == "red::UPSET-MISS"
+    assert payload["notableMatches"][0]["blueTeam"]["teamKey"] == "blue::UPSET-MISS"
+    assert payload["notableMatches"][0]["predictedWinnerSide"] == "red"
 
 
 def test_team_profile_endpoint_returns_team_path_and_region_link(monkeypatch) -> None:

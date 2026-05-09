@@ -1691,6 +1691,9 @@ def build_prediction_recap_payload(
                         "confidenceLabel": confidence,
                         "confidenceText": _confidence_label(confidence),
                         "deviationType": "upset_miss" if upset_miss else "scoreline_miss",
+                        "redTeam": match["redTeam"],
+                        "blueTeam": match["blueTeam"],
+                        "predictedWinnerSide": predicted_side,
                     }
                 )
 
