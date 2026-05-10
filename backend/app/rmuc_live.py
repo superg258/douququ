@@ -375,6 +375,22 @@ def _swiss_group_from_order_number(order_number: int | None) -> str:
     return "A" if order_number < start + group_a_count else "B"
 
 
+def _swiss_match_label_from_order_number(order_number: int | None, group_name: str) -> str:
+    if order_number is None or group_name not in {"A", "B"}:
+        return ""
+    round_number = _swiss_round_from_order_number(order_number)
+    if round_number is None:
+        return ""
+    start_by_round = {1: 1, 2: 17, 3: 33, 4: 49, 5: 61}
+    group_match_count_by_round = {1: 8, 2: 8, 3: 8, 4: 6, 5: 3}
+    round_start = start_by_round[round_number]
+    group_offset = 0 if group_name == "A" else group_match_count_by_round[round_number]
+    group_index = order_number - round_start - group_offset + 1
+    if group_index < 1 or group_index > group_match_count_by_round[round_number]:
+        return ""
+    return f"{group_name}-SWISS-{round_number}-{group_index}"
+
+
 def _post_group_normalized_order_number(order_number: int | None) -> int | None:
     if order_number is None:
         return None
@@ -663,17 +679,15 @@ def _normalize_match(match: dict[str, Any], *, region_slug: str, zone_name: str)
     stage = _stage_from_family(stage_family)
     group_name = ""
     round_number: int | None = None
+    match_label = ""
     if stage == "swiss":
         group_name = _slot_group_name(red_slot, blue_slot) or _swiss_group_from_order_number(order_number)
         round_number = _swiss_round_from_order_number(order_number)
+        match_label = _swiss_match_label_from_order_number(order_number, group_name)
     elif stage_family == "post_group":
         stage = _post_group_stage_from_order_number(order_number, region_slug) or stage
         round_number = 1
-    match_label = (
-        _post_group_match_label_from_order_number(order_number, stage=stage, region_slug=region_slug)
-        if stage_family == "post_group"
-        else ""
-    )
+        match_label = _post_group_match_label_from_order_number(order_number, stage=stage, region_slug=region_slug)
     planned_start_at = str(match.get("planStartedAt") or "").strip() or None
     match_date = planned_start_at[:10] if planned_start_at else None
     normalized_match = {

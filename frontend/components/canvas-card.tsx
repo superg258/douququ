@@ -56,6 +56,7 @@ export function deriveMatchCardState(row: MatchRow, mode?: "sim" | "live") {
   const isSimulationMode = mode === "sim";
   const hasRealResult = Boolean(row.isRealResult);
   const isOfficialScheduled = !isSimulationMode && !hasRealResult && Boolean(row.officialMatchId);
+  const isOfficialPlaceholder = isOfficialScheduled && row.isConfirmedMatchup === false;
   const isPrediction = !isSimulationMode && !hasRealResult && !isOfficialScheduled;
   const showsResolvedScoreline = isSimulationMode || hasRealResult;
   const usesActualResultVisuals = isSimulationMode || hasRealResult;
@@ -71,6 +72,7 @@ export function deriveMatchCardState(row: MatchRow, mode?: "sim" | "live") {
     isSimulationMode,
     hasRealResult,
     isOfficialScheduled,
+    isOfficialPlaceholder,
     isPrediction,
     showsResolvedScoreline,
     usesActualResultVisuals,
@@ -435,7 +437,8 @@ function MatchTeamLine({
   const isSimLoser = resultResolved && isSimulated && !side.isWinner;
   const isWinner = resultResolved && side.isWinner;
   const isLoser = resultResolved && !side.isWinner;
-  const isFocused = selectedTeamKey === side.teamKey || highlightedTeamKey === side.teamKey;
+  const hasTeamKey = Boolean(side.teamKey);
+  const isFocused = hasTeamKey && (selectedTeamKey === side.teamKey || highlightedTeamKey === side.teamKey);
   const pointerIntentRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
 
   const sideBg = isRealWinner
@@ -472,7 +475,7 @@ function MatchTeamLine({
         isSimLoser && "hover:bg-white/[0.01]",
         isFocused && "z-20"
       )}
-      onClick={onTeamSelect ? (e) => {
+      onClick={hasTeamKey ? (e) => {
         if (pointerIntentRef.current?.moved) {
           pointerIntentRef.current = null;
           return;
@@ -624,7 +627,7 @@ function MatchCanvasCardComponent({
   const row = card.match;
   const expectedRed = row.pSeriesRed ?? card.redSide.probability;
   const cardState = deriveMatchCardState(row, mode);
-  const { isSimulationMode, isOfficialScheduled, isPrediction, showsResolvedScoreline, usesActualResultVisuals } = cardState;
+  const { isSimulationMode, isOfficialScheduled, isOfficialPlaceholder, isPrediction, showsResolvedScoreline, usesActualResultVisuals } = cardState;
   const rendersDimmedPredictionOutcome = showsResolvedScoreline && !usesActualResultVisuals;
   const [redGamesText, blueGamesText] = (row.scoreline || "0:0").split(":");
   const redGames = Number(redGamesText);
@@ -672,8 +675,12 @@ function MatchCanvasCardComponent({
   })();
 
   // Show simulated/real scoreline when available, predicted score only in pure prediction mode
-  const displayScore = showsResolvedScoreline ? resolvedDisplayScore : predictedDisplayScore;
-  const scoreLabel = showsResolvedScoreline ? (isSimulationMode ? "模拟比分" : "比分") : "预测比分";
+  const displayScore = isOfficialPlaceholder
+    ? { red: "-", blue: "-" }
+    : showsResolvedScoreline
+      ? resolvedDisplayScore
+      : predictedDisplayScore;
+  const scoreLabel = isOfficialPlaceholder ? "待赛" : showsResolvedScoreline ? (isSimulationMode ? "模拟比分" : "比分") : "预测比分";
 
   return (
     <div
@@ -788,13 +795,14 @@ function MatchCanvasCardComponent({
           label="Elo"
           redRate={row.pSeriesRed}
           blueRate={row.pSeriesBlue}
-          statusLabel={getPredictedAdvantageLabel({
+          statusLabel={isOfficialPlaceholder ? "未确认" : getPredictedAdvantageLabel({
             pSeriesRed: row.pSeriesRed,
             pSeriesBlue: row.pSeriesBlue,
             predictedScoreline: predictedScore.scoreline,
           })}
           variant="model"
-          title={`战力预测胜率：红 ${formatRate(row.pSeriesRed)}，蓝 ${formatRate(row.pSeriesBlue)}`}
+          available={!isOfficialPlaceholder}
+          title={isOfficialPlaceholder ? "官方排期已接入，真实对阵尚未确认" : `战力预测胜率：红 ${formatRate(row.pSeriesRed)}，蓝 ${formatRate(row.pSeriesBlue)}`}
         />
         <SignalMicroRow
           label="王牌"

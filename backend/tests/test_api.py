@@ -816,6 +816,67 @@ def test_live_schedule_metadata_adds_rules_time_without_official_lock(tmp_path, 
     assert "officialStatus" not in match
 
 
+def test_live_schedule_metadata_uses_unconfirmed_official_placeholder(tmp_path, monkeypatch) -> None:
+    normalized_path = tmp_path / "normalized_schedule.json"
+    normalized_path.write_text(
+        json.dumps(
+            {
+                "sourceStatus": "active",
+                "regions": {
+                    "south_region": {
+                        "matches": [
+                            {
+                                "matchLabel": "A-SWISS-1-1",
+                                "officialMatchId": "30900",
+                                "officialStatus": "WAITING",
+                                "plannedStartAt": "2026-05-13T08:10:00+08:00",
+                                "isConfirmedMatchup": False,
+                                "scoreline": "0:0",
+                                "redSlot": "A1",
+                                "blueSlot": "A9",
+                            }
+                        ]
+                    }
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(service, "NORMALIZED_LIVE_SCHEDULE_PATH", normalized_path)
+    payload = {
+        "matches": [
+            _fake_match(
+                match_label="A-SWISS-1-1",
+                planned_start_at=None,
+                is_real_result=False,
+                p_series_red=0.72,
+                p_game_red=0.64,
+                official_status=None,
+                official_match_id=None,
+            )
+        ]
+    }
+
+    service._attach_live_schedule_metadata(payload, "south_region")
+
+    match = payload["matches"][0]
+    assert match["officialMatchId"] == "30900"
+    assert match["officialStatus"] == "WAITING"
+    assert match["plannedStartAt"] == "2026-05-13T08:10:00+08:00"
+    assert match["isConfirmedMatchup"] is False
+    assert match["redTeam"] == {
+        "teamKey": "",
+        "collegeName": "A1",
+        "teamName": "官方槽位待确认",
+        "slot": "A1",
+    }
+    assert match["blueTeam"]["teamKey"] == ""
+    assert match["blueTeam"]["collegeName"] == "A9"
+    assert match["pSeriesRed"] == 0.5
+    assert match["winnerTeamKey"] == ""
+
+
 def test_prematch_center_groups_today_next_and_prediction_signals(monkeypatch) -> None:
     def fake_simulation(region_slug: str, seed: int, mode: str = "sim", samples: int = service.DEFAULT_SIMULATION_SAMPLES) -> dict[str, object]:
         assert region_slug == "south_region"

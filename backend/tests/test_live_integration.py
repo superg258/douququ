@@ -179,6 +179,7 @@ def test_normalize_schedule_payload_keeps_official_placeholder_schedule() -> Non
     }
     match = normalized["regions"]["south_region"]["matches"][0]
     assert match["officialMatchId"] == "30900"
+    assert match["matchLabel"] == "A-SWISS-1-1"
     assert match["redSlot"] == "A1"
     assert match["blueSlot"] == "A9"
     assert match["groupName"] == "A"
@@ -192,6 +193,7 @@ def test_normalize_schedule_payload_keeps_official_placeholder_schedule() -> Non
     assert normalized["regions"]["south_region"]["slotAssignments"] == {}
     source_match = normalized["regions"]["south_region"]["matches"][1]
     assert source_match["officialMatchId"] == "30900-round2"
+    assert source_match["matchLabel"] == "A-SWISS-2-1"
     assert source_match["groupName"] == "A"
     assert source_match["roundNumber"] == 2
     assert source_match["redSlot"] == ""

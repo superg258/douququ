@@ -38,6 +38,16 @@ function SignalStrip({
   match: PrematchCenterMatch;
   includeScoreline?: boolean;
 }) {
+  if (match.isConfirmedMatchup === false) {
+    return (
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[10px] text-rm-metal-textFaint">
+        <span className="text-rm-status-scheduled font-semibold shrink-0">官方排期</span>
+        <span className="text-rm-metal-textFaint/30">·</span>
+        <span>真实对阵待确认</span>
+      </div>
+    );
+  }
+
   return (
     <div
       className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[10px] text-rm-metal-textFaint"
@@ -220,6 +230,7 @@ export function PrematchMatchCard({
   const isHero = variant === "hero";
   const redPct = Math.round(match.pSeriesRed * 100);
   const bluePct = Math.round(match.pSeriesBlue * 100);
+  const isOfficialPlaceholder = match.dataSource === "official_live" && match.isConfirmedMatchup === false;
   const winnerSide = match.pSeriesRed >= match.pSeriesBlue ? "red" : "blue";
   const accentColor = winnerSide === "red" ? "bg-rm-red" : "bg-rm-blue";
   const accentGlow = winnerSide === "red"
@@ -280,17 +291,25 @@ export function PrematchMatchCard({
           >
             {match.redTeam.collegeName}
           </span>
-          <span className="w-8 text-right shrink-0 font-mono font-bold text-rm-red tabular-nums text-[13px]">
-            {redPct}%
-          </span>
-          <SplitBar
-            redRate={match.pSeriesRed}
-            blueRate={match.pSeriesBlue}
-            barHeight={isHero ? "h-2" : "h-1.5"}
-          />
-          <span className="w-8 text-left shrink-0 font-mono font-bold text-rm-blue tabular-nums text-[13px]">
-            {bluePct}%
-          </span>
+          {isOfficialPlaceholder ? (
+            <span className="shrink-0 border border-rm-status-scheduled/30 bg-rm-status-scheduled/8 px-2 py-0.5 font-mono text-[10px] text-rm-status-scheduled">
+              待确认
+            </span>
+          ) : (
+            <>
+              <span className="w-8 text-right shrink-0 font-mono font-bold text-rm-red tabular-nums text-[13px]">
+                {redPct}%
+              </span>
+              <SplitBar
+                redRate={match.pSeriesRed}
+                blueRate={match.pSeriesBlue}
+                barHeight={isHero ? "h-2" : "h-1.5"}
+              />
+              <span className="w-8 text-left shrink-0 font-mono font-bold text-rm-blue tabular-nums text-[13px]">
+                {bluePct}%
+              </span>
+            </>
+          )}
           <span
             title={match.blueTeam.collegeName}
             className={`flex-1 min-w-[52px] text-left truncate font-sans font-semibold text-rm-blue
@@ -306,14 +325,24 @@ export function PrematchMatchCard({
             <span title={match.redTeam.collegeName} className="truncate font-sans font-semibold text-rm-red text-[13px]">
               {match.redTeam.collegeName}
             </span>
-            <span className="shrink-0 font-mono font-bold text-rm-red tabular-nums text-[13px]">{redPct}%</span>
+            {!isOfficialPlaceholder && (
+              <span className="shrink-0 font-mono font-bold text-rm-red tabular-nums text-[13px]">{redPct}%</span>
+            )}
           </div>
-          <SplitBar redRate={match.pSeriesRed} blueRate={match.pSeriesBlue} barHeight="h-2" />
+          {isOfficialPlaceholder ? (
+            <div className="border border-rm-status-scheduled/25 bg-rm-status-scheduled/8 py-1 text-center font-mono text-[10px] text-rm-status-scheduled">
+              真实对阵待确认
+            </div>
+          ) : (
+            <SplitBar redRate={match.pSeriesRed} blueRate={match.pSeriesBlue} barHeight="h-2" />
+          )}
           <div className="flex items-center justify-between gap-2">
             <span title={match.blueTeam.collegeName} className="truncate font-sans font-semibold text-rm-blue text-[13px]">
               {match.blueTeam.collegeName}
             </span>
-            <span className="shrink-0 font-mono font-bold text-rm-blue tabular-nums text-[13px]">{bluePct}%</span>
+            {!isOfficialPlaceholder && (
+              <span className="shrink-0 font-mono font-bold text-rm-blue tabular-nums text-[13px]">{bluePct}%</span>
+            )}
           </div>
         </div>
       </div>
@@ -321,13 +350,15 @@ export function PrematchMatchCard({
       {/* ═══ Zone C: Intel — Scoreline + signals + audience ═══ */}
       {isHero ? (
         <>
-          <div className="flex items-center gap-2 px-3 pt-2 pb-1">
-            <span className="font-mono text-sm font-semibold text-rm-metal-textLight">
-              预测比分 {match.predictedScoreline}
-            </span>
-            <span className="text-rm-metal-textFaint/30">·</span>
-            <span className="font-mono text-[12px] text-rm-metal-textMuted">{match.confidenceText}</span>
-          </div>
+          {!isOfficialPlaceholder && (
+            <div className="flex items-center gap-2 px-3 pt-2 pb-1">
+              <span className="font-mono text-sm font-semibold text-rm-metal-textLight">
+                预测比分 {match.predictedScoreline}
+              </span>
+              <span className="text-rm-metal-textFaint/30">·</span>
+              <span className="font-mono text-[12px] text-rm-metal-textMuted">{match.confidenceText}</span>
+            </div>
+          )}
           <div className="px-3 pb-2.5 pt-1 space-y-1.5">
             <SignalStrip match={match} includeScoreline={false} />
             <AudienceBar match={match} />

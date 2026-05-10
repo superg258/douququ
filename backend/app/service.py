@@ -794,6 +794,65 @@ def _live_schedule_metadata_by_label(region_slug: str) -> dict[str, dict[str, An
     return out
 
 
+def _official_placeholder_team_ref(schedule: dict[str, Any], side: str) -> dict[str, Any]:
+    slot = str(schedule.get(f"{side}Slot") or "").strip()
+    source_type = str(schedule.get(f"{side}FillSourceType") or "").strip()
+    source_number = schedule.get(f"{side}FillSourceNumber")
+    if slot:
+        label = slot
+        detail = "官方槽位待确认"
+    elif source_type and source_number not in (None, ""):
+        label = f"{source_type} #{source_number}"
+        detail = "官方晋级来源待确认"
+    elif source_type:
+        label = source_type
+        detail = "官方晋级来源待确认"
+    else:
+        label = "待定"
+        detail = "官方排期待确认"
+    return {
+        "teamKey": "",
+        "collegeName": label,
+        "teamName": detail,
+        "slot": slot or None,
+    }
+
+
+def _apply_unconfirmed_official_schedule(match: dict[str, Any], schedule: dict[str, Any]) -> None:
+    match["isConfirmedMatchup"] = False
+    match["isRealResult"] = False
+    match["redTeam"] = _official_placeholder_team_ref(schedule, "red")
+    match["blueTeam"] = _official_placeholder_team_ref(schedule, "blue")
+    match["scoreline"] = str(schedule.get("scoreline") or "0:0")
+    match["winnerTeamKey"] = ""
+    match["loserTeamKey"] = ""
+    match["pGameRed"] = 0.5
+    match["pGameBlue"] = 0.5
+    match["pSeriesRed"] = 0.5
+    match["pSeriesBlue"] = 0.5
+    match["deltaH2H"] = 0.0
+    match["confidenceLabel"] = "low"
+    for key in (
+        "redMu0",
+        "blueMu0",
+        "redCurrentElo",
+        "blueCurrentElo",
+        "redDelta",
+        "blueDelta",
+        "redLiveDelta",
+        "blueLiveDelta",
+        "redPriorDelta",
+        "bluePriorDelta",
+        "redPriorAdjustmentLabel",
+        "bluePriorAdjustmentLabel",
+        "red_rating_before_match",
+        "red_rating_after_match",
+        "blue_rating_before_match",
+        "blue_rating_after_match",
+    ):
+        match.pop(key, None)
+
+
 def _attach_live_schedule_metadata(payload: dict[str, Any], region_slug: str) -> None:
     schedule_by_label = _live_schedule_metadata_by_label(region_slug)
     if not schedule_by_label:
@@ -808,6 +867,12 @@ def _attach_live_schedule_metadata(payload: dict[str, Any], region_slug: str) ->
             match["plannedStartAt"] = str(schedule["plannedStartAt"])
         if not match.get("miniProgramPrediction") and isinstance(schedule.get("miniProgramPrediction"), dict):
             match["miniProgramPrediction"] = schedule["miniProgramPrediction"]
+        if schedule.get("isConfirmedMatchup") is False:
+            if schedule.get("officialMatchId"):
+                match["officialMatchId"] = str(schedule["officialMatchId"])
+            if schedule.get("officialStatus"):
+                match["officialStatus"] = str(schedule["officialStatus"])
+            _apply_unconfirmed_official_schedule(match, schedule)
 
 
 def _published_match_rating_index(region_slug: str) -> dict[tuple[str, str], dict[str, Any]]:
@@ -1243,6 +1308,7 @@ def _serialize_prematch_item(
         "roundNumber": int(match["roundNumber"]),
         "groupName": match["groupName"],
         "bestOf": int(match["bestOf"]),
+        "isConfirmedMatchup": bool(match.get("isConfirmedMatchup", False)),
         "plannedStartAt": planned_start_at,
         "plannedLocalDate": _local_date(planned_start_at, timezone_name),
         "officialMatchId": match.get("officialMatchId"),

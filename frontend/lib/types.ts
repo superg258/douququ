@@ -562,6 +562,7 @@ export interface PrematchCenterMatch {
   roundNumber: number;
   groupName: string;
   bestOf: number;
+  isConfirmedMatchup?: boolean;
   plannedStartAt: string | null;
   plannedLocalDate: string | null;
   officialMatchId: string | null;
