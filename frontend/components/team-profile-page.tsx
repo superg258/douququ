@@ -9,6 +9,7 @@ import type { TeamProfileMatch, TeamProfileResponse } from "@/lib/types";
 import { SourceFreshnessStrip } from "@/components/source-freshness-strip";
 import { MechCard } from "@/components/ui/mech-card";
 import { cn } from "@/lib/utils";
+import { formatBeijingMonthDayTime } from "@/lib/time-format";
 
 function pct(value: number | undefined) {
   if (typeof value !== "number") return "暂无";
@@ -22,16 +23,7 @@ function signed(value: number | undefined) {
 }
 
 function formatTime(value: string | null | undefined) {
-  if (!value) return "未排期";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "未排期";
-  return parsed.toLocaleString("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
+  return formatBeijingMonthDayTime(value) ?? "未排期";
 }
 
 const REGION_ACCENT: Record<string, {

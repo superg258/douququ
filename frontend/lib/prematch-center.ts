@@ -5,6 +5,7 @@ import type {
   PrematchDataSource,
   PrematchTimelineState,
 } from "@/lib/types";
+import { formatBeijingTime, getBeijingHour } from "@/lib/time-format";
 
 const DATA_SOURCE_LABELS: Record<PrematchDataSource, string> = {
   official_live: "官方实时",
@@ -40,14 +41,7 @@ export function buildPrematchHref(match: PrematchCenterMatch) {
 }
 
 export function formatPrematchTime(value: string | null) {
-  if (!value) return null;
-  try {
-    const d = new Date(value);
-    if (isNaN(d.getTime())) return null;
-    return d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
-  } catch {
-    return null;
-  }
+  return formatBeijingTime(value);
 }
 
 export function formatEmptyStateCount(completedCount: number) {
@@ -100,17 +94,11 @@ const HEAVY_BLOWOUT_PENALTY = 35;
 const COMBINED_SIGNAL_SECONDARY_FACTOR = 0.35;
 
 export function getTimeBlockLabel(isoString: string | null): TimeBlock | null {
-  if (!isoString) return null;
-  try {
-    const d = new Date(isoString);
-    if (isNaN(d.getTime())) return null;
-    const hour = d.getHours();
-    if (hour < 12) return "上午";
-    if (hour < 18) return "下午";
-    return "晚间";
-  } catch {
-    return null;
-  }
+  const hour = getBeijingHour(isoString);
+  if (hour === null) return null;
+  if (hour < 12) return "上午";
+  if (hour < 18) return "下午";
+  return "晚间";
 }
 
 const TIME_BLOCK_ORDER: Record<TimeBlock, number> = { 上午: 0, 下午: 1, 晚间: 2 };

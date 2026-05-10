@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { deriveMatchCardState, deriveTeamCardState } from "@/components/canvas-card";
+import { deriveMatchCardState, deriveTeamCardState, formatMatchCardScheduleTime } from "@/components/canvas-card";
 import type { MatchRow, TeamCanvasCard } from "@/lib/types";
 
 function match(overrides: Partial<MatchRow> = {}): MatchRow {
@@ -59,6 +59,17 @@ function teamCard(overrides: Partial<TeamCanvasCard> = {}): TeamCanvasCard {
 }
 
 describe("deriveMatchCardState", () => {
+  it("exposes compact planned start time for the match card top bar", () => {
+    expect(formatMatchCardScheduleTime("2026-05-16T17:30:00+08:00")).toBe("05-16 17:30");
+    expect(formatMatchCardScheduleTime("2026-05-13T00:10:00Z")).toBe("05-13 08:10");
+    expect(deriveMatchCardState(match({ plannedStartAt: "2026-05-16T17:30:00+08:00" }), "live")).toMatchObject({
+      scheduleTimeLabel: "05-16 17:30",
+    });
+    expect(deriveMatchCardState(match({ plannedStartAt: "2026-05-01T23:05:00+00:00" }), "live")).toMatchObject({
+      scheduleTimeLabel: "05-02 07:05",
+    });
+  });
+
   it("treats live simulated branch matches without official ids as predictions", () => {
     expect(deriveMatchCardState(match(), "live").statusLabel).toBe("预测");
   });

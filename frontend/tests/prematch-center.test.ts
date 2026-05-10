@@ -204,6 +204,7 @@ describe("prematch-center helpers", () => {
   it("formats ISO datetime to HH:MM in Beijing time", () => {
     expect(formatPrematchTime("2026-04-14T10:00:00+08:00")).toBe("10:00");
     expect(formatPrematchTime("2026-04-14T18:30:00+08:00")).toBe("18:30");
+    expect(formatPrematchTime("2026-05-13T00:10:00Z")).toBe("08:10");
   });
 
   it("returns null for missing or invalid times", () => {
@@ -221,6 +222,7 @@ describe("prematch-center helpers", () => {
 
   /* ── Time block helpers ── */
   it("classifies time blocks correctly", () => {
+    expect(getTimeBlockLabel("2026-04-14T00:00:00Z")).toBe("上午");
     expect(getTimeBlockLabel("2026-04-14T08:00:00+08:00")).toBe("上午");
     expect(getTimeBlockLabel("2026-04-14T11:59:59+08:00")).toBe("上午");
     expect(getTimeBlockLabel("2026-04-14T12:00:00+08:00")).toBe("下午");

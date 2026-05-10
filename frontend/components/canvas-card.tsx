@@ -5,6 +5,7 @@ import { useRef } from "react";
 import type { CanvasCard, MatchCanvasCard, MatchRow, TeamCanvasCard } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { getPredictedAdvantageLabel } from "@/lib/prediction-display";
+import { formatBeijingMonthDayTime } from "@/lib/time-format";
 
 function toneClass(tone: CanvasCard["tone"]) {
   switch (tone) {
@@ -52,6 +53,10 @@ export function predictScoreline(pGameRed: number, pSeriesRed: number, bestOf: n
   }
 }
 
+export function formatMatchCardScheduleTime(plannedStartAt?: string | null) {
+  return formatBeijingMonthDayTime(plannedStartAt);
+}
+
 export function deriveMatchCardState(row: MatchRow, mode?: "sim" | "live") {
   const isSimulationMode = mode === "sim";
   const hasRealResult = Boolean(row.isRealResult);
@@ -60,6 +65,7 @@ export function deriveMatchCardState(row: MatchRow, mode?: "sim" | "live") {
   const isPrediction = !isSimulationMode && !hasRealResult && !isOfficialScheduled;
   const showsResolvedScoreline = isSimulationMode || hasRealResult;
   const usesActualResultVisuals = isSimulationMode || hasRealResult;
+  const scheduleTimeLabel = formatMatchCardScheduleTime(row.plannedStartAt);
   const statusLabel = (() => {
     if (isPrediction) return "预测";
     if (hasRealResult) return "已完赛";
@@ -76,6 +82,7 @@ export function deriveMatchCardState(row: MatchRow, mode?: "sim" | "live") {
     isPrediction,
     showsResolvedScoreline,
     usesActualResultVisuals,
+    scheduleTimeLabel,
     statusLabel,
   };
 }
@@ -627,7 +634,7 @@ function MatchCanvasCardComponent({
   const row = card.match;
   const expectedRed = row.pSeriesRed ?? card.redSide.probability;
   const cardState = deriveMatchCardState(row, mode);
-  const { isSimulationMode, isOfficialScheduled, isOfficialPlaceholder, isPrediction, showsResolvedScoreline, usesActualResultVisuals } = cardState;
+  const { isSimulationMode, isOfficialScheduled, isOfficialPlaceholder, isPrediction, showsResolvedScoreline, usesActualResultVisuals, scheduleTimeLabel } = cardState;
   const rendersDimmedPredictionOutcome = showsResolvedScoreline && !usesActualResultVisuals;
   const [redGamesText, blueGamesText] = (row.scoreline || "0:0").split(":");
   const redGames = Number(redGamesText);
@@ -741,6 +748,11 @@ function MatchCanvasCardComponent({
           <span className="truncate text-[11px] font-machine tracking-widest text-white/90">{card.displayLabel}</span>
         </div>
         <div className="shrink-0 flex items-center gap-1.5 text-[9px] font-mono text-rm-metal-text">
+          {scheduleTimeLabel && (
+            <span className="border border-rm-status-scheduled/25 bg-rm-status-scheduled/8 px-1.5 py-0.5 text-rm-status-scheduled tabular-nums">
+              {scheduleTimeLabel}
+            </span>
+          )}
           {isPrediction ? (
             <span className="border border-dashed border-rm-blue/20 bg-rm-blue/5 px-1.5 py-0.5 text-rm-blue">{scoreLabel}</span>
           ) : (
