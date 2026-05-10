@@ -195,6 +195,15 @@ def publish_runtime_artifacts(
     )
 
 
+def completed_official_match_count(normalized: dict[str, Any]) -> int:
+    return sum(
+        1
+        for region in normalized.get("regions", {}).values()
+        for match in region.get("matches", [])
+        if match.get("isCompleted")
+    )
+
+
 def main() -> None:
     args = parse_args()
     raw_dir = args.runtime_dir / "raw"
@@ -244,7 +253,8 @@ def main() -> None:
         group_rank_payload=group_rank_payload if isinstance(group_rank_payload, dict) else None,
     )
     write_json_atomic(args.runtime_dir / "normalized_schedule.json", normalized)
-    if normalized.get("sourceStatus") == "active":
+    completed_matches = completed_official_match_count(normalized)
+    if normalized.get("sourceStatus") == "active" and completed_matches > 0:
         publish_runtime_artifacts(
             normalized=normalized,
             runtime_dir=args.runtime_dir,
@@ -261,6 +271,8 @@ def main() -> None:
                 "generated_at": datetime.now(tz=UTC).isoformat(),
                 "source_status": normalized.get("sourceStatus"),
                 "source_reason": normalized.get("reason"),
+                "source_updated_at": normalized.get("sourceUpdatedAt"),
+                "completed_official_matches": completed_matches,
             },
         )
     print(json.dumps({"sourceStatus": normalized.get("sourceStatus"), "reason": normalized.get("reason")}, ensure_ascii=False))

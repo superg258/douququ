@@ -17,6 +17,17 @@ def _team(college_name: str, team_name: str, slot: str) -> dict:
     }
 
 
+def _placeholder_player(slot: str) -> dict:
+    return {
+        "id": f"placeholder-{slot}",
+        "name": slot,
+        "rank": int(slot[1:]) if len(slot) > 1 and slot[1:].isdigit() else 0,
+        "score": 0,
+        "teamId": None,
+        "team": None,
+    }
+
+
 def _schedule_payload(title: str = "RoboMaster 2026 超级对抗赛") -> dict:
     red = _team("太原理工大学", "TRoMaC", "A1")
     blue = _team("西交利物浦大学", "GMaster", "A9")
@@ -83,6 +94,134 @@ def test_normalize_schedule_payload_marks_rmuc_source_active() -> None:
     assert match["stageFamily"] == "regional_group"
     assert match["redTeamKey"] == "太原理工大学::TRoMaC"
     assert match["blueTeamKey"] == "西交利物浦大学::GMaster"
+
+
+def test_normalize_schedule_payload_keeps_official_placeholder_schedule() -> None:
+    def zone(zone_id: str, zone_name: str, match_id: str) -> dict:
+        return {
+            "id": zone_id,
+            "name": zone_name,
+            "zoneType": "GROUP_ZONE",
+            "groups": {"nodes": []},
+            "groupMatches": {
+                "nodes": [
+                    {
+                        "id": match_id,
+                        "matchType": "GROUP",
+                        "groupId": f"group-{zone_id}",
+                        "orderNumber": 1,
+                        "planGameCount": 3,
+                        "planStartedAt": "2026-05-13T00:10:00Z",
+                        "status": "WAITING",
+                        "result": "EMPTY",
+                        "redSideWinGameCount": 0,
+                        "blueSideWinGameCount": 0,
+                        "redSide": {"player": _placeholder_player("A1")},
+                        "blueSide": {"player": _placeholder_player("A9")},
+                    },
+                    {
+                        "id": f"{match_id}-round2",
+                        "matchType": "GROUP",
+                        "groupId": f"group-{zone_id}",
+                        "orderNumber": 17,
+                        "planGameCount": 3,
+                        "planStartedAt": "2026-05-13T12:00:00Z",
+                        "status": "WAITING",
+                        "result": "EMPTY",
+                        "redSideWinGameCount": 0,
+                        "blueSideWinGameCount": 0,
+                        "redSide": {
+                            "fillSourceId": f"group-{zone_id}",
+                            "fillSourceType": "Group",
+                            "fillSourceNumber": 1,
+                            "fillStatus": "PENDING",
+                            "player": None,
+                        },
+                        "blueSide": {
+                            "fillSourceId": f"group-{zone_id}",
+                            "fillSourceType": "Group",
+                            "fillSourceNumber": 2,
+                            "fillStatus": "PENDING",
+                            "player": None,
+                        },
+                    }
+                ]
+            },
+            "knockoutMatches": {"nodes": []},
+        }
+
+    payload = {
+        "data": {
+            "event": {
+                "title": "RMUC 2026超级对抗赛",
+                "zones": {
+                    "nodes": [
+                        zone("614", "南部赛区", "30900"),
+                        zone("615", "东部赛区", "30988"),
+                        zone("616", "北部赛区", "31077"),
+                    ]
+                },
+            }
+        }
+    }
+
+    normalized = rmuc_live.normalize_schedule_payload(
+        payload,
+        fetched_at=datetime(2026, 5, 10, tzinfo=UTC),
+        source_headers={},
+    )
+
+    assert normalized["sourceStatus"] == "active"
+    assert {slug: len(region["matches"]) for slug, region in normalized["regions"].items()} == {
+        "south_region": 2,
+        "east_region": 2,
+        "north_region": 2,
+    }
+    match = normalized["regions"]["south_region"]["matches"][0]
+    assert match["officialMatchId"] == "30900"
+    assert match["redSlot"] == "A1"
+    assert match["blueSlot"] == "A9"
+    assert match["groupName"] == "A"
+    assert match["roundNumber"] == 1
+    assert match["plannedStartAt"] == "2026-05-13T00:10:00Z"
+    assert match["officialStatus"] == "WAITING"
+    assert match["isConfirmedMatchup"] is False
+    assert match["isCompleted"] is False
+    assert "redTeamKey" not in match
+    assert "blueTeamKey" not in match
+    assert normalized["regions"]["south_region"]["slotAssignments"] == {}
+    source_match = normalized["regions"]["south_region"]["matches"][1]
+    assert source_match["officialMatchId"] == "30900-round2"
+    assert source_match["groupName"] == "A"
+    assert source_match["roundNumber"] == 2
+    assert source_match["redSlot"] == ""
+    assert source_match["blueSlot"] == ""
+    assert source_match["redFillSourceType"] == "Group"
+    assert source_match["redFillSourceNumber"] == 1
+    assert source_match["blueFillSourceType"] == "Group"
+    assert source_match["isConfirmedMatchup"] is False
+
+
+def test_placeholder_schedule_does_not_emit_runtime_match_records() -> None:
+    payload = _schedule_payload()
+    match = payload["data"]["event"]["zones"]["nodes"][0]["groupMatches"]["nodes"][0]
+    match["status"] = "DONE"
+    match["result"] = "RED"
+    match["redSideWinGameCount"] = 2
+    match["blueSideWinGameCount"] = 0
+    match["redSide"] = {"player": _placeholder_player("A1")}
+    match["blueSide"] = {"player": _placeholder_player("A9")}
+
+    normalized = rmuc_live.normalize_schedule_payload(
+        payload,
+        fetched_at=datetime(2026, 5, 10, tzinfo=UTC),
+        source_headers={},
+    )
+
+    normalized_match = normalized["regions"]["south_region"]["matches"][0]
+    assert normalized_match["isConfirmedMatchup"] is False
+    assert normalized_match["isCompleted"] is False
+    assert rmuc_live.build_runtime_match_records(normalized) == []
 
 
 def test_normalize_schedule_payload_attaches_official_group_rank_metrics() -> None:

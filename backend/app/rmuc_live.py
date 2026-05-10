@@ -105,11 +105,55 @@ def _player_team(player: dict[str, Any] | None) -> dict[str, str] | None:
     }
 
 
-def _side_team(match: dict[str, Any], side: str) -> dict[str, str] | None:
+def _player_slot(player: dict[str, Any] | None) -> str:
+    if not isinstance(player, dict):
+        return ""
+    return str(player.get("name") or "").strip()
+
+
+def _side_payload(match: dict[str, Any], side: str) -> dict[str, Any] | None:
     side_payload = match.get(f"{side}Side")
     if not isinstance(side_payload, dict):
         return None
+    return side_payload
+
+
+def _side_team(match: dict[str, Any], side: str) -> dict[str, str] | None:
+    side_payload = _side_payload(match, side)
+    if side_payload is None:
+        return None
     return _player_team(side_payload.get("player"))
+
+
+def _side_slot(match: dict[str, Any], side: str) -> str:
+    side_payload = _side_payload(match, side)
+    if side_payload is None:
+        return ""
+    return _player_slot(side_payload.get("player"))
+
+
+def _side_source(match: dict[str, Any], side: str) -> dict[str, Any]:
+    side_payload = _side_payload(match, side)
+    if side_payload is None:
+        return {}
+    out: dict[str, Any] = {}
+    fill_source_type = str(side_payload.get("fillSourceType") or "").strip()
+    fill_source_id = str(side_payload.get("fillSourceId") or "").strip()
+    fill_source_number = _optional_int(side_payload.get("fillSourceNumber"))
+    fill_status = str(side_payload.get("fillStatus") or "").strip()
+    if fill_source_type:
+        out[f"{side}FillSourceType"] = fill_source_type
+    if fill_source_id:
+        out[f"{side}FillSourceId"] = fill_source_id
+    if fill_source_number is not None:
+        out[f"{side}FillSourceNumber"] = fill_source_number
+    if fill_status:
+        out[f"{side}FillStatus"] = fill_status
+    return out
+
+
+def _side_has_schedule_source(match: dict[str, Any], side: str) -> bool:
+    return bool(_side_slot(match, side) or _side_source(match, side))
 
 
 def _scoreline(match: dict[str, Any]) -> str:
@@ -316,6 +360,19 @@ def _swiss_round_from_order_number(order_number: int | None) -> int | None:
     if 61 <= order_number <= 66:
         return 5
     return None
+
+
+def _swiss_group_from_order_number(order_number: int | None) -> str:
+    if order_number is None:
+        return ""
+    round_number = _swiss_round_from_order_number(order_number)
+    if round_number is None:
+        return ""
+    start_by_round = {1: 1, 2: 17, 3: 33, 4: 49, 5: 61}
+    group_a_count_by_round = {1: 8, 2: 8, 3: 8, 4: 6, 5: 3}
+    start = start_by_round[round_number]
+    group_a_count = group_a_count_by_round[round_number]
+    return "A" if order_number < start + group_a_count else "B"
 
 
 def _post_group_normalized_order_number(order_number: int | None) -> int | None:
@@ -588,11 +645,16 @@ def _live_match_can_lock(match: dict[str, Any], matches: list[dict[str, Any]]) -
 def _normalize_match(match: dict[str, Any], *, region_slug: str, zone_name: str) -> dict[str, Any] | None:
     red = _side_team(match, "red")
     blue = _side_team(match, "blue")
-    if red is None or blue is None:
-        return None
     official_match_id = str(match.get("id") or "").strip()
     if not official_match_id:
         return None
+    red_slot = red["slot"] if red is not None else _side_slot(match, "red")
+    blue_slot = blue["slot"] if blue is not None else _side_slot(match, "blue")
+    if red is None and blue is None and not (
+        red_slot or blue_slot or _side_has_schedule_source(match, "red") or _side_has_schedule_source(match, "blue")
+    ):
+        return None
+    is_confirmed_matchup = red is not None and blue is not None
     status = str(match.get("status") or "").strip().upper()
     result = str(match.get("result") or "").strip().upper()
     scoreline = _scoreline(match)
@@ -602,7 +664,7 @@ def _normalize_match(match: dict[str, Any], *, region_slug: str, zone_name: str)
     group_name = ""
     round_number: int | None = None
     if stage == "swiss":
-        group_name = _slot_group_name(red["slot"], blue["slot"])
+        group_name = _slot_group_name(red_slot, blue_slot) or _swiss_group_from_order_number(order_number)
         round_number = _swiss_round_from_order_number(order_number)
     elif stage_family == "post_group":
         stage = _post_group_stage_from_order_number(order_number, region_slug) or stage
@@ -632,21 +694,35 @@ def _normalize_match(match: dict[str, Any], *, region_slug: str, zone_name: str)
         "officialStatus": status,
         "result": result,
         "scoreline": scoreline,
-        "isCompleted": status == "DONE" and result in {"RED", "BLUE"},
-        "isConfirmedMatchup": True,
-        "redSchoolKey": red["schoolKey"],
-        "redTeamKey": red["teamKey"],
-        "redCollegeName": red["collegeName"],
-        "redTeamName": red["teamName"],
-        "redSlot": red["slot"],
-        "blueSchoolKey": blue["schoolKey"],
-        "blueTeamKey": blue["teamKey"],
-        "blueCollegeName": blue["collegeName"],
-        "blueTeamName": blue["teamName"],
-        "blueSlot": blue["slot"],
+        "isCompleted": is_confirmed_matchup and status == "DONE" and result in {"RED", "BLUE"},
+        "isConfirmedMatchup": is_confirmed_matchup,
+        "redSlot": red_slot,
+        "blueSlot": blue_slot,
         "redWins": int(scoreline.split(":", maxsplit=1)[0]),
         "blueWins": int(scoreline.split(":", maxsplit=1)[1]),
     }
+    if red is not None:
+        normalized_match.update(
+            {
+                "redSchoolKey": red["schoolKey"],
+                "redTeamKey": red["teamKey"],
+                "redCollegeName": red["collegeName"],
+                "redTeamName": red["teamName"],
+            }
+        )
+    else:
+        normalized_match.update(_side_source(match, "red"))
+    if blue is not None:
+        normalized_match.update(
+            {
+                "blueSchoolKey": blue["schoolKey"],
+                "blueTeamKey": blue["teamKey"],
+                "blueCollegeName": blue["collegeName"],
+                "blueTeamName": blue["teamName"],
+            }
+        )
+    else:
+        normalized_match.update(_side_source(match, "blue"))
     if match_label:
         normalized_match["matchLabel"] = match_label
     return normalized_match
@@ -707,7 +783,14 @@ def normalize_schedule_payload(
                 normalized_match = _normalize_match(match, region_slug=region_slug, zone_name=zone_name)
                 if normalized_match is not None:
                     matches.append(normalized_match)
-        matches.sort(key=lambda row: (row["stageFamily"], row["orderNumber"], row["officialMatchId"]))
+        stage_family_order = {"regional_group": 0, "post_group": 1, "repechage": 2, "nationals": 3}
+        matches.sort(
+            key=lambda row: (
+                stage_family_order.get(str(row["stageFamily"]), 99),
+                row["orderNumber"],
+                row["officialMatchId"],
+            )
+        )
         slot_assignments = _collect_slot_assignments(zone)
         region_group_rank_metrics = dict(group_rank_metrics.get(region_slug, {}))
         for team_key, opponent_points in _computed_swiss_opponent_points(matches).items():
