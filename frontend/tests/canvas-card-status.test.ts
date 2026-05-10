@@ -87,6 +87,26 @@ describe("deriveMatchCardState", () => {
     ).toBe("已排期");
   });
 
+  it("does not call official placeholder matches scheduled before teams are confirmed", () => {
+    expect(
+      deriveMatchCardState(
+        match({
+          officialMatchId: "30900",
+          officialStatus: "WAITING",
+          plannedStartAt: "2026-05-13T00:10:00+00:00",
+          isConfirmedMatchup: false,
+          redTeam: { teamKey: "", collegeName: "A1", teamName: "官方槽位待确认", slot: "A1" },
+          blueTeam: { teamKey: "", collegeName: "A9", teamName: "官方槽位待确认", slot: "A9" },
+        }),
+        "live"
+      )
+    ).toMatchObject({
+      statusLabel: "队伍待定",
+      isOfficialPlaceholder: true,
+      isOfficialScheduled: false,
+    });
+  });
+
   it("keeps pure simulation mode out of the scheduled status", () => {
     expect(deriveMatchCardState(match(), "sim").statusLabel).toBe("模拟战果");
   });

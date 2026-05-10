@@ -60,15 +60,16 @@ export function formatMatchCardScheduleTime(plannedStartAt?: string | null) {
 export function deriveMatchCardState(row: MatchRow, mode?: "sim" | "live") {
   const isSimulationMode = mode === "sim";
   const hasRealResult = Boolean(row.isRealResult);
-  const isOfficialScheduled = !isSimulationMode && !hasRealResult && Boolean(row.officialMatchId);
-  const isOfficialPlaceholder = isOfficialScheduled && row.isConfirmedMatchup === false;
+  const isOfficialPlaceholder = !isSimulationMode && !hasRealResult && Boolean(row.officialMatchId) && row.isConfirmedMatchup === false;
+  const isOfficialScheduled = !isSimulationMode && !hasRealResult && Boolean(row.officialMatchId) && !isOfficialPlaceholder;
   const isPrediction = !isSimulationMode && !hasRealResult && !isOfficialScheduled;
   const showsResolvedScoreline = isSimulationMode || hasRealResult;
   const usesActualResultVisuals = isSimulationMode || hasRealResult;
   const scheduleTimeLabel = formatMatchCardScheduleTime(row.plannedStartAt);
   const statusLabel = (() => {
-    if (isPrediction) return "预测";
     if (hasRealResult) return "已完赛";
+    if (isOfficialPlaceholder) return "队伍待定";
+    if (isPrediction) return "预测";
     if (isOfficialScheduled) return "已排期";
     if (isSimulationMode) return "模拟战果";
     return "预测";
@@ -128,8 +129,9 @@ function TeamCanvasCardComponent({
   hasActiveHighlight: boolean;
   onTeamSelect: (teamKey: string) => void;
 }) {
-  const isSelected = selectedTeamKey === card.teamKey;
-  const isHighlighted = highlightedTeamKey === card.teamKey;
+  const hasTeamKey = Boolean(card.teamKey);
+  const isSelected = hasTeamKey && selectedTeamKey === card.teamKey;
+  const isHighlighted = hasTeamKey && highlightedTeamKey === card.teamKey;
   const dimmed = hasActiveHighlight && !isSelected && !isHighlighted;
   const teamState = deriveTeamCardState(card, mode);
   const { isSimulated, isSafe, isSummary, summaryLabel, visualTier } = teamState;
@@ -200,14 +202,14 @@ function TeamCanvasCardComponent({
         height: card.height,
       }}
       title={[card.collegeName, card.teamName, card.statLine, ...(card.meta ?? [])].filter(Boolean).join(" / ")}
-      onClick={() => {
+      onClick={hasTeamKey ? () => {
         if (pointerIntentRef.current?.moved) {
           pointerIntentRef.current = null;
           return;
         }
         onTeamSelect(card.teamKey);
         pointerIntentRef.current = null;
-      }}
+      } : undefined}
       onPointerDown={(event) => {
         pointerIntentRef.current = { x: event.clientX, y: event.clientY, moved: false };
       }}
@@ -657,6 +659,7 @@ function MatchCanvasCardComponent({
       return "border-2 border-rm-status-safe bg-[#0D0D10] shadow-[0_0_12px_rgba(0,232,120,0.15)]";
     }
     // Tier 2: scheduled — medium
+    if (isOfficialPlaceholder) return "border border-dashed border-rm-status-scheduled/45 bg-black/55";
     if (isOfficialScheduled) return "border border-rm-status-scheduled/50 bg-black/65";
     // Tier 3: pure prediction — dimmest
     if (isPrediction) return "border border-dashed border-rm-blue/12 bg-black/45";
@@ -675,6 +678,7 @@ function MatchCanvasCardComponent({
       return { label: "已完赛", className: "border-rm-status-safe text-rm-status-safe bg-rm-status-safe/20 shadow-[0_0_10px_rgba(0,232,120,0.3)]" };
     }
     // Tier 2: scheduled — muted
+    if (isOfficialPlaceholder) return { label: "队伍待定", className: "border-dashed border-rm-status-scheduled/55 text-rm-status-scheduled/75 bg-rm-status-scheduled/8" };
     if (isOfficialScheduled) return { label: "已排期", className: "border-rm-status-scheduled/60 text-rm-status-scheduled/80 bg-rm-status-scheduled/10" };
     // Tier 3: prediction — faint
     if (isPrediction) return { label: "预测", className: "border-rm-blue/30 text-rm-blue/50 bg-rm-blue/5" };

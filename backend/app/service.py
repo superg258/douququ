@@ -406,6 +406,69 @@ def _optional_float(value: Any) -> float | None:
     return float(value)
 
 
+SWISS_ROUND_START_MATCH_NUMBER = {
+    1: 1,
+    2: 17,
+    3: 33,
+    4: 49,
+    5: 61,
+}
+SWISS_GROUP_MATCH_COUNT = {
+    1: 8,
+    2: 8,
+    3: 8,
+    4: 6,
+    5: 3,
+}
+
+
+def _positive_int(value: Any) -> int | None:
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return None
+    if number <= 0:
+        return None
+    return number
+
+
+def _regional_match_number_from_label(match_label: str, region_slug: str) -> int | None:
+    parts = str(match_label or "").split("-")
+    if len(parts) == 4 and parts[0] in {"A", "B"} and parts[1] == "SWISS":
+        round_number = _positive_int(parts[2])
+        index = _positive_int(parts[3])
+        start = SWISS_ROUND_START_MATCH_NUMBER.get(round_number or 0)
+        group_count = SWISS_GROUP_MATCH_COUNT.get(round_number or 0)
+        if start and group_count and index is not None and index <= group_count:
+            return start + (group_count if parts[0] == "B" else 0) + index - 1
+
+    if len(parts) == 2:
+        stage, index_text = parts
+        index = _positive_int(index_text)
+        if stage == "R16" and index is not None and index <= 8:
+            return 66 + index
+        if stage == "QF" and index is not None and index <= 4:
+            return 74 + index
+        if stage == "SF" and index is not None and index <= 2:
+            return (86 if region_slug == "north_region" else 84) + index
+        if stage == "THIRD" and index == 1:
+            return 89 if region_slug == "north_region" else 87
+        if stage == "FINAL" and index == 1:
+            return 90 if region_slug == "north_region" else 88
+
+    if len(parts) == 3 and parts[0] == "QUAL":
+        round_code = parts[1]
+        index = _positive_int(parts[2])
+        if round_code == "1" and index is not None and index <= 4:
+            return 78 + index
+        if round_code == "2" and index is not None and index <= 2:
+            return 82 + index
+        if round_code == "R" and region_slug == "north_region" and index is not None and index <= 2:
+            return 84 + index
+
+    return None
+
+
 def _serialize_simulation(
     region_slug: str,
     seed: int,
@@ -484,6 +547,9 @@ def _serialize_simulation(
             "winnerNext": row["winner_next"],
             "loserNext": row["loser_next"],
         }
+        regional_match_number = _regional_match_number_from_label(str(row["match_label"]), region_slug)
+        if regional_match_number is not None:
+            serialized_match["regionalMatchNumber"] = regional_match_number
         if include_current_ratings:
             serialized_match["redCurrentElo"] = float(
                 _rating_fields_for_team(red_key, preseason_elo_by_team_key.get(red_key, 0.0), current_rating_index)["currentElo"]
@@ -794,18 +860,83 @@ def _live_schedule_metadata_by_label(region_slug: str) -> dict[str, dict[str, An
     return out
 
 
-def _official_placeholder_team_ref(schedule: dict[str, Any], side: str) -> dict[str, Any]:
+def _official_schedule_order_by_id(schedule_by_label: dict[str, dict[str, Any]]) -> dict[str, int]:
+    out: dict[str, int] = {}
+    for schedule in schedule_by_label.values():
+        official_match_id = str(schedule.get("officialMatchId") or "").strip()
+        order_number = _positive_int(schedule.get("orderNumber"))
+        if official_match_id and order_number is not None:
+            out[official_match_id] = order_number
+    return out
+
+
+def _official_group_source_by_id(schedule_by_label: dict[str, dict[str, Any]]) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for schedule in schedule_by_label.values():
+        match_label = str(schedule.get("matchLabel") or "")
+        if not match_label.startswith(("A-SWISS-", "B-SWISS-")):
+            continue
+        group_name = match_label[:1]
+        for side in ("red", "blue"):
+            source_type = str(schedule.get(f"{side}FillSourceType") or "").strip()
+            source_id = str(schedule.get(f"{side}FillSourceId") or "").strip()
+            if source_type == "Group" and source_id:
+                out[source_id] = group_name
+    return out
+
+
+def _fill_source_result_label(source_number: Any) -> str:
+    source_index = _positive_int(source_number)
+    if source_index == 1:
+        return "胜者"
+    if source_index == 2:
+        return "败者"
+    if source_index is not None:
+        return f"第 {source_index} 名"
+    return "晋级来源"
+
+
+def _official_placeholder_team_ref(
+    schedule: dict[str, Any],
+    side: str,
+    source_order_by_id: dict[str, int] | None = None,
+    group_source_by_id: dict[str, str] | None = None,
+) -> dict[str, Any]:
     slot = str(schedule.get(f"{side}Slot") or "").strip()
     source_type = str(schedule.get(f"{side}FillSourceType") or "").strip()
+    source_id = str(schedule.get(f"{side}FillSourceId") or "").strip()
     source_number = schedule.get(f"{side}FillSourceNumber")
     if slot:
         label = slot
         detail = "官方槽位待确认"
+    elif source_type == "Match" and source_id:
+        result_label = _fill_source_result_label(source_number)
+        source_match_number = (source_order_by_id or {}).get(source_id)
+        if source_match_number is not None:
+            label = f"第{source_match_number}场{result_label}"
+        elif result_label == "晋级来源":
+            label = "官方来源待确认"
+        else:
+            label = f"待确认比赛{result_label}"
+        detail = "晋级来源待确认"
+    elif source_type == "Group" and source_number not in (None, ""):
+        source_index = _positive_int(source_number)
+        group_name = (group_source_by_id or {}).get(source_id)
+        if group_name and source_index is not None:
+            label = f"{group_name}组第{source_index}名"
+        elif group_name:
+            label = f"{group_name}组第{source_number}名"
+        elif source_index is not None:
+            label = f"小组第{source_index}名"
+        else:
+            label = f"小组第{source_number}名"
+        detail = "官方晋级来源待确认"
     elif source_type and source_number not in (None, ""):
-        label = f"{source_type} #{source_number}"
+        source_index = _positive_int(source_number)
+        label = f"官方来源第 {source_index} 名" if source_index is not None else "官方来源待确认"
         detail = "官方晋级来源待确认"
     elif source_type:
-        label = source_type
+        label = "官方来源待确认"
         detail = "官方晋级来源待确认"
     else:
         label = "待定"
@@ -818,11 +949,16 @@ def _official_placeholder_team_ref(schedule: dict[str, Any], side: str) -> dict[
     }
 
 
-def _apply_unconfirmed_official_schedule(match: dict[str, Any], schedule: dict[str, Any]) -> None:
+def _apply_unconfirmed_official_schedule(
+    match: dict[str, Any],
+    schedule: dict[str, Any],
+    source_order_by_id: dict[str, int],
+    group_source_by_id: dict[str, str],
+) -> None:
     match["isConfirmedMatchup"] = False
     match["isRealResult"] = False
-    match["redTeam"] = _official_placeholder_team_ref(schedule, "red")
-    match["blueTeam"] = _official_placeholder_team_ref(schedule, "blue")
+    match["redTeam"] = _official_placeholder_team_ref(schedule, "red", source_order_by_id, group_source_by_id)
+    match["blueTeam"] = _official_placeholder_team_ref(schedule, "blue", source_order_by_id, group_source_by_id)
     match["scoreline"] = str(schedule.get("scoreline") or "0:0")
     match["winnerTeamKey"] = ""
     match["loserTeamKey"] = ""
@@ -857,12 +993,17 @@ def _attach_live_schedule_metadata(payload: dict[str, Any], region_slug: str) ->
     schedule_by_label = _live_schedule_metadata_by_label(region_slug)
     if not schedule_by_label:
         return
+    source_order_by_id = _official_schedule_order_by_id(schedule_by_label)
+    group_source_by_id = _official_group_source_by_id(schedule_by_label)
     for match in payload.get("matches", []):
         if not isinstance(match, dict):
             continue
         schedule = schedule_by_label.get(str(match.get("matchLabel") or ""))
         if not schedule:
             continue
+        order_number = _positive_int(schedule.get("orderNumber"))
+        if order_number is not None:
+            match["regionalMatchNumber"] = order_number
         if not match.get("plannedStartAt") and schedule.get("plannedStartAt"):
             match["plannedStartAt"] = str(schedule["plannedStartAt"])
         if not match.get("miniProgramPrediction") and isinstance(schedule.get("miniProgramPrediction"), dict):
@@ -872,7 +1013,7 @@ def _attach_live_schedule_metadata(payload: dict[str, Any], region_slug: str) ->
                 match["officialMatchId"] = str(schedule["officialMatchId"])
             if schedule.get("officialStatus"):
                 match["officialStatus"] = str(schedule["officialStatus"])
-            _apply_unconfirmed_official_schedule(match, schedule)
+            _apply_unconfirmed_official_schedule(match, schedule, source_order_by_id, group_source_by_id)
 
 
 def _published_match_rating_index(region_slug: str) -> dict[tuple[str, str], dict[str, Any]]:
@@ -1192,6 +1333,8 @@ def _prematch_schedule_state(data_source: str, match: dict[str, Any]) -> str:
         return "simulation"
     if data_source == "simulation_proxy":
         return "simulation_proxy"
+    if match.get("isConfirmedMatchup") is False:
+        return "official_placeholder"
     if match.get("plannedStartAt"):
         return "scheduled"
     return "confirmed_unfinished"
@@ -1539,9 +1682,10 @@ def build_prematch_center_payload(
                 review_matches.append(review_item)
                 continue
             pending_count += 1
-            if match.get("officialMatchId"):
+            is_confirmed_matchup = match.get("isConfirmedMatchup") is not False
+            if match.get("officialMatchId") and is_confirmed_matchup:
                 confirmed_pending_count += 1
-            if match.get("plannedStartAt"):
+            if match.get("plannedStartAt") and is_confirmed_matchup:
                 scheduled_count += 1
             upcoming_matches.append(
                 _serialize_prematch_item(
@@ -2036,6 +2180,142 @@ def _validated_live_slot_assignments(region_slug: str, context: rmuc_live.LiveRu
     return dict(assignments), None
 
 
+def _seed_tier_for_official_slot(slot: str) -> str:
+    try:
+        slot_number = int(slot[1:])
+    except (TypeError, ValueError):
+        return "unseeded"
+    if slot_number in {1, 3, 5, 7}:
+        return "tier1"
+    if slot_number in {2, 4, 6, 8}:
+        return "tier2"
+    return "unseeded"
+
+
+def _official_live_slot_placeholders(region_slug: str, context: rmuc_live.LiveRuntimeContext) -> list[dict[str, Any]]:
+    region_name = resolve_region_name(region_slug)
+    ratings_by_team_key = {
+        str(row["team_key"]): row
+        for row in load_ratings_rows()
+        if row.get("admitted_region") == region_name
+    }
+    team_key_by_slot = {slot: team_key for team_key, slot in context.slot_assignments.items()}
+    out: list[dict[str, Any]] = []
+    for index, slot in enumerate(region_sim.region_core.ALL_SLOTS, start=1):
+        team_key = team_key_by_slot.get(slot)
+        rating_row = ratings_by_team_key.get(team_key or "")
+        if rating_row is not None and team_key:
+            preseason_elo = float(rating_row["mu0"])
+            out.append(
+                {
+                    "teamKey": team_key,
+                    "collegeName": rating_row["college_name"],
+                    "teamName": rating_row["team_name"],
+                    "groupName": slot[:1],
+                    "slot": slot,
+                    "drawBox": "official",
+                    "seedTier": rating_row["seed_tier"],
+                    "seedRankInRegion": int(rating_row["seed_rank_in_region"]),
+                    "mu0": preseason_elo,
+                    "sigma0": float(rating_row["sigma0"]),
+                    "eloGlobalRank": load_preseason_global_elo_rank_map().get(team_key, index),
+                }
+            )
+            continue
+        out.append(
+            {
+                "teamKey": "",
+                "collegeName": slot,
+                "teamName": "学校队伍待确认",
+                "groupName": slot[:1],
+                "slot": slot,
+                "drawBox": "official_placeholder",
+                "seedTier": _seed_tier_for_official_slot(slot),
+                "seedRankInRegion": index,
+                "mu0": 0.0,
+                "sigma0": 0.0,
+                "eloGlobalRank": 0,
+            }
+        )
+    return out
+
+
+def _final_bucket_for_placeholder_rank(rank: int, national_slots: int, repechage_slots: int) -> str:
+    if rank == 1:
+        return "champion"
+    if rank == 2:
+        return "runner_up"
+    if rank == 3:
+        return "third_place"
+    if rank == 4:
+        return "fourth_place"
+    if rank <= 8:
+        return "quarterfinalist"
+    if rank <= national_slots:
+        return "national_via_qualifier"
+    if rank <= national_slots + repechage_slots:
+        return "repechage_direct"
+    return "group_eliminated"
+
+
+def _official_live_final_ranking_placeholders(region_slug: str) -> list[dict[str, Any]]:
+    region_name = resolve_region_name(region_slug)
+    config = region_sim.REGION_CONFIGS[region_name]
+    national_slots = int(config["national_slots"])
+    repechage_slots = int(config["repechage_slots"])
+    rows: list[dict[str, Any]] = []
+    for rank in range(1, len(region_sim.region_core.ALL_SLOTS) + 1):
+        if rank <= national_slots:
+            advancement = "national_qualified"
+        elif rank <= national_slots + repechage_slots:
+            advancement = "repechage_qualified"
+        else:
+            advancement = "group_eliminated"
+        rows.append(
+            {
+                "rank": rank,
+                "teamKey": "",
+                "collegeName": "待确认",
+                "teamName": "学校队伍待确认",
+                "groupName": "",
+                "slot": None,
+                "seedTier": "official_placeholder",
+                "seedRankInRegion": 0,
+                "swissWins": 0,
+                "swissLosses": 0,
+                "swissGroupRank": None,
+                "rankingMetricSource": "official_placeholder",
+                "mu0": 0.0,
+                "finalBucket": _final_bucket_for_placeholder_rank(rank, national_slots, repechage_slots),
+                "advancement": advancement,
+            }
+        )
+    return rows
+
+
+def _live_final_rankings_are_official(payload: dict[str, Any]) -> bool:
+    final_matches = [
+        match
+        for match in payload.get("matches", [])
+        if match.get("stage") in {"final", "third_place"}
+    ]
+    return bool(final_matches) and all(
+        match.get("officialMatchId") and match.get("isRealResult") for match in final_matches
+    )
+
+
+def _replace_unofficial_live_final_rankings(payload: dict[str, Any], region_slug: str) -> None:
+    payload["finalRankings"] = _official_live_final_ranking_placeholders(region_slug)
+    summary = payload.setdefault("summary", {})
+    placeholder_ref = {"teamKey": "", "collegeName": "待确认", "teamName": "学校队伍待确认"}
+    summary["champion"] = placeholder_ref
+    summary["runnerUp"] = placeholder_ref
+    summary["thirdPlace"] = placeholder_ref
+    summary["fourthPlace"] = placeholder_ref
+    summary["nationalQualifiers"] = []
+    summary["repechageQualifiers"] = []
+
+
 def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", samples: int = DEFAULT_SIMULATION_SAMPLES) -> dict[str, Any]:
     region_name = resolve_region_name(region_slug)
     slot_assignments: dict[str, str] | None = None
@@ -2074,8 +2354,18 @@ def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", sam
     )
     if mode == "live" and context.source_status == "active":
         _attach_live_schedule_metadata(payload, region_slug)
+        if slot_assignments is None:
+            payload["slots"] = _official_live_slot_placeholders(region_slug, context)
+        if not _live_final_rankings_are_official(payload):
+            _replace_unofficial_live_final_rankings(payload, region_slug)
     if mode == "live":
         live_status = payload["meta"].setdefault("liveStatus", {})
-        live_status["slotAssignmentSource"] = "official" if slot_assignments is not None else "simulated_fallback"
+        live_status["slotAssignmentSource"] = (
+            "official"
+            if slot_assignments is not None
+            else "official_placeholder"
+            if context.source_status == "active"
+            else "simulated_fallback"
+        )
         live_status["slotAssignmentReason"] = live_slot_assignment_reason
     return payload

@@ -711,6 +711,72 @@ def test_live_state_uses_published_artifacts_when_present(tmp_path, monkeypatch)
     assert payload["teamIndex"]["alpha::main"]["schoolKey"] == "alpha"
 
 
+def test_official_live_slot_placeholders_do_not_emit_simulated_slots() -> None:
+    context = service.rmuc_live.LiveRuntimeContext(
+        region_slug="south_region",
+        source_status="active",
+        reason=None,
+        matches_by_pair={},
+        matches_by_pair_round={},
+        matches_by_pair_label={},
+        swiss_pairings={},
+        slot_assignments={},
+        group_rank_metrics={},
+        completed_count=0,
+        confirmed_count=0,
+    )
+
+    slots = service._official_live_slot_placeholders("south_region", context)
+
+    assert len(slots) == 32
+    assert {slot["slot"] for slot in slots} == set(service.region_sim.region_core.ALL_SLOTS)
+    assert all(slot["teamKey"] == "" for slot in slots)
+    assert slots[0]["collegeName"] == "A1"
+    assert slots[0]["teamName"] == "学校队伍待确认"
+    slots_by_slot = {slot["slot"]: slot for slot in slots}
+    assert slots_by_slot["A1"]["seedTier"] == "tier1"
+    assert slots_by_slot["A2"]["seedTier"] == "tier2"
+    assert slots_by_slot["A9"]["seedTier"] == "unseeded"
+    assert slots_by_slot["B1"]["seedTier"] == "tier1"
+    assert slots_by_slot["B2"]["seedTier"] == "tier2"
+    assert slots_by_slot["B9"]["seedTier"] == "unseeded"
+    assert all(slot["collegeName"] != "上海交通大学" for slot in slots)
+
+
+def test_live_payload_hides_unofficial_final_rankings(tmp_path, monkeypatch) -> None:
+    normalized_path = tmp_path / "normalized_schedule.json"
+    normalized_path.write_text(
+        json.dumps(
+            {
+                "sourceStatus": "active",
+                "sourceUpdatedAt": "2026-05-10T12:00:00+08:00",
+                "regions": {
+                    "south_region": {
+                        "matches": [],
+                        "slotAssignments": {},
+                        "groupRankMetrics": {},
+                    }
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(service, "NORMALIZED_LIVE_SCHEDULE_PATH", normalized_path)
+    service._reset_live_state_caches()
+
+    payload = service.build_simulation_payload("south_region", 20260414, mode="live", samples=8)
+
+    assert payload["meta"]["liveStatus"]["sourceStatus"] == "active"
+    assert payload["finalRankings"]
+    assert all(row["teamKey"] == "" for row in payload["finalRankings"])
+    assert all(row["collegeName"] != "上海交通大学" for row in payload["finalRankings"])
+    assert payload["finalRankings"][0]["collegeName"] == "待确认"
+    assert payload["finalRankings"][0]["teamName"] == "学校队伍待确认"
+    assert payload["summary"]["nationalQualifiers"] == []
+    assert payload["summary"]["repechageQualifiers"] == []
+
+
 def _fake_match(
     *,
     match_label: str,
@@ -875,6 +941,121 @@ def test_live_schedule_metadata_uses_unconfirmed_official_placeholder(tmp_path, 
     assert match["blueTeam"]["collegeName"] == "A9"
     assert match["pSeriesRed"] == 0.5
     assert match["winnerTeamKey"] == ""
+
+
+def test_live_schedule_metadata_names_unconfirmed_source_matches(tmp_path, monkeypatch) -> None:
+    normalized_path = tmp_path / "normalized_schedule.json"
+    normalized_path.write_text(
+        json.dumps(
+            {
+                "sourceStatus": "active",
+                "regions": {
+                    "south_region": {
+                        "matches": [
+                            {
+                                "matchLabel": "A-SWISS-2-1",
+                                "isConfirmedMatchup": False,
+                                "redFillSourceType": "Group",
+                                "redFillSourceId": "2707",
+                                "redFillSourceNumber": 1,
+                                "blueFillSourceType": "Group",
+                                "blueFillSourceId": "2707",
+                                "blueFillSourceNumber": 2,
+                            },
+                            {
+                                "matchLabel": "B-SWISS-2-1",
+                                "isConfirmedMatchup": False,
+                                "redFillSourceType": "Group",
+                                "redFillSourceId": "2708",
+                                "redFillSourceNumber": 2,
+                                "blueFillSourceType": "Group",
+                                "blueFillSourceId": "2708",
+                                "blueFillSourceNumber": 1,
+                            },
+                            {
+                                "matchLabel": "R16-1",
+                                "officialMatchId": "30966",
+                                "orderNumber": 67,
+                                "officialStatus": "WAITING",
+                                "isConfirmedMatchup": False,
+                                "scoreline": "0:0",
+                                "redFillSourceType": "Group",
+                                "redFillSourceId": "2708",
+                                "redFillSourceNumber": 1,
+                                "blueFillSourceType": "Group",
+                                "blueFillSourceId": "2707",
+                                "blueFillSourceNumber": 8,
+                            },
+                            {
+                                "matchLabel": "R16-2",
+                                "officialMatchId": "30967",
+                                "orderNumber": 68,
+                                "isConfirmedMatchup": False,
+                            },
+                            {
+                                "matchLabel": "QUAL-1-1",
+                                "officialMatchId": "30978",
+                                "orderNumber": 79,
+                                "officialStatus": "WAITING",
+                                "plannedStartAt": "2026-05-16T17:30:00+08:00",
+                                "isConfirmedMatchup": False,
+                                "scoreline": "0:0",
+                                "redFillSourceType": "Match",
+                                "redFillSourceId": "30966",
+                                "redFillSourceNumber": 2,
+                                "blueFillSourceType": "Match",
+                                "blueFillSourceId": "30967",
+                                "blueFillSourceNumber": 2,
+                            }
+                        ]
+                    }
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(service, "NORMALIZED_LIVE_SCHEDULE_PATH", normalized_path)
+    payload = {
+        "matches": [
+            _fake_match(
+                match_label="R16-1",
+                planned_start_at=None,
+                is_real_result=False,
+                p_series_red=0.72,
+                p_game_red=0.64,
+                official_status=None,
+                official_match_id=None,
+            ),
+            _fake_match(
+                match_label="QUAL-1-1",
+                planned_start_at=None,
+                is_real_result=False,
+                p_series_red=0.72,
+                p_game_red=0.64,
+                official_status=None,
+                official_match_id=None,
+            )
+        ]
+    }
+
+    service._attach_live_schedule_metadata(payload, "south_region")
+
+    round_of_16 = payload["matches"][0]
+    assert round_of_16["regionalMatchNumber"] == 67
+    assert round_of_16["redTeam"]["collegeName"] == "B组第1名"
+    assert round_of_16["blueTeam"]["collegeName"] == "A组第8名"
+
+    match = payload["matches"][1]
+    assert match["regionalMatchNumber"] == 79
+    assert match["redTeam"] == {
+        "teamKey": "",
+        "collegeName": "第67场败者",
+        "teamName": "晋级来源待确认",
+        "slot": None,
+    }
+    assert match["blueTeam"]["collegeName"] == "第68场败者"
+    assert match["blueTeam"]["teamName"] == "晋级来源待确认"
 
 
 def test_prematch_center_groups_today_next_and_prediction_signals(monkeypatch) -> None:
@@ -1877,3 +2058,56 @@ def test_prematch_center_excludes_simulation_proxy_matches_from_mixed_live_paylo
     assert payload["pendingMatchCount"] == 1
     assert payload["confirmedPendingMatchCount"] == 1
     assert payload["scheduledPendingMatchCount"] == 1
+
+
+def test_prematch_center_does_not_count_official_placeholders_as_scheduled(monkeypatch) -> None:
+    placeholder = _fake_match(
+        match_label="A-SWISS-1-1",
+        planned_start_at="2026-05-13T08:10:00+08:00",
+        is_real_result=False,
+        p_series_red=0.5,
+        p_game_red=0.5,
+        official_match_id="30900",
+        official_status="WAITING",
+        red_team_key="",
+        blue_team_key="",
+        winner_team_key="",
+        scoreline="0:0",
+    )
+    placeholder["isConfirmedMatchup"] = False
+    placeholder["redTeam"] = {"teamKey": "", "collegeName": "A1", "teamName": "官方槽位待确认", "slot": "A1"}
+    placeholder["blueTeam"] = {"teamKey": "", "collegeName": "A9", "teamName": "官方槽位待确认", "slot": "A9"}
+
+    def fake_simulation(region_slug: str, seed: int, mode: str = "sim", samples: int = service.DEFAULT_SIMULATION_SAMPLES) -> dict[str, object]:
+        return {
+            "meta": {
+                "regionSlug": region_slug,
+                "regionName": "南部赛区",
+                "seed": seed,
+                "generatedAt": "2026-05-10T00:00:00+00:00",
+                "liveStatus": {
+                    "sourceStatus": "active",
+                    "sourceReason": None,
+                    "sourceUpdatedAt": "2026-05-10T00:00:00+00:00",
+                    "completedOfficialMatches": 0,
+                    "confirmedOfficialMatches": 0,
+                    "ledgerRows": 0,
+                },
+            },
+            "matches": [placeholder],
+        }
+
+    monkeypatch.setattr(service, "build_simulation_payload", fake_simulation)
+
+    payload = service.build_prematch_center_payload(
+        seed=20260414,
+        mode="live",
+        date="2026-05-13",
+        region_slugs=["south_region"],
+        now=datetime(2026, 5, 13, 7, 0, tzinfo=service._prematch_timezone("Asia/Shanghai")),
+    )
+
+    assert payload["pendingMatchCount"] == 1
+    assert payload["confirmedPendingMatchCount"] == 0
+    assert payload["scheduledPendingMatchCount"] == 0
+    assert payload["allUpcomingMatches"][0]["scheduleState"] == "official_placeholder"

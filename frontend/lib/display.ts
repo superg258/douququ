@@ -43,11 +43,11 @@ const CONFIDENCE_LABELS: Record<string, string> = {
 };
 
 const SEED_TIER_LABELS: Record<string, string> = {
-  tier1: "一档种子",
-  tier2: "二档种子",
+  tier1: "第一梯队",
+  tier2: "第二梯队",
   unseeded: "非种子",
-  S1: "一档种子",
-  S2: "二档种子",
+  S1: "第一梯队",
+  S2: "第二梯队",
   U: "非种子",
 };
 

@@ -50,7 +50,7 @@ function CardGrid({ matches }: { matches: PrematchCenterMatch[] }) {
 }
 
 function isScheduled(m: PrematchCenterMatch) {
-  return m.scheduleState === "scheduled" || m.scheduleState === "confirmed_unfinished";
+  return m.scheduleState === "scheduled" || m.scheduleState === "confirmed_unfinished" || m.scheduleState === "official_placeholder";
 }
 
 export function PrematchCenter() {

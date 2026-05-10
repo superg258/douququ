@@ -185,6 +185,7 @@ export interface MatchRow {
   stage: string;
   stageOrder: number;
   roundNumber: number;
+  regionalMatchNumber?: number;
   groupName: string;
   bestOf: number;
   isRealResult?: boolean;
@@ -482,7 +483,7 @@ export type InspectorSelection =
    ═══════════════════════════════════════════════════════════ */
 
 export type PrematchDataSource = "official_live" | "simulation" | "simulation_proxy";
-export type PrematchScheduleState = "simulation" | "simulation_proxy" | "scheduled" | "confirmed_unfinished";
+export type PrematchScheduleState = "simulation" | "simulation_proxy" | "scheduled" | "confirmed_unfinished" | "official_placeholder";
 export type PrematchRequestedMode = "live" | "sim";
 export type PrematchEffectiveMode = "live" | "sim" | "simulation_proxy";
 export type PrematchTimelineState =

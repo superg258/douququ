@@ -67,6 +67,17 @@ export function isRegionRealtimeEnabled(regionSlug: RegionSlug, liveState?: Live
   return deriveRealtimeAvailability(regionSlug, liveState).enabled;
 }
 
+export function resolveWorkspaceDataMode(
+  requestedMode: "sim" | "live",
+  realtimeStatusLoaded: boolean,
+  realtimeEnabled: boolean
+) {
+  if (requestedMode === "sim") {
+    return "sim";
+  }
+  return !realtimeStatusLoaded || realtimeEnabled ? "live" : "sim";
+}
+
 export function isValidSeed(value: number | null | undefined) {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
 }

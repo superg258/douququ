@@ -13,7 +13,15 @@ import { cn } from "@/lib/utils";
 import { buildWorkspaceStage } from "@/lib/canvas-builders";
 import { formatMatchLabel, formatRankingResultLabel, translateConfidenceLabel, translateStageLabel } from "@/lib/display";
 import { buildPredictionRecap } from "@/lib/prediction-insights";
-import { buildRegionHref, getOrCreateSessionSeed, parseSeed, refreshSessionSeed, REGION_LABELS, REGION_VIEWS } from "@/lib/region-config";
+import {
+  buildRegionHref,
+  getOrCreateSessionSeed,
+  parseSeed,
+  refreshSessionSeed,
+  REGION_LABELS,
+  REGION_VIEWS,
+  resolveWorkspaceDataMode,
+} from "@/lib/region-config";
 import { buildTeamHref } from "@/lib/team-profile";
 import { sortTeamsForWorkspaceSearch } from "@/lib/workspace-search";
 import { deriveRealtimeAvailability } from "@/lib/realtime";
@@ -562,7 +570,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
     [realtimeState, regionSlug]
   );
   const realtimeEnabled = realtimeAvailability.enabled;
-  const dataMode = realtimeEnabled && requestedMode === "live" ? "live" : "sim";
+  const dataMode = resolveWorkspaceDataMode(requestedMode, realtimeStatusLoaded, realtimeEnabled);
   const requestedLiveFallback = requestedMode === "live" && realtimeStatusLoaded && !realtimeEnabled;
 
   useEffect(() => {

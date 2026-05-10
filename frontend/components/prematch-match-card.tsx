@@ -41,9 +41,9 @@ function SignalStrip({
   if (match.isConfirmedMatchup === false) {
     return (
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[10px] text-rm-metal-textFaint">
-        <span className="text-rm-status-scheduled font-semibold shrink-0">官方排期</span>
+        <span className="text-rm-status-scheduled font-semibold shrink-0">官方占位</span>
         <span className="text-rm-metal-textFaint/30">·</span>
-        <span>真实对阵待确认</span>
+        <span>学校队伍待确认</span>
       </div>
     );
   }
@@ -293,7 +293,7 @@ export function PrematchMatchCard({
           </span>
           {isOfficialPlaceholder ? (
             <span className="shrink-0 border border-rm-status-scheduled/30 bg-rm-status-scheduled/8 px-2 py-0.5 font-mono text-[10px] text-rm-status-scheduled">
-              待确认
+              队伍待定
             </span>
           ) : (
             <>
@@ -331,7 +331,7 @@ export function PrematchMatchCard({
           </div>
           {isOfficialPlaceholder ? (
             <div className="border border-rm-status-scheduled/25 bg-rm-status-scheduled/8 py-1 text-center font-mono text-[10px] text-rm-status-scheduled">
-              真实对阵待确认
+              学校队伍待确认
             </div>
           ) : (
             <SplitBar redRate={match.pSeriesRed} blueRate={match.pSeriesBlue} barHeight="h-2" />

@@ -8,6 +8,7 @@ import {
   getOrCreateSessionSeed,
   parseSeed,
   refreshSessionSeed,
+  resolveWorkspaceDataMode,
 } from "@/lib/region-config";
 
 function installSessionStorage(initialValue?: string) {
@@ -58,6 +59,13 @@ describe("region-config", () => {
     expect(href).toContain("seed=20261111");
     expect(href).toContain("highlight=red-team");
     expect(href).toContain("mode=live");
+  });
+
+  it("keeps a live URL in live data mode while realtime status is still loading", () => {
+    expect(resolveWorkspaceDataMode("live", false, false)).toBe("live");
+    expect(resolveWorkspaceDataMode("live", true, true)).toBe("live");
+    expect(resolveWorkspaceDataMode("live", true, false)).toBe("sim");
+    expect(resolveWorkspaceDataMode("sim", false, true)).toBe("sim");
   });
 
   it("reuses the stored session seed before creating a new one", () => {

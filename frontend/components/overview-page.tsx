@@ -41,7 +41,9 @@ export function OverviewPage() {
           const scheduled = sortPrematchMatchesByTime(
             prematchRes.allUpcomingMatches.filter(
               (m: PrematchCenterMatch) =>
-                m.scheduleState === "scheduled" || m.scheduleState === "confirmed_unfinished"
+                m.scheduleState === "scheduled" ||
+                m.scheduleState === "confirmed_unfinished" ||
+                m.scheduleState === "official_placeholder"
             )
           );
           for (const slug of ["south_region", "east_region", "north_region"] as RegionSlug[]) {

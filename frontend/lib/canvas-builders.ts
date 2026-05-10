@@ -140,6 +140,23 @@ const SWISS_STAGE_FLOWS: Array<{ sourceId: string; targetIds: string[]; tone: Ca
   { sourceId: "r5-2-2", targetIds: ["qualified-3-2", "eliminated-2-3"], tone: "amber" },
 ];
 
+const SWISS_OFFICIAL_PLACEHOLDER_BUCKETS: Record<number, SwissBucketKey[]> = {
+  1: ["0-0", "0-0", "0-0", "0-0", "0-0", "0-0", "0-0", "0-0"],
+  2: ["1-0", "1-0", "1-0", "1-0", "0-1", "0-1", "0-1", "0-1"],
+  3: ["2-0", "2-0", "1-1", "1-1", "1-1", "1-1", "0-2", "0-2"],
+  4: ["2-1", "2-1", "2-1", "1-2", "1-2", "1-2"],
+  5: ["2-2", "2-2", "2-2"],
+};
+
+const SWISS_OFFICIAL_PLACEHOLDER_SUMMARY_COUNTS: Record<SwissSummaryId, number> = {
+  "qualified-3-0": 2,
+  "qualified-3-1": 3,
+  "qualified-3-2": 3,
+  "eliminated-0-3": 2,
+  "eliminated-1-3": 3,
+  "eliminated-2-3": 3,
+};
+
 function splitScoreline(scoreline: string) {
   const [left = "0", right = "0"] = scoreline.split(":");
   return [left, right] as const;
@@ -186,6 +203,83 @@ function compactMatchCode(matchLabel: string) {
   return matchLabel;
 }
 
+const SWISS_ROUND_START_MATCH_NUMBER: Record<number, number> = {
+  1: 1,
+  2: 17,
+  3: 33,
+  4: 49,
+  5: 61,
+};
+
+const SWISS_GROUP_MATCH_COUNT: Record<number, number> = {
+  1: 8,
+  2: 8,
+  3: 8,
+  4: 6,
+  5: 3,
+};
+
+function deriveRegionalMatchNumber(matchLabel: string, regionSlug: RegionSlug) {
+  const swissMatch = matchLabel.match(/^([AB])-SWISS-(\d+)-(\d+)$/);
+  if (swissMatch) {
+    const groupName = swissMatch[1];
+    const roundNumber = Number.parseInt(swissMatch[2], 10);
+    const index = Number.parseInt(swissMatch[3], 10);
+    const start = SWISS_ROUND_START_MATCH_NUMBER[roundNumber];
+    const groupCount = SWISS_GROUP_MATCH_COUNT[roundNumber];
+    if (start && groupCount && index >= 1 && index <= groupCount) {
+      return start + (groupName === "B" ? groupCount : 0) + index - 1;
+    }
+  }
+
+  const twoPartMatch = matchLabel.match(/^(R16|QF|SF)-(\d+)$/);
+  if (twoPartMatch) {
+    const stage = twoPartMatch[1];
+    const index = Number.parseInt(twoPartMatch[2], 10);
+    if (stage === "R16" && index >= 1 && index <= 8) {
+      return 66 + index;
+    }
+    if (stage === "QF" && index >= 1 && index <= 4) {
+      return 74 + index;
+    }
+    if (stage === "SF" && index >= 1 && index <= 2) {
+      return (regionSlug === "north_region" ? 86 : 84) + index;
+    }
+  }
+
+  const qualificationMatch = matchLabel.match(/^QUAL-(1|2|R)-(\d+)$/);
+  if (qualificationMatch) {
+    const round = qualificationMatch[1];
+    const index = Number.parseInt(qualificationMatch[2], 10);
+    if (round === "1" && index >= 1 && index <= 4) {
+      return 78 + index;
+    }
+    if (round === "2" && index >= 1 && index <= 2) {
+      return 82 + index;
+    }
+    if (round === "R" && regionSlug === "north_region" && index >= 1 && index <= 2) {
+      return 84 + index;
+    }
+  }
+
+  if (matchLabel === "THIRD-1") {
+    return regionSlug === "north_region" ? 89 : 87;
+  }
+  if (matchLabel === "FINAL-1") {
+    return regionSlug === "north_region" ? 90 : 88;
+  }
+
+  return null;
+}
+
+function formatRegionalMatchDisplayLabel(match: MatchRow, regionSlug: RegionSlug) {
+  const matchNumber = match.regionalMatchNumber ?? deriveRegionalMatchNumber(match.matchLabel, regionSlug);
+  if (matchNumber) {
+    return `第${matchNumber}场`;
+  }
+  return formatMatchLabel(match.matchLabel);
+}
+
 function stageMeta(match: MatchRow) {
   return `${translateStageLabel(match.stage)} / BO${match.bestOf}`;
 }
@@ -215,6 +309,7 @@ function buildMatchCard(
     height?: number;
     variant?: MatchCanvasCard["variant"];
     showProbability?: boolean;
+    regionSlug?: RegionSlug;
   }
 ): MatchCanvasCard {
   const [redScore, blueScore] = splitScoreline(match.scoreline);
@@ -227,7 +322,7 @@ function buildMatchCard(
     height: options?.height ?? MATCH_CARD_HEIGHT,
     tone: stageTone(match.stage),
     orderLabel: options?.orderLabel ?? compactMatchCode(match.matchLabel),
-    displayLabel: options?.displayLabel ?? formatMatchLabel(match.matchLabel),
+    displayLabel: options?.displayLabel ?? (options?.regionSlug ? formatRegionalMatchDisplayLabel(match, options.regionSlug) : formatMatchLabel(match.matchLabel)),
     metaLabel: options?.metaLabel ?? stageMeta(match),
     variant: options?.variant ?? "standard",
     showProbability: options?.showProbability ?? false,
@@ -380,6 +475,18 @@ function connectCardGroupToCard(
   };
 }
 
+function isOfficialPlaceholderMatch(match: MatchRow) {
+  return Boolean(match.officialMatchId) && (match.isConfirmedMatchup === false || !match.redTeam.teamKey || !match.blueTeam.teamKey);
+}
+
+function isOfficialPlaceholderSwissMatch(match: MatchRow) {
+  return match.stage === "swiss" && isOfficialPlaceholderMatch(match);
+}
+
+function officialPlaceholderSwissBucket(roundNumber: number, indexInRound: number) {
+  return SWISS_OFFICIAL_PLACEHOLDER_BUCKETS[roundNumber]?.[indexInRound] ?? null;
+}
+
 function replaySwissBuckets(simulation: SimulationResponse, groupName: "A" | "B"): SwissReplayArtifacts {
   const groupMatches = simulation.matches
     .filter((match) => match.stage === "swiss" && match.groupName === groupName)
@@ -410,8 +517,21 @@ function replaySwissBuckets(simulation: SimulationResponse, groupName: "A" | "B"
     }
     return state.get(teamKey)!;
   };
+  const officialPlaceholderCountByRound = new Map<number, number>();
 
   for (const match of groupMatches) {
+    if (isOfficialPlaceholderSwissMatch(match)) {
+      const indexInRound = officialPlaceholderCountByRound.get(match.roundNumber) ?? 0;
+      officialPlaceholderCountByRound.set(match.roundNumber, indexInRound + 1);
+      const bucket = officialPlaceholderSwissBucket(match.roundNumber, indexInRound);
+      if (bucket) {
+        const bucketKey = `${match.roundNumber}:${bucket}`;
+        matchBuckets[bucketKey] ??= [];
+        matchBuckets[bucketKey].push(match.matchLabel);
+      }
+      continue;
+    }
+
     const redState = ensureState(match.redTeam.teamKey);
     const blueState = ensureState(match.blueTeam.teamKey);
     const bucketKey = `${match.roundNumber}:${redState.wins}-${redState.losses}`;
@@ -495,6 +615,7 @@ interface QualificationOutcomeRow {
   sourceLabel: string;
   sourceStage: QualificationSourceStage;
   isSimulated: boolean;
+  statLine?: string;
 }
 
 function buildQualificationOutcomeRows(simulation: SimulationResponse) {
@@ -505,6 +626,7 @@ function buildQualificationOutcomeRows(simulation: SimulationResponse) {
     eliminated: [],
   };
   const seen = new Set<string>();
+  let placeholderIndex = 0;
 
   const pushOutcome = (
     teamKey: string,
@@ -525,6 +647,67 @@ function buildQualificationOutcomeRows(simulation: SimulationResponse) {
     outcomes[bucket].push({ row, sourceLabel, sourceStage, isSimulated });
   };
 
+  const pushPlaceholderOutcome = (
+    bucket: QualificationOutcomeKey,
+    sourceLabel: string,
+    sourceStage: QualificationSourceStage
+  ) => {
+    placeholderIndex += 1;
+    outcomes[bucket].push({
+      row: {
+        teamKey: "",
+        collegeName: "待确认",
+        teamName: "学校队伍待确认",
+        slot: null,
+        rank: 1000 + placeholderIndex,
+        groupName: "",
+        seedTier: "official_placeholder",
+        seedRankInRegion: 0,
+        swissWins: 0,
+        swissLosses: 0,
+        swissGroupRank: null,
+        mu0: 0,
+        finalBucket: bucket === "national" ? "national_qualified" : bucket === "repechage" ? "repechage_qualified" : "group_eliminated",
+        advancement: bucket === "national" ? "national_qualified" : bucket === "repechage" ? "repechage_qualified" : "group_eliminated",
+      },
+      sourceLabel,
+      sourceStage,
+      isSimulated: true,
+      statLine: `${sourceLabel} / 学校队伍待确认`,
+    });
+  };
+
+  const pushDestination = (
+    destination: string,
+    teamKey: string,
+    sideLabel: string,
+    sourceStage: QualificationSourceStage,
+    isSimulated: boolean,
+    isPlaceholder: boolean
+  ) => {
+    if (destination === "national_qualified") {
+      if (isPlaceholder) {
+        pushPlaceholderOutcome("national", sideLabel, sourceStage);
+      } else {
+        pushOutcome(teamKey, "national", sideLabel, sourceStage, isSimulated);
+      }
+    }
+    if (destination === "repechage_qualified") {
+      if (isPlaceholder) {
+        pushPlaceholderOutcome("repechage", sideLabel, sourceStage);
+      } else {
+        pushOutcome(teamKey, "repechage", sideLabel, sourceStage, isSimulated);
+      }
+    }
+    if (destination === "eliminated") {
+      if (isPlaceholder) {
+        pushPlaceholderOutcome("eliminated", sideLabel, sourceStage);
+      } else {
+        pushOutcome(teamKey, "eliminated", sideLabel, sourceStage, isSimulated);
+      }
+    }
+  };
+
   simulation.matches
     .filter((match) => match.matchLabel.startsWith("QUAL-"))
     .forEach((match) => {
@@ -539,24 +722,23 @@ function buildQualificationOutcomeRows(simulation: SimulationResponse) {
           ? "资格赛二轮"
           : "复活赛突围战";
 
-      if (match.winnerNext === "national_qualified") {
-        pushOutcome(match.winnerTeamKey, "national", `${stagePrefix}胜者`, sourceStage, !match.isRealResult);
-      }
-      if (match.loserNext === "national_qualified") {
-        pushOutcome(match.loserTeamKey, "national", `${stagePrefix}负者`, sourceStage, !match.isRealResult);
-      }
-      if (match.winnerNext === "repechage_qualified") {
-        pushOutcome(match.winnerTeamKey, "repechage", `${stagePrefix}胜者`, sourceStage, !match.isRealResult);
-      }
-      if (match.loserNext === "repechage_qualified") {
-        pushOutcome(match.loserTeamKey, "repechage", `${stagePrefix}负者`, sourceStage, !match.isRealResult);
-      }
-      if (match.winnerNext === "eliminated") {
-        pushOutcome(match.winnerTeamKey, "eliminated", `${stagePrefix}胜者`, sourceStage, !match.isRealResult);
-      }
-      if (match.loserNext === "eliminated") {
-        pushOutcome(match.loserTeamKey, "eliminated", `${stagePrefix}负者`, sourceStage, !match.isRealResult);
-      }
+      const isPlaceholder = isOfficialPlaceholderMatch(match);
+      pushDestination(
+        match.winnerNext,
+        match.winnerTeamKey,
+        `${stagePrefix}胜者`,
+        sourceStage,
+        !match.isRealResult,
+        isPlaceholder
+      );
+      pushDestination(
+        match.loserNext,
+        match.loserTeamKey,
+        `${stagePrefix}负者`,
+        sourceStage,
+        !match.isRealResult,
+        isPlaceholder
+      );
     });
 
   (Object.keys(outcomes) as QualificationOutcomeKey[]).forEach((bucket) => {
@@ -604,9 +786,10 @@ function buildSlotsStage(simulation: SimulationResponse): WorkspaceStage {
       tone: "cyan",
     });
     slots.forEach((slot, index) => {
+      const isOfficialPlaceholder = !slot.teamKey;
       cards.push(
         buildTeamCard({
-          id: `slot-${slot.teamKey}`,
+          id: `slot-${slot.teamKey || slot.slot || `${groupName}-${index + 1}`}`,
           teamKey: slot.teamKey,
           collegeName: slot.collegeName,
           teamName: slot.teamName,
@@ -614,7 +797,9 @@ function buildSlotsStage(simulation: SimulationResponse): WorkspaceStage {
           y: 134 + index * 96,
           orderLabel: slot.slot ?? "--",
           subtitle: slot.teamName,
-          statLine: `${formatSeedTierLabel(slot.seedTier)} / Elo #${slot.eloGlobalRank}`,
+          statLine: isOfficialPlaceholder
+            ? `${formatSeedTierLabel(slot.seedTier)} / 学校队伍待确认`
+            : `${formatSeedTierLabel(slot.seedTier)} / Elo #${slot.eloGlobalRank}`,
           tone: "cyan",
         })
       );
@@ -625,7 +810,7 @@ function buildSlotsStage(simulation: SimulationResponse): WorkspaceStage {
     id: "slots",
     label: "抽签落位",
     title: "小组抽签落位",
-    description: "先看两组抽签位置、种子档位与 Elo 顺位，再进入后续赛程。",
+    description: "先看两组抽签位置、梯队标记与 Elo 顺位，再进入后续赛程。",
     width: 1160,
     height: 1040,
     headers,
@@ -634,9 +819,12 @@ function buildSlotsStage(simulation: SimulationResponse): WorkspaceStage {
   };
 }
 
-function buildSwissStage(groupName: "A" | "B", simulation: SimulationResponse, view: WorkspaceView): WorkspaceStage {
+function buildSwissStage(groupName: "A" | "B", regionSlug: RegionSlug, simulation: SimulationResponse, view: WorkspaceView): WorkspaceStage {
   const artifacts = replaySwissBuckets(simulation, groupName);
   const matchMap = new Map(simulation.matches.map((match) => [match.matchLabel, match]));
+  const hasOfficialPlaceholderSchedule = simulation.matches.some(
+    (match) => match.stage === "swiss" && match.groupName === groupName && isOfficialPlaceholderSwissMatch(match)
+  );
   const headers: WorkspaceStageHeader[] = [];
   const cards: CanvasCard[] = [];
   const headersBySection = new Map<string, WorkspaceStageHeader>();
@@ -673,7 +861,7 @@ function buildSwissStage(groupName: "A" | "B", simulation: SimulationResponse, v
           cards.push(
             buildMatchCard(match, column.x, sectionY + STAGE_HEADER_TO_CARD_OFFSET + index * SWISS_MATCH_STEP, {
               orderLabel: `${index + 1}`,
-              displayLabel: `第 ${index + 1} 场`,
+              regionSlug,
               metaLabel: `BO${match.bestOf}`,
               height: SWISS_MATCH_CARD_HEIGHT,
               variant: "compact",
@@ -687,7 +875,7 @@ function buildSwissStage(groupName: "A" | "B", simulation: SimulationResponse, v
       }
 
       const rows = artifacts.summaryBuckets[section.summaryId] ?? [];
-      if (!rows.length) {
+      if (!rows.length && !hasOfficialPlaceholderSchedule) {
         return;
       }
 
@@ -698,11 +886,38 @@ function buildSwissStage(groupName: "A" | "B", simulation: SimulationResponse, v
         y: sectionY,
         width: DETAIL_TEAM_CARD_WIDTH,
         title: section.title,
-        subtitle: "",
+        subtitle: rows.length ? "" : "真实队伍待确认",
         tone: section.tone,
       };
       headers.push(header);
       headersBySection.set(section.id, header);
+
+      if (!rows.length && hasOfficialPlaceholderSchedule) {
+        const placeholderCount = SWISS_OFFICIAL_PLACEHOLDER_SUMMARY_COUNTS[section.summaryId];
+        Array.from({ length: placeholderCount }, (_, index) => {
+          cards.push(
+            buildTeamCard({
+              id: `${groupName}-${section.id}-placeholder-${index + 1}`,
+              teamKey: "",
+              collegeName: "待确认",
+              teamName: "官方排期占位",
+              x: column.x,
+              y: sectionY + STAGE_HEADER_TO_CARD_OFFSET + index * SUMMARY_TEAM_STEP,
+              orderLabel: `${index + 1}`,
+              subtitle: "真实队伍待确认",
+              statLine: "等待瑞士轮结果",
+              tone: section.tone,
+              variant: "summary",
+              width: DETAIL_TEAM_CARD_WIDTH,
+              height: DETAIL_TEAM_CARD_HEIGHT,
+              isSimulated: true,
+            })
+          );
+        });
+        nextSectionBottom =
+          sectionY + STAGE_HEADER_TO_CARD_OFFSET + (placeholderCount - 1) * SUMMARY_TEAM_STEP + DETAIL_TEAM_CARD_HEIGHT;
+        return;
+      }
 
       rows.forEach((row, index) => {
         cards.push(
@@ -761,7 +976,7 @@ function buildSwissStage(groupName: "A" | "B", simulation: SimulationResponse, v
   };
 }
 
-function buildPlayoffStage(_regionSlug: RegionSlug, simulation: SimulationResponse): WorkspaceStage {
+function buildPlayoffStage(regionSlug: RegionSlug, simulation: SimulationResponse): WorkspaceStage {
   const matches = simulation.matches.filter((match) => match.stage !== "swiss");
   const cards: CanvasCard[] = [];
   const headers: WorkspaceStageHeader[] = [];
@@ -773,6 +988,7 @@ function buildPlayoffStage(_regionSlug: RegionSlug, simulation: SimulationRespon
       height: PLAYOFF_MATCH_CARD_HEIGHT,
       variant: "playoff",
       showProbability: false,
+      regionSlug,
     });
     cards.push(card);
     cardMap.set(match.matchLabel, card);
@@ -936,6 +1152,7 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
           height: PLAYOFF_MATCH_CARD_HEIGHT,
           variant: "playoff",
           showProbability: false,
+          regionSlug,
         })
       );
     });
@@ -957,18 +1174,18 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
       return { bottom: y };
     }
     addHeader(id, x, y, DETAIL_TEAM_CARD_WIDTH, title, subtitle, tone);
-    rows.forEach(({ row, sourceLabel, isSimulated }, index) => {
+    rows.forEach(({ row, sourceLabel, isSimulated, statLine }, index) => {
       cards.push(
         buildTeamCard({
-          id: `${id}-${row.teamKey}`,
+          id: `${id}-${row.teamKey || `placeholder-${index + 1}`}`,
           teamKey: row.teamKey,
           collegeName: row.collegeName,
           teamName: row.teamName,
           x,
           y: y + STAGE_HEADER_TO_CARD_OFFSET + index * SUMMARY_TEAM_STEP,
-          orderLabel: `${row.rank}`,
+          orderLabel: row.teamKey ? `${row.rank}` : `${index + 1}`,
           subtitle: row.teamName,
-          statLine: `${sourceLabel} / ${formatSwissRecordLabel(row.swissWins, row.swissLosses)}`,
+          statLine: statLine ?? `${sourceLabel} / ${formatSwissRecordLabel(row.swissWins, row.swissLosses)}`,
           tone,
           variant: "summary",
           width: DETAIL_TEAM_CARD_WIDTH,
@@ -1251,7 +1468,7 @@ function buildFinalRankingsStage(simulation: SimulationResponse): WorkspaceStage
     rows.forEach((row, index) => {
       cards.push(
         buildTeamCard({
-          id: `final-${x}-${row.teamKey}`,
+          id: `final-${x}-${row.teamKey || `rank-${row.rank}`}`,
           teamKey: row.teamKey,
           collegeName: row.collegeName,
           teamName: row.teamName,
@@ -1259,7 +1476,7 @@ function buildFinalRankingsStage(simulation: SimulationResponse): WorkspaceStage
           y: 134 + index * SUMMARY_TEAM_STEP,
           orderLabel: `${row.rank}`,
           subtitle: row.teamName,
-          statLine: formatSwissRecordLabel(row.swissWins, row.swissLosses),
+          statLine: row.teamKey ? formatSwissRecordLabel(row.swissWins, row.swissLosses) : "最终排名待确认",
           meta: [translateFinalBucket(row.finalBucket), translateAdvancementLabel(row.advancement)],
           tone,
           variant: "ranking",
@@ -1301,10 +1518,10 @@ export function buildWorkspaceStage(view: WorkspaceView, regionSlug: RegionSlug,
     return buildSlotsStage(simulation);
   }
   if (view === "swiss-a") {
-    return buildSwissStage("A", simulation, view);
+    return buildSwissStage("A", regionSlug, simulation, view);
   }
   if (view === "swiss-b") {
-    return buildSwissStage("B", simulation, view);
+    return buildSwissStage("B", regionSlug, simulation, view);
   }
   if (view === "qualification") {
     return buildQualificationStage(regionSlug, simulation);

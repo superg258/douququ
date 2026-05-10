@@ -32,7 +32,11 @@ describe("user-facing display labels", () => {
         nationalSlots: 3,
         repechageSlots: 2,
       },
-      slots: [slot(), slot({ teamKey: "beta", collegeName: "乙校", teamName: "乙校战队", slot: "A2", seedTier: "unseeded" })],
+      slots: [
+        slot(),
+        slot({ teamKey: "beta", collegeName: "乙校", teamName: "乙校战队", slot: "A2", seedTier: "tier2" }),
+        slot({ teamKey: "gamma", collegeName: "丙校", teamName: "丙校战队", slot: "A3", seedTier: "unseeded" }),
+      ],
       groupRankings: { A: [], B: [] },
       matches: [],
       finalRankings: [],
@@ -52,9 +56,13 @@ describe("user-facing display labels", () => {
       .map((card) => card.statLine)
       .join(" ");
 
-    expect(statLines).toContain("一档种子");
+    expect(statLines).toContain("第一梯队");
+    expect(statLines).toContain("第二梯队");
     expect(statLines).toContain("非种子");
+    expect(statLines).not.toContain("一档种子");
+    expect(statLines).not.toContain("二档种子");
     expect(statLines).not.toContain("tier1");
+    expect(statLines).not.toContain("tier2");
     expect(statLines).not.toContain("unseeded");
   });
 
@@ -110,7 +118,7 @@ describe("user-facing display labels", () => {
 
     const matchCard = stage.cards.find((card) => card.kind === "match");
 
-    expect(matchCard).toMatchObject({ displayLabel: "16 进 8 第 1 场" });
+    expect(matchCard).toMatchObject({ displayLabel: "第67场" });
     expect(matchCard?.displayLabel).not.toContain("R16-1");
   });
 });
