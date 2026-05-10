@@ -329,7 +329,7 @@ def test_live_school_rename_aliases_do_not_split_team_keys() -> None:
     assert match["redCollegeName"] == "应急管理大学"
 
 
-def test_normalize_schedule_payload_infers_north_extended_post_group_labels() -> None:
+def test_normalize_schedule_payload_infers_official_post_group_labels() -> None:
     red = _team("应急管理大学", "风暴", "A1")
     blue = _team("东北大学", "T-DT", "A9")
     payload = {
@@ -350,6 +350,7 @@ def test_normalize_schedule_payload_infers_north_extended_post_group_labels() ->
                                         "id": "N83",
                                         "matchType": "KNOCKOUT",
                                         "orderNumber": 83,
+                                        "slug": "半决赛",
                                         "planGameCount": 3,
                                         "status": "PENDING",
                                         "result": "",
@@ -362,6 +363,7 @@ def test_normalize_schedule_payload_infers_north_extended_post_group_labels() ->
                                         "id": "N85",
                                         "matchType": "KNOCKOUT",
                                         "orderNumber": 85,
+                                        "slug": "全国赛名额争夺",
                                         "planGameCount": 3,
                                         "status": "PENDING",
                                         "result": "",
@@ -374,6 +376,7 @@ def test_normalize_schedule_payload_infers_north_extended_post_group_labels() ->
                                         "id": "N87",
                                         "matchType": "KNOCKOUT",
                                         "orderNumber": 87,
+                                        "slug": "复活赛名额争夺",
                                         "planGameCount": 3,
                                         "status": "PENDING",
                                         "result": "",
@@ -386,6 +389,7 @@ def test_normalize_schedule_payload_infers_north_extended_post_group_labels() ->
                                         "id": "N90",
                                         "matchType": "KNOCKOUT",
                                         "orderNumber": 90,
+                                        "slug": "冠军争夺战",
                                         "planGameCount": 3,
                                         "status": "PENDING",
                                         "result": "",
@@ -410,10 +414,51 @@ def test_normalize_schedule_payload_infers_north_extended_post_group_labels() ->
     )
 
     matches = {match["officialMatchId"]: match for match in normalized["regions"]["north_region"]["matches"]}
-    assert (matches["N83"]["stage"], matches["N83"]["matchLabel"]) == ("qualification_round2", "QUAL-2-1")
-    assert (matches["N85"]["stage"], matches["N85"]["matchLabel"]) == ("qualification_round2", "QUAL-R-1")
-    assert (matches["N87"]["stage"], matches["N87"]["matchLabel"]) == ("semifinal", "SF-1")
+    assert (matches["N83"]["stage"], matches["N83"]["matchLabel"]) == ("semifinal", "SF-1")
+    assert matches["N83"]["stageSlug"] == "半决赛"
+    assert (matches["N85"]["stage"], matches["N85"]["matchLabel"]) == ("qualification_round2", "QUAL-2-1")
+    assert (matches["N87"]["stage"], matches["N87"]["matchLabel"]) == ("qualification_round2", "QUAL-R-1")
     assert (matches["N90"]["stage"], matches["N90"]["matchLabel"]) == ("final", "FINAL-1")
+
+
+def test_normalize_schedule_payload_aligns_south_final_day_with_official_slug() -> None:
+    payload = _schedule_payload()
+    zone = payload["data"]["event"]["zones"]["nodes"][0]
+    zone["groupMatches"]["nodes"] = []
+    zone["knockoutMatches"]["nodes"] = [
+        {
+            "id": official_id,
+            "matchType": "KNOCKOUT",
+            "orderNumber": order_number,
+            "slug": slug,
+            "planGameCount": 3,
+            "planStartedAt": planned_start_at,
+            "status": "PENDING",
+            "result": "",
+            "redSideWinGameCount": 0,
+            "blueSideWinGameCount": 0,
+            "redSide": {"fillSourceType": "Match", "fillSourceId": "source-red", "fillSourceNumber": 1, "player": None},
+            "blueSide": {"fillSourceType": "Match", "fillSourceId": "source-blue", "fillSourceNumber": 1, "player": None},
+        }
+        for official_id, order_number, slug, planned_start_at in [
+            ("S83", 83, "半决赛", "2026-05-17T02:50:00Z"),
+            ("S84", 84, "半决赛", "2026-05-17T03:25:00Z"),
+            ("S85", 85, "全国赛名额争夺", "2026-05-17T05:00:00Z"),
+            ("S86", 86, "全国赛名额争夺", "2026-05-17T05:35:00Z"),
+        ]
+    ]
+
+    normalized = rmuc_live.normalize_schedule_payload(
+        payload,
+        fetched_at=datetime(2026, 5, 10, tzinfo=UTC),
+        source_headers={},
+    )
+
+    matches = {match["officialMatchId"]: match for match in normalized["regions"]["south_region"]["matches"]}
+    assert (matches["S83"]["stage"], matches["S83"]["matchLabel"]) == ("semifinal", "SF-1")
+    assert (matches["S84"]["stage"], matches["S84"]["matchLabel"]) == ("semifinal", "SF-2")
+    assert (matches["S85"]["stage"], matches["S85"]["matchLabel"]) == ("qualification_round2", "QUAL-2-1")
+    assert (matches["S86"]["stage"], matches["S86"]["matchLabel"]) == ("qualification_round2", "QUAL-2-2")
 
 
 def test_live_post_group_labels_follow_actual_order_over_stale_rule_labels() -> None:
@@ -468,8 +513,6 @@ def _context_with_slots(slot_assignments: dict[str, str]) -> rmuc_live.LiveRunti
 def _stage_family(stage: str) -> str:
     if stage == "swiss":
         return "regional_group"
-    if stage in {"qualification_round1", "qualification_round2"}:
-        return "repechage"
     return "post_group"
 
 
@@ -488,6 +531,15 @@ def _mock_south_live_normalized(*, completed_count: int) -> dict:
         official_blue_wins = blue_wins if is_completed else 0
         red_team = match["redTeam"]
         blue_team = match["blueTeam"]
+        stage_family = _stage_family(match["stage"])
+        stage = match["stage"]
+        match_label = match["matchLabel"]
+        if stage_family == "post_group":
+            stage = rmuc_live._post_group_stage_from_order_number(index, "south_region") or stage
+            match_label = (
+                rmuc_live._post_group_match_label_from_order_number(index, stage=stage, region_slug="south_region")
+                or match_label
+            )
         matches.append(
             {
                 "officialMatchId": f"MOCK-SOUTH-{index:03d}",
@@ -495,9 +547,9 @@ def _mock_south_live_normalized(*, completed_count: int) -> dict:
                 "regionSlug": "south_region",
                 "regionName": "南部赛区",
                 "zoneName": "南部赛区",
-                "stageFamily": _stage_family(match["stage"]),
-                "stage": match["stage"],
-                "matchLabel": match["matchLabel"],
+                "stageFamily": stage_family,
+                "stage": stage,
+                "matchLabel": match_label,
                 "roundNumber": int(match["roundNumber"]),
                 "matchType": "GROUP" if match["stage"] == "swiss" else "KNOCKOUT",
                 "orderNumber": index,
@@ -774,7 +826,7 @@ def test_live_mode_confirms_semifinal_from_its_own_quarterfinal_sources(tmp_path
     assert live_status["completedOfficialMatches"] == 77
     assert live_status["confirmedOfficialMatches"] == 83
     matches = {match["matchLabel"]: match for match in payload["matches"]}
-    assert matches["SF-1"]["officialStatus"] == "PENDING"
+    assert matches["SF-1"]["regionalMatchNumber"] == 83
     assert matches["SF-2"].get("officialStatus") is None
 
 
@@ -785,7 +837,7 @@ def test_live_mode_confirms_qualification_round2_from_its_own_round1_sources(tmp
     assert live_status["completedOfficialMatches"] == 81
     assert live_status["confirmedOfficialMatches"] == 85
     matches = {match["matchLabel"]: match for match in payload["matches"]}
-    assert matches["QUAL-2-1"]["officialStatus"] == "PENDING"
+    assert matches["QUAL-2-1"]["regionalMatchNumber"] == 85
     assert matches["QUAL-2-2"].get("officialStatus") is None
 
 

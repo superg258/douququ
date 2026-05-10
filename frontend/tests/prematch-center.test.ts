@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildPrematchHref,
   formatEmptyStateCount,
+  formatPrematchMonthDayTime,
   getDataSourceLabel,
   formatPrematchTime,
   buildRegionRankingHref,
@@ -207,9 +208,16 @@ describe("prematch-center helpers", () => {
     expect(formatPrematchTime("2026-05-13T00:10:00Z")).toBe("08:10");
   });
 
+  it("formats card datetime with date and Beijing time", () => {
+    expect(formatPrematchMonthDayTime("2026-04-14T10:00:00+08:00")).toBe("04-14 10:00");
+    expect(formatPrematchMonthDayTime("2026-05-13T00:10:00Z")).toBe("05-13 08:10");
+  });
+
   it("returns null for missing or invalid times", () => {
     expect(formatPrematchTime(null)).toBeNull();
     expect(formatPrematchTime("not-a-date")).toBeNull();
+    expect(formatPrematchMonthDayTime(null)).toBeNull();
+    expect(formatPrematchMonthDayTime("not-a-date")).toBeNull();
   });
 
   /* ── Match card data integrity ── */

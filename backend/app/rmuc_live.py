@@ -399,30 +399,56 @@ def _post_group_normalized_order_number(order_number: int | None) -> int | None:
     return order_number if order_number > 0 else None
 
 
-def _post_group_stage_from_order_number(order_number: int | None, region_slug: str | None = None) -> str | None:
+def _post_group_stage_from_slug(stage_slug: Any, normalized_order: int | None) -> str | None:
+    text = str(stage_slug or "").strip()
+    if not text:
+        return None
+    if "16进8" in text:
+        return "round_of_16"
+    if "8进4" in text:
+        return "quarterfinal"
+    if "半决赛" in text:
+        return "semifinal"
+    if "季军" in text:
+        return "third_place"
+    if "冠军" in text:
+        return "final"
+    if "全国赛名额争夺" in text or "复活赛名额争夺" in text:
+        if normalized_order is not None and normalized_order >= 19:
+            return "qualification_round2"
+        return "qualification_round1"
+    return None
+
+
+def _post_group_stage_from_order_number(
+    order_number: int | None,
+    region_slug: str | None = None,
+    stage_slug: Any = None,
+) -> str | None:
     normalized_order = _post_group_normalized_order_number(order_number)
     if normalized_order is None:
         return None
+    slug_stage = _post_group_stage_from_slug(stage_slug, normalized_order)
+    if slug_stage is not None:
+        return slug_stage
     if 1 <= normalized_order <= 8:
         return "round_of_16"
     if 9 <= normalized_order <= 12:
         return "quarterfinal"
     if 13 <= normalized_order <= 16:
         return "qualification_round1"
+    if 17 <= normalized_order <= 18:
+        return "semifinal"
+    if 19 <= normalized_order <= 20:
+        return "qualification_round2"
     if region_slug == "north_region":
-        if 17 <= normalized_order <= 20:
-            return "qualification_round2"
         if 21 <= normalized_order <= 22:
-            return "semifinal"
+            return "qualification_round2"
         if normalized_order == 23:
             return "third_place"
         if normalized_order == 24:
             return "final"
         return None
-    if 17 <= normalized_order <= 18:
-        return "qualification_round2"
-    if 19 <= normalized_order <= 20:
-        return "semifinal"
     if normalized_order == 21:
         return "third_place"
     if normalized_order == 22:
@@ -440,6 +466,7 @@ def _live_match_stage(match: dict[str, Any]) -> str:
         return _post_group_stage_from_order_number(
             _optional_int(match.get("orderNumber")),
             str(match.get("regionSlug") or ""),
+            match.get("stageSlug"),
         ) or stage
     return stage
 
@@ -460,13 +487,14 @@ def _post_group_match_label_from_order_number(
     if stage == "qualification_round1" and 13 <= normalized_order <= 16:
         return f"QUAL-1-{normalized_order - 12}"
     if stage == "qualification_round2":
-        if region_slug == "north_region" and 19 <= normalized_order <= 20:
-            return f"QUAL-R-{normalized_order - 18}"
+        if region_slug == "north_region" and 21 <= normalized_order <= 22:
+            return f"QUAL-R-{normalized_order - 20}"
+        if 19 <= normalized_order <= 20:
+            return f"QUAL-2-{normalized_order - 18}"
         if 17 <= normalized_order <= 18:
             return f"QUAL-2-{normalized_order - 16}"
     if stage == "semifinal":
-        offset = 20 if region_slug == "north_region" else 18
-        index = normalized_order - offset
+        index = normalized_order - 16
         if 1 <= index <= 2:
             return f"SF-{index}"
     if stage == "third_place":
@@ -685,7 +713,7 @@ def _normalize_match(match: dict[str, Any], *, region_slug: str, zone_name: str)
         round_number = _swiss_round_from_order_number(order_number)
         match_label = _swiss_match_label_from_order_number(order_number, group_name)
     elif stage_family == "post_group":
-        stage = _post_group_stage_from_order_number(order_number, region_slug) or stage
+        stage = _post_group_stage_from_order_number(order_number, region_slug, match.get("slug")) or stage
         round_number = 1
         match_label = _post_group_match_label_from_order_number(order_number, stage=stage, region_slug=region_slug)
     planned_start_at = str(match.get("planStartedAt") or "").strip() or None
@@ -697,6 +725,7 @@ def _normalize_match(match: dict[str, Any], *, region_slug: str, zone_name: str)
         "regionName": REGION_SLUG_TO_NAME.get(region_slug, zone_name),
         "zoneName": zone_name,
         "stageFamily": stage_family,
+        "stageSlug": str(match.get("slug") or "").strip() or None,
         "stage": stage,
         "matchType": str(match.get("matchType") or ""),
         "orderNumber": order_number,

@@ -1723,6 +1723,8 @@ def build_prematch_center_payload(
             up_next_id=up_next_id,
         )
         match["timelineState"] = timeline_state
+        if timeline_state == "confirmed_upcoming" and match.get("scheduleState") == "official_placeholder":
+            continue
         timeline_buckets[TIMELINE_BUCKET_BY_STATE[timeline_state]].append(match)
     review_matches.sort(key=_prematch_sort_key, reverse=True)
     timeline_buckets["reviewPending"].extend(review_matches[:24])

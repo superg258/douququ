@@ -3,7 +3,11 @@
 
 import Link from "next/link";
 import { formatMatchLabel } from "@/lib/display";
-import { buildPrematchHref, getDataSourceLabel, formatPrematchTime } from "@/lib/prematch-center";
+import {
+  buildPrematchHref,
+  formatPrematchMonthDayTime,
+  getDataSourceLabel,
+} from "@/lib/prematch-center";
 import type { PrematchCenterMatch } from "@/lib/types";
 
 function DataSourceDot({ source }: { source: PrematchCenterMatch["dataSource"] }) {
@@ -226,7 +230,7 @@ export function PrematchMatchCard({
   variant?: "default" | "hero";
 }) {
   const href = buildPrematchHref(match);
-  const time = formatPrematchTime(match.plannedStartAt);
+  const time = formatPrematchMonthDayTime(match.plannedStartAt);
   const isHero = variant === "hero";
   const redPct = Math.round(match.pSeriesRed * 100);
   const bluePct = Math.round(match.pSeriesBlue * 100);

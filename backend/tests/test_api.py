@@ -2111,3 +2111,64 @@ def test_prematch_center_does_not_count_official_placeholders_as_scheduled(monke
     assert payload["confirmedPendingMatchCount"] == 0
     assert payload["scheduledPendingMatchCount"] == 0
     assert payload["allUpcomingMatches"][0]["scheduleState"] == "official_placeholder"
+
+
+def test_prematch_center_excludes_official_placeholders_from_confirmed_upcoming(monkeypatch) -> None:
+    confirmed = _fake_match(
+        match_label="CONFIRMED-1",
+        planned_start_at="2026-05-13T08:10:00+08:00",
+        is_real_result=False,
+        p_series_red=0.62,
+        p_game_red=0.56,
+        official_match_id="31001",
+        official_status="WAITING",
+    )
+    placeholder = _fake_match(
+        match_label="PLACEHOLDER-1",
+        planned_start_at="2026-05-14T08:10:00+08:00",
+        is_real_result=False,
+        p_series_red=0.5,
+        p_game_red=0.5,
+        official_match_id="31002",
+        official_status="WAITING",
+        red_team_key="",
+        blue_team_key="",
+        winner_team_key="",
+    )
+    placeholder["isConfirmedMatchup"] = False
+    placeholder["redTeam"] = {"teamKey": "", "collegeName": "第83场胜者", "teamName": "官方槽位待确认"}
+    placeholder["blueTeam"] = {"teamKey": "", "collegeName": "第84场胜者", "teamName": "官方槽位待确认"}
+
+    def fake_simulation(region_slug: str, seed: int, mode: str = "sim", samples: int = service.DEFAULT_SIMULATION_SAMPLES) -> dict[str, object]:
+        return {
+            "meta": {
+                "regionSlug": region_slug,
+                "regionName": "南部赛区",
+                "seed": seed,
+                "generatedAt": "2026-05-10T00:00:00+00:00",
+                "liveStatus": {
+                    "sourceStatus": "active",
+                    "sourceReason": None,
+                    "sourceUpdatedAt": "2026-05-10T00:00:00+00:00",
+                    "completedOfficialMatches": 0,
+                    "confirmedOfficialMatches": 1,
+                    "ledgerRows": 0,
+                },
+            },
+            "matches": [confirmed, placeholder],
+        }
+
+    monkeypatch.setattr(service, "build_simulation_payload", fake_simulation)
+
+    payload = service.build_prematch_center_payload(
+        seed=20260414,
+        mode="live",
+        date="2026-05-13",
+        region_slugs=["south_region"],
+        now=datetime(2026, 5, 13, 7, 0, tzinfo=service._prematch_timezone("Asia/Shanghai")),
+    )
+
+    assert [match["matchLabel"] for match in payload["timelineBuckets"]["upNext"]] == ["CONFIRMED-1"]
+    assert payload["allUpcomingMatches"][1]["scheduleState"] == "official_placeholder"
+    assert payload["allUpcomingMatches"][1]["timelineState"] == "confirmed_upcoming"
+    assert payload["timelineBuckets"]["confirmedUpcoming"] == []

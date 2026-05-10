@@ -5,7 +5,7 @@ import type {
   PrematchDataSource,
   PrematchTimelineState,
 } from "@/lib/types";
-import { formatBeijingTime, getBeijingHour } from "@/lib/time-format";
+import { formatBeijingMonthDayTime, formatBeijingTime, getBeijingHour } from "@/lib/time-format";
 
 const DATA_SOURCE_LABELS: Record<PrematchDataSource, string> = {
   official_live: "官方实时",
@@ -42,6 +42,10 @@ export function buildPrematchHref(match: PrematchCenterMatch) {
 
 export function formatPrematchTime(value: string | null) {
   return formatBeijingTime(value);
+}
+
+export function formatPrematchMonthDayTime(value: string | null) {
+  return formatBeijingMonthDayTime(value);
 }
 
 export function formatEmptyStateCount(completedCount: number) {
