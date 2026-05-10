@@ -16,17 +16,20 @@ export interface LiveCommandCenterBucket {
 
 export interface LiveCommandCenter {
   source: "live";
+  hasOfficialSchedule: boolean;
   unavailableReason: string;
   sections: LiveCommandCenterBucket[];
 }
 
 export function buildLiveCommandCenter(command: CommandCenterResponse): LiveCommandCenter {
   const coverageLabel = command.sourceFreshness.coverageLabel;
+  const hasOfficialSchedule = command.source.effectiveMode === "live";
   const unavailableReason =
-    command.source.effectiveMode === "simulation_proxy" ? coverageLabel.split("，")[0] : "";
+    hasOfficialSchedule ? "" : coverageLabel.split("，")[0] || "官方赛程尚未接入";
 
   return {
     source: "live",
+    hasOfficialSchedule,
     unavailableReason,
     sections: [
       {

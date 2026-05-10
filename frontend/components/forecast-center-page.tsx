@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getCommandCenter, getPredictionRecap } from "@/lib/api";
 import { formatMatchLabel } from "@/lib/display";
+import { buildLiveCommandCenter } from "@/lib/live-command-center";
 import type { CommandCenterResponse, PredictionRecapResponse, RegionSlug } from "@/lib/types";
 import { LiveCommandCenterPanel } from "@/components/live-command-center-panel";
 import { ModelRecapPanel } from "@/components/model-recap-panel";
@@ -133,6 +134,8 @@ export function ForecastCenterPage() {
       </div>
     );
   }
+
+  const liveCenter = buildLiveCommandCenter(command);
 
   return (
     <div className="min-h-screen">
@@ -282,7 +285,7 @@ export function ForecastCenterPage() {
           bucketFilter={bucket}
         />
 
-        <ModelRecapPanel recap={recap} />
+        <ModelRecapPanel recap={recap} showPendingMetric={liveCenter.hasOfficialSchedule} />
 
         {/* Bottom decoration */}
         <div className="flex items-center gap-0 pt-2">

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import PinyinMatch from "pinyin-match";
 
 import { PredictionSignalsPanel } from "@/components/prediction-signals";
 import { PredictionExplanationCard } from "@/components/prediction-explanation-card";
@@ -16,6 +15,7 @@ import { formatMatchLabel, formatRankingResultLabel, translateConfidenceLabel, t
 import { buildPredictionRecap } from "@/lib/prediction-insights";
 import { buildRegionHref, getOrCreateSessionSeed, parseSeed, refreshSessionSeed, REGION_LABELS, REGION_VIEWS } from "@/lib/region-config";
 import { buildTeamHref } from "@/lib/team-profile";
+import { sortTeamsForWorkspaceSearch } from "@/lib/workspace-search";
 import { deriveRealtimeAvailability } from "@/lib/realtime";
 import { deriveMatchRatingBreakdown, formatSignedRatingDelta, ratingDeltaTone, type MatchRatingBreakdown } from "@/lib/live-rating";
 import { predictScoreline } from "@/components/canvas-card";
@@ -117,21 +117,6 @@ function unavailableLiveState(regionSlug: RegionSlug, reason: string): LiveState
     matchLedger: [],
     teamIndex: {},
   };
-}
-
-function sortTeamsByQuery(teams: OverviewTeam[], query: string) {
-  const normalized = query.trim();
-  if (!normalized) {
-    return teams;
-  }
-  return teams.filter((team) => {
-    return (
-      team.collegeName.includes(normalized) ||
-      team.teamName.includes(normalized) ||
-      PinyinMatch.match(team.collegeName, normalized) ||
-      PinyinMatch.match(team.teamName, normalized)
-    );
-  });
 }
 
 function teamPath(simulation: SimulationResponse, teamKey: string) {
@@ -455,6 +440,7 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
                 miniProgramPrediction={selectedMatch.miniProgramPrediction}
                 showAudience={Boolean(selectedMatch.miniProgramPrediction || selectedMatch.officialMatchId)}
                 modelBadge={selectedMatch.isRealResult ? "赛前记录" : "实时胜率"}
+                ratePrecision={2}
               />
             </div>
             <div className="col-span-2 border-t border-rm-metal-border my-1"></div>
@@ -576,7 +562,8 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
     [realtimeState, regionSlug]
   );
   const realtimeEnabled = realtimeAvailability.enabled;
-  const mode = realtimeEnabled && requestedMode === "live" ? "live" : "sim";
+  const dataMode = realtimeEnabled && requestedMode === "live" ? "live" : "sim";
+  const requestedLiveFallback = requestedMode === "live" && realtimeStatusLoaded && !realtimeEnabled;
 
   useEffect(() => {
     setSelection(highlightedTeamKey ? { kind: "team", teamKey: highlightedTeamKey } : null);
@@ -585,7 +572,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
 
   useEffect(() => {
     setSeedDraft(seed ? String(seed) : "");
-  }, [regionSlug, seed, mode]);
+  }, [regionSlug, seed, dataMode]);
 
   useEffect(() => {
     if (sessionSeed !== null) {
@@ -634,10 +621,10 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
     }
     setError(null);
     setSimulation(null);
-    getSimulation(regionSlug, seed, mode)
+    getSimulation(regionSlug, seed, dataMode)
       .then(setSimulation)
       .catch((err: Error) => setError(err.message));
-  }, [regionSlug, seed, mode]);
+  }, [regionSlug, seed, dataMode]);
 
   const updateQuery = useCallback(
     (next: Partial<Record<"view" | "seed" | "highlight" | "mode", string | null>>) => {
@@ -662,17 +649,10 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
     updateQuery({ seed: String(sessionSeed) });
   }, [parsedSeed, sessionSeed, updateQuery]);
 
-  useEffect(() => {
-    if (requestedMode !== "live" || realtimeEnabled || !realtimeStatusLoaded) {
-      return;
-    }
-    updateQuery({ mode: null });
-  }, [realtimeEnabled, realtimeStatusLoaded, requestedMode, updateQuery]);
-
   const allTeams = useMemo(() => overview?.regions.flatMap((region) => region.teams) ?? [], [overview]);
   const searchResults = useMemo(
-    () => sortTeamsByQuery(allTeams, deferredSearchText).slice(0, 18),
-    [allTeams, deferredSearchText]
+    () => sortTeamsForWorkspaceSearch(allTeams, deferredSearchText, regionSlug).slice(0, 18),
+    [allTeams, deferredSearchText, regionSlug]
   );
   const selectedTeamKey = selection?.kind === "team" ? selection.teamKey : null;
   const selectedMatchLabel = selection?.kind === "match" ? selection.matchLabel : null;
@@ -757,7 +737,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
     setSearchOpen(false);
     setSearchText("");
     setInspectorOpen(true);
-    router.push(buildRegionHref(team.regionSlug, view, { seed: resolveSeed(), highlight: team.teamKey, mode }));
+    router.push(buildRegionHref(team.regionSlug, view, { seed: resolveSeed(), highlight: team.teamKey, mode: requestedMode }));
     setSelection({ kind: "team", teamKey: team.teamKey });
   };
 
@@ -778,7 +758,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   const onRegionChange = (nextRegion: RegionSlug) => {
     setInspectorOpen(false);
     setSelection(null);
-    router.push(buildRegionHref(nextRegion, view, { seed: resolveSeed(), mode }));
+    router.push(buildRegionHref(nextRegion, view, { seed: resolveSeed(), mode: requestedMode }));
   };
 
   const inspectorVisible = inspectorOpen || Boolean(selection);
@@ -859,27 +839,24 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
           {/* Mode toggle */}
           <div className="flex bg-rm-metal-dark/80 border border-white/10 overflow-hidden shrink-0">
             <button
-              onClick={() => {
-                if (realtimeEnabled) updateQuery({ mode: "live" });
-              }}
-              disabled={!realtimeEnabled}
+              onClick={() => updateQuery({ mode: "live" })}
               title={realtimeAvailability.hint}
               className={cn(
                 "px-2.5 py-1.5 text-xs font-bold uppercase transition-colors",
-                !realtimeEnabled
-                  ? "cursor-not-allowed text-rm-metal-text/40"
-                  : mode === "live"
+                requestedMode === "live"
+                  ? dataMode === "live"
                     ? "bg-rm-status-warn text-black"
-                    : "text-rm-metal-text hover:text-white"
+                    : "bg-rm-status-warn/15 text-rm-status-warn"
+                  : "text-rm-metal-text hover:text-white"
               )}
             >
-              {realtimeEnabled ? "实时" : "暂无实时"}
+              {realtimeEnabled ? "实时" : "实时未接入"}
             </button>
             <button
               onClick={() => updateQuery({ mode: "sim" })}
               className={cn(
                 "px-2.5 py-1.5 text-xs font-bold uppercase transition-colors",
-                mode === "sim" ? "bg-rm-blue text-white" : "text-rm-metal-text hover:text-white"
+                requestedMode === "sim" ? "bg-rm-blue text-white" : "text-rm-metal-text hover:text-white"
               )}
             >
               模拟
@@ -887,7 +864,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
           </div>
 
           {/* Seed input (sim mode only) */}
-          {mode === "sim" && (
+          {dataMode === "sim" && (
             <div className="flex items-center bg-rm-metal-dark/80 border border-white/10 overflow-hidden shrink-0">
               <span className="text-[10px] text-rm-metal-text px-2 font-mono">种子</span>
               <input
@@ -964,6 +941,12 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
         </div>
       </header>
 
+      {requestedLiveFallback ? (
+        <div className="z-30 border-b border-rm-status-warn/35 bg-rm-status-warn/10 px-3 py-2 font-mono text-[11px] text-rm-status-warn md:px-4">
+          已请求实时赛程；官方赛程尚未接入，当前显示模拟沙盘。点击“模拟”会切换为模拟模式。
+        </div>
+      ) : null}
+
       {legendOpen ? (
         <div className="absolute top-0 left-0 right-0 z-40 glass-sheet px-3 py-3 md:left-auto md:right-4 md:top-20 md:w-72 md:border md:border-rm-metal-border">
           <div className="flex items-center justify-between gap-2">
@@ -1025,7 +1008,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
             <div className="absolute inset-0">
               <WorkspaceStageView
                 stage={stage}
-                mode={mode}
+                mode={dataMode}
                 selectedTeamKey={selectedTeamKey}
                 highlightedTeamKey={highlightedTeamKey}
                 selectedMatchLabel={selectedMatchLabel}
@@ -1051,7 +1034,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
         document.body
       ) : null}
       
-      <SearchModal open={searchOpen} title="搜索队伍档案" onClose={() => setSearchOpen(false)}>
+      <SearchModal open={searchOpen} title="搜索队伍档案 · 当前赛区优先" onClose={() => setSearchOpen(false)}>
         <div className="flex flex-col gap-4">
           <input
             name="team-search"

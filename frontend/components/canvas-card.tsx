@@ -4,6 +4,7 @@ import { useRef } from "react";
 
 import type { CanvasCard, MatchCanvasCard, MatchRow, TeamCanvasCard } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { getPredictedAdvantageLabel } from "@/lib/prediction-display";
 
 function toneClass(tone: CanvasCard["tone"]) {
   switch (tone) {
@@ -326,7 +327,13 @@ function SignalMicroRow({
   // Label stays neutral (gray), never red or blue
   const labelClass = variant === "model" ? "text-rm-metal-text" : "text-rm-metal-text";
   // Status color reflects who's winning: red-dominant → red, blue-dominant → blue
-  const statusColor = red >= blue ? "text-rm-red" : "text-rm-blue";
+  const statusColor = statusLabel.includes("红方")
+    ? "text-rm-red"
+    : statusLabel.includes("蓝方")
+      ? "text-rm-blue"
+      : red >= blue
+        ? "text-rm-red"
+        : "text-rm-blue";
   const trackBorder = variant === "model" ? "border-white/15" : "border-white/10";
   const dividerColor = variant === "model" ? "#FFFFFF" : "#FFE0A0";
   const dividerGlow = variant === "model"
@@ -781,7 +788,11 @@ function MatchCanvasCardComponent({
           label="Elo"
           redRate={row.pSeriesRed}
           blueRate={row.pSeriesBlue}
-          statusLabel={row.pSeriesRed >= row.pSeriesBlue ? "红方占优" : "蓝方占优"}
+          statusLabel={getPredictedAdvantageLabel({
+            pSeriesRed: row.pSeriesRed,
+            pSeriesBlue: row.pSeriesBlue,
+            predictedScoreline: predictedScore.scoreline,
+          })}
           variant="model"
           title={`战力预测胜率：红 ${formatRate(row.pSeriesRed)}，蓝 ${formatRate(row.pSeriesBlue)}`}
         />

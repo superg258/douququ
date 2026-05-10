@@ -104,6 +104,7 @@ describe("live command center", () => {
   it("builds populated sections from command center timeline buckets", () => {
     const command = buildLiveCommandCenter(buildCommand());
 
+    expect(command.hasOfficialSchedule).toBe(true);
     expect(command.sections.find((section) => section.id === "up-next")?.items).toHaveLength(1);
     expect(command.sections.find((section) => section.id === "up-next")?.items[0].matchLabel).toBe("NEXT-1");
     expect(command.sections.map((section) => section.id)).not.toContain("simulation-unassigned");
@@ -134,6 +135,7 @@ describe("live command center", () => {
       })
     );
 
+    expect(command.hasOfficialSchedule).toBe(false);
     expect(command.unavailableReason).toBe("官方实时源未接入");
   });
 });

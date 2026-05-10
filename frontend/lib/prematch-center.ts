@@ -31,7 +31,7 @@ export function getTimelineStateLabel(state: PrematchTimelineState) {
 }
 
 export function buildPrematchHref(match: PrematchCenterMatch) {
-  const targetMode = match.dataSource === "simulation" ? "sim" : "live";
+  const targetMode = match.dataSource === "official_live" ? "live" : "sim";
   return buildRegionHref(match.regionSlug, match.workspaceView, {
     seed: match.seed,
     mode: targetMode,

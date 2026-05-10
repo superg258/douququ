@@ -37,9 +37,11 @@ function isRenderableRecapMatch(match: PredictionRecapMatch) {
 export function ModelRecapPanel({
   recap,
   compact = false,
+  showPendingMetric = true,
 }: {
   recap: PredictionRecapResponse;
   compact?: boolean;
+  showPendingMetric?: boolean;
 }) {
   const summary = recap.summary;
   const renderableNotableMatches = recap.notableMatches.filter(isRenderableRecapMatch);
@@ -60,12 +62,12 @@ export function ModelRecapPanel({
       </div>
 
       {/* Summary metrics */}
-      <div className={`grid gap-2 ${compact ? "sm:grid-cols-4" : "sm:grid-cols-5"}`}>
+      <div className={`grid gap-2 ${compact || !showPendingMetric ? "sm:grid-cols-4" : "sm:grid-cols-5"}`}>
         <MetricCard label="已复盘场次" value={`${summary.completedMatches} 场`} />
         <MetricCard label="胜负预测命中率" value={pct(summary.winnerHitRate)} tone="text-rm-status-safe" />
         <MetricCard label="比分预测命中率" value={pct(summary.scorelineHitRate)} tone="text-rm-blue" />
         <MetricCard label="爆冷偏离场次" value={`${summary.upsetMisses} 场`} tone={summary.upsetMisses > 0 ? "text-rm-status-upset" : "text-rm-metal-textLight"} />
-        {!compact && <MetricCard label="未完赛场次" value={`${summary.pendingMatches} 场`} tone="text-rm-status-warn" />}
+        {!compact && showPendingMetric && <MetricCard label="未完赛场次" value={`${summary.pendingMatches} 场`} tone="text-rm-status-warn" />}
       </div>
 
       {/* Per-region breakdown */}

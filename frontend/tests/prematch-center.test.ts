@@ -122,12 +122,12 @@ describe("prematch-center helpers", () => {
   });
 
   /* ── buildPrematchHref ── */
-  it("uses mode=live for simulation_proxy data source", () => {
+  it("does not generate a pseudo-live href for simulation_proxy data source", () => {
     const match = buildMockMatch({ dataSource: "simulation_proxy" });
     const href = buildPrematchHref(match);
 
-    expect(href).toContain("mode=live");
-    expect(href).not.toContain("mode=sim");
+    expect(href).toContain("mode=sim");
+    expect(href).not.toContain("mode=live");
     expect(href).toContain("view=swiss-a");
     expect(href).toContain("highlight=red-team");
     expect(href).toContain("seed=20260414");

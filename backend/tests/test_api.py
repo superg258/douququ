@@ -1027,6 +1027,7 @@ def test_prediction_recap_endpoint_aggregates_cross_region_accuracy(monkeypatch)
                     is_real_result=False,
                     p_series_red=0.55,
                     p_game_red=0.52,
+                    official_match_id="PENDING",
                 )
             ]
         elif region_slug == "east_region":
@@ -1039,6 +1040,7 @@ def test_prediction_recap_endpoint_aggregates_cross_region_accuracy(monkeypatch)
                     p_game_red=0.72,
                     winner_team_key="blue::UPSET-MISS",
                     scoreline="0:2",
+                    official_match_id="UPSET-MISS",
                 )
             ]
         else:
@@ -1050,6 +1052,7 @@ def test_prediction_recap_endpoint_aggregates_cross_region_accuracy(monkeypatch)
                     p_series_red=0.8,
                     p_game_red=0.74,
                     scoreline="2:0",
+                    official_match_id="HIT-EXACT",
                 )
             ]
         return {
@@ -1058,7 +1061,14 @@ def test_prediction_recap_endpoint_aggregates_cross_region_accuracy(monkeypatch)
                 "regionName": service.resolve_region_name(region_slug),
                 "seed": seed,
                 "generatedAt": "2026-05-06T00:00:00+00:00",
-                "liveStatus": service.summarize_live_status(region_slug),
+                "liveStatus": {
+                    "sourceStatus": "active",
+                    "sourceReason": None,
+                    "sourceUpdatedAt": "2026-05-06T00:00:00+00:00",
+                    "completedOfficialMatches": 2,
+                    "confirmedOfficialMatches": 3,
+                    "ledgerRows": 2,
+                },
             },
             "matches": matches,
         }
@@ -1080,6 +1090,59 @@ def test_prediction_recap_endpoint_aggregates_cross_region_accuracy(monkeypatch)
     assert payload["notableMatches"][0]["redTeam"]["teamKey"] == "red::UPSET-MISS"
     assert payload["notableMatches"][0]["blueTeam"]["teamKey"] == "blue::UPSET-MISS"
     assert payload["notableMatches"][0]["predictedWinnerSide"] == "red"
+
+
+def test_prediction_recap_live_mode_excludes_simulation_proxy_matches(monkeypatch) -> None:
+    def fake_simulation(region_slug: str, seed: int, mode: str = "sim", samples: int = service.DEFAULT_SIMULATION_SAMPLES) -> dict[str, object]:
+        return {
+            "meta": {
+                "regionSlug": region_slug,
+                "regionName": service.resolve_region_name(region_slug),
+                "seed": seed,
+                "generatedAt": "2026-05-06T00:00:00+00:00",
+                "liveStatus": {
+                    "sourceStatus": "missing",
+                    "sourceReason": "尚未同步官方实时赛程",
+                    "sourceUpdatedAt": None,
+                    "completedOfficialMatches": 0,
+                    "confirmedOfficialMatches": 0,
+                    "ledgerRows": 0,
+                },
+            },
+            "matches": [
+                _fake_match(
+                    match_label="SIM-PENDING",
+                    planned_start_at="2099-01-01T10:00:00+08:00",
+                    is_real_result=False,
+                    p_series_red=0.55,
+                    p_game_red=0.52,
+                    official_match_id=None,
+                    official_status=None,
+                ),
+                _fake_match(
+                    match_label="SIM-COMPLETED",
+                    planned_start_at="2026-05-01T10:00:00+08:00",
+                    is_real_result=True,
+                    p_series_red=0.78,
+                    p_game_red=0.72,
+                    scoreline="2:0",
+                    official_match_id=None,
+                    official_status=None,
+                ),
+            ],
+        }
+
+    monkeypatch.setattr(service, "build_simulation_payload", fake_simulation)
+
+    response = client.get("/api/prediction-recap?seed=20260414&mode=live")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["summary"]["completedMatches"] == 0
+    assert payload["summary"]["pendingMatches"] == 0
+    assert payload["notableMatches"] == []
+    assert all(group["completedMatches"] == 0 for group in payload["byRegion"].values())
+    assert all(group["pendingMatches"] == 0 for group in payload["byRegion"].values())
 
 
 def test_team_profile_endpoint_returns_team_path_and_region_link(monkeypatch) -> None:

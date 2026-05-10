@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { getOverview, getPrematchCenter } from "@/lib/api";
 import { buildOverviewDashboard } from "@/lib/overview-builders";
 import { buildRegionHref } from "@/lib/region-config";
-import { sortPrematchMatchesByTime } from "@/lib/prematch-center";
+import { buildPrematchHref, sortPrematchMatchesByTime } from "@/lib/prematch-center";
 import type { OverviewDashboard, PrematchCenterMatch, RegionSlug } from "@/lib/types";
 
 import { OverviewHero } from "@/components/overview-hero";
@@ -18,6 +18,7 @@ import { OverviewFooter } from "@/components/overview-footer";
 export function OverviewPage() {
   const [dashboard, setDashboard] = useState<OverviewDashboard | null>(null);
   const [nextMatchHref, setNextMatchHref] = useState<string | null>(null);
+  const [nextMatchCtaLabel, setNextMatchCtaLabel] = useState("进入赛程沙盘");
   const [regionEntryHrefs, setRegionEntryHrefs] = useState<Record<string, string | null>>({});
   const [error, setError] = useState("");
 
@@ -28,9 +29,12 @@ export function OverviewPage() {
         if (!canceled) {
           setDashboard(buildOverviewDashboard(overviewRes));
           const next = prematchRes.nextActionMatch ?? prematchRes.nextMatch;
-          if (next) {
-            const mode = next.dataSource === "simulation" ? "sim" : "live";
-            setNextMatchHref(buildRegionHref(next.regionSlug, next.workspaceView, { seed: next.seed, mode }));
+          if (next?.dataSource === "official_live") {
+            setNextMatchHref(buildPrematchHref(next));
+            setNextMatchCtaLabel("进入实时赛程");
+          } else {
+            setNextMatchHref(buildRegionHref("south_region", "playoff", { seed: 20260414, mode: "sim" }));
+            setNextMatchCtaLabel("进入赛程沙盘");
           }
           // Per-region next-match hrefs for region card entry buttons
           const hrefs: Record<string, string | null> = {};
@@ -43,8 +47,7 @@ export function OverviewPage() {
           for (const slug of ["south_region", "east_region", "north_region"] as RegionSlug[]) {
             const match = scheduled.find((m: PrematchCenterMatch) => m.regionSlug === slug);
             if (match) {
-              const mode = match.dataSource === "simulation" ? "sim" : "live";
-              hrefs[slug] = buildRegionHref(match.regionSlug, match.workspaceView, { seed: match.seed, mode });
+              hrefs[slug] = buildPrematchHref(match);
             } else {
               hrefs[slug] = null;
             }
@@ -80,7 +83,7 @@ export function OverviewPage() {
   return (
     <div className="min-h-screen">
       <div className="max-w-screen-2xl mx-auto px-4 py-8 space-y-10">
-        <OverviewHero generatedLabel={dashboard.generatedLabel} nextMatchHref={nextMatchHref} />
+        <OverviewHero generatedLabel={dashboard.generatedLabel} nextMatchHref={nextMatchHref} ctaLabel={nextMatchCtaLabel} />
         <PrematchCenter />
         <OverviewModelRecap />
         <RegionCardGrid regions={dashboard.regions} regionEntryHrefs={regionEntryHrefs} />

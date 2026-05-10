@@ -1645,8 +1645,13 @@ def build_prediction_recap_payload(
     for region_slug in selected_region_slugs:
         simulation = build_simulation_payload(region_slug, seed, mode)
         meta = simulation["meta"]
+        live_status = meta.get("liveStatus") if isinstance(meta, dict) else {}
+        if not isinstance(live_status, dict):
+            live_status = {}
         region_group = by_region.setdefault(region_slug, {**_empty_recap_group(), "regionName": meta["regionName"]})
         for match in simulation.get("matches", []):
+            if mode == "live" and _prematch_data_source(mode, live_status, match) == "simulation_proxy":
+                continue
             confidence = str(match.get("confidenceLabel") or "unknown")
             stage = str(match.get("stage") or "unknown")
             confidence_group = by_confidence.setdefault(confidence, {**_empty_recap_group(), "confidenceText": _confidence_label(confidence)})

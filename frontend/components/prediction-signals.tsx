@@ -1,4 +1,5 @@
 import type { MiniProgramPrediction } from "@/lib/types";
+import { formatProbability } from "@/lib/prediction-display";
 import { cn } from "@/lib/utils";
 
 type SignalDensity = "compact" | "full";
@@ -12,6 +13,7 @@ interface PredictionSignalsPanelProps {
   showAudience?: boolean;
   density?: SignalDensity;
   modelBadge?: string;
+  ratePrecision?: number;
   className?: string;
 }
 
@@ -26,8 +28,8 @@ function hasRate(value: number | undefined): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function formatRate(value: number) {
-  return `${(clampRate(value) * 100).toFixed(1)}%`;
+function formatRate(value: number, precision = 1) {
+  return formatProbability(clampRate(value), precision);
 }
 
 function audienceSignal(prediction: MiniProgramPrediction | undefined): {
@@ -117,6 +119,7 @@ function SignalRow({
   variant,
   status = "available",
   density,
+  ratePrecision = 1,
 }: {
   label: string;
   badge: string;
@@ -127,6 +130,7 @@ function SignalRow({
   variant: SignalVariant;
   status?: SignalStatus;
   density: SignalDensity;
+  ratePrecision?: number;
 }) {
   const compact = density === "compact";
   const tone = signalTone(variant, status);
@@ -161,7 +165,7 @@ function SignalRow({
       </div>
 
       <div className={cn("text-left font-machine text-rm-red", compact ? "text-[10px]" : "text-xs")}>
-        {showBars ? formatRate(red) : "--"}
+        {showBars ? formatRate(red, ratePrecision) : "--"}
       </div>
 
       <div
@@ -205,7 +209,7 @@ function SignalRow({
       </div>
 
       <div className={cn("text-right font-machine text-rm-blue", compact ? "text-[10px]" : "text-xs")}>
-        {showBars ? formatRate(blue) : "--"}
+        {showBars ? formatRate(blue, ratePrecision) : "--"}
       </div>
     </div>
   );
@@ -218,6 +222,7 @@ export function PredictionSignalsPanel({
   showAudience,
   density = "full",
   modelBadge = "胜率预测",
+  ratePrecision = 1,
   className,
 }: PredictionSignalsPanelProps) {
   const compact = density === "compact";
@@ -239,6 +244,7 @@ export function PredictionSignalsPanel({
         blueRate={ts2BlueRate}
         variant="model"
         density={density}
+        ratePrecision={ratePrecision}
       />
       {shouldShowAudience ? (
         <SignalRow
