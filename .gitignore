@@ -47,7 +47,6 @@ __pycache__/
 /data/runtime/
 
 # Deployment-only notes and host-specific service files
-/deploy/
 /rules/
 /*部署指南.md
 
