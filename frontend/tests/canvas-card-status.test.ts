@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 import {
-  DEFAULT_SCORE_LABEL_CLASS,
-  OFFICIAL_PLACEHOLDER_SCORE_LABEL_CLASS,
+  CanvasCardView,
   PREDICTION_MATCH_VISUAL_CLASSES,
   deriveMatchCardState,
   deriveTeamCardState,
   formatMatchCardScheduleTime,
 } from "@/components/canvas-card";
-import type { MatchRow, TeamCanvasCard } from "@/lib/types";
+import type { MatchCanvasCard, MatchRow, TeamCanvasCard } from "@/lib/types";
 
 function match(overrides: Partial<MatchRow> = {}): MatchRow {
   return {
@@ -61,6 +62,41 @@ function teamCard(overrides: Partial<TeamCanvasCard> = {}): TeamCanvasCard {
     height: 128,
     tone: "steel",
     isSimulated: true,
+    ...overrides,
+  };
+}
+
+function matchCanvasCard(overrides: Partial<MatchCanvasCard> = {}): MatchCanvasCard {
+  const row = match();
+  return {
+    id: "match-alpha",
+    kind: "match",
+    match: row,
+    orderLabel: "01",
+    displayLabel: "B-SWISS-4-5",
+    metaLabel: "BO3",
+    x: 0,
+    y: 0,
+    width: 280,
+    height: 160,
+    redSide: {
+      teamKey: row.redTeam.teamKey,
+      collegeName: row.redTeam.collegeName,
+      teamName: row.redTeam.teamName,
+      score: "2",
+      probability: row.pSeriesRed,
+      side: "red",
+      isWinner: true,
+    },
+    blueSide: {
+      teamKey: row.blueTeam.teamKey,
+      collegeName: row.blueTeam.collegeName,
+      teamName: row.blueTeam.teamName,
+      score: "0",
+      probability: row.pSeriesBlue,
+      side: "blue",
+      isWinner: false,
+    },
     ...overrides,
   };
 }
@@ -157,22 +193,24 @@ describe("deriveMatchCardState", () => {
     expect(PREDICTION_MATCH_VISUAL_CLASSES.dividerBackground).toContain("rgba(232,48,42,0.12)");
   });
 
-  it("uses a solid frame for the prediction score label", () => {
-    expect(PREDICTION_MATCH_VISUAL_CLASSES.scoreLabel).toContain("border ");
-    expect(PREDICTION_MATCH_VISUAL_CLASSES.scoreLabel).toContain("border-current");
-    expect(PREDICTION_MATCH_VISUAL_CLASSES.scoreLabel).toContain("text-rm-blue/55");
-    expect(PREDICTION_MATCH_VISUAL_CLASSES.scoreLabel).not.toContain("border-dashed");
-  });
+});
 
-  it("uses the score label text color for the default score label frame", () => {
-    expect(DEFAULT_SCORE_LABEL_CLASS).toContain("border-current");
-    expect(DEFAULT_SCORE_LABEL_CLASS).toContain("text-rm-metal-text");
-    expect(DEFAULT_SCORE_LABEL_CLASS).not.toContain("border-white");
-  });
+describe("CanvasCardView match card chrome", () => {
+  it("does not render BO labels in the match card top bar", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(CanvasCardView, {
+        card: matchCanvasCard(),
+        mode: "live",
+        selectedTeamKey: null,
+        highlightedTeamKey: null,
+        hasActiveHighlight: false,
+        onTeamSelect: () => undefined,
+        onMatchSelect: () => undefined,
+        selectedMatchLabel: null,
+      })
+    );
 
-  it("uses a solid frame for the official placeholder pending score label", () => {
-    expect(OFFICIAL_PLACEHOLDER_SCORE_LABEL_CLASS).toContain("border ");
-    expect(OFFICIAL_PLACEHOLDER_SCORE_LABEL_CLASS).not.toContain("border-dashed");
+    expect(html).not.toContain("BO3");
   });
 });
 

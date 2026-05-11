@@ -60,7 +60,6 @@ export function formatMatchCardScheduleTime(plannedStartAt?: string | null) {
 export const PREDICTION_MATCH_VISUAL_CLASSES = {
   container: "border border-dashed border-rm-blue/8 bg-black/60",
   statusBadge: "border-rm-blue/20 text-rm-blue/40 bg-rm-blue/[0.03]",
-  scoreLabel: "border border-current bg-rm-blue/[0.03] px-1.5 py-0.5 text-rm-blue/55",
   sideAccent: "opacity-[0.12]",
   redTeamRow: "bg-[linear-gradient(90deg,rgba(232,48,42,0.05),transparent_60%)]",
   blueTeamRow: "bg-[linear-gradient(90deg,rgba(42,159,255,0.05),transparent_60%)]",
@@ -68,12 +67,6 @@ export const PREDICTION_MATCH_VISUAL_CLASSES = {
   blueScorePanel: "bg-[linear-gradient(180deg,rgba(42,159,255,0.12),rgba(42,159,255,0.07),rgba(30,130,220,0.09))] text-white/30",
   dividerBackground: "linear-gradient(90deg, rgba(232,48,42,0.12), rgba(42,159,255,0.12))",
 };
-
-export const OFFICIAL_PLACEHOLDER_SCORE_LABEL_CLASS =
-  "border border-rm-status-scheduled/35 bg-rm-status-scheduled/8 px-1.5 py-0.5 text-rm-status-scheduled/85";
-
-export const DEFAULT_SCORE_LABEL_CLASS =
-  "border border-current bg-black/30 px-1.5 py-0.5 text-rm-metal-text";
 
 export function deriveMatchCardState(row: MatchRow, mode?: "sim" | "live") {
   const isSimulationMode = mode === "sim";
@@ -714,12 +707,6 @@ function MatchCanvasCardComponent({
     : showsResolvedScoreline
       ? resolvedDisplayScore
       : predictedDisplayScore;
-  const scoreLabel = isOfficialPlaceholder ? "待赛" : showsResolvedScoreline ? (isSimulationMode ? "模拟比分" : "比分") : "预测比分";
-  const scoreLabelClassName = isOfficialPlaceholder
-    ? OFFICIAL_PLACEHOLDER_SCORE_LABEL_CLASS
-    : isPrediction
-      ? PREDICTION_MATCH_VISUAL_CLASSES.scoreLabel
-      : DEFAULT_SCORE_LABEL_CLASS;
 
   return (
     <div
@@ -779,15 +766,13 @@ function MatchCanvasCardComponent({
           </span>
           <span className="truncate text-[11px] font-machine tracking-widest text-white/90">{card.displayLabel}</span>
         </div>
-        <div className="shrink-0 flex items-center gap-1.5 text-[9px] font-mono text-rm-metal-text">
-          {scheduleTimeLabel && (
+        {scheduleTimeLabel && (
+          <div className="shrink-0 flex items-center gap-1.5 text-[9px] font-mono text-rm-metal-text">
             <span className="border border-rm-status-scheduled/25 bg-rm-status-scheduled/8 px-1.5 py-0.5 text-rm-status-scheduled tabular-nums">
               {scheduleTimeLabel}
             </span>
-          )}
-          <span className={scoreLabelClassName}>{scoreLabel}</span>
-          <span className={DEFAULT_SCORE_LABEL_CLASS}>{card.metaLabel}</span>
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Red team row */}
