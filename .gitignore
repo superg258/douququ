@@ -5,6 +5,11 @@
 /.playwright-mcp
 /.claude
 
+# Local project notes
+/AGENTS.md
+/elo.md
+/memory.md
+
 # Python
 /.pytest_cache
 /.venv
