@@ -69,6 +69,9 @@ export const PREDICTION_MATCH_VISUAL_CLASSES = {
   dividerBackground: "linear-gradient(90deg, rgba(232,48,42,0.12), rgba(42,159,255,0.12))",
 };
 
+export const OFFICIAL_PLACEHOLDER_SCORE_LABEL_CLASS =
+  "border border-rm-status-scheduled/35 bg-rm-status-scheduled/8 px-1.5 py-0.5 text-rm-status-scheduled/85";
+
 export function deriveMatchCardState(row: MatchRow, mode?: "sim" | "live") {
   const isSimulationMode = mode === "sim";
   const hasRealResult = Boolean(row.isRealResult);
@@ -709,6 +712,11 @@ function MatchCanvasCardComponent({
       ? resolvedDisplayScore
       : predictedDisplayScore;
   const scoreLabel = isOfficialPlaceholder ? "待赛" : showsResolvedScoreline ? (isSimulationMode ? "模拟比分" : "比分") : "预测比分";
+  const scoreLabelClassName = isOfficialPlaceholder
+    ? OFFICIAL_PLACEHOLDER_SCORE_LABEL_CLASS
+    : isPrediction
+      ? PREDICTION_MATCH_VISUAL_CLASSES.scoreLabel
+      : "border border-white/10 bg-black/30 px-1.5 py-0.5";
 
   return (
     <div
@@ -774,11 +782,7 @@ function MatchCanvasCardComponent({
               {scheduleTimeLabel}
             </span>
           )}
-          {isPrediction ? (
-            <span className={PREDICTION_MATCH_VISUAL_CLASSES.scoreLabel}>{scoreLabel}</span>
-          ) : (
-            <span className="border border-white/10 bg-black/30 px-1.5 py-0.5">{scoreLabel}</span>
-          )}
+          <span className={scoreLabelClassName}>{scoreLabel}</span>
           <span className="border border-white/10 bg-black/30 px-1.5 py-0.5">{card.metaLabel}</span>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  OFFICIAL_PLACEHOLDER_SCORE_LABEL_CLASS,
   PREDICTION_MATCH_VISUAL_CLASSES,
   deriveMatchCardState,
   deriveTeamCardState,
@@ -153,6 +154,11 @@ describe("deriveMatchCardState", () => {
     expect(PREDICTION_MATCH_VISUAL_CLASSES.redScorePanel).toContain("rgba(232,48,42,0.12)");
     expect(PREDICTION_MATCH_VISUAL_CLASSES.redScorePanel).toContain("text-white/30");
     expect(PREDICTION_MATCH_VISUAL_CLASSES.dividerBackground).toContain("rgba(232,48,42,0.12)");
+  });
+
+  it("uses a solid frame for the official placeholder pending score label", () => {
+    expect(OFFICIAL_PLACEHOLDER_SCORE_LABEL_CLASS).toContain("border ");
+    expect(OFFICIAL_PLACEHOLDER_SCORE_LABEL_CLASS).not.toContain("border-dashed");
   });
 });
 
