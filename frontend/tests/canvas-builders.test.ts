@@ -519,6 +519,86 @@ describe("buildWorkspaceStage live outcome certainty", () => {
     expect(summaryCards.some((card) => card.kind === "team" && card.teamKey === "")).toBe(false);
   });
 
+  it("derives live qualification outcome cards from confirmed matchups when final rankings are hidden", () => {
+    const stage = buildWorkspaceStage(
+      "qualification",
+      "south_region",
+      simulation({
+        groupRankings: {
+          A: [
+            groupRow({ ...alpha, groupRank: 1, wins: 3, losses: 1, finalRank: 9 }),
+            groupRow({ ...beta, groupRank: 2, wins: 3, losses: 2, finalRank: 11 }),
+            groupRow({ ...gamma, groupRank: 3, wins: 3, losses: 2, finalRank: 10 }),
+          ],
+          B: [],
+        },
+        matches: [
+          match({
+            matchLabel: "QUAL-1-1",
+            stage: "qualification_round1",
+            stageOrder: 4,
+            roundNumber: 1,
+            groupName: "",
+            redTeam: alpha,
+            blueTeam: beta,
+            winnerTeamKey: alpha.teamKey,
+            loserTeamKey: beta.teamKey,
+            winnerNext: "qualification_round2_national",
+            loserNext: "repechage_qualified",
+            isConfirmedMatchup: false,
+            officialMatchId: "30978",
+          }),
+          match({
+            matchLabel: "QUAL-2-1",
+            stage: "qualification_round2",
+            stageOrder: 5,
+            roundNumber: 2,
+            groupName: "",
+            redTeam: alpha,
+            blueTeam: gamma,
+            winnerTeamKey: gamma.teamKey,
+            loserTeamKey: alpha.teamKey,
+            winnerNext: "national_qualified",
+            loserNext: "repechage_qualified",
+            isConfirmedMatchup: false,
+            officialMatchId: "30984",
+          }),
+        ],
+        finalRankings: [
+          finalRow({
+            teamKey: "",
+            collegeName: "待确认",
+            teamName: "学校队伍待确认",
+            rank: 9,
+            swissWins: 0,
+            swissLosses: 0,
+            swissGroupRank: null,
+          }),
+        ],
+      })
+    );
+
+    const summaryCards = stage.cards.filter((card) => card.kind === "team" && card.variant === "summary");
+
+    expect(summaryCards).toContainEqual(
+      expect.objectContaining({
+        teamKey: gamma.teamKey,
+        collegeName: gamma.collegeName,
+        orderLabel: "10",
+        statLine: "资格赛二轮胜者 / 瑞士轮 3-2",
+        isSimulated: true,
+      })
+    );
+    expect(summaryCards).toContainEqual(
+      expect.objectContaining({
+        teamKey: beta.teamKey,
+        statLine: "资格赛一轮负者 / 瑞士轮 3-2",
+        isSimulated: true,
+      })
+    );
+    expect(summaryCards.some((card) => card.kind === "team" && card.teamKey === "")).toBe(false);
+  });
+
   it("renders live final ranking placeholders without simulated school assignments", () => {
     const stage = buildWorkspaceStage(
       "final-rankings",

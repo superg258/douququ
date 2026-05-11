@@ -619,7 +619,12 @@ interface QualificationOutcomeRow {
 }
 
 function buildQualificationOutcomeRows(simulation: SimulationResponse) {
-  const rowsByKey = new Map(simulation.finalRankings.map((row) => [row.teamKey, row]));
+  const rowsByKey = new Map(simulation.finalRankings.filter((row) => row.teamKey).map((row) => [row.teamKey, row]));
+  const groupRowsByKey = new Map(
+    [...simulation.groupRankings.A, ...simulation.groupRankings.B]
+      .filter((row) => row.teamKey)
+      .map((row) => [row.teamKey, row])
+  );
   const outcomes: Record<QualificationOutcomeKey, QualificationOutcomeRow[]> = {
     national: [],
     repechage: [],
@@ -627,16 +632,70 @@ function buildQualificationOutcomeRows(simulation: SimulationResponse) {
   };
   const seen = new Set<string>();
   let placeholderIndex = 0;
+  let derivedIndex = 0;
+
+  const outcomeAdvancement = (bucket: QualificationOutcomeKey) => {
+    if (bucket === "national") return "national_qualified";
+    if (bucket === "repechage") return "repechage_qualified";
+    return "group_eliminated";
+  };
+
+  const matchTeam = (teamKey: string, match: MatchRow) => {
+    if (match.redTeam.teamKey === teamKey) return match.redTeam;
+    if (match.blueTeam.teamKey === teamKey) return match.blueTeam;
+    return null;
+  };
+
+  const resolveOutcomeRow = (
+    teamKey: string,
+    bucket: QualificationOutcomeKey,
+    sourceLabel: string,
+    match: MatchRow
+  ): { row: FinalRankingRow; statLine?: string } | null => {
+    const finalRow = rowsByKey.get(teamKey);
+    if (finalRow) {
+      return { row: finalRow };
+    }
+
+    const groupRow = groupRowsByKey.get(teamKey);
+    const team = groupRow ?? matchTeam(teamKey, match);
+    if (!team) {
+      return null;
+    }
+
+    derivedIndex += 1;
+    const advancement = outcomeAdvancement(bucket);
+    return {
+      row: {
+        teamKey: team.teamKey,
+        collegeName: team.collegeName,
+        teamName: team.teamName,
+        slot: team.slot,
+        rank: groupRow?.finalRank || 1000 + derivedIndex,
+        groupName: "",
+        seedTier: "simulation_proxy",
+        seedRankInRegion: 0,
+        swissWins: groupRow?.wins ?? 0,
+        swissLosses: groupRow?.losses ?? 0,
+        swissGroupRank: groupRow?.groupRank ?? null,
+        mu0: 0,
+        finalBucket: advancement,
+        advancement,
+      },
+      statLine: groupRow ? undefined : `${sourceLabel} / 预测去向`,
+    };
+  };
 
   const pushOutcome = (
     teamKey: string,
     bucket: QualificationOutcomeKey,
     sourceLabel: string,
     sourceStage: QualificationSourceStage,
-    isSimulated: boolean
+    isSimulated: boolean,
+    match: MatchRow
   ) => {
-    const row = rowsByKey.get(teamKey);
-    if (!row) {
+    const resolved = resolveOutcomeRow(teamKey, bucket, sourceLabel, match);
+    if (!resolved) {
       return;
     }
     const id = `${bucket}:${teamKey}`;
@@ -644,7 +703,7 @@ function buildQualificationOutcomeRows(simulation: SimulationResponse) {
       return;
     }
     seen.add(id);
-    outcomes[bucket].push({ row, sourceLabel, sourceStage, isSimulated });
+    outcomes[bucket].push({ row: resolved.row, sourceLabel, sourceStage, isSimulated, statLine: resolved.statLine });
   };
 
   const pushPlaceholderOutcome = (
@@ -683,27 +742,28 @@ function buildQualificationOutcomeRows(simulation: SimulationResponse) {
     sideLabel: string,
     sourceStage: QualificationSourceStage,
     isSimulated: boolean,
-    isPlaceholder: boolean
+    isPlaceholder: boolean,
+    match: MatchRow
   ) => {
     if (destination === "national_qualified") {
       if (isPlaceholder) {
         pushPlaceholderOutcome("national", sideLabel, sourceStage);
       } else {
-        pushOutcome(teamKey, "national", sideLabel, sourceStage, isSimulated);
+        pushOutcome(teamKey, "national", sideLabel, sourceStage, isSimulated, match);
       }
     }
     if (destination === "repechage_qualified") {
       if (isPlaceholder) {
         pushPlaceholderOutcome("repechage", sideLabel, sourceStage);
       } else {
-        pushOutcome(teamKey, "repechage", sideLabel, sourceStage, isSimulated);
+        pushOutcome(teamKey, "repechage", sideLabel, sourceStage, isSimulated, match);
       }
     }
     if (destination === "eliminated") {
       if (isPlaceholder) {
         pushPlaceholderOutcome("eliminated", sideLabel, sourceStage);
       } else {
-        pushOutcome(teamKey, "eliminated", sideLabel, sourceStage, isSimulated);
+        pushOutcome(teamKey, "eliminated", sideLabel, sourceStage, isSimulated, match);
       }
     }
   };
@@ -729,7 +789,8 @@ function buildQualificationOutcomeRows(simulation: SimulationResponse) {
         `${stagePrefix}胜者`,
         sourceStage,
         !match.isRealResult,
-        isPlaceholder
+        isPlaceholder,
+        match
       );
       pushDestination(
         match.loserNext,
@@ -737,7 +798,8 @@ function buildQualificationOutcomeRows(simulation: SimulationResponse) {
         `${stagePrefix}负者`,
         sourceStage,
         !match.isRealResult,
-        isPlaceholder
+        isPlaceholder,
+        match
       );
     });
 
