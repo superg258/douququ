@@ -41,6 +41,11 @@ __pycache__/
 /runs/
 /data/runtime/
 
+# Deployment-only notes and host-specific service files
+/deploy/
+/rules/
+/*部署指南.md
+
 # Dev tooling artifacts
 .superpowers/
 node_modules/

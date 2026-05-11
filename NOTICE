@@ -1,0 +1,25 @@
+douququ
+Copyright 2026 douququ contributors
+
+This product includes software and data-processing work developed for
+RoboMaster schedule analysis. It is licensed under the Apache License,
+Version 2.0.
+
+Upstream references and attributions:
+
+- scutrobotlab/rm-schedule-ui
+  https://github.com/scutrobotlab/rm-schedule-ui
+  License: Apache License 2.0
+  Usage: UI and information-architecture reference for RoboMaster schedule
+  visualization.
+
+- scutrobotlab/rm-schedule
+  https://github.com/scutrobotlab/rm-schedule
+  License: Apache License 2.0
+  Usage: backend/static schedule-data reference and RoboMaster schedule
+  analysis reference.
+
+RoboMaster and related event names, marks, schedules, rules, and official
+materials belong to their respective rights holders. This repository is an
+independent analysis and visualization project unless explicitly stated
+otherwise by those rights holders.
