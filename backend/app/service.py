@@ -956,6 +956,7 @@ def build_live_state_payload(region_slug: str) -> dict[str, Any]:
         "season": int(manifest_payload.get("season", 0)),
         "currentSnapshot": current_snapshot_payload,
         "matchLedger": match_ledger_payload,
+        "ledgerRows": len(match_ledger_payload),
         "teamIndex": team_index,
     }
 

@@ -435,6 +435,14 @@ def completed_official_match_count(normalized: dict[str, Any]) -> int:
     )
 
 
+def clear_stale_runtime_published_artifacts(runtime_dir: Path) -> None:
+    runtime_published_dir = runtime_dir / "published_2026"
+    for filename in ("live_state_updates.json", "live_match_ledger.json", "current_snapshot.json"):
+        path = runtime_published_dir / filename
+        if path.exists():
+            path.unlink()
+
+
 def main() -> None:
     args = parse_args()
     raw_dir = args.runtime_dir / "raw"
@@ -508,6 +516,7 @@ def main() -> None:
             snapshot_date=args.snapshot_date,
         )
     else:
+        clear_stale_runtime_published_artifacts(args.runtime_dir)
         write_json_atomic(
             args.runtime_dir / "published_2026" / "published_manifest.json",
             {

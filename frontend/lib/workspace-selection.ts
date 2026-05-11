@@ -63,6 +63,14 @@ export function shouldShowTeamDrawerMatch(
   return Boolean(match.officialMatchId || match.plannedStartAt);
 }
 
+export function isOfficialPlaceholderMatch(
+  match: Pick<MatchRow, "isRealResult" | "isConfirmedMatchup" | "officialMatchId" | "redTeam" | "blueTeam">,
+  mode: TeamDrawerMode
+) {
+  const hasResolvedTeams = Boolean(match.redTeam.teamKey && match.blueTeam.teamKey);
+  return mode === "live" && !match.isRealResult && Boolean(match.officialMatchId) && match.isConfirmedMatchup === false && !hasResolvedTeams;
+}
+
 export function filterTeamDrawerMatches<T extends Pick<MatchRow, "isRealResult" | "isConfirmedMatchup" | "officialMatchId" | "plannedStartAt">>(
   matches: T[],
   mode: TeamDrawerMode

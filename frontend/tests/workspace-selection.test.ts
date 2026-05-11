@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   filterTeamDrawerMatches,
+  isOfficialPlaceholderMatch,
   resolveHighlightSelectionState,
   resolveWorkspaceInspectorTeam,
   shouldRenderTeamInspector,
@@ -159,5 +160,24 @@ describe("workspace inspector selection state", () => {
     } as MatchRow;
 
     expect(filterTeamDrawerMatches([predictedOnly], "sim")).toEqual([predictedOnly]);
+  });
+
+  it("detects unresolved official placeholder matches in live mode", () => {
+    const placeholder = {
+      isRealResult: false,
+      isConfirmedMatchup: false,
+      officialMatchId: "31067",
+      redTeam: { teamKey: "", collegeName: "第67场败者", teamName: "晋级来源待确认" },
+      blueTeam: { teamKey: "", collegeName: "第68场败者", teamName: "晋级来源待确认" },
+    } as MatchRow;
+    const predictedShell = {
+      ...placeholder,
+      redTeam: { teamKey: "team-a", collegeName: "甲大学", teamName: "甲队" },
+      blueTeam: { teamKey: "team-b", collegeName: "乙大学", teamName: "乙队" },
+    } as MatchRow;
+
+    expect(isOfficialPlaceholderMatch(placeholder, "live")).toBe(true);
+    expect(isOfficialPlaceholderMatch(predictedShell, "live")).toBe(false);
+    expect(isOfficialPlaceholderMatch(placeholder, "sim")).toBe(false);
   });
 });

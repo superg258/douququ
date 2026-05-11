@@ -28,6 +28,7 @@ import { buildTeamHref } from "@/lib/team-profile";
 import { sortTeamsForWorkspaceSearch } from "@/lib/workspace-search";
 import {
   filterTeamDrawerMatches,
+  isOfficialPlaceholderMatch,
   resolveHighlightSelectionState,
   resolveWorkspaceInspectorTeam,
   shouldRenderTeamInspector,
@@ -341,7 +342,7 @@ function SearchModal({ open, title, onClose, children }: { open: boolean; title:
   );
 }
 
-function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selectedRanking, selectedPath, selectedMatch, onMatchOpen, onTeamOpen, onClose }: any) {
+function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selectedRanking, selectedPath, selectedMatch, dataMode, onMatchOpen, onTeamOpen, onClose }: any) {
   if (shouldRenderTeamInspector(selection, selectedOverviewTeam)) {
     const displayedElo = displayElo(selectedOverviewTeam);
     const probabilities = selectedOverviewTeam.probabilities ?? null;
@@ -427,6 +428,7 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
   }
 
   if (selection?.kind === "match" && selectedMatch) {
+    const isOfficialPlaceholder = isOfficialPlaceholderMatch(selectedMatch, dataMode);
     const predictedScore = predictScoreline(selectedMatch.pGameRed, selectedMatch.pSeriesRed, selectedMatch.bestOf || 3);
     const [redGamesText, blueGamesText] = (selectedMatch.scoreline || "0:0").split(":");
     const redGames = Number(redGamesText);
@@ -448,11 +450,20 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
         </div>
 
         <div className="space-y-6">
-          <PredictionExplanationCard
-            match={selectedMatch}
-            regionSlug={regionOverview?.regionSlug}
-            regionName={regionOverview?.regionName}
-          />
+          {isOfficialPlaceholder ? (
+            <section className="border border-rm-status-scheduled/35 bg-rm-status-scheduled/8 p-3 clip-chamfer">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-rm-status-scheduled">官方排期占位</p>
+              <p className="mt-2 text-[11px] leading-relaxed text-rm-metal-text">
+                官方排期已接入，真实对阵尚未确认；暂不生成模型推演、胜率条和战力变化。
+              </p>
+            </section>
+          ) : (
+            <PredictionExplanationCard
+              match={selectedMatch}
+              regionSlug={regionOverview?.regionSlug}
+              regionName={regionOverview?.regionName}
+            />
+          )}
 
           {selectedMatch.isRealResult ? (
             <div className={cn("text-center font-machine text-xl text-white tracking-widest bg-rm-metal-dark border py-4 relative overflow-hidden",
@@ -468,28 +479,34 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
             </div>
           )}
 
-          <div className={cn("text-center font-machine text-lg tracking-widest bg-rm-metal-dark border py-3 relative overflow-hidden",
-            selectedMatch.isRealResult
-              ? (actualScoreSame ? "border-rm-status-safe text-rm-status-safe" : "border-[#a855f7] text-[#a855f7]")
-              : "border-rm-blue text-rm-blue"
-          )}>
-             {predictedScore.scoreline}
-             <div className="absolute bottom-1 right-2 text-[8px] opacity-70 font-sans">AI 预测</div>
-          </div>
+          {!isOfficialPlaceholder ? (
+            <div className={cn("text-center font-machine text-lg tracking-widest bg-rm-metal-dark border py-3 relative overflow-hidden",
+              selectedMatch.isRealResult
+                ? (actualScoreSame ? "border-rm-status-safe text-rm-status-safe" : "border-[#a855f7] text-[#a855f7]")
+                : "border-rm-blue text-rm-blue"
+            )}>
+               {predictedScore.scoreline}
+               <div className="absolute bottom-1 right-2 text-[8px] opacity-70 font-sans">AI 预测</div>
+            </div>
+          ) : null}
 
           <div className="grid grid-cols-2 gap-2 text-[10px] font-mono p-3 bg-rm-metal-dark border border-rm-metal-border">
-            <div className="col-span-2">
-              <PredictionSignalsPanel
-                density="compact"
-                ts2RedRate={selectedMatch.pSeriesRed}
-                ts2BlueRate={selectedMatch.pSeriesBlue}
-                miniProgramPrediction={selectedMatch.miniProgramPrediction}
-                showAudience={Boolean(selectedMatch.miniProgramPrediction || selectedMatch.officialMatchId)}
-                modelBadge={selectedMatch.isRealResult ? "赛前记录" : "实时胜率"}
-                ratePrecision={2}
-              />
-            </div>
-            <div className="col-span-2 border-t border-rm-metal-border my-1"></div>
+            {!isOfficialPlaceholder ? (
+              <>
+                <div className="col-span-2">
+                  <PredictionSignalsPanel
+                    density="compact"
+                    ts2RedRate={selectedMatch.pSeriesRed}
+                    ts2BlueRate={selectedMatch.pSeriesBlue}
+                    miniProgramPrediction={selectedMatch.miniProgramPrediction}
+                    showAudience={Boolean(selectedMatch.miniProgramPrediction || selectedMatch.officialMatchId)}
+                    modelBadge={selectedMatch.isRealResult ? "赛前记录" : "实时胜率"}
+                    ratePrecision={2}
+                  />
+                </div>
+                <div className="col-span-2 border-t border-rm-metal-border my-1"></div>
+              </>
+            ) : null}
             {selectedMatch.officialMatchId ? (
               <>
                 <span className="text-rm-metal-text">官方赛程编号</span>
@@ -500,14 +517,14 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
               </>
             ) : null}
             {/* Show TS2 changes only for matches with an actual published result */}
-            {hasMatchElo(selectedMatch) && (
+            {!isOfficialPlaceholder && hasMatchElo(selectedMatch) && (
               <>
                 {redRatingBreakdown ? <RatingBreakdownLine breakdown={redRatingBreakdown} sideClassName="text-rm-red" /> : null}
                 {blueRatingBreakdown ? <RatingBreakdownLine breakdown={blueRatingBreakdown} sideClassName="text-rm-blue" /> : null}
                 <div className="col-span-2 border-t border-rm-metal-border my-1"></div>
               </>
             )}
-            {!hasMatchElo(selectedMatch) && (
+            {!isOfficialPlaceholder && !hasMatchElo(selectedMatch) && (
               <>
                 <span className="col-span-2 text-rm-metal-text">
                   本场尚未产生实际赛果，暂不更新战力变化，待正式结果公布后同步。
@@ -516,14 +533,18 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
               </>
             )}
 
-                      <span className="text-rm-metal-text">历史战绩修正</span>
-            <span className="text-white font-bold text-right">{selectedMatch.deltaH2H.toFixed(3)}</span>
-        {selectedMatch.confidenceLabel && (
-          <>
-            <span className="text-rm-metal-text">结果置信度</span>
-            <span className="text-white font-bold text-right">{translateConfidenceLabel(selectedMatch.confidenceLabel)}</span>
-          </>
-        )}
+            {!isOfficialPlaceholder ? (
+              <>
+                <span className="text-rm-metal-text">历史战绩修正</span>
+                <span className="text-white font-bold text-right">{selectedMatch.deltaH2H.toFixed(3)}</span>
+                {selectedMatch.confidenceLabel && (
+                  <>
+                    <span className="text-rm-metal-text">结果置信度</span>
+                    <span className="text-white font-bold text-right">{translateConfidenceLabel(selectedMatch.confidenceLabel)}</span>
+                  </>
+                )}
+              </>
+            ) : null}
           </div>
         </div>
       </div>
@@ -880,6 +901,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
         selectedRanking={selectedRanking}
         selectedPath={selectedPath}
         selectedMatch={selectedMatch}
+        dataMode={dataMode}
         onMatchOpen={openMatch}
         onTeamOpen={openTeam}
         onClose={closeInspector}

@@ -14,6 +14,20 @@ def _write_json(path: Path, payload: Any) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 
 
+def test_clear_stale_runtime_published_artifacts_removes_live_outputs(tmp_path: Path) -> None:
+    runtime_dir = tmp_path / "rmuc_live"
+    published_dir = runtime_dir / "published_2026"
+    for filename in ("live_state_updates.json", "live_match_ledger.json", "current_snapshot.json", "published_manifest.json"):
+        _write_json(published_dir / filename, [{"stale": True}])
+
+    sync_rmuc_live.clear_stale_runtime_published_artifacts(runtime_dir)
+
+    assert not (published_dir / "live_state_updates.json").exists()
+    assert not (published_dir / "live_match_ledger.json").exists()
+    assert not (published_dir / "current_snapshot.json").exists()
+    assert (published_dir / "published_manifest.json").exists()
+
+
 def test_sync_mini_program_predictions_reuses_fresh_cache_and_fetches_windowed_matches(tmp_path: Path) -> None:
     runtime_dir = tmp_path / "rmuc_live"
     now = datetime(2026, 5, 11, 8, 0, tzinfo=UTC)

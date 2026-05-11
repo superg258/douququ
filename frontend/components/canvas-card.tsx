@@ -618,7 +618,7 @@ function MatchTeamLine({
         ) : isSimWinner ? (
           <span className="text-[8px] font-semibold leading-none text-white/50">预测胜</span>
         ) : !resultResolved ? (
-          <span className="text-[8px] font-semibold leading-none text-[#A0A0A0]">预测</span>
+          <span className="text-[8px] font-semibold leading-none text-[#A0A0A0]">{score === "-" ? "待定" : "预测"}</span>
         ) : null}
       </div>
     </div>

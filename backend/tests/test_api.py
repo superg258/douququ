@@ -710,6 +710,27 @@ def test_live_state_uses_published_artifacts_when_present(tmp_path, monkeypatch)
                     "confirmed_prior_rating_after_match": 0.0,
                     "residual_prior_rating_after_match": -18.0,
                 },
+                {
+                    "match_id": "east-official-1",
+                    "match_date": "2026-11-11",
+                    "season": 2026,
+                    "region_slug": "east_region",
+                    "stage_family": "regional_group",
+                    "school_key": "gamma",
+                    "school_name": "伽马大学",
+                    "opponent_school_key": "delta",
+                    "opponent_school_name": "德尔塔大学",
+                    "team_side": "red",
+                    "scoreline": "2:1",
+                    "match_result": "win",
+                    "published_rating_before_match": 1500.0,
+                    "published_rating_after_match": 1510.0,
+                    "published_delta_rating": 10.0,
+                    "live_update_delta_rating": 10.0,
+                    "prior_component_delta_rating": 0.0,
+                    "confirmed_prior_rating_after_match": 0.0,
+                    "residual_prior_rating_after_match": 0.0,
+                },
             ],
             ensure_ascii=False,
         ),
@@ -734,6 +755,7 @@ def test_live_state_uses_published_artifacts_when_present(tmp_path, monkeypatch)
     assert payload["currentSnapshot"][0]["currentPublishedRating"] == 1694.0
     assert payload["currentSnapshot"][0]["publishedDeltaFromPreseason"] == -6.0
     assert payload["matchLedger"][0]["matchId"] == "official-1"
+    assert payload["ledgerRows"] == 2
     assert payload["teamIndex"]["alpha::main"]["schoolKey"] == "alpha"
 
 
