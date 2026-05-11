@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { getOverview, getPrematchCenter } from "@/lib/api";
 import { buildOverviewDashboard } from "@/lib/overview-builders";
 import { buildRegionHref } from "@/lib/region-config";
+import { startRealtimePolling } from "@/lib/realtime-polling";
 import { buildPrematchScheduleHref, isVisiblePrematchSchedule, sortPrematchMatchesByTime } from "@/lib/prematch-center";
 import { formatShortDateTimeLabel } from "@/lib/time-format";
 import type { OverviewDashboard, PrematchCenterMatch, RegionSlug } from "@/lib/types";
@@ -26,39 +27,45 @@ export function OverviewPage() {
 
   useEffect(() => {
     let canceled = false;
-    Promise.all([getOverview(), getPrematchCenter()])
-      .then(([overviewRes, prematchRes]) => {
-        if (!canceled) {
-          setDashboard(buildOverviewDashboard(overviewRes));
-          setServiceGeneratedLabel(formatShortDateTimeLabel(prematchRes.sourceFreshness?.serviceGeneratedAt));
-          const next = prematchRes.nextActionMatch ?? prematchRes.nextMatch;
-          if (next?.dataSource === "official_live") {
-            setNextMatchHref(buildPrematchScheduleHref(next));
-            setNextMatchCtaLabel("进入实时赛程");
-          } else {
-            setNextMatchHref(buildRegionHref("south_region", "playoff", { seed: 20260414, mode: "sim" }));
-            setNextMatchCtaLabel("进入赛程沙盘");
-          }
-          // Per-region next-match hrefs for region card entry buttons
-          const hrefs: Record<string, string | null> = {};
-          const scheduled = sortPrematchMatchesByTime(
-            prematchRes.allUpcomingMatches.filter(isVisiblePrematchSchedule)
-          );
-          for (const slug of ["south_region", "east_region", "north_region"] as RegionSlug[]) {
-            const match = scheduled.find((m: PrematchCenterMatch) => m.regionSlug === slug);
-            if (match) {
-              hrefs[slug] = buildPrematchScheduleHref(match);
+    const loadOverview = () => {
+      Promise.all([getOverview(), getPrematchCenter()])
+        .then(([overviewRes, prematchRes]) => {
+          if (!canceled) {
+            setError("");
+            setDashboard(buildOverviewDashboard(overviewRes));
+            setServiceGeneratedLabel(formatShortDateTimeLabel(prematchRes.sourceFreshness?.serviceGeneratedAt));
+            const next = prematchRes.nextActionMatch ?? prematchRes.nextMatch;
+            if (next?.dataSource === "official_live") {
+              setNextMatchHref(buildPrematchScheduleHref(next));
+              setNextMatchCtaLabel("进入实时赛程");
             } else {
-              hrefs[slug] = null;
+              setNextMatchHref(buildRegionHref("south_region", "playoff", { seed: 20260414, mode: "sim" }));
+              setNextMatchCtaLabel("进入赛程沙盘");
             }
+            const hrefs: Record<string, string | null> = {};
+            const scheduled = sortPrematchMatchesByTime(
+              prematchRes.allUpcomingMatches.filter(isVisiblePrematchSchedule)
+            );
+            for (const slug of ["south_region", "east_region", "north_region"] as RegionSlug[]) {
+              const match = scheduled.find((m: PrematchCenterMatch) => m.regionSlug === slug);
+              if (match) {
+                hrefs[slug] = buildPrematchScheduleHref(match);
+              } else {
+                hrefs[slug] = null;
+              }
+            }
+            setRegionEntryHrefs(hrefs);
           }
-          setRegionEntryHrefs(hrefs);
-        }
-      })
-      .catch((err) => {
-        if (!canceled) setError(err instanceof Error ? err.message : String(err));
-      });
-    return () => { canceled = true; };
+        })
+        .catch((err) => {
+          if (!canceled) setError(err instanceof Error ? err.message : String(err));
+        });
+    };
+    const stopPolling = startRealtimePolling(loadOverview);
+    return () => {
+      canceled = true;
+      stopPolling();
+    };
   }, []);
 
   if (error) {

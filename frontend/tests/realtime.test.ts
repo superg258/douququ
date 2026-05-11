@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   deriveRealtimeAvailability,
   formatMiniProgramPrediction,
+  liveStateRefreshKey,
 } from "@/lib/realtime";
 import type { LiveStateResponse, MiniProgramPrediction } from "@/lib/types";
 
@@ -95,5 +96,36 @@ describe("realtime helpers", () => {
     expect(formatMiniProgramPrediction(prediction)).toBe("王牌预言家 红 70.0% / 蓝 30.0%");
     expect(formatMiniProgramPrediction({ status: "unavailable", matchId: "296001", reason: "network" })).toBe("王牌预言家 暂未开放");
     expect(formatMiniProgramPrediction(undefined)).toBeNull();
+  });
+
+  it("changes the live simulation refresh key when runtime artifacts change without count changes", () => {
+    const liveState: LiveStateResponse = {
+      available: true,
+      sourceStatus: "active",
+      sourceReason: null,
+      regionSlug: "south_region",
+      regionName: "南部赛区",
+      generatedAt: "2026-05-11T07:03:03+00:00",
+      runtimeArtifactVersion: "ledger:old",
+      season: 2026,
+      sourceUpdatedAt: "2026-05-10T12:00:00+08:00",
+      completedOfficialMatches: 1,
+      confirmedOfficialMatches: 16,
+      ledgerRows: 2,
+      officialScheduleMatches: 88,
+      officialPlaceholderMatches: 72,
+      liveDataLevel: "official_results",
+      liveDataLabel: "官方赛果已接入",
+      currentSnapshot: [],
+      matchLedger: [],
+      teamIndex: {},
+    };
+
+    expect(
+      liveStateRefreshKey({
+        ...liveState,
+        runtimeArtifactVersion: "ledger:new",
+      })
+    ).not.toBe(liveStateRefreshKey(liveState));
   });
 });

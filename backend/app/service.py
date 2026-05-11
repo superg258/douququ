@@ -51,6 +51,14 @@ def _read_json(path: Path) -> Any:
         return json.load(handle)
 
 
+def _path_signature(path: Path) -> tuple[str, int, int]:
+    try:
+        stat = path.stat()
+    except FileNotFoundError:
+        return (str(path), 0, -1)
+    return (str(path), stat.st_mtime_ns, stat.st_size)
+
+
 @lru_cache(maxsize=1)
 def load_ratings_rows() -> list[dict[str, str]]:
     return _read_csv(PRESEASON_RATINGS_CSV)
@@ -76,9 +84,13 @@ def load_preseason_global_elo_rank_map() -> dict[str, int]:
     return {row["team_key"]: index for index, row in enumerate(rows, start=1)}
 
 
-@lru_cache(maxsize=1)
-def load_current_rating_index() -> dict[str, dict[str, Any]]:
-    snapshot_path = _published_current_snapshot_path_for(RUNTIME_PUBLISHED_RATINGS_DIR)
+@lru_cache(maxsize=8)
+def _load_current_rating_index_cached(
+    snapshot_path_text: str,
+    snapshot_mtime_ns: int,
+    snapshot_size: int,
+) -> dict[str, dict[str, Any]]:
+    snapshot_path = Path(snapshot_path_text)
     snapshot_rows = _read_json_if_exists(snapshot_path)
     snapshot_by_school_key: dict[str, dict[str, Any]] = {}
     if isinstance(snapshot_rows, list):
@@ -106,8 +118,20 @@ def load_current_rating_index() -> dict[str, dict[str, Any]]:
     return out
 
 
-@lru_cache(maxsize=1)
-def load_global_elo_rank_map() -> dict[str, int]:
+def load_current_rating_index() -> dict[str, dict[str, Any]]:
+    snapshot_path = _published_current_snapshot_path_for(RUNTIME_PUBLISHED_RATINGS_DIR)
+    return _load_current_rating_index_cached(*_path_signature(snapshot_path))
+
+
+load_current_rating_index.cache_clear = _load_current_rating_index_cached.cache_clear  # type: ignore[attr-defined]
+
+
+@lru_cache(maxsize=8)
+def _load_global_elo_rank_map_cached(
+    snapshot_path_text: str,
+    snapshot_mtime_ns: int,
+    snapshot_size: int,
+) -> dict[str, int]:
     current_rows = sorted(
         load_current_rating_index().values(),
         key=lambda row: (
@@ -116,6 +140,14 @@ def load_global_elo_rank_map() -> dict[str, int]:
         ),
     )
     return {str(row["teamKey"]): index for index, row in enumerate(current_rows, start=1)}
+
+
+def load_global_elo_rank_map() -> dict[str, int]:
+    snapshot_path = _published_current_snapshot_path_for(RUNTIME_PUBLISHED_RATINGS_DIR)
+    return _load_global_elo_rank_map_cached(*_path_signature(snapshot_path))
+
+
+load_global_elo_rank_map.cache_clear = _load_global_elo_rank_map_cached.cache_clear  # type: ignore[attr-defined]
 
 
 def _rating_fields_for_team(
@@ -224,6 +256,20 @@ def _effective_published_dir() -> Path:
     if all(path.exists() for path in runtime_required):
         return RUNTIME_PUBLISHED_RATINGS_DIR
     return PUBLISHED_RATINGS_DIR
+
+
+def _runtime_live_artifact_version() -> str:
+    paths = [
+        NORMALIZED_LIVE_SCHEDULE_PATH,
+        MINI_PROGRAM_PREDICTIONS_PATH,
+        _published_manifest_path_for(RUNTIME_PUBLISHED_RATINGS_DIR),
+        _published_current_snapshot_path_for(RUNTIME_PUBLISHED_RATINGS_DIR),
+        _published_live_match_ledger_path_for(RUNTIME_PUBLISHED_RATINGS_DIR),
+    ]
+    return "|".join(
+        f"{Path(path_text).name}:{mtime_ns}:{size}"
+        for path_text, mtime_ns, size in (_path_signature(path) for path in paths)
+    )
 
 
 def _read_json_if_exists(path: Path) -> Any | None:
@@ -358,6 +404,7 @@ def summarize_live_status(region_slug: str) -> dict[str, Any]:
             "sourceStatus": "missing",
             "sourceReason": "尚未同步官方实时赛程",
             "sourceUpdatedAt": None,
+            "runtimeArtifactVersion": _runtime_live_artifact_version(),
             "completedOfficialMatches": 0,
             "confirmedOfficialMatches": 0,
             "officialScheduleMatches": 0,
@@ -387,6 +434,7 @@ def summarize_live_status(region_slug: str) -> dict[str, Any]:
         "sourceStatus": effective_source_status,
         "sourceReason": source_reason,
         "sourceUpdatedAt": normalized.get("sourceUpdatedAt") or normalized.get("fetchedAt"),
+        "runtimeArtifactVersion": _runtime_live_artifact_version(),
         "completedOfficialMatches": completed_count,
         "confirmedOfficialMatches": confirmed_count,
         "officialScheduleMatches": official_schedule_matches if effective_source_status == "active" else 0,

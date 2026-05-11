@@ -280,6 +280,31 @@ def test_overview_ranks_teams_by_current_live_elo_without_changing_probabilities
     assert south["teams"][1]["probabilities"]["national"] == 0.77
 
 
+def test_current_live_elo_reloads_when_runtime_snapshot_changes(tmp_path, monkeypatch) -> None:
+    published_dir = tmp_path / "published_2026"
+    published_dir.mkdir(parents=True)
+    rating_row = next(row for row in service.load_ratings_rows() if row.get("school_key"))
+    school_key = str(rating_row["school_key"])
+    team_key = str(rating_row["team_key"])
+
+    monkeypatch.setattr(service, "RUNTIME_PUBLISHED_RATINGS_DIR", published_dir)
+
+    def write_snapshot(rating: float, marker: str) -> None:
+        (published_dir / "current_snapshot.json").write_text(
+            json.dumps([{"school_key": school_key, "published_rating": rating, "marker": marker}], ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+    write_snapshot(1111.0, "old")
+    service._reset_live_state_caches()
+    assert service.load_current_rating_index()[team_key]["currentElo"] == 1111.0
+    first_version = service.summarize_live_status("south_region")["runtimeArtifactVersion"]
+
+    write_snapshot(2222.0, "new-snapshot")
+    assert service.summarize_live_status("south_region")["runtimeArtifactVersion"] != first_version
+    assert service.load_current_rating_index()[team_key]["currentElo"] == 2222.0
+
+
 def test_simulation_returns_expected_shape_for_all_regions() -> None:
     expectations = {
         "east_region": {"nationalSlots": 8, "repechageSlots": 6},

@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getPrematchCenter } from "@/lib/api";
+import { startRealtimePolling } from "@/lib/realtime-polling";
 import {
   formatEmptyStateCount,
   EMPTY_STATE_REGION_LINKS,
@@ -57,15 +58,22 @@ export function PrematchCenter() {
 
   useEffect(() => {
     let canceled = false;
-    getPrematchCenter()
-      .then((res) => {
-        if (!canceled) setData(res);
-      })
-      .catch((err) => {
-        if (!canceled) setError(err instanceof Error ? err.message : String(err));
-      });
+    const loadPrematch = () => {
+      getPrematchCenter()
+        .then((res) => {
+          if (!canceled) {
+            setError("");
+            setData(res);
+          }
+        })
+        .catch((err) => {
+          if (!canceled) setError(err instanceof Error ? err.message : String(err));
+        });
+    };
+    const stopPolling = startRealtimePolling(loadPrematch);
     return () => {
       canceled = true;
+      stopPolling();
     };
   }, []);
 

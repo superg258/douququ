@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getCommandCenter, getPredictionRecap } from "@/lib/api";
 import { formatMatchLabel } from "@/lib/display";
 import { buildLiveCommandCenter } from "@/lib/live-command-center";
+import { startRealtimePolling } from "@/lib/realtime-polling";
 import type { CommandCenterResponse, PredictionRecapResponse, RegionSlug } from "@/lib/types";
 import { LiveCommandCenterPanel } from "@/components/live-command-center-panel";
 import { ModelRecapPanel } from "@/components/model-recap-panel";
@@ -90,29 +91,34 @@ export function ForecastCenterPage() {
   const [command, setCommand] = useState<CommandCenterResponse | null>(null);
   const [recap, setRecap] = useState<PredictionRecapResponse | null>(null);
   const [error, setError] = useState("");
+  const initializedRegionRef = useRef(false);
 
   useEffect(() => {
     let canceled = false;
-    setError("");
-    Promise.all([getCommandCenter(20260414, "live"), getPredictionRecap(20260414, "live")])
-      .then(([commandPayload, recapPayload]) => {
-        if (!canceled) {
-          setCommand(commandPayload);
-          setRecap(recapPayload);
-          // Default to the region currently playing; fall back to "all"
-          const liveRegionSlugs = commandPayload.timelineBuckets.liveNow
-            .map((m) => m.regionSlug)
-            .filter((slug, i, arr) => arr.indexOf(slug) === i);
-          setRegion(
-            liveRegionSlugs.length > 0 ? liveRegionSlugs[0] : "all"
-          );
-        }
-      })
-      .catch((err) => {
-        if (!canceled) setError(err instanceof Error ? err.message : String(err));
-      });
+    const loadForecastCenter = () => {
+      setError("");
+      Promise.all([getCommandCenter(20260414, "live"), getPredictionRecap(20260414, "live")])
+        .then(([commandPayload, recapPayload]) => {
+          if (!canceled) {
+            setCommand(commandPayload);
+            setRecap(recapPayload);
+            if (!initializedRegionRef.current) {
+              const liveRegionSlugs = commandPayload.timelineBuckets.liveNow
+                .map((m) => m.regionSlug)
+                .filter((slug, i, arr) => arr.indexOf(slug) === i);
+              setRegion(liveRegionSlugs.length > 0 ? liveRegionSlugs[0] : "all");
+              initializedRegionRef.current = true;
+            }
+          }
+        })
+        .catch((err) => {
+          if (!canceled) setError(err instanceof Error ? err.message : String(err));
+        });
+    };
+    const stopPolling = startRealtimePolling(loadForecastCenter);
     return () => {
       canceled = true;
+      stopPolling();
     };
   }, []);
 

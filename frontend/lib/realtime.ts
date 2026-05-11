@@ -80,6 +80,22 @@ export function deriveRealtimeAvailability(regionSlug: RegionSlug, state: Realti
   };
 }
 
+export function liveStateRefreshKey(state: LiveStateResponse | null | undefined) {
+  if (!state) {
+    return "";
+  }
+  return [
+    state.runtimeArtifactVersion ?? "",
+    state.generatedAt ?? "",
+    state.sourceUpdatedAt ?? "",
+    state.completedOfficialMatches,
+    state.confirmedOfficialMatches,
+    state.officialScheduleMatches ?? 0,
+    state.officialPlaceholderMatches ?? 0,
+    state.ledgerRows,
+  ].join(":");
+}
+
 export function formatMiniProgramPrediction(prediction: MiniProgramPrediction | null | undefined) {
   if (!prediction) {
     return null;

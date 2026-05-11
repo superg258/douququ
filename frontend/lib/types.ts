@@ -15,6 +15,7 @@ export interface LiveStatusSummary {
   sourceStatus: LiveSourceStatus;
   sourceReason: string | null;
   sourceUpdatedAt: string | null;
+  runtimeArtifactVersion?: string | null;
   completedOfficialMatches: number;
   confirmedOfficialMatches: number;
   officialScheduleMatches?: number;

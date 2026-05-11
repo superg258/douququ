@@ -23,6 +23,7 @@ import {
   REGION_VIEWS,
   resolveWorkspaceDataMode,
 } from "@/lib/region-config";
+import { startRealtimePolling } from "@/lib/realtime-polling";
 import { buildTeamHref } from "@/lib/team-profile";
 import { sortTeamsForWorkspaceSearch } from "@/lib/workspace-search";
 import {
@@ -32,7 +33,7 @@ import {
   shouldRenderTeamInspector,
   type InspectorPanelState,
 } from "@/lib/workspace-selection";
-import { deriveRealtimeAvailability } from "@/lib/realtime";
+import { deriveRealtimeAvailability, liveStateRefreshKey } from "@/lib/realtime";
 import { deriveMatchRatingBreakdown, formatSignedRatingDelta, ratingDeltaTone, type MatchRatingBreakdown } from "@/lib/live-rating";
 import { formatMatchCardScheduleTime, predictScoreline } from "@/components/canvas-card";
 import type {
@@ -613,14 +614,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   const realtimeEnabled = realtimeAvailability.enabled;
   const dataMode = resolveWorkspaceDataMode(requestedMode, realtimeStatusLoaded, realtimeEnabled);
   const requestedLiveFallback = requestedMode === "live" && realtimeStatusLoaded && !realtimeEnabled;
-  const liveSimulationRefreshKey = requestedMode === "live" && liveState
-    ? [
-        liveState.sourceUpdatedAt ?? "",
-        liveState.completedOfficialMatches,
-        liveState.confirmedOfficialMatches,
-        liveState.ledgerRows,
-      ].join(":")
-    : "";
+  const liveSimulationRefreshKey = requestedMode === "live" ? liveStateRefreshKey(liveState) : "";
 
   useEffect(() => {
     const nextState = resolveHighlightSelectionState(selectionRef.current, highlightedTeamKey);
@@ -670,11 +664,10 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
     };
 
     setLiveState(null);
-    loadLiveState();
-    const timer = window.setInterval(loadLiveState, 30_000);
+    const stopPolling = startRealtimePolling(loadLiveState);
     return () => {
       canceled = true;
-      window.clearInterval(timer);
+      stopPolling();
     };
   }, [regionSlug]);
 
