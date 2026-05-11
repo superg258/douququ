@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import math
 from collections import Counter, defaultdict
@@ -24,8 +25,11 @@ SOURCE_WEIGHTS = {
 }
 TIME_DECAY_HALF_LIFE_DAYS = 365.0
 MIN_EFFECTIVE_WEIGHT = 0.35
-PRIOR_WEIGHT = 14.0
-MAX_DELTA_LOGIT = 0.12
+PRIOR_WEIGHT = 3.5
+MAX_DELTA_PROBABILITY = 0.10
+MAX_DELTA_LOGIT = 4.0 * math.atanh(MAX_DELTA_PROBABILITY)
+CURRENT_SEASON_SOURCE = "CURRENT_RMUC"
+CURRENT_SEASON_MATCH_WEIGHT = 0.75
 
 
 def _clip_probability(value: float) -> float:
@@ -141,6 +145,59 @@ def load_head_to_head_index() -> dict[tuple[str, str], dict[str, Any]]:
     return build_head_to_head_index(rows, reference_date=load_reference_date())
 
 
+def clone_runtime_head_to_head_index(
+    source_index: dict[tuple[str, str], dict[str, Any]] | None = None,
+) -> dict[tuple[str, str], dict[str, Any]]:
+    return copy.deepcopy(load_head_to_head_index() if source_index is None else source_index)
+
+
+def record_runtime_match(
+    head_to_head_index: dict[tuple[str, str], dict[str, Any]],
+    red_college_name: str,
+    blue_college_name: str,
+    red_games: int,
+    blue_games: int,
+    *,
+    weight: float = CURRENT_SEASON_MATCH_WEIGHT,
+    source: str = CURRENT_SEASON_SOURCE,
+) -> None:
+    if weight <= 0.0:
+        return
+    school_a = _normalize_school_name(red_college_name)
+    school_b = _normalize_school_name(blue_college_name)
+    if not school_a or not school_b or school_a == school_b:
+        return
+
+    pair_key = tuple(sorted((school_a, school_b)))
+    summary = head_to_head_index.setdefault(
+        pair_key,
+        {
+            "meetings_count": 0,
+            "effective_weight": 0.0,
+            "school_scores": defaultdict(float),
+            "season_counts": Counter(),
+            "season_weights": defaultdict(float),
+            "weighted_ties": 0.0,
+        },
+    )
+    summary["meetings_count"] = int(summary.get("meetings_count", 0)) + 1
+    summary["effective_weight"] = float(summary.get("effective_weight", 0.0)) + weight
+    summary.setdefault("school_scores", defaultdict(float))
+    summary.setdefault("season_counts", Counter())
+    summary.setdefault("season_weights", defaultdict(float))
+    summary["season_counts"][source] = int(summary["season_counts"].get(source, 0)) + 1
+    summary["season_weights"][source] = float(summary["season_weights"].get(source, 0.0)) + weight
+
+    if red_games == blue_games:
+        summary["school_scores"][school_a] = float(summary["school_scores"].get(school_a, 0.0)) + (0.5 * weight)
+        summary["school_scores"][school_b] = float(summary["school_scores"].get(school_b, 0.0)) + (0.5 * weight)
+        summary["weighted_ties"] = float(summary.get("weighted_ties", 0.0)) + weight
+        return
+
+    winner_school = school_a if red_games > blue_games else school_b
+    summary["school_scores"][winner_school] = float(summary["school_scores"].get(winner_school, 0.0)) + weight
+
+
 def summarize_head_to_head(
     school_a: str,
     school_b: str,
@@ -233,5 +290,8 @@ def configuration_payload() -> dict[str, Any]:
         "time_decay_half_life_days": TIME_DECAY_HALF_LIFE_DAYS,
         "min_effective_weight": MIN_EFFECTIVE_WEIGHT,
         "prior_weight": PRIOR_WEIGHT,
+        "max_delta_probability": MAX_DELTA_PROBABILITY,
         "max_delta_logit": MAX_DELTA_LOGIT,
+        "current_season_source": CURRENT_SEASON_SOURCE,
+        "current_season_match_weight": CURRENT_SEASON_MATCH_WEIGHT,
     }

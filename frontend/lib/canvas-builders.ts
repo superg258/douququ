@@ -476,7 +476,7 @@ function connectCardGroupToCard(
 }
 
 function isOfficialPlaceholderMatch(match: MatchRow) {
-  return Boolean(match.officialMatchId) && (match.isConfirmedMatchup === false || !match.redTeam.teamKey || !match.blueTeam.teamKey);
+  return Boolean(match.officialMatchId) && (!match.redTeam.teamKey || !match.blueTeam.teamKey);
 }
 
 function isOfficialPlaceholderSwissMatch(match: MatchRow) {

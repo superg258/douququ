@@ -198,6 +198,22 @@ def assign_tournament_strengths(teams: list[RegionTeam], rng: random.Random) -> 
         team.match_sigma_theta = max(pre_signal_sd_theta * TOURNAMENT_MATCH_SIGMA_FACTOR, RATING_SIGMA_FLOOR / RATING_SCALE)
 
 
+def record_runtime_head_to_head_result(
+    head_to_head_index: dict[tuple[str, str], dict[str, Any]],
+    red_team: RegionTeam,
+    blue_team: RegionTeam,
+    red_games: int,
+    blue_games: int,
+) -> None:
+    h2h.record_runtime_match(
+        head_to_head_index,
+        red_team.college_name,
+        blue_team.college_name,
+        red_games,
+        blue_games,
+    )
+
+
 def simulate_region(
     region: str,
     *,
@@ -229,7 +245,7 @@ def simulate_region(
         slot_rows = region_core.assign_region_slots(teams, rng)
     region_core.apply_official_swiss_ranking_metrics(teams, official_group_rank_metrics)
     assign_tournament_strengths(teams, rng)
-    head_to_head_index = h2h.load_head_to_head_index()
+    head_to_head_index = h2h.clone_runtime_head_to_head_index()
 
     group_rankings: dict[str, list[RegionTeam]] = {}
     match_rows: list[dict[str, Any]] = []
@@ -242,6 +258,7 @@ def simulate_region(
             head_to_head_index=head_to_head_index,
             samples=samples,
             payload_builder=payload_builder or build_prediction_payload,
+            head_to_head_recorder=record_runtime_head_to_head_result,
             official_pairings=(official_swiss_pairings or {}).get(group_name),
             use_csv_rank_pairings=True,
         )
@@ -255,6 +272,7 @@ def simulate_region(
         head_to_head_index=head_to_head_index,
         samples=samples,
         payload_builder=payload_builder or build_prediction_payload,
+        head_to_head_recorder=record_runtime_head_to_head_result,
     )
     match_rows.extend(bracket_rows)
     final_rankings = region_core.build_final_rankings(region, teams, bracket_summary)

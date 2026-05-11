@@ -57,11 +57,24 @@ export function formatMatchCardScheduleTime(plannedStartAt?: string | null) {
   return formatBeijingMonthDayTime(plannedStartAt);
 }
 
+export const PREDICTION_MATCH_VISUAL_CLASSES = {
+  container: "border border-dashed border-rm-blue/8 bg-black/60",
+  statusBadge: "border-rm-blue/20 text-rm-blue/40 bg-rm-blue/[0.03]",
+  scoreLabel: "border border-dashed border-rm-blue/12 bg-rm-blue/[0.03] px-1.5 py-0.5 text-rm-blue/55",
+  sideAccent: "opacity-[0.12]",
+  redTeamRow: "bg-[linear-gradient(90deg,rgba(232,48,42,0.05),transparent_60%)]",
+  blueTeamRow: "bg-[linear-gradient(90deg,rgba(42,159,255,0.05),transparent_60%)]",
+  redScorePanel: "bg-[linear-gradient(180deg,rgba(232,48,42,0.12),rgba(232,48,42,0.07),rgba(200,35,28,0.09))] text-white/30",
+  blueScorePanel: "bg-[linear-gradient(180deg,rgba(42,159,255,0.12),rgba(42,159,255,0.07),rgba(30,130,220,0.09))] text-white/30",
+  dividerBackground: "linear-gradient(90deg, rgba(232,48,42,0.12), rgba(42,159,255,0.12))",
+};
+
 export function deriveMatchCardState(row: MatchRow, mode?: "sim" | "live") {
   const isSimulationMode = mode === "sim";
   const hasRealResult = Boolean(row.isRealResult);
-  const isOfficialPlaceholder = !isSimulationMode && !hasRealResult && Boolean(row.officialMatchId) && row.isConfirmedMatchup === false;
-  const isOfficialScheduled = !isSimulationMode && !hasRealResult && Boolean(row.officialMatchId) && !isOfficialPlaceholder;
+  const hasPredictedTeamRefs = Boolean(row.redTeam.teamKey && row.blueTeam.teamKey);
+  const isOfficialPlaceholder = !isSimulationMode && !hasRealResult && Boolean(row.officialMatchId) && row.isConfirmedMatchup === false && !hasPredictedTeamRefs;
+  const isOfficialScheduled = !isSimulationMode && !hasRealResult && Boolean(row.officialMatchId) && row.isConfirmedMatchup !== false;
   const isPrediction = !isSimulationMode && !hasRealResult && !isOfficialScheduled;
   const showsResolvedScoreline = isSimulationMode || hasRealResult;
   const usesActualResultVisuals = isSimulationMode || hasRealResult;
@@ -466,6 +479,10 @@ function MatchTeamLine({
     ? (isRed
         ? "bg-[linear-gradient(90deg,rgba(232,48,42,0.03),transparent)]"
         : "bg-[linear-gradient(90deg,rgba(42,159,255,0.03),transparent)]")
+    : isPrediction
+    ? (isRed
+        ? PREDICTION_MATCH_VISUAL_CLASSES.redTeamRow
+        : PREDICTION_MATCH_VISUAL_CLASSES.blueTeamRow)
     : (isRed
         ? "bg-[linear-gradient(90deg,rgba(232,48,42,0.10),transparent_60%)]"
         : "bg-[linear-gradient(90deg,rgba(42,159,255,0.10),transparent_60%)]");
@@ -522,7 +539,7 @@ function MatchTeamLine({
           isSimWinner && "opacity-50",
           isRealLoser && "opacity-25 grayscale-[50%]",
           isSimLoser && "opacity-15 grayscale-[65%]",
-          !resultResolved && !isSimulated && (isScheduled ? "opacity-35" : "opacity-20"),
+          !resultResolved && !isSimulated && (isScheduled ? "opacity-35" : PREDICTION_MATCH_VISUAL_CLASSES.sideAccent),
           !resultResolved && !isSimulated && !isScheduled && "border-dashed"
         )}
       >
@@ -587,8 +604,8 @@ function MatchTeamLine({
               ? "bg-[linear-gradient(180deg,rgba(232,48,42,0.35),rgba(232,48,42,0.25),rgba(200,35,28,0.30))] text-white/60"
               : "bg-[linear-gradient(180deg,rgba(42,159,255,0.35),rgba(42,159,255,0.25),rgba(30,130,220,0.30))] text-white/60")
           : (isRed
-              ? "bg-[linear-gradient(180deg,rgba(232,48,42,0.20),rgba(232,48,42,0.12),rgba(200,35,28,0.15))] text-white/40"
-              : "bg-[linear-gradient(180deg,rgba(42,159,255,0.20),rgba(42,159,255,0.12),rgba(30,130,220,0.15))] text-white/40"),
+              ? PREDICTION_MATCH_VISUAL_CLASSES.redScorePanel
+              : PREDICTION_MATCH_VISUAL_CLASSES.blueScorePanel),
         isPrediction && "border-dashed"
       )}>
         <span className={cn(
@@ -662,7 +679,7 @@ function MatchCanvasCardComponent({
     if (isOfficialPlaceholder) return "border border-dashed border-rm-status-scheduled/45 bg-black/55";
     if (isOfficialScheduled) return "border border-rm-status-scheduled/50 bg-black/65";
     // Tier 3: pure prediction — dimmest
-    if (isPrediction) return "border border-dashed border-rm-blue/12 bg-black/45";
+    if (isPrediction) return PREDICTION_MATCH_VISUAL_CLASSES.container;
     return "border border-white/10 bg-black/80";
   })();
 
@@ -681,8 +698,8 @@ function MatchCanvasCardComponent({
     if (isOfficialPlaceholder) return { label: "队伍待定", className: "border-dashed border-rm-status-scheduled/55 text-rm-status-scheduled/75 bg-rm-status-scheduled/8" };
     if (isOfficialScheduled) return { label: "已排期", className: "border-rm-status-scheduled/60 text-rm-status-scheduled/80 bg-rm-status-scheduled/10" };
     // Tier 3: prediction — faint
-    if (isPrediction) return { label: "预测", className: "border-rm-blue/30 text-rm-blue/50 bg-rm-blue/5" };
-    return { label: "预测", className: "border-rm-blue/30 text-rm-blue/50 bg-rm-blue/5" };
+    if (isPrediction) return { label: "预测", className: PREDICTION_MATCH_VISUAL_CLASSES.statusBadge };
+    return { label: "预测", className: PREDICTION_MATCH_VISUAL_CLASSES.statusBadge };
   })();
 
   // Show simulated/real scoreline when available, predicted score only in pure prediction mode
@@ -758,7 +775,7 @@ function MatchCanvasCardComponent({
             </span>
           )}
           {isPrediction ? (
-            <span className="border border-dashed border-rm-blue/20 bg-rm-blue/5 px-1.5 py-0.5 text-rm-blue">{scoreLabel}</span>
+            <span className={PREDICTION_MATCH_VISUAL_CLASSES.scoreLabel}>{scoreLabel}</span>
           ) : (
             <span className="border border-white/10 bg-black/30 px-1.5 py-0.5">{scoreLabel}</span>
           )}
@@ -787,7 +804,7 @@ function MatchCanvasCardComponent({
             ? "linear-gradient(90deg, rgba(232,48,42,0.6), rgba(42,159,255,0.6))"
             : isOfficialScheduled
             ? "linear-gradient(90deg, rgba(232,48,42,0.35), rgba(42,159,255,0.35))"
-            : "linear-gradient(90deg, rgba(232,48,42,0.2), rgba(42,159,255,0.2))",
+            : PREDICTION_MATCH_VISUAL_CLASSES.dividerBackground,
           boxShadow: usesActualResultVisuals ? "0 0 6px rgba(100,80,200,0.2)" : "none",
         }}
       />

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { deriveMatchCardState, deriveTeamCardState, formatMatchCardScheduleTime } from "@/components/canvas-card";
+import {
+  PREDICTION_MATCH_VISUAL_CLASSES,
+  deriveMatchCardState,
+  deriveTeamCardState,
+  formatMatchCardScheduleTime,
+} from "@/components/canvas-card";
 import type { MatchRow, TeamCanvasCard } from "@/lib/types";
 
 function match(overrides: Partial<MatchRow> = {}): MatchRow {
@@ -107,6 +112,27 @@ describe("deriveMatchCardState", () => {
     });
   });
 
+  it("keeps predicted future matchups with official schedule ids out of placeholder mode", () => {
+    expect(
+      deriveMatchCardState(
+        match({
+          officialMatchId: "30916",
+          officialStatus: "WAITING",
+          plannedStartAt: "2026-05-13T12:00:00+00:00",
+          isConfirmedMatchup: false,
+          redTeam: { teamKey: "red::predicted", collegeName: "预测红方", teamName: "Red" },
+          blueTeam: { teamKey: "blue::predicted", collegeName: "预测蓝方", teamName: "Blue" },
+        }),
+        "live"
+      )
+    ).toMatchObject({
+      statusLabel: "预测",
+      isOfficialPlaceholder: false,
+      isOfficialScheduled: false,
+      isPrediction: true,
+    });
+  });
+
   it("keeps pure simulation mode out of the scheduled status", () => {
     expect(deriveMatchCardState(match(), "sim").statusLabel).toBe("模拟战果");
   });
@@ -117,6 +143,16 @@ describe("deriveMatchCardState", () => {
       showsResolvedScoreline: true,
       usesActualResultVisuals: true,
     });
+  });
+
+  it("keeps prediction match visual tokens deliberately dim", () => {
+    expect(PREDICTION_MATCH_VISUAL_CLASSES.container).toContain("border-rm-blue/8");
+    expect(PREDICTION_MATCH_VISUAL_CLASSES.container).toContain("bg-black/60");
+    expect(PREDICTION_MATCH_VISUAL_CLASSES.statusBadge).toContain("text-rm-blue/40");
+    expect(PREDICTION_MATCH_VISUAL_CLASSES.sideAccent).toBe("opacity-[0.12]");
+    expect(PREDICTION_MATCH_VISUAL_CLASSES.redScorePanel).toContain("rgba(232,48,42,0.12)");
+    expect(PREDICTION_MATCH_VISUAL_CLASSES.redScorePanel).toContain("text-white/30");
+    expect(PREDICTION_MATCH_VISUAL_CLASSES.dividerBackground).toContain("rgba(232,48,42,0.12)");
   });
 });
 

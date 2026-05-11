@@ -42,7 +42,8 @@ function SignalStrip({
   match: PrematchCenterMatch;
   includeScoreline?: boolean;
 }) {
-  if (match.isConfirmedMatchup === false) {
+  const hasPredictedTeamRefs = Boolean(match.redTeam.teamKey && match.blueTeam.teamKey);
+  if (match.isConfirmedMatchup === false && !hasPredictedTeamRefs) {
     return (
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[10px] text-rm-metal-textFaint">
         <span className="text-rm-status-scheduled font-semibold shrink-0">官方占位</span>

@@ -8,7 +8,8 @@ import {
   formatEmptyStateCount,
   EMPTY_STATE_REGION_LINKS,
   getNoScheduledStateCopy,
-  getTimelineStateLabel,
+  getPrematchTimelineDisplayLabel,
+  isOfficialPrematchSchedule,
   isPrematchCompleteState,
   selectSpotlightMatches,
   sortPrematchMatchesByTime,
@@ -47,10 +48,6 @@ function CardGrid({ matches }: { matches: PrematchCenterMatch[] }) {
       ))}
     </div>
   );
-}
-
-function isScheduled(m: PrematchCenterMatch) {
-  return m.scheduleState === "scheduled" || m.scheduleState === "confirmed_unfinished" || m.scheduleState === "official_placeholder";
 }
 
 export function PrematchCenter() {
@@ -105,11 +102,10 @@ export function PrematchCenter() {
   const isPrestartEmpty = pendingMatchCount === 0 && completedMatchCount === 0;
   const showSummaryEmptyState = isAllDone || isPrestartEmpty;
 
-  // Only show scheduled/confirmed matches — never pure simulation
-  const scheduledMatches = sortPrematchMatchesByTime(allUpcomingMatches.filter(isScheduled));
+  const scheduledMatches = sortPrematchMatchesByTime(allUpcomingMatches.filter(isOfficialPrematchSchedule));
   const actionMatch = nextActionMatch ?? nextMatch;
   const scheduledNext =
-    actionMatch && isScheduled(actionMatch) && actionMatch.timelineState !== "overdue_unresolved" ? actionMatch : null;
+    actionMatch && isOfficialPrematchSchedule(actionMatch) && actionMatch.timelineState !== "overdue_unresolved" ? actionMatch : null;
   const scheduledOthers = scheduledNext
     ? scheduledMatches.filter((m) => m.id !== scheduledNext.id)
     : scheduledMatches;
@@ -224,7 +220,7 @@ export function PrematchCenter() {
         <div className="mb-5">
           {scheduledNext.timelineState && (
             <div className="mb-2 font-mono text-[10px] tracking-widest text-rm-status-warn">
-              {getTimelineStateLabel(scheduledNext.timelineState)}
+              {getPrematchTimelineDisplayLabel(scheduledNext)}
             </div>
           )}
           <PrematchMatchCard match={scheduledNext} variant="hero" />

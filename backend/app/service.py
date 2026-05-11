@@ -989,7 +989,21 @@ def _apply_unconfirmed_official_schedule(
         match.pop(key, None)
 
 
-def _attach_live_schedule_metadata(payload: dict[str, Any], region_slug: str) -> None:
+def _team_ref_has_key(match: dict[str, Any], side: str) -> bool:
+    team_ref = match.get(f"{side}Team")
+    return isinstance(team_ref, dict) and bool(str(team_ref.get("teamKey") or "").strip())
+
+
+def _match_has_predicted_team_refs(match: dict[str, Any]) -> bool:
+    return _team_ref_has_key(match, "red") and _team_ref_has_key(match, "blue")
+
+
+def _attach_live_schedule_metadata(
+    payload: dict[str, Any],
+    region_slug: str,
+    *,
+    preserve_predicted_unconfirmed: bool = False,
+) -> None:
     schedule_by_label = _live_schedule_metadata_by_label(region_slug)
     if not schedule_by_label:
         return
@@ -1013,6 +1027,9 @@ def _attach_live_schedule_metadata(payload: dict[str, Any], region_slug: str) ->
                 match["officialMatchId"] = str(schedule["officialMatchId"])
             if schedule.get("officialStatus"):
                 match["officialStatus"] = str(schedule["officialStatus"])
+            if preserve_predicted_unconfirmed and _match_has_predicted_team_refs(match):
+                match["isRealResult"] = False
+                continue
             _apply_unconfirmed_official_schedule(match, schedule, source_order_by_id, group_source_by_id)
 
 
@@ -1324,7 +1341,11 @@ def _prematch_data_source(requested_mode: str, live_status: dict[str, Any], matc
     if requested_mode == "sim":
         return "simulation"
     if live_status.get("sourceStatus") == "active" and match.get("officialMatchId"):
-        return "official_live"
+        if match.get("isRealResult") or match.get("isConfirmedMatchup") is not False:
+            return "official_live"
+        if not _match_has_predicted_team_refs(match):
+            return "official_live"
+        return "simulation_proxy"
     return "simulation_proxy"
 
 
@@ -1333,7 +1354,7 @@ def _prematch_schedule_state(data_source: str, match: dict[str, Any]) -> str:
         return "simulation"
     if data_source == "simulation_proxy":
         return "simulation_proxy"
-    if match.get("isConfirmedMatchup") is False:
+    if match.get("isConfirmedMatchup") is False and not _match_has_predicted_team_refs(match):
         return "official_placeholder"
     if match.get("plannedStartAt"):
         return "scheduled"
@@ -1503,6 +1524,17 @@ def _prematch_sort_key(item: dict[str, Any]) -> tuple[Any, ...]:
     )
 
 
+ACTIONABLE_PREMATCH_SCHEDULE_STATES = {"scheduled", "confirmed_unfinished"}
+
+
+def _is_actionable_prematch_schedule(item: dict[str, Any]) -> bool:
+    return (
+        item.get("dataSource") == "official_live"
+        and item.get("scheduleState") in ACTIONABLE_PREMATCH_SCHEDULE_STATES
+        and _parse_datetime(item.get("plannedStartAt")) is not None
+    )
+
+
 def _timeline_bucket_template() -> dict[str, list[dict[str, Any]]]:
     return {
         "liveNow": [],
@@ -1545,6 +1577,8 @@ def _timeline_state_for_prematch(
         return "simulation_unassigned"
     if planned.astimezone(UTC) < now.astimezone(UTC):
         return "overdue_unresolved"
+    if item.get("dataSource") == "simulation_proxy" or item.get("scheduleState") == "simulation_proxy":
+        return "simulation_unassigned"
     if item.get("id") == up_next_id:
         return "up_next"
     if _local_date(item.get("plannedStartAt"), timezone_name) == target_date:
@@ -1659,7 +1693,8 @@ def build_prematch_center_payload(
             }
         )
         for match in simulation["matches"]:
-            if _prematch_data_source(mode, live_status, match) == "simulation_proxy":
+            data_source = _prematch_data_source(mode, live_status, match)
+            if data_source == "simulation_proxy" and not match.get("officialMatchId"):
                 continue
             if match.get("isRealResult"):
                 completed_count += 1
@@ -1707,7 +1742,7 @@ def build_prematch_center_payload(
         (
             match
             for match in upcoming_matches
-            if _parse_datetime(match.get("plannedStartAt")) is not None
+            if _is_actionable_prematch_schedule(match)
             and _parse_datetime(match.get("plannedStartAt")).astimezone(UTC) >= now_dt.astimezone(UTC)
         ),
         None,
@@ -1729,14 +1764,14 @@ def build_prematch_center_payload(
     review_matches.sort(key=_prematch_sort_key, reverse=True)
     timeline_buckets["reviewPending"].extend(review_matches[:24])
     live_now = timeline_buckets["liveNow"]
-    if live_now:
-        next_action_match = live_now[0]
-    else:
+    next_action_match = next((match for match in live_now if _is_actionable_prematch_schedule(match)), None)
+    if next_action_match is None:
         next_action_match = next(
             (
                 match
                 for match in upcoming_matches
-                if match.get("timelineState")
+                if _is_actionable_prematch_schedule(match)
+                and match.get("timelineState")
                 in {"up_next", "today_pending", "confirmed_upcoming"}
             ),
             None,
@@ -2032,19 +2067,13 @@ def build_team_profile_payload(
         completed_matches = [match for match in team_matches if match.get("isRealResult")]
         upcoming_matches = [match for match in team_matches if not match.get("isRealResult")]
     else:
-        last_confirmed_index = -1
-        for index, match in enumerate(team_matches):
-            if _is_confirmed_team_profile_match(match):
-                last_confirmed_index = index
-                match_path.append(match)
-                if match.get("isRealResult"):
-                    completed_matches.append(match)
-        if last_confirmed_index >= 0:
-            upcoming_matches = [
-                match
-                for match in team_matches[last_confirmed_index + 1 :]
-                if not _is_confirmed_team_profile_match(match)
-            ]
+        has_live_team_context = _has_official_team_profile_slot(simulation) or any(
+            _is_confirmed_team_profile_match(match) for match in team_matches
+        )
+        if has_live_team_context:
+            completed_matches = [match for match in team_matches if match.get("isRealResult")]
+            match_path = completed_matches
+            upcoming_matches = [match for match in team_matches if not match.get("isRealResult")]
         if not _has_actual_team_profile_final(team_matches):
             final_ranking = None
 
@@ -2355,10 +2384,14 @@ def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", sam
         include_current_ratings=mode == "live" and context.source_status == "active",
     )
     if mode == "live" and context.source_status == "active":
-        _attach_live_schedule_metadata(payload, region_slug)
+        _attach_live_schedule_metadata(
+            payload,
+            region_slug,
+            preserve_predicted_unconfirmed=slot_assignments is not None,
+        )
         if slot_assignments is None:
             payload["slots"] = _official_live_slot_placeholders(region_slug, context)
-        if not _live_final_rankings_are_official(payload):
+        if slot_assignments is None and not _live_final_rankings_are_official(payload):
             _replace_unofficial_live_final_rankings(payload, region_slug)
     if mode == "live":
         live_status = payload["meta"].setdefault("liveStatus", {})

@@ -108,8 +108,39 @@ describe("live command center", () => {
     expect(command.sections.find((section) => section.id === "up-next")?.items).toHaveLength(1);
     expect(command.sections.find((section) => section.id === "up-next")?.items[0].matchLabel).toBe("NEXT-1");
     expect(command.sections.map((section) => section.id)).not.toContain("simulation-unassigned");
+    expect(command.sections.map((section) => String(section.id))).not.toContain("simulation-predictions");
     expect(command.sections.map((section) => section.id)).not.toContain("review-pending");
     expect(command.unavailableReason).toBe("");
+  });
+
+  it("does not surface simulation proxy matches in the live command center", () => {
+    const predictedShell = {
+      ...baseMatch,
+      id: "south_region:PREDICTED-1",
+      matchLabel: "PREDICTED-1",
+      dataSource: "simulation_proxy",
+      scheduleState: "simulation_proxy",
+      timelineState: "simulation_unassigned",
+    } satisfies CommandCenterResponse["timelineBuckets"]["simulationUnassigned"][number];
+
+    const command = buildLiveCommandCenter(
+      buildCommand({
+        timelineBuckets: {
+          liveNow: [],
+          upNext: [],
+          todayPending: [],
+          confirmedUpcoming: [],
+          overdueUnresolved: [],
+          simulationUnassigned: [predictedShell],
+          reviewPending: [],
+        },
+      })
+    );
+
+    expect(command.sections.map((item) => String(item.id))).not.toContain("simulation-predictions");
+    expect(command.sections.flatMap((item) => item.items.map((match) => match.matchLabel))).not.toContain(
+      "PREDICTED-1"
+    );
   });
 
   it("keeps only the source unavailable reason when all live data is proxied", () => {

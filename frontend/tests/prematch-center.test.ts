@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildPrematchHref,
+  buildPrematchScheduleHref,
   formatEmptyStateCount,
   formatPrematchMonthDayTime,
   getDataSourceLabel,
@@ -12,8 +13,10 @@ import {
   groupByTimeBlock,
   formatPrematchDate,
   getNoScheduledStateCopy,
+  getPrematchTimelineDisplayLabel,
   groupByDate,
   isPrematchCompleteState,
+  isVisiblePrematchSchedule,
   selectSpotlightMatches,
   sortPrematchMatchesByTime,
   getTimelineStateLabel,
@@ -110,7 +113,7 @@ describe("prematch-center helpers", () => {
   it("returns correct Chinese labels for all data sources", () => {
     expect(getDataSourceLabel("official_live")).toBe("官方实时");
     expect(getDataSourceLabel("simulation")).toBe("模拟预测");
-    expect(getDataSourceLabel("simulation_proxy")).toBe("模拟代理");
+    expect(getDataSourceLabel("simulation_proxy")).toBe("模拟预测");
   });
 
   it("returns Chinese labels for timeline states", () => {
@@ -120,6 +123,20 @@ describe("prematch-center helpers", () => {
     expect(getTimelineStateLabel("overdue_unresolved")).toBe("已过期未同步");
     expect(getTimelineStateLabel("simulation_unassigned")).toBe("待排期");
     expect(getTimelineStateLabel("review_pending")).toBe("已完赛");
+  });
+
+  it("labels unconfirmed predicted schedule shells as simulation predictions", () => {
+    const match = buildMockMatch({
+      dataSource: "simulation_proxy",
+      scheduleState: "simulation_proxy",
+      timelineState: "simulation_unassigned",
+      isConfirmedMatchup: false,
+      plannedStartAt: "2026-05-14T08:10:00+08:00",
+      officialMatchId: "31002",
+    });
+
+    expect(isVisiblePrematchSchedule(match)).toBe(true);
+    expect(getPrematchTimelineDisplayLabel(match)).toBe("模拟预测");
   });
 
   /* ── buildPrematchHref ── */
@@ -158,6 +175,22 @@ describe("prematch-center helpers", () => {
 
     expect(href).toMatch(/^\/regions\/east_region\?/);
     expect(href).toContain("view=playoff");
+  });
+
+  it("builds schedule entry hrefs without default team highlight", () => {
+    const match = buildMockMatch({
+      dataSource: "official_live",
+      regionSlug: "south_region",
+      workspaceView: "swiss-a",
+      predictedWinnerTeamKey: "red-team",
+    });
+    const href = buildPrematchScheduleHref(match);
+
+    expect(href).toMatch(/^\/regions\/south_region\?/);
+    expect(href).toContain("view=swiss-a");
+    expect(href).toContain("mode=live");
+    expect(href).toContain("seed=20260414");
+    expect(href).not.toContain("highlight=");
   });
 
   /* ── Empty state ── */
@@ -446,6 +479,38 @@ describe("prematch-center helpers", () => {
     ];
 
     expect(selectSpotlightMatches(items).map((match) => match.id)).toEqual(["valid-bilateral"]);
+  });
+
+  it("keeps simulation proxy matches out of spotlight selection", () => {
+    const items = [
+      buildMockMatch({
+        id: "simulation-proxy",
+        dataSource: "simulation_proxy",
+        scheduleState: "simulation_proxy",
+        timelineState: "simulation_unassigned",
+        plannedStartAt: "2026-04-14T09:00:00+08:00",
+        officialMatchId: "SIM-SHELL",
+        redTeamGlobalRank: 2,
+        blueTeamGlobalRank: 3,
+        strongTeamInvolved: true,
+        margin: 0.02,
+        favoriteRate: 0.51,
+      }),
+      buildMockMatch({
+        id: "official-scheduled",
+        dataSource: "official_live",
+        scheduleState: "scheduled",
+        plannedStartAt: "2026-04-14T10:00:00+08:00",
+        officialMatchId: "OFFICIAL-1",
+        redTeamGlobalRank: 7,
+        blueTeamGlobalRank: 12,
+        strongTeamInvolved: true,
+        margin: 0.12,
+        favoriteRate: 0.56,
+      }),
+    ];
+
+    expect(selectSpotlightMatches(items).map((match) => match.id)).toEqual(["official-scheduled"]);
   });
 
   it("caps spotlight matches at three games and displays selected games by time", () => {

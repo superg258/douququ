@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { getOverview, getPrematchCenter } from "@/lib/api";
 import { buildOverviewDashboard } from "@/lib/overview-builders";
 import { buildRegionHref } from "@/lib/region-config";
-import { buildPrematchHref, sortPrematchMatchesByTime } from "@/lib/prematch-center";
+import { buildPrematchScheduleHref, isVisiblePrematchSchedule, sortPrematchMatchesByTime } from "@/lib/prematch-center";
 import type { OverviewDashboard, PrematchCenterMatch, RegionSlug } from "@/lib/types";
 
 import { OverviewHero } from "@/components/overview-hero";
@@ -30,7 +30,7 @@ export function OverviewPage() {
           setDashboard(buildOverviewDashboard(overviewRes));
           const next = prematchRes.nextActionMatch ?? prematchRes.nextMatch;
           if (next?.dataSource === "official_live") {
-            setNextMatchHref(buildPrematchHref(next));
+            setNextMatchHref(buildPrematchScheduleHref(next));
             setNextMatchCtaLabel("进入实时赛程");
           } else {
             setNextMatchHref(buildRegionHref("south_region", "playoff", { seed: 20260414, mode: "sim" }));
@@ -39,17 +39,12 @@ export function OverviewPage() {
           // Per-region next-match hrefs for region card entry buttons
           const hrefs: Record<string, string | null> = {};
           const scheduled = sortPrematchMatchesByTime(
-            prematchRes.allUpcomingMatches.filter(
-              (m: PrematchCenterMatch) =>
-                m.scheduleState === "scheduled" ||
-                m.scheduleState === "confirmed_unfinished" ||
-                m.scheduleState === "official_placeholder"
-            )
+            prematchRes.allUpcomingMatches.filter(isVisiblePrematchSchedule)
           );
           for (const slug of ["south_region", "east_region", "north_region"] as RegionSlug[]) {
             const match = scheduled.find((m: PrematchCenterMatch) => m.regionSlug === slug);
             if (match) {
-              hrefs[slug] = buildPrematchHref(match);
+              hrefs[slug] = buildPrematchScheduleHref(match);
             } else {
               hrefs[slug] = null;
             }

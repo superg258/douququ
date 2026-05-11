@@ -580,7 +580,7 @@ export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) 
           </MechCard>
         </section>
 
-        {/* ═══ 双栏：赛程路径 + 后续对手 ═══ */}
+        {/* ═══ 双栏：赛程路径 + 预测路径 ═══ */}
         <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           {/* 左侧：赛程路径（时间线） */}
           <div className="space-y-3">
@@ -603,30 +603,30 @@ export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) 
               {profile.matchPath.length === 0 && (
                 <MechCard variant="default">
                   <p className="font-mono text-xs text-rm-metal-textFaint py-2 text-center">
-                    暂无该队赛程路径。
+                    暂无已举行比赛。
                   </p>
                 </MechCard>
               )}
             </div>
           </div>
 
-          {/* 右侧：后续可能对手 */}
+          {/* 右侧：预测路径 */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <div className="h-4 w-0.5 bg-rm-status-warn/60 shadow-[0_0_6px_rgba(255,176,0,0.3)]" />
-              <h2 className="font-sans text-lg font-semibold text-rm-metal-textLight">后续可能对手</h2>
+              <h2 className="font-sans text-lg font-semibold text-rm-metal-textLight">预测路径</h2>
               <span className="font-mono text-[10px] text-rm-metal-textFaint tracking-widest">
-                近 {Math.min(profile.upcomingMatches.length, 6)} 场
+                {profile.upcomingMatches.length} 场
               </span>
             </div>
             <div className="space-y-2">
-              {profile.upcomingMatches.slice(0, 6).map((match) => (
+              {profile.upcomingMatches.map((match) => (
                 <UpcomingOpponentRow key={match.matchLabel} match={match} teamElo={teamElo} />
               ))}
               {profile.upcomingMatches.length === 0 && (
                 <MechCard variant="default">
                   <p className="font-mono text-xs text-rm-metal-textFaint py-2 text-center">
-                    暂无后续未赛对手。
+                    暂无预测路径比赛。
                   </p>
                 </MechCard>
               )}

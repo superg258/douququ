@@ -194,6 +194,7 @@ class RegionTeam:
 
 
 PayloadBuilder = Callable[..., dict[str, Any]]
+HeadToHeadRecorder = Callable[[dict[tuple[str, str], dict[str, Any]], RegionTeam, RegionTeam, int, int], None]
 
 
 def float_field(row: dict[str, Any], key: str, default: float = 0.0) -> float:
@@ -691,6 +692,7 @@ def simulate_series(
     samples: int,
     group_name: str = "",
     payload_builder: PayloadBuilder | None = None,
+    head_to_head_recorder: HeadToHeadRecorder | None = None,
 ) -> dict[str, Any]:
     match_seed = rng.randrange(1, 1_000_000_000)
     builder = payload_builder or build_prediction_payload
@@ -744,6 +746,8 @@ def simulate_series(
         "planned_start_at": payload.get("planned_start_at"),
         "mini_program_prediction": payload.get("mini_program_prediction"),
     }
+    if forced_scoreline and head_to_head_recorder is not None:
+        head_to_head_recorder(head_to_head_index, red_team, blue_team, red_games, blue_games)
     for optional_key in (
         "red_rating_before_match",
         "red_rating_after_match",
@@ -901,6 +905,7 @@ def simulate_swiss_group(
     use_csv_rank_pairings: bool = False,
     use_round5_csv_pairings: bool | None = None,
     use_south_round5_csv_pairings: bool | None = None,
+    head_to_head_recorder: HeadToHeadRecorder | None = None,
 ) -> tuple[list[RegionTeam], list[dict[str, Any]]]:
     if use_round5_csv_pairings is not None:
         use_csv_rank_pairings = use_round5_csv_pairings
@@ -944,6 +949,7 @@ def simulate_swiss_group(
                 samples=samples,
                 group_name=group_name,
                 payload_builder=payload_builder,
+                head_to_head_recorder=head_to_head_recorder,
             )
             red_games = int(result["red_games"])
             blue_games = int(result["blue_games"])
@@ -999,6 +1005,7 @@ def simulate_round_of_16(
     head_to_head_index: dict[tuple[str, str], dict[str, Any]],
     samples: int,
     payload_builder: PayloadBuilder | None = None,
+    head_to_head_recorder: HeadToHeadRecorder | None = None,
 ) -> tuple[list[RegionTeam], list[RegionTeam], list[dict[str, Any]]]:
     winners: list[RegionTeam] = []
     losers: list[RegionTeam] = []
@@ -1017,6 +1024,7 @@ def simulate_round_of_16(
             head_to_head_index=head_to_head_index,
             samples=samples,
             payload_builder=payload_builder,
+            head_to_head_recorder=head_to_head_recorder,
         )
         winners.append(result["winner"])
         losers.append(result["loser"])
@@ -1036,6 +1044,7 @@ def simulate_named_round(
     winner_next: str,
     loser_next: str,
     payload_builder: PayloadBuilder | None = None,
+    head_to_head_recorder: HeadToHeadRecorder | None = None,
 ) -> tuple[list[RegionTeam], list[RegionTeam], list[dict[str, Any]]]:
     winners: list[RegionTeam] = []
     losers: list[RegionTeam] = []
@@ -1052,6 +1061,7 @@ def simulate_named_round(
             head_to_head_index=head_to_head_index,
             samples=samples,
             payload_builder=payload_builder,
+            head_to_head_recorder=head_to_head_recorder,
         )
         winners.append(result["winner"])
         losers.append(result["loser"])
@@ -1067,6 +1077,7 @@ def simulate_bracket(
     head_to_head_index: dict[tuple[str, str], dict[str, Any]],
     samples: int,
     payload_builder: PayloadBuilder | None = None,
+    head_to_head_recorder: HeadToHeadRecorder | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     all_rows: list[dict[str, Any]] = []
     r16_winners, r16_losers, round16_rows = simulate_round_of_16(
@@ -1075,6 +1086,7 @@ def simulate_bracket(
         head_to_head_index=head_to_head_index,
         samples=samples,
         payload_builder=payload_builder,
+        head_to_head_recorder=head_to_head_recorder,
     )
     all_rows.extend(round16_rows)
     r16_winner_map = {f"R16-{index}": team for index, team in enumerate(r16_winners, start=1)}
@@ -1091,6 +1103,7 @@ def simulate_bracket(
         winner_next="semifinal",
         loser_next="national_qualified",
         payload_builder=payload_builder,
+        head_to_head_recorder=head_to_head_recorder,
     )
     all_rows.extend(qf_rows)
     qf_winner_map = {f"QF-{index}": team for index, team in enumerate(qf_winners, start=1)}
@@ -1107,6 +1120,7 @@ def simulate_bracket(
         winner_next="final",
         loser_next="third_place",
         payload_builder=payload_builder,
+        head_to_head_recorder=head_to_head_recorder,
     )
     all_rows.extend(sf_rows)
 
@@ -1121,6 +1135,7 @@ def simulate_bracket(
         winner_next="3rd_place",
         loser_next="4th_place",
         payload_builder=payload_builder,
+        head_to_head_recorder=head_to_head_recorder,
     )
     all_rows.extend(third_rows)
 
@@ -1135,6 +1150,7 @@ def simulate_bracket(
         winner_next="champion",
         loser_next="runner_up",
         payload_builder=payload_builder,
+        head_to_head_recorder=head_to_head_recorder,
     )
     all_rows.extend(final_rows)
 
@@ -1161,6 +1177,7 @@ def simulate_bracket(
         head_to_head_index=head_to_head_index,
         samples=samples,
         payload_builder=payload_builder,
+        head_to_head_recorder=head_to_head_recorder,
     )
     all_rows.extend(qualification_rows)
     return all_rows, {
@@ -1182,6 +1199,7 @@ def simulate_qualification_path(
     head_to_head_index: dict[tuple[str, str], dict[str, Any]],
     samples: int,
     payload_builder: PayloadBuilder | None = None,
+    head_to_head_recorder: HeadToHeadRecorder | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     q1_pairs = [
@@ -1201,6 +1219,7 @@ def simulate_qualification_path(
         winner_next="tbd",
         loser_next="tbd",
         payload_builder=payload_builder,
+        head_to_head_recorder=head_to_head_recorder,
     )
     if region == "东部赛区":
         for row in q1_rows:
@@ -1236,6 +1255,7 @@ def simulate_qualification_path(
             winner_next="repechage_qualified",
             loser_next="eliminated",
             payload_builder=payload_builder,
+            head_to_head_recorder=head_to_head_recorder,
         )
         rows.extend(q2_rows)
         for team in q2_winners:
@@ -1262,6 +1282,7 @@ def simulate_qualification_path(
         winner_next="national_qualified",
         loser_next="tbd",
         payload_builder=payload_builder,
+        head_to_head_recorder=head_to_head_recorder,
     )
     for row in national_rows:
         row["loser_next"] = "repechage_qualified"
@@ -1299,6 +1320,7 @@ def simulate_qualification_path(
             winner_next="repechage_qualified",
             loser_next="eliminated",
             payload_builder=payload_builder,
+            head_to_head_recorder=head_to_head_recorder,
         )
         rows.extend(repechage_rows)
         for team in repechage_winners:

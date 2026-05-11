@@ -10,7 +10,7 @@ import { formatBeijingMonthDayTime, formatBeijingTime, getBeijingHour } from "@/
 const DATA_SOURCE_LABELS: Record<PrematchDataSource, string> = {
   official_live: "官方实时",
   simulation: "模拟预测",
-  simulation_proxy: "模拟代理",
+  simulation_proxy: "模拟预测",
 };
 
 export function getDataSourceLabel(source: PrematchDataSource) {
@@ -31,12 +31,43 @@ export function getTimelineStateLabel(state: PrematchTimelineState) {
   return TIMELINE_STATE_LABELS[state] ?? state;
 }
 
+export function isVisiblePrematchSchedule(match: PrematchCenterMatch) {
+  return (
+    match.scheduleState === "scheduled" ||
+    match.scheduleState === "confirmed_unfinished" ||
+    match.scheduleState === "official_placeholder" ||
+    (match.scheduleState === "simulation_proxy" && Boolean(match.plannedStartAt))
+  );
+}
+
+export function isOfficialPrematchSchedule(match: PrematchCenterMatch) {
+  return (
+    match.dataSource === "official_live" &&
+    (match.scheduleState === "scheduled" || match.scheduleState === "confirmed_unfinished")
+  );
+}
+
+export function getPrematchTimelineDisplayLabel(match: PrematchCenterMatch) {
+  if (match.scheduleState === "simulation_proxy" || match.dataSource === "simulation_proxy") {
+    return "模拟预测";
+  }
+  return match.timelineState ? getTimelineStateLabel(match.timelineState) : "";
+}
+
 export function buildPrematchHref(match: PrematchCenterMatch) {
   const targetMode = match.dataSource === "official_live" ? "live" : "sim";
   return buildRegionHref(match.regionSlug, match.workspaceView, {
     seed: match.seed,
     mode: targetMode,
     highlight: match.predictedWinnerTeamKey,
+  });
+}
+
+export function buildPrematchScheduleHref(match: PrematchCenterMatch) {
+  const targetMode = match.dataSource === "official_live" ? "live" : "sim";
+  return buildRegionHref(match.regionSlug, match.workspaceView, {
+    seed: match.seed,
+    mode: targetMode,
   });
 }
 
@@ -243,7 +274,7 @@ export function selectSpotlightMatches<T extends PrematchCenterMatch>(
   limit = SPOTLIGHT_LIMIT
 ): T[] {
   return [...matches]
-    .filter(isSpotlightCandidate)
+    .filter((match) => isOfficialPrematchSchedule(match) && isSpotlightCandidate(match))
     .sort((a, b) => {
       const priorityDelta = spotlightPriority(b) - spotlightPriority(a);
       if (priorityDelta !== 0) return priorityDelta;

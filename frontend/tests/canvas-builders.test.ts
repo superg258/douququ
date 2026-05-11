@@ -478,6 +478,47 @@ describe("buildWorkspaceStage live outcome certainty", () => {
     );
   });
 
+  it("uses predicted qualification outcomes when scheduled matches carry predicted teams", () => {
+    const stage = buildWorkspaceStage(
+      "qualification",
+      "south_region",
+      simulation({
+        matches: [
+          match({
+            matchLabel: "QUAL-1-1",
+            stage: "qualification_round1",
+            stageOrder: 4,
+            roundNumber: 1,
+            groupName: "",
+            redTeam: alpha,
+            blueTeam: beta,
+            winnerTeamKey: alpha.teamKey,
+            loserTeamKey: beta.teamKey,
+            winnerNext: "qualification_round2_national",
+            loserNext: "repechage_qualified",
+            isConfirmedMatchup: false,
+            officialMatchId: "30978",
+          }),
+        ],
+        finalRankings: [
+          finalRow({ ...alpha, rank: 9, finalBucket: "national_via_qualifier", advancement: "national_qualified" }),
+          finalRow({ ...beta, rank: 11, finalBucket: "repechage_direct", advancement: "repechage_qualified" }),
+        ],
+      })
+    );
+
+    const summaryCards = stage.cards.filter((card) => card.kind === "team" && card.variant === "summary");
+
+    expect(summaryCards).toContainEqual(
+      expect.objectContaining({
+        teamKey: beta.teamKey,
+        collegeName: beta.collegeName,
+        statLine: "资格赛一轮负者 / 瑞士轮 3-0",
+      })
+    );
+    expect(summaryCards.some((card) => card.kind === "team" && card.teamKey === "")).toBe(false);
+  });
+
   it("renders live final ranking placeholders without simulated school assignments", () => {
     const stage = buildWorkspaceStage(
       "final-rankings",

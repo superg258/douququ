@@ -572,6 +572,14 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   const realtimeEnabled = realtimeAvailability.enabled;
   const dataMode = resolveWorkspaceDataMode(requestedMode, realtimeStatusLoaded, realtimeEnabled);
   const requestedLiveFallback = requestedMode === "live" && realtimeStatusLoaded && !realtimeEnabled;
+  const liveSimulationRefreshKey = requestedMode === "live" && liveState
+    ? [
+        liveState.sourceUpdatedAt ?? "",
+        liveState.completedOfficialMatches,
+        liveState.confirmedOfficialMatches,
+        liveState.ledgerRows,
+      ].join(":")
+    : "";
 
   useEffect(() => {
     setSelection(highlightedTeamKey ? { kind: "team", teamKey: highlightedTeamKey } : null);
@@ -632,7 +640,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
     getSimulation(regionSlug, seed, dataMode)
       .then(setSimulation)
       .catch((err: Error) => setError(err.message));
-  }, [regionSlug, seed, dataMode]);
+  }, [regionSlug, seed, dataMode, liveSimulationRefreshKey]);
 
   const updateQuery = useCallback(
     (next: Partial<Record<"view" | "seed" | "highlight" | "mode", string | null>>) => {

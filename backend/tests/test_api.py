@@ -777,6 +777,40 @@ def test_live_payload_hides_unofficial_final_rankings(tmp_path, monkeypatch) -> 
     assert payload["summary"]["repechageQualifiers"] == []
 
 
+def test_live_payload_keeps_predicted_final_rankings_after_official_draw(tmp_path, monkeypatch) -> None:
+    sim_payload = service.build_simulation_payload("south_region", 20260414, mode="sim", samples=8)
+    slot_assignments = {slot["teamKey"]: slot["slot"] for slot in sim_payload["slots"]}
+    normalized_path = tmp_path / "normalized_schedule.json"
+    normalized_path.write_text(
+        json.dumps(
+            {
+                "sourceStatus": "active",
+                "sourceUpdatedAt": "2026-05-10T12:00:00+08:00",
+                "regions": {
+                    "south_region": {
+                        "matches": [],
+                        "slotAssignments": slot_assignments,
+                        "groupRankMetrics": {},
+                    }
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(service, "NORMALIZED_LIVE_SCHEDULE_PATH", normalized_path)
+    service._reset_live_state_caches()
+
+    payload = service.build_simulation_payload("south_region", 20260414, mode="live", samples=8)
+
+    assert payload["meta"]["liveStatus"]["slotAssignmentSource"] == "official"
+    assert payload["finalRankings"]
+    assert any(row["teamKey"] for row in payload["finalRankings"])
+    assert all(row["collegeName"] != "待确认" for row in payload["finalRankings"])
+    assert payload["summary"]["nationalQualifiers"]
+    assert payload["summary"]["repechageQualifiers"]
+
+
 def _fake_match(
     *,
     match_label: str,
@@ -941,6 +975,74 @@ def test_live_schedule_metadata_uses_unconfirmed_official_placeholder(tmp_path, 
     assert match["blueTeam"]["collegeName"] == "A9"
     assert match["pSeriesRed"] == 0.5
     assert match["winnerTeamKey"] == ""
+
+
+def test_live_schedule_metadata_preserves_predicted_unconfirmed_matchups_after_draw(tmp_path, monkeypatch) -> None:
+    normalized_path = tmp_path / "normalized_schedule.json"
+    normalized_path.write_text(
+        json.dumps(
+            {
+                "sourceStatus": "active",
+                "regions": {
+                    "south_region": {
+                        "matches": [
+                            {
+                                "matchLabel": "A-SWISS-2-1",
+                                "officialMatchId": "30916",
+                                "officialStatus": "WAITING",
+                                "plannedStartAt": "2026-05-13T20:00:00+08:00",
+                                "isConfirmedMatchup": False,
+                                "scoreline": "0:0",
+                                "redFillSourceType": "Group",
+                                "redFillSourceId": "2707",
+                                "redFillSourceNumber": 1,
+                                "blueFillSourceType": "Group",
+                                "blueFillSourceId": "2707",
+                                "blueFillSourceNumber": 2,
+                            }
+                        ]
+                    }
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(service, "NORMALIZED_LIVE_SCHEDULE_PATH", normalized_path)
+    payload = {
+        "matches": [
+            _fake_match(
+                match_label="A-SWISS-2-1",
+                planned_start_at=None,
+                is_real_result=False,
+                p_series_red=0.72,
+                p_game_red=0.64,
+                official_status=None,
+                official_match_id=None,
+                scoreline="2:1",
+            )
+        ]
+    }
+    payload["matches"][0]["isConfirmedMatchup"] = False
+
+    service._attach_live_schedule_metadata(
+        payload,
+        "south_region",
+        preserve_predicted_unconfirmed=True,
+    )
+
+    match = payload["matches"][0]
+    assert match["officialMatchId"] == "30916"
+    assert match["officialStatus"] == "WAITING"
+    assert match["plannedStartAt"] == "2026-05-13T20:00:00+08:00"
+    assert match["isConfirmedMatchup"] is False
+    assert match["redTeam"]["teamKey"] == "red::A-SWISS-2-1"
+    assert match["blueTeam"]["teamKey"] == "blue::A-SWISS-2-1"
+    assert match["pSeriesRed"] == 0.72
+    assert match["winnerTeamKey"] == "red::A-SWISS-2-1"
+    live_status = {"sourceStatus": "active"}
+    assert service._prematch_data_source("live", live_status, match) == "simulation_proxy"
+    assert service._prematch_schedule_state("simulation_proxy", match) == "simulation_proxy"
 
 
 def test_live_schedule_metadata_names_unconfirmed_source_matches(tmp_path, monkeypatch) -> None:
@@ -1529,10 +1631,15 @@ def test_team_profile_endpoint_returns_team_path_and_region_link(monkeypatch) ->
     assert payload["region"]["regionSlug"] == "south_region"
     assert payload["slot"] is None
     assert payload["finalRanking"] is None
-    assert [match["matchLabel"] for match in payload["matchPath"]] == ["DONE-ALPHA", "NEXT-ALPHA"]
+    assert [match["matchLabel"] for match in payload["matchPath"]] == ["DONE-ALPHA"]
     assert payload["completedMatches"][0]["resultForTeam"] == "win"
-    assert [match["matchLabel"] for match in payload["upcomingMatches"]] == ["PROJECTED-AFTER-NEXT"]
-    assert payload["upcomingMatches"][0]["opponent"]["teamKey"] == "delta::main"
+    assert [match["matchLabel"] for match in payload["completedMatches"]] == ["DONE-ALPHA"]
+    assert [match["matchLabel"] for match in payload["upcomingMatches"]] == [
+        "NEXT-ALPHA",
+        "PROJECTED-AFTER-NEXT",
+    ]
+    assert payload["upcomingMatches"][0]["opponent"]["teamKey"] == "gamma::main"
+    assert payload["upcomingMatches"][1]["opponent"]["teamKey"] == "delta::main"
     assert payload["regionEntry"]["highlightTeamKey"] == team_key
 
 
@@ -2111,6 +2218,131 @@ def test_prematch_center_does_not_count_official_placeholders_as_scheduled(monke
     assert payload["confirmedPendingMatchCount"] == 0
     assert payload["scheduledPendingMatchCount"] == 0
     assert payload["allUpcomingMatches"][0]["scheduleState"] == "official_placeholder"
+
+
+def test_prematch_center_treats_unconfirmed_predicted_shell_as_simulation_proxy(monkeypatch) -> None:
+    confirmed = _fake_match(
+        match_label="CONFIRMED-1",
+        planned_start_at="2026-05-13T08:10:00+08:00",
+        is_real_result=False,
+        p_series_red=0.62,
+        p_game_red=0.56,
+        official_match_id="31001",
+        official_status="WAITING",
+    )
+    predicted_shell = _fake_match(
+        match_label="PREDICTED-SHELL-1",
+        planned_start_at="2026-05-14T08:10:00+08:00",
+        is_real_result=False,
+        p_series_red=0.72,
+        p_game_red=0.64,
+        official_match_id="31002",
+        official_status="WAITING",
+        red_team_key="red::predicted",
+        blue_team_key="blue::predicted",
+    )
+    predicted_shell["isConfirmedMatchup"] = False
+
+    def fake_simulation(region_slug: str, seed: int, mode: str = "sim", samples: int = service.DEFAULT_SIMULATION_SAMPLES) -> dict[str, object]:
+        return {
+            "meta": {
+                "regionSlug": region_slug,
+                "regionName": "南部赛区",
+                "seed": seed,
+                "generatedAt": "2026-05-10T00:00:00+00:00",
+                "liveStatus": {
+                    "sourceStatus": "active",
+                    "sourceReason": None,
+                    "sourceUpdatedAt": "2026-05-10T00:00:00+00:00",
+                    "completedOfficialMatches": 0,
+                    "confirmedOfficialMatches": 1,
+                    "ledgerRows": 0,
+                },
+            },
+            "matches": [confirmed, predicted_shell],
+        }
+
+    monkeypatch.setattr(service, "build_simulation_payload", fake_simulation)
+    monkeypatch.setattr(service, "load_current_rating_index", lambda: {})
+    monkeypatch.setattr(service, "load_global_elo_rank_map", lambda: {})
+
+    payload = service.build_prematch_center_payload(
+        seed=20260414,
+        mode="live",
+        date="2026-05-13",
+        region_slugs=["south_region"],
+        now=datetime(2026, 5, 13, 7, 0, tzinfo=service._prematch_timezone("Asia/Shanghai")),
+    )
+
+    predicted = next(match for match in payload["allUpcomingMatches"] if match["matchLabel"] == "PREDICTED-SHELL-1")
+    assert predicted["dataSource"] == "simulation_proxy"
+    assert predicted["scheduleState"] == "simulation_proxy"
+    assert predicted["timelineState"] == "simulation_unassigned"
+    assert predicted["redTeam"]["teamKey"] == "red::predicted"
+    assert predicted["blueTeam"]["teamKey"] == "blue::predicted"
+    assert payload["confirmedPendingMatchCount"] == 1
+    assert payload["scheduledPendingMatchCount"] == 1
+    assert [match["matchLabel"] for match in payload["timelineBuckets"]["confirmedUpcoming"]] == []
+    assert [match["matchLabel"] for match in payload["timelineBuckets"]["simulationUnassigned"]] == ["PREDICTED-SHELL-1"]
+
+
+def test_prematch_center_keeps_predicted_shells_out_of_next_action(monkeypatch) -> None:
+    predicted_shell = _fake_match(
+        match_label="PREDICTED-EARLY",
+        planned_start_at="2026-05-13T08:00:00+08:00",
+        is_real_result=False,
+        p_series_red=0.72,
+        p_game_red=0.64,
+        official_match_id="31002",
+        official_status="WAITING",
+        red_team_key="red::predicted",
+        blue_team_key="blue::predicted",
+    )
+    predicted_shell["isConfirmedMatchup"] = False
+    official_later = _fake_match(
+        match_label="OFFICIAL-LATER",
+        planned_start_at="2026-05-13T09:00:00+08:00",
+        is_real_result=False,
+        p_series_red=0.62,
+        p_game_red=0.56,
+        official_match_id="31003",
+        official_status="WAITING",
+    )
+
+    def fake_simulation(region_slug: str, seed: int, mode: str = "sim", samples: int = service.DEFAULT_SIMULATION_SAMPLES) -> dict[str, object]:
+        return {
+            "meta": {
+                "regionSlug": region_slug,
+                "regionName": "南部赛区",
+                "seed": seed,
+                "generatedAt": "2026-05-10T00:00:00+00:00",
+                "liveStatus": {
+                    "sourceStatus": "active",
+                    "sourceReason": None,
+                    "sourceUpdatedAt": "2026-05-10T00:00:00+00:00",
+                    "completedOfficialMatches": 0,
+                    "confirmedOfficialMatches": 1,
+                    "ledgerRows": 0,
+                },
+            },
+            "matches": [predicted_shell, official_later],
+        }
+
+    monkeypatch.setattr(service, "build_simulation_payload", fake_simulation)
+    monkeypatch.setattr(service, "load_current_rating_index", lambda: {})
+    monkeypatch.setattr(service, "load_global_elo_rank_map", lambda: {})
+
+    payload = service.build_prematch_center_payload(
+        seed=20260414,
+        mode="live",
+        date="2026-05-13",
+        region_slugs=["south_region"],
+        now=datetime(2026, 5, 13, 7, 0, tzinfo=service._prematch_timezone("Asia/Shanghai")),
+    )
+
+    assert payload["nextActionMatch"]["matchLabel"] == "OFFICIAL-LATER"
+    assert [match["matchLabel"] for match in payload["timelineBuckets"]["upNext"]] == ["OFFICIAL-LATER"]
+    assert [match["matchLabel"] for match in payload["timelineBuckets"]["simulationUnassigned"]] == ["PREDICTED-EARLY"]
 
 
 def test_prematch_center_excludes_official_placeholders_from_confirmed_upcoming(monkeypatch) -> None:
