@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { PredictionSignalsPanel } from "@/components/prediction-signals";
@@ -24,6 +24,7 @@ import {
 } from "@/lib/region-config";
 import { buildTeamHref } from "@/lib/team-profile";
 import { sortTeamsForWorkspaceSearch } from "@/lib/workspace-search";
+import { resolveHighlightSelectionState, type InspectorPanelState } from "@/lib/workspace-selection";
 import { deriveRealtimeAvailability } from "@/lib/realtime";
 import { deriveMatchRatingBreakdown, formatSignedRatingDelta, ratingDeltaTone, type MatchRatingBreakdown } from "@/lib/live-rating";
 import { predictScoreline } from "@/components/canvas-card";
@@ -557,6 +558,10 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   const [selection, setSelection] = useState<InspectorSelection | null>(
     highlightedTeamKey ? { kind: "team", teamKey: highlightedTeamKey } : null
   );
+  const selectionRef = useRef<InspectorPanelState>({
+    selection: highlightedTeamKey ? { kind: "team", teamKey: highlightedTeamKey } : null,
+    inspectorOpen: false,
+  });
   const deferredSearchText = useDeferredValue(searchText);
   const resolveSeed = useCallback(() => seed ?? getOrCreateSessionSeed(), [seed]);
   const regionOverview = useMemo(
@@ -582,9 +587,15 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
     : "";
 
   useEffect(() => {
-    setSelection(highlightedTeamKey ? { kind: "team", teamKey: highlightedTeamKey } : null);
-    setInspectorOpen(Boolean(highlightedTeamKey));
+    const nextState = resolveHighlightSelectionState(selectionRef.current, highlightedTeamKey);
+    selectionRef.current = nextState;
+    setSelection(nextState.selection);
+    setInspectorOpen(nextState.inspectorOpen);
   }, [highlightedTeamKey]);
+
+  useEffect(() => {
+    selectionRef.current = { selection, inspectorOpen };
+  }, [selection, inspectorOpen]);
 
   useEffect(() => {
     setSeedDraft(seed ? String(seed) : "");
@@ -731,20 +742,28 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   }, [simulation]);
 
   const openTeam = (teamKey: string) => {
-    setSelection({ kind: "team", teamKey });
+    const nextSelection: InspectorSelection = { kind: "team", teamKey };
+    selectionRef.current = { selection: nextSelection, inspectorOpen: true };
+    setSelection(nextSelection);
     setInspectorOpen(true);
     updateQuery({ highlight: teamKey });
   };
 
   const openMatch = (match: MatchRow) => {
-    setSelection({ kind: "match", matchLabel: match.matchLabel });
+    const nextSelection: InspectorSelection = { kind: "match", matchLabel: match.matchLabel };
+    selectionRef.current = { selection: nextSelection, inspectorOpen: true };
+    setSelection(nextSelection);
     setInspectorOpen(true);
+    if (highlightedTeamKey) {
+      updateQuery({ highlight: null });
+    }
   };
 
   const closeInspector = () => {
-    if (selection?.kind === "team") {
+    if (highlightedTeamKey) {
       updateQuery({ highlight: null });
     }
+    selectionRef.current = { selection: null, inspectorOpen: false };
     setInspectorOpen(false);
     setSelection(null);
   };
@@ -754,7 +773,9 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
     setSearchText("");
     setInspectorOpen(true);
     router.push(buildRegionHref(team.regionSlug, view, { seed: resolveSeed(), highlight: team.teamKey, mode: requestedMode }));
-    setSelection({ kind: "team", teamKey: team.teamKey });
+    const nextSelection: InspectorSelection = { kind: "team", teamKey: team.teamKey };
+    selectionRef.current = { selection: nextSelection, inspectorOpen: true };
+    setSelection(nextSelection);
   };
 
   const applySeedDraft = () => {
@@ -772,6 +793,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   };
 
   const onRegionChange = (nextRegion: RegionSlug) => {
+    selectionRef.current = { selection: null, inspectorOpen: false };
     setInspectorOpen(false);
     setSelection(null);
     router.push(buildRegionHref(nextRegion, view, { seed: resolveSeed(), mode: requestedMode }));
@@ -799,8 +821,11 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   );
   const inspectorPanel = (
     <div className={cn(
-      "w-full md:w-80 transition-transform duration-300 ease-in-out absolute inset-x-0 bottom-0 md:inset-y-0 md:right-0 md:left-auto",
-      stageFullscreen ? "z-[170] md:fixed md:top-0 md:bottom-0 md:right-0 md:left-auto" : "z-30",
+      "w-full overflow-hidden transition-transform duration-300 ease-in-out absolute inset-x-0 bottom-0",
+      stageFullscreen
+        ? "z-[170] md:fixed md:inset-y-0 md:right-0 md:left-auto md:w-80"
+        : "z-30 md:relative md:inset-auto md:w-0 md:shrink-0",
+      !stageFullscreen && inspectorOpen ? "md:w-80" : null,
       "h-[58%] md:h-full",
       inspectorOpen ? "pointer-events-auto" : "pointer-events-none",
       inspectorOpen
@@ -995,7 +1020,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
 
       <div className="flex-1 relative flex overflow-hidden">
         {/* Canvas Area */}
-        <div className="flex-1 relative bg-transparent">
+        <div className="flex-1 min-w-0 relative bg-transparent">
           {error ? (
             <div className="absolute inset-0 flex items-center justify-center z-50 bg-black/60 backdrop-blur-sm">
               <div className="bg-rm-red/20 border border-rm-red text-rm-red p-6 font-mono text-sm shadow-[0_0_20px_rgba(230,0,0,0.5)]">
@@ -1034,6 +1059,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
                   if (match) openMatch(match);
                 }}
                 onFullscreenChange={setStageFullscreen}
+                reserveRightRail={inspectorOpen}
               />
             </div>
           ) : null}

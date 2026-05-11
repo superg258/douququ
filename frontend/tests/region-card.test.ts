@@ -35,6 +35,24 @@ function team(
   };
 }
 
+function liveTeam(
+  teamKey: string,
+  collegeName: string,
+  mu0: number,
+  currentElo: number,
+  national: number,
+  repechage: number,
+  champion: number,
+): OverviewTeam {
+  return {
+    ...team(teamKey, collegeName, mu0, national, repechage, champion),
+    currentElo,
+    preseasonElo: mu0,
+    eloDeltaFromPreseason: currentElo - mu0,
+    eloRankSource: "live",
+  };
+}
+
 function overview(): OverviewResponse {
   return {
     generatedAt: "2026-04-18T10:00:00.000Z",
@@ -64,6 +82,20 @@ function overview(): OverviewResponse {
 }
 
 describe("RegionCard", () => {
+  it("renders live current Elo for the favorite seed", () => {
+    const response = overview();
+    response.regions[0].teams = [
+      liveTeam("alpha", "甲校", 1800, 1842.6, 0.7, 0.05, 0.4),
+      liveTeam("beta", "乙校", 1760, 1751.2, 0.3, 0.2, 0.2),
+    ];
+
+    const region = buildOverviewDashboard(response).regions[0];
+    const markup = renderToStaticMarkup(createElement(RegionCard, { region, entryHref: null }));
+
+    expect(markup).toContain("夺冠率 40.0% · Elo 1842.6");
+    expect(markup).not.toContain("夺冠率 40.0% · Elo 1800.0");
+  });
+
   it("uses national-or-repechage probability consistently in the repechage race", () => {
     const region = buildOverviewDashboard(overview()).regions[0];
     const markup = renderToStaticMarkup(createElement(RegionCard, { region, entryHref: null }));

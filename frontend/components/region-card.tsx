@@ -16,6 +16,10 @@ function elo(value: number) {
   return value.toFixed(1);
 }
 
+function displayElo(team: Pick<OverviewTeam, "mu0" | "currentElo">) {
+  return team.currentElo ?? team.mu0;
+}
+
 
 const REGION_ACCENT: Record<string, { bar: string; glow: string; link: string; btnHover: string }> = {
   south_region: {
@@ -96,7 +100,7 @@ function RaceBattle({
               守位 {pct(cutoffProbability)}
             </span>
             <span className="font-mono text-[10px] text-rm-metal-textFaint">
-              Elo {elo(cutoffTeam.mu0)}
+              Elo {elo(displayElo(cutoffTeam))}
             </span>
           </div>
         </Link>
@@ -151,7 +155,7 @@ function RaceBattle({
 
 /* ─── 战力矩阵 ─── */
 function CompactRosterTable({ teams, regionSlug }: { teams: OverviewTeam[]; regionSlug: string }) {
-  const sorted = [...teams].sort((a, b) => (b.currentElo ?? b.mu0) - (a.currentElo ?? a.mu0));
+  const sorted = [...teams].sort((a, b) => displayElo(b) - displayElo(a));
 
   const barColor =
     regionSlug === "south_region" ? "bg-rm-red/50 shadow-[0_0_6px_rgba(232,48,42,0.3)]" :
@@ -187,7 +191,7 @@ function CompactRosterTable({ teams, regionSlug }: { teams: OverviewTeam[]; regi
           <tbody className="font-mono divide-y divide-rm-metal-border/30">
             {sorted.map((team, idx) => {
               const isTop = idx < 2;
-              const currentElo = team.currentElo ?? team.mu0;
+              const currentElo = displayElo(team);
               return (
                 <tr
                   key={team.teamKey}
@@ -316,7 +320,7 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
             {region.favorite.collegeName}
           </div>
           <span className={cn("text-[11px] font-bold font-mono", accent.link)}>
-            夺冠率 {pct(region.favorite.probabilities.champion)} · Elo {elo(region.favorite.mu0)}
+            夺冠率 {pct(region.favorite.probabilities.champion)} · Elo {elo(displayElo(region.favorite))}
           </span>
         </div>
         <div className="text-right">

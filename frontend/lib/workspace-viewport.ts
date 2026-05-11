@@ -108,6 +108,14 @@ export function scaleViewportAroundFramePoint(
   });
 }
 
+export function resizeWorkspaceViewport(
+  stage: WorkspaceStage,
+  nextFrame: FrameSize,
+  viewport: ViewportState
+): ViewportState {
+  return clampViewportPosition(stage, nextFrame, viewport);
+}
+
 export function fitWorkspaceViewport(stage: WorkspaceStage, width: number, height: number): ViewportState {
   const requestedPaddingX = stage.viewport?.paddingX ?? 72;
   const requestedPaddingY = stage.viewport?.paddingY ?? 72;

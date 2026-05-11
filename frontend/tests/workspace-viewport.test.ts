@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { clampViewportPosition, fitWorkspaceViewport, scaleViewportAroundFramePoint } from "@/lib/workspace-viewport";
+import {
+  clampViewportPosition,
+  fitWorkspaceViewport,
+  resizeWorkspaceViewport,
+  scaleViewportAroundFramePoint,
+} from "@/lib/workspace-viewport";
 import type { WorkspaceStage } from "@/lib/types";
 
 function makeStage(id: WorkspaceStage["id"], width: number, height: number, minScale?: number): WorkspaceStage {
@@ -109,5 +114,17 @@ describe("workspace-viewport", () => {
     const next = scaleViewportAroundFramePoint(stage, { width: 390, height: 844 }, current, 180, 260, 0.01);
 
     expect(next.scale).toBe(0.1);
+  });
+
+  it("preserves the current pan and zoom when the drawer resizes the desktop frame", () => {
+    const stage = makeStage("qualification", 2100, 1460, 0.72);
+    const current = { scale: 0.82, x: -224, y: 34 };
+    const nextFrame = { width: 1120, height: 814 };
+
+    const next = resizeWorkspaceViewport(stage, nextFrame, current);
+
+    expect(next.scale).toBe(current.scale);
+    expect(next.x).toBe(current.x);
+    expect(next.y).toBe(current.y);
   });
 });

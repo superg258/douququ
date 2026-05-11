@@ -7,12 +7,42 @@ import { CanvasConnectorView } from "@/components/canvas-connector";
 import type { WorkspaceStage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { isPageFullscreenActive, setPageFullscreenLock } from "@/lib/fullscreen-api";
-import { clampViewportPosition, fitWorkspaceViewport, scaleViewportAroundFramePoint } from "@/lib/workspace-viewport";
+import {
+  clampViewportPosition,
+  fitWorkspaceViewport,
+  resizeWorkspaceViewport,
+  scaleViewportAroundFramePoint,
+  type FrameSize,
+} from "@/lib/workspace-viewport";
 
 const CANVAS_PAN_BLOCK_SELECTOR = "input, textarea, select, a, [data-canvas-pan-exempt]";
 
 export function shouldBlockCanvasPanTarget(target: Pick<HTMLElement, "closest"> | null) {
   return Boolean(target?.closest(CANVAS_PAN_BLOCK_SELECTOR));
+}
+
+export function getWorkspaceStageFullscreenClasses(fullscreen: boolean, reserveRightRail: boolean) {
+  if (!fullscreen) return "";
+
+  return cn(
+    "fixed inset-0 z-[140] h-screen border-0 bg-[#05070c]",
+    reserveRightRail && "md:right-80 transition-[right] duration-300 ease-in-out"
+  );
+}
+
+export function shouldAutoPanToHighlightedTeam({
+  highlightedTeamKey,
+  selectedTeamKey,
+  suppressAutoPanTeamKey,
+}: {
+  highlightedTeamKey: string | null;
+  selectedTeamKey: string | null;
+  suppressAutoPanTeamKey: string | null;
+}) {
+  if (!highlightedTeamKey) return false;
+  if (suppressAutoPanTeamKey === highlightedTeamKey) return false;
+  if (suppressAutoPanTeamKey && selectedTeamKey === suppressAutoPanTeamKey) return false;
+  return true;
 }
 
 function headerToneClass(tone: WorkspaceStage["headers"][number]["tone"]) {
@@ -37,6 +67,7 @@ export function WorkspaceStageView({
   onTeamSelect,
   onMatchSelect,
   onFullscreenChange,
+  reserveRightRail = false,
 }: {
   stage: WorkspaceStage;
   mode?: "sim" | "live";
@@ -46,6 +77,7 @@ export function WorkspaceStageView({
   onTeamSelect: (teamKey: string) => void;
   onMatchSelect: (matchLabel: string) => void;
   onFullscreenChange?: (fullscreen: boolean) => void;
+  reserveRightRail?: boolean;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
@@ -56,11 +88,13 @@ export function WorkspaceStageView({
   const [portalReady, setPortalReady] = useState(false);
   const [panning, setPanning] = useState(false);
   const frameSizeRef = useRef(frameSize);
+  const layoutFrameRef = useRef<FrameSize | null>(null);
+  const layoutStageRef = useRef<WorkspaceStage | null>(null);
   const viewportRef = useRef(viewport);
   const suppressClickRef = useRef(false);
-  const suppressAutoPanRef = useRef(false);
+  const suppressAutoPanTeamKeyRef = useRef<string | null>(null);
   const handleTeamSelect = (teamKey: string) => {
-    suppressAutoPanRef.current = true;
+    suppressAutoPanTeamKeyRef.current = teamKey;
     onTeamSelect(teamKey);
   };
   const panTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -104,10 +138,6 @@ export function WorkspaceStageView({
   }, [frameSize]);
 
   useEffect(() => {
-    viewportRef.current = viewport;
-  }, [viewport]);
-
-  useEffect(() => {
     if (typeof document === "undefined") return;
     setPageFullscreenLock(document, fullscreen);
     onFullscreenChange?.(fullscreen);
@@ -139,16 +169,36 @@ export function WorkspaceStageView({
 
   useEffect(() => {
     if (!frameSize.width || !frameSize.height) return;
-    setViewport(fitWorkspaceViewport(stage, frameSize.width, frameSize.height));
+    const previousFrame = layoutFrameRef.current;
+    const previousStage = layoutStageRef.current;
+
+    const nextViewport = !previousFrame || previousStage !== stage
+      ? fitWorkspaceViewport(stage, frameSize.width, frameSize.height)
+      : resizeWorkspaceViewport(stage, frameSize, viewportRef.current);
+
+    viewportRef.current = nextViewport;
+    setViewport(nextViewport);
+    layoutFrameRef.current = frameSize;
+    layoutStageRef.current = stage;
   }, [stage, frameSize.height, frameSize.width]);
 
   // Auto-pan to highlighted team card (skip if triggered by canvas click)
   useEffect(() => {
-    if (suppressAutoPanRef.current) {
-      suppressAutoPanRef.current = false;
+    if (!highlightedTeamKey) {
+      if (selectedTeamKey !== suppressAutoPanTeamKeyRef.current) {
+        suppressAutoPanTeamKeyRef.current = null;
+      }
       return;
     }
-    if (!highlightedTeamKey || !frameSize.width || !frameSize.height) return;
+    if (!shouldAutoPanToHighlightedTeam({
+      highlightedTeamKey,
+      selectedTeamKey,
+      suppressAutoPanTeamKey: suppressAutoPanTeamKeyRef.current,
+    })) {
+      return;
+    }
+    if (!frameSize.width || !frameSize.height) return;
+    suppressAutoPanTeamKeyRef.current = null;
     const targetCard = stage.cards.find(
       (card) =>
         (card.kind === "team" && card.teamKey === highlightedTeamKey) ||
@@ -170,11 +220,13 @@ export function WorkspaceStageView({
     setViewport(nextViewport);
     if (panTimerRef.current) clearTimeout(panTimerRef.current);
     panTimerRef.current = setTimeout(() => setPanning(false), 700);
-  }, [highlightedTeamKey, stage, frameSize]);
+  }, [highlightedTeamKey, selectedTeamKey, stage, frameSize]);
 
   const resetViewport = () => {
     if (!frameSize.width || !frameSize.height) return;
-    setViewport(fitWorkspaceViewport(stage, frameSize.width, frameSize.height));
+    const nextViewport = fitWorkspaceViewport(stage, frameSize.width, frameSize.height);
+    viewportRef.current = nextViewport;
+    setViewport(nextViewport);
   };
 
   const updateViewport = (nextViewport: { scale: number; x: number; y: number }) => {
@@ -359,7 +411,7 @@ export function WorkspaceStageView({
       ref={sectionRef}
       className={cn(
         "canvas-background relative flex flex-col h-full border-t border-rm-metal-border rounded-none overflow-hidden",
-        isPageFullscreenActive(fullscreen) && "fixed inset-0 z-[140] h-screen w-screen border-0 bg-[#05070c]"
+        getWorkspaceStageFullscreenClasses(isPageFullscreenActive(fullscreen), reserveRightRail)
       )}
     >
       {/* Zoom toolbar — top-right floating */}
