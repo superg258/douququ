@@ -261,11 +261,6 @@ def build_mock_normalized(
         raise ValueError("match_count must be >= 0")
     if upcoming_count is not None and upcoming_count < 0:
         raise ValueError("upcoming_count must be >= 0")
-    selected_count = total_match_count if upcoming_count is None else match_count + upcoming_count
-    selected_matches = simulation["matches"][:selected_count]
-    if len(selected_matches) != selected_count:
-        raise ValueError(f"Requested {selected_count} matches, simulation only produced {len(selected_matches)}")
-
     base_start = datetime.fromisoformat(start_at.replace("Z", "+00:00"))
     if base_start.tzinfo is None:
         base_start = base_start.replace(tzinfo=UTC)
@@ -279,6 +274,18 @@ def build_mock_normalized(
         if use_rules_schedule
         else {}
     )
+    if use_rules_schedule:
+        ordered_matches = sorted(
+            simulation["matches"],
+            key=lambda match: rules_by_label[str(match["matchLabel"])].rule_order_number,
+        )
+    else:
+        ordered_matches = list(simulation["matches"])
+
+    selected_count = total_match_count if upcoming_count is None else match_count + upcoming_count
+    selected_matches = ordered_matches[:selected_count]
+    if len(selected_matches) != selected_count:
+        raise ValueError(f"Requested {selected_count} matches, simulation only produced {len(selected_matches)}")
 
     slot_assignments = {
         str(slot["teamKey"]): str(slot["slot"])
@@ -313,7 +320,7 @@ def build_mock_normalized(
             "matchLabel": match["matchLabel"],
             "roundNumber": int(match["roundNumber"]),
             "matchType": "GROUP" if match["stage"] == "swiss" else "KNOCKOUT",
-            "orderNumber": index,
+            "orderNumber": rules_order,
             "bestOf": int(match["bestOf"]),
             "plannedStartAt": planned_at,
             "matchDate": schedule_slot.match_date if schedule_slot is not None else planned_at[:10],

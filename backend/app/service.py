@@ -450,7 +450,7 @@ def _regional_match_number_from_label(match_label: str, region_slug: str) -> int
         if stage == "QF" and index is not None and index <= 4:
             return 74 + index
         if stage == "SF" and index is not None and index <= 2:
-            return (86 if region_slug == "north_region" else 84) + index
+            return 82 + index
         if stage == "THIRD" and index == 1:
             return 89 if region_slug == "north_region" else 87
         if stage == "FINAL" and index == 1:
@@ -462,9 +462,9 @@ def _regional_match_number_from_label(match_label: str, region_slug: str) -> int
         if round_code == "1" and index is not None and index <= 4:
             return 78 + index
         if round_code == "2" and index is not None and index <= 2:
-            return 82 + index
-        if round_code == "R" and region_slug == "north_region" and index is not None and index <= 2:
             return 84 + index
+        if round_code == "R" and region_slug == "north_region" and index is not None and index <= 2:
+            return 86 + index
 
     return None
 

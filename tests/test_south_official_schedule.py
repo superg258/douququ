@@ -280,6 +280,63 @@ class SouthOfficialScheduleTests(unittest.TestCase):
         self.assertEqual(schedule["QUAL-2-2"].planned_start_at, "2026-05-09T13:35:00+08:00")
         self.assertEqual(schedule["FINAL-1"].planned_start_at, "2026-05-09T15:10:00+08:00")
 
+    def test_mock_south_rules_schedule_selects_post_group_matches_by_rule_order(self) -> None:
+        import seed_rmuc_live_mock
+
+        normalized = seed_rmuc_live_mock.build_mock_normalized(
+            region_slug="south_region",
+            seed=20260414,
+            samples=32,
+            match_count=84,
+            upcoming_count=0,
+            start_at=seed_rmuc_live_mock.DEFAULT_START_AT,
+            interval_minutes=25,
+            use_rules_schedule=True,
+            rules_schedule=seed_rmuc_live_mock.DEFAULT_RULES_SCHEDULE,
+            today_date="2026-05-06",
+            today_day=2,
+            timezone_name="Asia/Shanghai",
+        )
+
+        tail = normalized["regions"]["south_region"]["matches"][-4:]
+        self.assertEqual(
+            [(match["orderNumber"], match["ruleOrderNumber"], match["matchLabel"]) for match in tail],
+            [
+                (81, 81, "QUAL-1-3"),
+                (82, 82, "QUAL-1-4"),
+                (83, 83, "SF-1"),
+                (84, 84, "SF-2"),
+            ],
+        )
+        self.assertNotIn("QUAL-2-1", {match["matchLabel"] for match in normalized["regions"]["south_region"]["matches"]})
+
+    def test_mock_south_rules_schedule_keeps_semifinal_before_qualification_round2(self) -> None:
+        import seed_rmuc_live_mock
+
+        normalized = seed_rmuc_live_mock.build_mock_normalized(
+            region_slug="south_region",
+            seed=20260414,
+            samples=32,
+            match_count=88,
+            upcoming_count=0,
+            start_at=seed_rmuc_live_mock.DEFAULT_START_AT,
+            interval_minutes=25,
+            use_rules_schedule=True,
+            rules_schedule=seed_rmuc_live_mock.DEFAULT_RULES_SCHEDULE,
+            today_date="2026-05-06",
+            today_day=2,
+            timezone_name="Asia/Shanghai",
+        )
+        by_order = {
+            int(match["orderNumber"]): (match["officialMatchId"], match["matchLabel"], match["stage"])
+            for match in normalized["regions"]["south_region"]["matches"]
+        }
+
+        self.assertEqual(by_order[83], ("MOCK-SOUTH-083", "SF-1", "semifinal"))
+        self.assertEqual(by_order[84], ("MOCK-SOUTH-084", "SF-2", "semifinal"))
+        self.assertEqual(by_order[85], ("MOCK-SOUTH-085", "QUAL-2-1", "qualification_round2"))
+        self.assertEqual(by_order[86], ("MOCK-SOUTH-086", "QUAL-2-2", "qualification_round2"))
+
     def test_swiss_round2_to_round4_red_blue_orientation_follows_csv_rank_positions(self) -> None:
         teams = [_team(index) for index in range(1, 17)]
         for index, team in enumerate(teams, start=1):

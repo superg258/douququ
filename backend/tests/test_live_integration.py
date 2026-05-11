@@ -461,6 +461,18 @@ def test_normalize_schedule_payload_aligns_south_final_day_with_official_slug() 
     assert (matches["S86"]["stage"], matches["S86"]["matchLabel"]) == ("qualification_round2", "QUAL-2-2")
 
 
+def test_regional_match_numbers_match_official_post_group_order() -> None:
+    assert service._regional_match_number_from_label("SF-1", "south_region") == 83
+    assert service._regional_match_number_from_label("SF-2", "south_region") == 84
+    assert service._regional_match_number_from_label("QUAL-2-1", "south_region") == 85
+    assert service._regional_match_number_from_label("QUAL-2-2", "south_region") == 86
+    assert service._regional_match_number_from_label("SF-1", "north_region") == 83
+    assert service._regional_match_number_from_label("QUAL-2-1", "north_region") == 85
+    assert service._regional_match_number_from_label("QUAL-R-1", "north_region") == 87
+    assert service._regional_match_number_from_label("THIRD-1", "north_region") == 89
+    assert service._regional_match_number_from_label("FINAL-1", "north_region") == 90
+
+
 def test_live_post_group_labels_follow_actual_order_over_stale_rule_labels() -> None:
     completed_r16_1 = {
         "regionSlug": "south_region",

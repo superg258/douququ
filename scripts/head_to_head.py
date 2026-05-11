@@ -19,9 +19,14 @@ HISTORICAL_MATCH_PATHS = (
     ROOT / "data" / "extracted" / "2025RMUC" / "matches.csv",
     ROOT / "data" / "extracted" / "2026RMUL" / "matches.csv",
 )
-SOURCE_WEIGHTS = {
+HISTORICAL_SEASON_WEIGHT_MULTIPLIER = 0.65
+BASE_SOURCE_WEIGHTS = {
     "RMUC": 1.0,
     "RMUL": 0.45,
+}
+SOURCE_WEIGHTS = {
+    source: weight * HISTORICAL_SEASON_WEIGHT_MULTIPLIER
+    for source, weight in BASE_SOURCE_WEIGHTS.items()
 }
 TIME_DECAY_HALF_LIFE_DAYS = 365.0
 MIN_EFFECTIVE_WEIGHT = 0.35
@@ -30,6 +35,11 @@ MAX_DELTA_PROBABILITY = 0.10
 MAX_DELTA_LOGIT = 4.0 * math.atanh(MAX_DELTA_PROBABILITY)
 CURRENT_SEASON_SOURCE = "CURRENT_RMUC"
 CURRENT_SEASON_MATCH_WEIGHT = 0.75
+GAME_COUNT_FIELD_PAIRS = (
+    ("red_side_win_game_count", "blue_side_win_game_count"),
+    ("red_wins", "blue_wins"),
+    ("red_games", "blue_games"),
+)
 
 
 def _clip_probability(value: float) -> float:
@@ -47,6 +57,37 @@ def _sigmoid(value: float) -> float:
 
 def _normalize_school_name(value: str) -> str:
     return elo_model.normalize_school(value)
+
+
+def _optional_nonnegative_int(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed >= 0 else None
+
+
+def _game_win_shares(red_games: int, blue_games: int) -> tuple[float, float]:
+    red_games = max(int(red_games), 0)
+    blue_games = max(int(blue_games), 0)
+    total_games = red_games + blue_games
+    if total_games <= 0:
+        return 0.5, 0.5
+    return red_games / total_games, blue_games / total_games
+
+
+def _row_game_win_shares(row: dict[str, Any]) -> tuple[float, float] | None:
+    for red_key, blue_key in GAME_COUNT_FIELD_PAIRS:
+        red_games = _optional_nonnegative_int(row.get(red_key))
+        blue_games = _optional_nonnegative_int(row.get(blue_key))
+        if red_games is None or blue_games is None:
+            continue
+        if red_games + blue_games <= 0:
+            continue
+        return _game_win_shares(red_games, blue_games)
+    return None
 
 
 def _resolve_match_source(row: dict[str, Any]) -> str | None:
@@ -125,6 +166,14 @@ def build_head_to_head_index(
 
         result = str(row.get("result", "")).strip().upper()
         winner_side = str(row.get("winner_side", "")).strip().lower()
+        game_win_shares = _row_game_win_shares(row)
+        if game_win_shares is not None:
+            red_share, blue_share = game_win_shares
+            summary["school_scores"][school_a] += red_share * effective_weight
+            summary["school_scores"][school_b] += blue_share * effective_weight
+            if red_share == blue_share:
+                summary["weighted_ties"] += effective_weight
+            continue
         if result == "TIE":
             summary["school_scores"][school_a] += 0.5 * effective_weight
             summary["school_scores"][school_b] += 0.5 * effective_weight
@@ -188,14 +237,11 @@ def record_runtime_match(
     summary["season_counts"][source] = int(summary["season_counts"].get(source, 0)) + 1
     summary["season_weights"][source] = float(summary["season_weights"].get(source, 0.0)) + weight
 
-    if red_games == blue_games:
-        summary["school_scores"][school_a] = float(summary["school_scores"].get(school_a, 0.0)) + (0.5 * weight)
-        summary["school_scores"][school_b] = float(summary["school_scores"].get(school_b, 0.0)) + (0.5 * weight)
+    red_share, blue_share = _game_win_shares(red_games, blue_games)
+    summary["school_scores"][school_a] = float(summary["school_scores"].get(school_a, 0.0)) + (red_share * weight)
+    summary["school_scores"][school_b] = float(summary["school_scores"].get(school_b, 0.0)) + (blue_share * weight)
+    if red_share == blue_share:
         summary["weighted_ties"] = float(summary.get("weighted_ties", 0.0)) + weight
-        return
-
-    winner_school = school_a if red_games > blue_games else school_b
-    summary["school_scores"][winner_school] = float(summary["school_scores"].get(winner_school, 0.0)) + weight
 
 
 def summarize_head_to_head(
@@ -286,6 +332,8 @@ def configuration_payload() -> dict[str, Any]:
         "enabled": True,
         "mode": "residual_logit_adjustment",
         "reference_date": load_reference_date().isoformat(),
+        "historical_season_weight_multiplier": HISTORICAL_SEASON_WEIGHT_MULTIPLIER,
+        "base_source_weights": BASE_SOURCE_WEIGHTS,
         "source_weights": SOURCE_WEIGHTS,
         "time_decay_half_life_days": TIME_DECAY_HALF_LIFE_DAYS,
         "min_effective_weight": MIN_EFFECTIVE_WEIGHT,

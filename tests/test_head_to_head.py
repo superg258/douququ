@@ -131,6 +131,27 @@ class HeadToHeadTests(unittest.TestCase):
         self.assertGreaterEqual(summary["delta_h2h"], 0.09)
         self.assertLessEqual(summary["delta_h2h"], 0.10)
 
+    def test_single_decayed_historical_rmuc_sweep_is_tempered(self) -> None:
+        row = _make_row(
+            red_college_name="太原理工大学",
+            blue_college_name="华南农业大学",
+            winner_side="red",
+            match_date="2025-05-15",
+        )
+        row["red_side_win_game_count"] = "2"
+        row["blue_side_win_game_count"] = "0"
+        index = h2h.build_head_to_head_index([row], reference_date=date(2026, 4, 5))
+
+        summary = h2h.summarize_head_to_head(
+            "太原理工大学",
+            "华南农业大学",
+            p_base=0.345879,
+            head_to_head_index=index,
+        )
+
+        self.assertGreater(summary["delta_h2h"], 0.0)
+        self.assertLess(summary["delta_h2h"], 0.07)
+
     def test_ts2_build_prediction_payload_applies_h2h_adjustment(self) -> None:
         teams = simulate_region.parse_team_rows("东部赛区", simulate_region.DEFAULT_RATINGS_CSV)
         red_team = teams[0]
@@ -232,6 +253,41 @@ class HeadToHeadTests(unittest.TestCase):
         )
         self.assertEqual(after["head_to_head_summary"]["meetings_count"], 1)
         self.assertGreater(after["head_to_head_summary"]["delta_h2h"], 0.0)
+
+    def test_runtime_close_bo3_loss_does_not_hit_h2h_cap(self) -> None:
+        runtime_index: dict[tuple[str, str], dict[str, object]] = {}
+        h2h.record_runtime_match(runtime_index, "南昌大学", "广东工业大学", 2, 1)
+
+        summary = h2h.summarize_head_to_head(
+            "广东工业大学",
+            "南昌大学",
+            p_base=0.574645,
+            head_to_head_index=runtime_index,
+        )
+
+        self.assertLess(summary["delta_h2h"], 0.0)
+        self.assertGreater(summary["delta_h2h"], -0.06)
+
+    def test_runtime_sweep_counts_stronger_than_close_bo3_result(self) -> None:
+        close_index: dict[tuple[str, str], dict[str, object]] = {}
+        sweep_index: dict[tuple[str, str], dict[str, object]] = {}
+        h2h.record_runtime_match(close_index, "南昌大学", "广东工业大学", 2, 1)
+        h2h.record_runtime_match(sweep_index, "南昌大学", "广东工业大学", 2, 0)
+
+        close = h2h.summarize_head_to_head(
+            "广东工业大学",
+            "南昌大学",
+            p_base=0.574645,
+            head_to_head_index=close_index,
+        )
+        sweep = h2h.summarize_head_to_head(
+            "广东工业大学",
+            "南昌大学",
+            p_base=0.574645,
+            head_to_head_index=sweep_index,
+        )
+
+        self.assertGreater(close["delta_h2h"], sweep["delta_h2h"])
 
     def test_runtime_h2h_clone_does_not_mutate_source_index(self) -> None:
         source_index: dict[tuple[str, str], dict[str, object]] = {}
