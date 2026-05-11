@@ -1,17 +1,5 @@
 import type { SourceFreshness } from "@/lib/types";
-
-function formatDateTime(value: string | null) {
-  if (!value) return "暂无数据";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "暂无数据";
-  return parsed.toLocaleString("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-}
+import { formatShortDateTimeLabel } from "@/lib/time-format";
 
 export function SourceFreshnessStrip({
   freshness,
@@ -39,15 +27,15 @@ export function SourceFreshnessStrip({
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
             <div className="font-mono text-[9px] tracking-widest text-rm-metal-textFaint">服务响应时间</div>
-            <div className="font-mono text-xs text-rm-status-safe">{formatDateTime(freshness.serviceGeneratedAt)}</div>
+            <div className="font-mono text-xs text-rm-status-safe">{formatShortDateTimeLabel(freshness.serviceGeneratedAt)}</div>
           </div>
           <div>
             <div className="font-mono text-[9px] tracking-widest text-rm-metal-textFaint">模型预测产物</div>
-            <div className="font-mono text-xs text-rm-metal-textLight">{formatDateTime(freshness.modelGeneratedAt)}</div>
+            <div className="font-mono text-xs text-rm-metal-textLight">{formatShortDateTimeLabel(freshness.modelGeneratedAt)}</div>
           </div>
           <div>
             <div className="font-mono text-[9px] tracking-widest text-rm-metal-textFaint">官方赛程同步</div>
-            <div className="font-mono text-xs text-rm-status-warn">{formatDateTime(freshness.officialScheduleUpdatedAt)}</div>
+            <div className="font-mono text-xs text-rm-status-warn">{formatShortDateTimeLabel(freshness.officialScheduleUpdatedAt)}</div>
             <div className="mt-1 font-mono text-[10px] leading-snug text-rm-metal-textMuted">
               {freshness.coverageLabel}
             </div>

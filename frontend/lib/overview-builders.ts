@@ -11,6 +11,7 @@ import type {
   RegionStrengthRow,
 } from "@/lib/types";
 import { compareRegionOrder } from "@/lib/region-config";
+import { formatShortDateTimeLabel } from "@/lib/time-format";
 
 const NATIONAL_LOCK_THRESHOLD = 0.7;
 const REGION_STRENGTH_WEIGHTS = {
@@ -351,13 +352,7 @@ function buildRegionStrength(cards: RegionDashboardCard[]): RegionStrengthRow[] 
 }
 
 function formatGeneratedLabel(generatedAt: string) {
-  return new Date(generatedAt).toLocaleString("zh-CN", {
-    hour12: false,
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatShortDateTimeLabel(generatedAt);
 }
 
 function buildHeroMetrics(overview: OverviewResponse): OverviewMetric[] {

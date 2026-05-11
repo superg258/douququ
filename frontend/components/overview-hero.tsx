@@ -21,11 +21,13 @@ const GOLDEN_RAIN_PARTICLES = Array.from({ length: 50 }, (_, index) => {
 });
 
 export function OverviewHero({
-  generatedLabel,
+  serviceGeneratedLabel,
+  modelGeneratedLabel,
   nextMatchHref,
   ctaLabel = "进入赛程沙盘",
 }: {
-  generatedLabel: string;
+  serviceGeneratedLabel: string;
+  modelGeneratedLabel: string;
   nextMatchHref: string | null;
   ctaLabel?: string;
 }) {
@@ -175,13 +177,14 @@ export function OverviewHero({
               </div>
 
               {/* Status line */}
-              <div className="flex items-center gap-2 pt-1">
+              <div className="flex items-start gap-2 pt-1">
                 <span className="flex h-2 w-2 relative shrink-0">
                   <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-rm-status-confirmed opacity-75" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-rm-status-confirmed shadow-[0_0_6px_rgba(0,232,120,0.7)]" />
                 </span>
-                <span className="font-mono text-[9px] text-rm-metal-textFaint/60 tracking-[0.2em]">
-                  系统运行正常 &nbsp;|&nbsp; {generatedLabel}
+                <span className="flex flex-col gap-1 font-mono text-[9px] leading-tight text-rm-metal-textFaint/60 tracking-[0.18em]">
+                  <span>系统运行正常 &nbsp;|&nbsp; 服务响应 {serviceGeneratedLabel}</span>
+                  <span>模型产物 {modelGeneratedLabel}</span>
                 </span>
               </div>
 

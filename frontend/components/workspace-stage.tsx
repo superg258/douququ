@@ -454,7 +454,7 @@ export function WorkspaceStageView({
         </div>
         {minimapViewport ? (
           <div
-            className="relative hidden border border-rm-metal-border bg-rm-metal-dark/70 sm:block"
+            className="relative border border-rm-metal-border bg-rm-metal-dark/70"
             style={{ width: 72, height: Math.max(28, Math.round(minimapViewport.mapHeight * (72 / 112))) }}
           >
             <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.07)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.07)_1px,transparent_1px)] bg-[length:12px_12px]" />

@@ -846,124 +846,150 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
     </div>
   );
 
+  const renderHomeButton = () => (
+    <Link
+      href="/"
+      className="flex h-7 w-7 shrink-0 items-center justify-center border border-rm-blue/40 bg-rm-blue/15 text-rm-blue clip-chamfer transition-colors hover:bg-rm-blue hover:text-white"
+      title="返回全景战略板"
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    </Link>
+  );
+
+  const renderRegionSelector = () => (
+    <select
+      value={regionSlug}
+      onChange={(e) => {
+        const nextRegion = e.target.value;
+        if (validRegion(nextRegion)) {
+          onRegionChange(nextRegion);
+        }
+      }}
+      className="shrink-0 border border-white/10 bg-rm-metal-dark/80 px-2.5 py-1.5 text-xs text-white focus:border-rm-blue focus:outline-none"
+    >
+      {overview?.regions.map((region) => (
+        <option key={region.regionSlug} value={region.regionSlug}>{region.regionName}</option>
+      ))}
+    </select>
+  );
+
+  const renderModeToggle = () => (
+    <div className="flex shrink-0 overflow-hidden border border-white/10 bg-rm-metal-dark/80">
+      <button
+        onClick={() => updateQuery({ mode: "live" })}
+        title={realtimeAvailability.hint}
+        className={cn(
+          "px-2.5 py-1.5 text-xs font-bold uppercase transition-colors",
+          requestedMode === "live"
+            ? dataMode === "live"
+              ? "bg-rm-status-warn text-black"
+              : "bg-rm-status-warn/15 text-rm-status-warn"
+            : "text-rm-metal-text hover:text-white"
+        )}
+      >
+        {realtimeEnabled ? "实时" : "实时未接入"}
+      </button>
+      <button
+        onClick={() => updateQuery({ mode: "sim" })}
+        className={cn(
+          "px-2.5 py-1.5 text-xs font-bold uppercase transition-colors",
+          requestedMode === "sim" ? "bg-rm-blue text-white" : "text-rm-metal-text hover:text-white"
+        )}
+      >
+        模拟
+      </button>
+    </div>
+  );
+
+  const renderSeedControl = () => dataMode === "sim" ? (
+    <div className="flex shrink-0 items-center overflow-hidden border border-white/10 bg-rm-metal-dark/80">
+      <span className="px-2 font-mono text-[10px] text-rm-metal-text">种子</span>
+      <input
+        type="text"
+        value={seedDraft}
+        onChange={(e) => setSeedDraft(sanitizeSeedInput(e.target.value))}
+        onKeyDown={(e) => { if (e.key === "Enter") applySeedDraft(); }}
+        className="w-16 bg-transparent px-1.5 py-1.5 font-mono text-xs text-white focus:outline-none md:w-20"
+      />
+      <button
+        onClick={refreshSimulationSeed}
+        className="border-l border-white/10 bg-rm-blue/20 px-2 py-1.5 text-[10px] font-bold text-rm-blue transition-colors hover:bg-rm-blue hover:text-white"
+      >
+        刷新
+      </button>
+    </div>
+  ) : null;
+
+  const renderSearchButton = () => (
+    <button
+      onClick={() => setSearchOpen(true)}
+      className="shrink-0 border border-white/10 bg-rm-metal-dark/80 px-2.5 py-1.5 text-xs uppercase text-rm-metal-text transition-colors hover:bg-rm-metal-panel"
+    >
+      搜索
+    </button>
+  );
+
+  const renderLegendButton = () => (
+    <button
+      type="button"
+      onClick={() => setLegendOpen((c) => !c)}
+      className={cn(
+        "shrink-0 border px-2 py-1.5 text-xs uppercase transition-colors",
+        legendOpen ? "border-rm-blue bg-rm-blue/15 text-rm-blue" : "border-white/10 bg-rm-metal-dark/80 text-rm-metal-text"
+      )}
+    >
+      图例
+    </button>
+  );
+
+  const renderInspectorButton = () => (
+    <button
+      type="button"
+      onClick={() => setInspectorOpen((c) => !c)}
+      className={cn(
+        "shrink-0 border px-2 py-1.5 text-xs uppercase transition-colors",
+        inspectorVisible ? "border-rm-blue bg-rm-blue/15 text-rm-blue" : "border-white/10 bg-rm-metal-dark/80 text-rm-metal-text"
+      )}
+    >
+      情报
+    </button>
+  );
+
   return (
     <div className="fixed inset-0 z-[100] flex flex-col min-h-0 bg-[#0a0a0f] bg-red-blue-split">
       {/* Floating glass header — scutbot-inspired compact bar */}
       <header className="glass-sheet z-30 px-3 py-2 md:px-4 md:py-2.5 flex flex-col gap-2 select-none">
-        {/* Row 1: core controls */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Home button */}
-          <Link
-            href="/"
-            className="flex items-center justify-center w-7 h-7 border border-rm-blue/40 bg-rm-blue/15 text-rm-blue clip-chamfer shrink-0 hover:bg-rm-blue hover:text-white transition-colors"
-            title="返回全景战略板"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          </Link>
-
-          {/* Region selector */}
-          <select
-            value={regionSlug}
-            onChange={(e) => {
-              const nextRegion = e.target.value;
-              if (validRegion(nextRegion)) {
-                onRegionChange(nextRegion);
-              }
-            }}
-            className="bg-rm-metal-dark/80 border border-white/10 text-white text-xs px-2.5 py-1.5 focus:outline-none focus:border-rm-blue shrink-0"
-          >
-            {overview?.regions.map((region) => (
-              <option key={region.regionSlug} value={region.regionSlug}>{region.regionName}</option>
-            ))}
-          </select>
-
-          {/* Mode toggle */}
-          <div className="flex bg-rm-metal-dark/80 border border-white/10 overflow-hidden shrink-0">
-            <button
-              onClick={() => updateQuery({ mode: "live" })}
-              title={realtimeAvailability.hint}
-              className={cn(
-                "px-2.5 py-1.5 text-xs font-bold uppercase transition-colors",
-                requestedMode === "live"
-                  ? dataMode === "live"
-                    ? "bg-rm-status-warn text-black"
-                    : "bg-rm-status-warn/15 text-rm-status-warn"
-                  : "text-rm-metal-text hover:text-white"
-              )}
-            >
-              {realtimeEnabled ? "实时" : "实时未接入"}
-            </button>
-            <button
-              onClick={() => updateQuery({ mode: "sim" })}
-              className={cn(
-                "px-2.5 py-1.5 text-xs font-bold uppercase transition-colors",
-                requestedMode === "sim" ? "bg-rm-blue text-white" : "text-rm-metal-text hover:text-white"
-              )}
-            >
-              模拟
-            </button>
-          </div>
-
-          {/* Seed input (sim mode only) */}
-          {dataMode === "sim" && (
-            <div className="flex items-center bg-rm-metal-dark/80 border border-white/10 overflow-hidden shrink-0">
-              <span className="text-[10px] text-rm-metal-text px-2 font-mono">种子</span>
-              <input
-                type="text"
-                value={seedDraft}
-                onChange={(e) => setSeedDraft(sanitizeSeedInput(e.target.value))}
-                onKeyDown={(e) => { if (e.key === "Enter") applySeedDraft(); }}
-                className="bg-transparent w-16 md:w-20 px-1.5 py-1.5 text-xs text-white focus:outline-none font-mono"
-              />
-              <button
-                onClick={refreshSimulationSeed}
-                className="bg-rm-blue/20 text-rm-blue hover:bg-rm-blue hover:text-white px-2 py-1.5 text-[10px] font-bold transition-colors border-l border-white/10"
-              >
-                刷新
-              </button>
-            </div>
-          )}
-
-          {/* Spacer — push remaining items to the right on desktop */}
+        {/* Desktop row: preserve the original one-line tool layout. */}
+        <div className="hidden items-center gap-2 md:flex md:flex-wrap">
+          {renderHomeButton()}
+          {renderRegionSelector()}
+          {renderModeToggle()}
+          {renderSeedControl()}
           <div className="flex-1 hidden md:block" />
-
-          {/* Search button */}
-          <button
-            onClick={() => setSearchOpen(true)}
-            className="border border-white/10 bg-rm-metal-dark/80 hover:bg-rm-metal-panel text-rm-metal-text text-xs px-2.5 py-1.5 transition-colors uppercase shrink-0"
-          >
-            搜索
-          </button>
-
-          {/* 图例 + 情报 按钮（全尺寸可见） */}
-          <button
-            type="button"
-            onClick={() => setLegendOpen((c) => !c)}
-            className={cn(
-              "border px-2 py-1.5 text-xs uppercase transition-colors shrink-0",
-              legendOpen ? "border-rm-blue bg-rm-blue/15 text-rm-blue" : "border-white/10 bg-rm-metal-dark/80 text-rm-metal-text"
-            )}
-          >
-            图例
-          </button>
-          <button
-            type="button"
-            onClick={() => setInspectorOpen((c) => !c)}
-            className={cn(
-              "border px-2 py-1.5 text-xs uppercase transition-colors shrink-0",
-              inspectorVisible ? "border-rm-blue bg-rm-blue/15 text-rm-blue" : "border-white/10 bg-rm-metal-dark/80 text-rm-metal-text"
-            )}
-          >
-            情报
-          </button>
-
-          {/* Desktop: seed info hint */}
+          {renderSearchButton()}
+          {renderLegendButton()}
+          {renderInspectorButton()}
           <span className="hidden md:inline text-[10px] text-rm-metal-text font-mono shrink-0">
             种子 {seed}
           </span>
         </div>
 
-        {/* Row 2: view tabs — horizontal scroll */}
+        {/* Mobile row 1: navigation, region, mode. */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5 md:hidden no-scrollbar">
+          {renderHomeButton()}
+          {renderRegionSelector()}
+          {renderModeToggle()}
+        </div>
+
+        {/* Mobile row 2: seed and tools. */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5 md:hidden no-scrollbar">
+          {renderSeedControl()}
+          {renderSearchButton()}
+          {renderLegendButton()}
+          {renderInspectorButton()}
+        </div>
+
+        {/* Row 3 on mobile / row 2 on desktop: view tabs — horizontal scroll */}
         <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
           {REGION_VIEWS.map((item) => (
             <button

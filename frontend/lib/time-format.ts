@@ -42,6 +42,23 @@ export function formatBeijingMonthDayTime(value: string | null | undefined) {
   return `${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
 }
 
+export function formatShortDateTimeLabel(value: string | null | undefined) {
+  const parsed = parseDateTime(value);
+  if (!parsed) return "暂无数据";
+  const parts = partsByType(
+    new Intl.DateTimeFormat("zh-CN", {
+      timeZone: BEIJING_TIME_ZONE,
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      hourCycle: "h23",
+    }).formatToParts(parsed)
+  );
+  return `${parts.month}/${parts.day} ${parts.hour}:${parts.minute}`;
+}
+
 export function getBeijingHour(value: string | null | undefined) {
   const parsed = parseDateTime(value);
   if (!parsed) return null;

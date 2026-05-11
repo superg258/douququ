@@ -29,23 +29,32 @@ function makeStage(id: WorkspaceStage["id"], width: number, height: number, minS
 }
 
 describe("workspace-viewport", () => {
-  it("keeps mobile playoff and qualification stages at a more readable minimum scale", () => {
+  it("keeps mobile bracket-heavy stages at a readable entry scale", () => {
     const playoffStage = makeStage("playoff", 1938, 1240, 0.74);
     const qualificationStage = makeStage("qualification", 2100, 1460, 0.72);
+    const swissStage = makeStage("swiss-a", 2100, 1460, 0.7);
+    const slotsStage = makeStage("slots", 1842, 1120, 0.62);
+    const rankingsStage = makeStage("final-rankings", 1842, 1120, 0.62);
 
     const playoffViewport = fitWorkspaceViewport(playoffStage, 390, 844);
     const qualificationViewport = fitWorkspaceViewport(qualificationStage, 390, 844);
+    const swissViewport = fitWorkspaceViewport(swissStage, 390, 844);
+    const slotsViewport = fitWorkspaceViewport(slotsStage, 390, 844);
+    const rankingsViewport = fitWorkspaceViewport(rankingsStage, 390, 844);
 
-    expect(playoffViewport.scale).toBeGreaterThanOrEqual(0.52);
-    expect(qualificationViewport.scale).toBeGreaterThanOrEqual(0.5);
+    expect(playoffViewport.scale).toBeGreaterThanOrEqual(0.62);
+    expect(qualificationViewport.scale).toBeGreaterThanOrEqual(0.62);
+    expect(swissViewport.scale).toBeGreaterThanOrEqual(0.58);
+    expect(slotsViewport.scale).toBeGreaterThanOrEqual(0.54);
+    expect(rankingsViewport.scale).toBeGreaterThanOrEqual(0.54);
   });
 
   it("allows final rankings to fit smaller on mobile than bracket-heavy views", () => {
     const rankingsStage = makeStage("final-rankings", 1842, 1120, 0.62);
     const viewport = fitWorkspaceViewport(rankingsStage, 390, 844);
 
-    expect(viewport.scale).toBeGreaterThanOrEqual(0.44);
-    expect(viewport.scale).toBeLessThan(0.52);
+    expect(viewport.scale).toBeGreaterThanOrEqual(0.54);
+    expect(viewport.scale).toBeLessThan(0.62);
   });
 
   it("uses more desktop width when the extra vertical overflow stays modest", () => {

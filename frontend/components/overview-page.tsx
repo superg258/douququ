@@ -6,6 +6,7 @@ import { getOverview, getPrematchCenter } from "@/lib/api";
 import { buildOverviewDashboard } from "@/lib/overview-builders";
 import { buildRegionHref } from "@/lib/region-config";
 import { buildPrematchScheduleHref, isVisiblePrematchSchedule, sortPrematchMatchesByTime } from "@/lib/prematch-center";
+import { formatShortDateTimeLabel } from "@/lib/time-format";
 import type { OverviewDashboard, PrematchCenterMatch, RegionSlug } from "@/lib/types";
 
 import { OverviewHero } from "@/components/overview-hero";
@@ -19,6 +20,7 @@ export function OverviewPage() {
   const [dashboard, setDashboard] = useState<OverviewDashboard | null>(null);
   const [nextMatchHref, setNextMatchHref] = useState<string | null>(null);
   const [nextMatchCtaLabel, setNextMatchCtaLabel] = useState("进入赛程沙盘");
+  const [serviceGeneratedLabel, setServiceGeneratedLabel] = useState("暂无数据");
   const [regionEntryHrefs, setRegionEntryHrefs] = useState<Record<string, string | null>>({});
   const [error, setError] = useState("");
 
@@ -28,6 +30,7 @@ export function OverviewPage() {
       .then(([overviewRes, prematchRes]) => {
         if (!canceled) {
           setDashboard(buildOverviewDashboard(overviewRes));
+          setServiceGeneratedLabel(formatShortDateTimeLabel(prematchRes.sourceFreshness?.serviceGeneratedAt));
           const next = prematchRes.nextActionMatch ?? prematchRes.nextMatch;
           if (next?.dataSource === "official_live") {
             setNextMatchHref(buildPrematchScheduleHref(next));
@@ -80,7 +83,12 @@ export function OverviewPage() {
   return (
     <div className="min-h-screen">
       <div className="max-w-screen-2xl mx-auto px-4 py-8 space-y-10">
-        <OverviewHero generatedLabel={dashboard.generatedLabel} nextMatchHref={nextMatchHref} ctaLabel={nextMatchCtaLabel} />
+        <OverviewHero
+          serviceGeneratedLabel={serviceGeneratedLabel}
+          modelGeneratedLabel={dashboard.generatedLabel}
+          nextMatchHref={nextMatchHref}
+          ctaLabel={nextMatchCtaLabel}
+        />
         <PrematchCenter />
         <OverviewModelRecap />
         <RegionCardGrid regions={dashboard.regions} regionEntryHrefs={regionEntryHrefs} />

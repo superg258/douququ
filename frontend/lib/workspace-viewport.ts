@@ -20,16 +20,16 @@ const INTERACTIVE_MIN_SCALE = 0.1;
 function mobileMinScaleForStage(stage: WorkspaceStage) {
   switch (stage.id) {
     case "playoff":
-      return 0.52;
     case "qualification":
-      return 0.5;
+      return 0.62;
     case "swiss-a":
     case "swiss-b":
-      return 0.48;
+      return 0.58;
+    case "slots":
     case "final-rankings":
-      return 0.44;
+      return 0.54;
     default:
-      return 0.46;
+      return 0.54;
   }
 }
 
@@ -125,9 +125,7 @@ export function fitWorkspaceViewport(stage: WorkspaceStage, width: number, heigh
   const desktopMinScale = stage.viewport?.minScale ?? 0.56;
   const desktopScale = desktopTargetScale(stage, width, height, fittedScale, gutterX, gutterY);
   const nonClippingDesktopMinScale = Math.min(desktopMinScale, (width - gutterX * 2) / stage.width);
-  const minScale = width < 768
-    ? Math.max(mobileMinScaleForStage(stage), Math.min(desktopMinScale, 0.5))
-    : nonClippingDesktopMinScale;
+  const minScale = width < 768 ? mobileMinScaleForStage(stage) : nonClippingDesktopMinScale;
   const targetScale = width < 768 ? fittedScale : desktopScale;
   const scale = clamp(Math.max(targetScale, minScale), minScale, 1);
   const align = width < 768
