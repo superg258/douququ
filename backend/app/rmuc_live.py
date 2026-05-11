@@ -193,6 +193,13 @@ def _rank_items(row: Any) -> dict[str, Any]:
     return out
 
 
+def _rank_team_slot(team_name: str) -> str:
+    value = str(team_name or "").strip().upper()
+    if re.fullmatch(r"[AB]\d{1,2}", value):
+        return value
+    return ""
+
+
 def _metric_value(items: dict[str, Any], *names: str) -> float | None:
     for name in names:
         value = _optional_float(items.get(name))
@@ -214,12 +221,48 @@ def _win_draw_loss_metrics(value: Any) -> dict[str, float | None]:
     }
 
 
-def normalize_group_rank_metrics(
+def _group_rank_metric_record(items: dict[str, Any], group_name: str, *, slot: str = "") -> dict[str, Any]:
+    wdl_metrics = _win_draw_loss_metrics(items.get("胜/平/负"))
+    source_opponent_points = _metric_value(items, "对手分")
+    record = {
+        "group_name": group_name,
+        "slot": slot,
+        "group_rank": _metric_value(items, "排名"),
+        "wins": _metric_value(items, "胜场数", "胜") if wdl_metrics["wins"] is None else wdl_metrics["wins"],
+        "draws": _metric_value(items, "平") if wdl_metrics["draws"] is None else wdl_metrics["draws"],
+        "losses": _metric_value(items, "负场数", "负") if wdl_metrics["losses"] is None else wdl_metrics["losses"],
+        "score_points": _metric_value(items, "积分"),
+        "official_opponent_points": source_opponent_points,
+        "source_reported_opponent_points": source_opponent_points,
+        "official_total_victory_points_diff": _metric_value(items, "总净胜胜利点"),
+        "official_total_team_damage": _metric_value(items, "全队总伤害血量"),
+        "official_total_robot_remaining_hp": _metric_value(items, "全队机器人总剩余血量"),
+        "official_avg_base_hp_diff": _metric_value(
+            items,
+            "时均总基地净胜血量",
+            "局均总基地净胜血量",
+            "平均总基地净胜血量",
+            "平均基地净胜血量",
+        ),
+        "official_avg_team_damage": _metric_value(
+            items,
+            "时均全队总伤害血量",
+            "局均全队总伤害血量",
+            "平均全队总伤害血量",
+            "全队总伤害血量",
+        ),
+        "ranking_metric_source": "official_live",
+        "ranking_completeness": "official_rank_snapshot",
+    }
+    return record
+
+
+def _normalize_group_rank_metric_buckets(
     payload: dict[str, Any] | None,
-) -> dict[str, dict[str, dict[str, Any]]]:
+) -> dict[str, dict[str, dict[str, dict[str, Any]]]]:
     if not isinstance(payload, dict):
         return {}
-    regions: dict[str, dict[str, dict[str, Any]]] = {}
+    regions: dict[str, dict[str, dict[str, dict[str, Any]]]] = {}
     zones = payload.get("zones", [])
     if not isinstance(zones, list):
         return regions
@@ -230,7 +273,7 @@ def normalize_group_rank_metrics(
         region_slug = REGION_NAME_TO_SLUG.get(zone_name)
         if region_slug is None:
             continue
-        region_metrics = regions.setdefault(region_slug, {})
+        region_metrics = regions.setdefault(region_slug, {"teams": {}, "slots": {}})
         groups = zone.get("groups", [])
         if not isinstance(groups, list):
             continue
@@ -249,37 +292,23 @@ def normalize_group_rank_metrics(
                     continue
                 college_name = str(team.get("collegeName") or "").strip()
                 team_name = str(team.get("teamName") or team.get("name") or "").strip()
-                if not college_name or not team_name:
+                if not team_name:
                     continue
-                team_key = legacy_elo.make_team_key(college_name, team_name)
-                wdl_metrics = _win_draw_loss_metrics(items.get("胜/平/负"))
-                region_metrics[team_key] = {
-                    "group_name": group_name,
-                    "group_rank": _metric_value(items, "排名"),
-                    "wins": _metric_value(items, "胜场数", "胜") if wdl_metrics["wins"] is None else wdl_metrics["wins"],
-                    "draws": _metric_value(items, "平") if wdl_metrics["draws"] is None else wdl_metrics["draws"],
-                    "losses": _metric_value(items, "负场数", "负") if wdl_metrics["losses"] is None else wdl_metrics["losses"],
-                    "score_points": _metric_value(items, "积分"),
-                    "official_opponent_points": None,
-                    "source_reported_opponent_points": _metric_value(items, "对手分"),
-                    "official_total_victory_points_diff": _metric_value(items, "总净胜胜利点"),
-                    "official_total_team_damage": _metric_value(items, "全队总伤害血量"),
-                    "official_total_robot_remaining_hp": _metric_value(items, "全队机器人总剩余血量"),
-                    "official_avg_base_hp_diff": _metric_value(
-                        items,
-                        "局均总基地净胜血量",
-                        "平均总基地净胜血量",
-                        "平均基地净胜血量",
-                    ),
-                    "official_avg_team_damage": _metric_value(
-                        items,
-                        "局均全队总伤害血量",
-                        "平均全队总伤害血量",
-                        "全队总伤害血量",
-                    ),
-                    "ranking_metric_source": "official_live",
-                }
+                slot = _rank_team_slot(team_name)
+                record = _group_rank_metric_record(items, group_name, slot=slot)
+                if college_name:
+                    team_key = legacy_elo.make_team_key(college_name, team_name)
+                    region_metrics["teams"][team_key] = record
+                elif slot:
+                    region_metrics["slots"][slot] = record
     return regions
+
+
+def normalize_group_rank_metrics(
+    payload: dict[str, Any] | None,
+) -> dict[str, dict[str, dict[str, Any]]]:
+    buckets = _normalize_group_rank_metric_buckets(payload)
+    return {region_slug: dict(bucket.get("teams", {})) for region_slug, bucket in buckets.items()}
 
 
 def _computed_swiss_opponent_points(matches: list[dict[str, Any]]) -> dict[str, float]:
@@ -813,7 +842,7 @@ def normalize_schedule_payload(
         base["reason"] = "当前官方 live_json 不是 RMUC 超级对抗赛"
         return base
 
-    group_rank_metrics = normalize_group_rank_metrics(group_rank_payload)
+    group_rank_metric_buckets = _normalize_group_rank_metric_buckets(group_rank_payload)
     regions: dict[str, Any] = {}
     for zone in _nodes(event.get("zones")):
         zone_name = str(zone.get("name") or "").strip()
@@ -835,7 +864,13 @@ def normalize_schedule_payload(
             )
         )
         slot_assignments = _collect_slot_assignments(zone)
-        region_group_rank_metrics = dict(group_rank_metrics.get(region_slug, {}))
+        metric_bucket = group_rank_metric_buckets.get(region_slug, {})
+        region_group_rank_metrics = dict(metric_bucket.get("teams", {}))
+        team_key_by_slot = {slot: team_key for team_key, slot in slot_assignments.items()}
+        for slot, metrics in metric_bucket.get("slots", {}).items():
+            team_key = team_key_by_slot.get(slot)
+            if team_key:
+                region_group_rank_metrics.setdefault(team_key, dict(metrics))
         for team_key, opponent_points in _computed_swiss_opponent_points(matches).items():
             metrics = region_group_rank_metrics.setdefault(
                 team_key,
@@ -846,6 +881,7 @@ def normalize_schedule_payload(
             )
             metrics["official_opponent_points"] = opponent_points
             metrics["ranking_metric_source"] = "official_live"
+            metrics["ranking_completeness"] = "official_schedule_replay"
         regions[region_slug] = {
             "zoneId": str(zone.get("id") or ""),
             "zoneName": zone_name,

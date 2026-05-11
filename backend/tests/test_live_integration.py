@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 import json
+import random
 from types import SimpleNamespace
 
 from backend.app import rmuc_live, service
@@ -250,6 +251,8 @@ def test_normalize_schedule_payload_attaches_official_group_rank_metrics() -> No
                                 {"itemName": "全队总伤害血量", "itemValue": 7800},
                                 {"itemName": "全队机器人总剩余血量", "itemValue": 1200},
                                 {"itemName": "对手分", "itemValue": 99},
+                                {"itemName": "时均总基地净胜血量", "itemValue": 135.5},
+                                {"itemName": "时均全队总伤害血量", "itemValue": 2468.5},
                             ]
                         ],
                     }
@@ -274,8 +277,165 @@ def test_normalize_schedule_payload_attaches_official_group_rank_metrics() -> No
     assert metrics["official_total_victory_points_diff"] == 2.0
     assert metrics["official_total_team_damage"] == 7800.0
     assert metrics["official_total_robot_remaining_hp"] == 1200.0
+    assert metrics["source_reported_opponent_points"] == 99.0
     assert metrics["official_opponent_points"] == -2.0
+    assert metrics["official_avg_base_hp_diff"] == 135.5
+    assert metrics["official_avg_team_damage"] == 2468.5
     assert metrics["ranking_metric_source"] == "official_live"
+
+
+def test_normalize_schedule_payload_maps_slot_only_group_rank_rows_after_official_draw() -> None:
+    group_rank_payload = {
+        "zones": [
+            {
+                "zoneName": "南部赛区",
+                "groups": [
+                    {
+                        "groupName": "A组",
+                        "groupPlayers": [
+                            [
+                                {
+                                    "itemName": "战队",
+                                    "itemValue": {
+                                        "collegeName": "",
+                                        "teamName": "A1",
+                                    },
+                                },
+                                {"itemName": "胜/平/负", "itemValue": "2/0/1"},
+                                {"itemName": "胜场数", "itemValue": 2},
+                                {"itemName": "对手分", "itemValue": 7},
+                                {"itemName": "时均总基地净胜血量", "itemValue": 88},
+                                {"itemName": "时均全队总伤害血量", "itemValue": 1666},
+                            ]
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+
+    normalized = rmuc_live.normalize_schedule_payload(
+        _schedule_payload(),
+        fetched_at=datetime(2026, 4, 27, tzinfo=UTC),
+        source_headers={},
+        group_rank_payload=group_rank_payload,
+    )
+
+    metrics = normalized["regions"]["south_region"]["groupRankMetrics"]["太原理工大学::TRoMaC"]
+    assert metrics["slot"] == "A1"
+    assert metrics["wins"] == 2.0
+    assert metrics["losses"] == 1.0
+    assert metrics["official_opponent_points"] == -2.0
+    assert metrics["source_reported_opponent_points"] == 7.0
+    assert metrics["official_avg_base_hp_diff"] == 88.0
+    assert metrics["official_avg_team_damage"] == 1666.0
+
+
+def test_swiss_sort_prefers_fewer_losses_before_fallback_seed() -> None:
+    region_core = service.region_sim.region_core
+    stronger_record = SimpleNamespace(
+        team_key="two-zero",
+        swiss_status="active",
+        swiss_wins=2,
+        swiss_losses=0,
+        swiss_qualified_round=None,
+        official_opponent_points=4.0,
+        official_avg_base_hp_diff=0.0,
+        official_avg_team_damage=0.0,
+        swiss_game_diff=2,
+        swiss_opponents=[],
+        mu0=1500.0,
+        seed_rank_in_region=8,
+    )
+    weaker_record = SimpleNamespace(
+        team_key="two-one",
+        swiss_status="active",
+        swiss_wins=2,
+        swiss_losses=1,
+        swiss_qualified_round=None,
+        official_opponent_points=4.0,
+        official_avg_base_hp_diff=0.0,
+        official_avg_team_damage=0.0,
+        swiss_game_diff=2,
+        swiss_opponents=[],
+        mu0=1500.0,
+        seed_rank_in_region=1,
+    )
+
+    ranked = sorted(
+        [weaker_record, stronger_record],
+        key=lambda team: region_core.swiss_sort_key(team, {team.team_key: team for team in [stronger_record, weaker_record]}),
+        reverse=True,
+    )
+
+    assert [team.team_key for team in ranked] == ["two-zero", "two-one"]
+
+
+def test_simulate_swiss_group_can_start_from_official_current_records() -> None:
+    region_core = service.region_sim.region_core
+
+    def team(index: int) -> object:
+        slot = f"A{index}"
+        return region_core.RegionTeam(
+            team_key=f"college-{index}::team",
+            college_name=f"College {index}",
+            team_name="team",
+            admitted_region="南部赛区",
+            seed_tier="unseeded",
+            seed_rank_in_region=index,
+            ranking_global_rank=index,
+            shape_rank=index,
+            mu0=1500.0 + index,
+            sigma0=40.0,
+            z_25game=0.0,
+            z_robot25_raw=0.0,
+            z_26rmul=0.0,
+            z_form=0.0,
+            tilde_z_hist=0.0,
+            n_matches_2025_rmuc=0,
+            n_matches_2026_rmul=0,
+            robot_stage_reliability=0.0,
+            simulation_mu=1500.0 + index,
+            match_sigma=16.0,
+            slot=slot,
+            group_name="A",
+        )
+
+    teams = [team(index) for index in range(1, 17)]
+    metrics = {
+        team.team_key: {
+            "wins": 1.0 if index <= 8 else 0.0,
+            "losses": 0.0 if index <= 8 else 1.0,
+            "official_opponent_points": 0.0,
+            "ranking_metric_source": "official_live",
+        }
+        for index, team in enumerate(teams, start=1)
+    }
+    region_core.apply_official_swiss_ranking_metrics(teams, metrics, seed_current_state=True)
+
+    def payload_builder(*args, **kwargs):
+        return {
+            "p_game_base_red": 1.0,
+            "p_game_adj_red": 1.0,
+            "p_series_red": 1.0,
+            "p_series_blue": 0.0,
+            "scoreline_distribution": {"2:0": 1.0},
+            "head_to_head_summary": {"delta_h2h": 0.0},
+            "confidence_label": "test",
+        }
+
+    _ranked, match_rows = region_core.simulate_swiss_group(
+        "A",
+        teams,
+        rng=random.Random(20260414),
+        head_to_head_index={},
+        samples=1,
+        payload_builder=payload_builder,
+        use_csv_rank_pairings=True,
+    )
+
+    assert match_rows[0]["match_label"].startswith("A-SWISS-2-")
+    assert len(match_rows) == 25
 
 
 def test_live_school_rename_aliases_do_not_split_team_keys() -> None:

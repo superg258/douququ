@@ -177,6 +177,15 @@ export interface GroupRankingRow extends TeamRef {
   wins: number;
   losses: number;
   status: string;
+  opponentScore?: number | null;
+  calculatedOpponentScore?: number | null;
+  officialOpponentPoints?: number | null;
+  sourceReportedOpponentPoints?: number | null;
+  officialAvgBaseHpDiff?: number | null;
+  officialAvgTeamDamage?: number | null;
+  rankingMetricSource?: string;
+  rankingCompleteness?: string;
+  simulationGameDiff?: number | null;
   finalRank: number;
 }
 
@@ -229,6 +238,14 @@ export interface FinalRankingRow extends TeamRef {
   swissWins: number;
   swissLosses: number;
   swissGroupRank: number | null;
+  opponentScore?: number | null;
+  calculatedOpponentScore?: number | null;
+  officialOpponentPoints?: number | null;
+  sourceReportedOpponentPoints?: number | null;
+  officialAvgBaseHpDiff?: number | null;
+  officialAvgTeamDamage?: number | null;
+  rankingMetricSource?: string;
+  rankingCompleteness?: string;
   mu0: number;
   currentElo?: number;
   preseasonElo?: number;

@@ -169,9 +169,12 @@ class RegionTeam:
     swiss_eliminated_round: int | None = None
     swiss_final_group_rank: int | None = None
     official_opponent_points: float | None = None
+    source_reported_opponent_points: float | None = None
     official_avg_base_hp_diff: float | None = None
     official_avg_team_damage: float | None = None
     ranking_metric_source: str = "simulation_proxy"
+    ranking_completeness: str = "simulation_proxy"
+    official_record_seeded: bool = False
     final_bucket: str = ""
     advancement: str = ""
     final_rank: int | None = None
@@ -397,6 +400,8 @@ def _first_metric(row: dict[str, Any], *keys: str) -> float | None:
 def apply_official_swiss_ranking_metrics(
     teams: list[RegionTeam],
     metrics_by_team_key: dict[str, dict[str, Any]] | None,
+    *,
+    seed_current_state: bool = False,
 ) -> None:
     if not metrics_by_team_key:
         return
@@ -407,10 +412,12 @@ def apply_official_swiss_ranking_metrics(
         team.official_opponent_points = _first_metric(
             metrics,
             "official_opponent_points",
+            "source_reported_opponent_points",
             "opponent_points",
             "opponentScore",
             "opponent_score",
         )
+        team.source_reported_opponent_points = _first_metric(metrics, "source_reported_opponent_points")
         team.official_avg_base_hp_diff = _first_metric(
             metrics,
             "official_avg_base_hp_diff",
@@ -430,6 +437,21 @@ def apply_official_swiss_ranking_metrics(
             for value in (team.official_opponent_points, team.official_avg_base_hp_diff, team.official_avg_team_damage)
         ):
             team.ranking_metric_source = str(metrics.get("ranking_metric_source") or metrics.get("source") or "official_live")
+            team.ranking_completeness = str(metrics.get("ranking_completeness") or "official_rank_snapshot")
+        if seed_current_state:
+            wins = _parse_optional_metric(metrics.get("wins"))
+            losses = _parse_optional_metric(metrics.get("losses"))
+            if wins is not None and losses is not None:
+                team.swiss_wins = int(wins)
+                team.swiss_losses = int(losses)
+                played_round = int(wins + losses)
+                if team.swiss_wins >= 3 and team.swiss_qualified_round is None:
+                    team.swiss_qualified_round = played_round
+                if team.swiss_losses >= 3 and team.swiss_eliminated_round is None:
+                    team.swiss_eliminated_round = played_round
+                team.official_record_seeded = True
+                if team.official_opponent_points is not None and not team.swiss_opponents:
+                    team.ranking_completeness = "opponent_points_frozen"
 
 
 def sample_from_distribution(distribution: dict[str, float], rng: random.Random) -> str:
@@ -474,9 +496,11 @@ def swiss_ranking_metrics(team: RegionTeam, teams_by_key: dict[str, RegionTeam])
         "opponent_score": effective_swiss_opponent_score(team, teams_by_key),
         "calculated_opponent_score": calculated_opponent_score,
         "official_opponent_points": team.official_opponent_points,
+        "source_reported_opponent_points": team.source_reported_opponent_points,
         "official_avg_base_hp_diff": team.official_avg_base_hp_diff,
         "official_avg_team_damage": team.official_avg_team_damage,
         "ranking_metric_source": team.ranking_metric_source,
+        "ranking_completeness": team.ranking_completeness,
         "simulation_game_diff": team.swiss_game_diff,
     }
 
@@ -491,6 +515,7 @@ def swiss_sort_key(team: RegionTeam, teams_by_key: dict[str, RegionTeam]) -> tup
     return (
         float(swiss_status_priority(team)),
         float(team.swiss_wins),
+        -float(team.swiss_losses),
         qualified_speed,
         effective_swiss_opponent_score(team, teams_by_key),
         _official_metric_or_zero(team.official_avg_base_hp_diff),
@@ -504,6 +529,7 @@ def swiss_sort_key(team: RegionTeam, teams_by_key: dict[str, RegionTeam]) -> tup
 def swiss_cross_group_key(team: RegionTeam, teams_by_key: dict[str, RegionTeam]) -> tuple[float, ...]:
     return (
         float(team.swiss_wins),
+        -float(team.swiss_losses),
         -float(team.swiss_qualified_round) if team.swiss_qualified_round is not None else -99.0,
         effective_swiss_opponent_score(team, teams_by_key),
         _official_metric_or_zero(team.official_avg_base_hp_diff),
@@ -616,6 +642,13 @@ def south_round5_csv_pairings(
     teams_by_key: dict[str, RegionTeam],
 ) -> list[tuple[RegionTeam, RegionTeam]]:
     return round5_csv_pairings(group_name, group_teams, teams_by_key)
+
+
+def _initial_swiss_round(group_teams: list[RegionTeam]) -> int:
+    if not group_teams or not all(team.official_record_seeded for team in group_teams):
+        return 1
+    max_played = max(team.swiss_wins + team.swiss_losses for team in group_teams)
+    return min(max(max_played + 1, 1), 6)
 
 
 def build_prediction_payload(
@@ -915,7 +948,7 @@ def simulate_swiss_group(
     slot_to_team = {team.slot: team for team in group_teams}
     match_rows: list[dict[str, Any]] = []
 
-    for round_number in range(1, 6):
+    for round_number in range(_initial_swiss_round(group_teams), 6):
         official_round_pairings = (official_pairings or {}).get(round_number)
         if round_number == 1:
             pairings = [(slot_to_team[left], slot_to_team[right]) for left, right in SWISS_ROUND1_PAIRINGS[group_name]]
@@ -1484,13 +1517,18 @@ def simulate_region(
     samples: int = DEFAULT_MONTE_CARLO_SAMPLES,
     payload_builder: PayloadBuilder | None = None,
     official_group_rank_metrics: dict[str, dict[str, Any]] | None = None,
+    seed_swiss_state_from_official_metrics: bool = False,
 ) -> dict[str, Any]:
     if region not in REGION_CONFIGS:
         raise ValueError(f"Unsupported region: {region}")
     rng = random.Random(seed)
     teams = parse_team_rows(region, ratings_csv)
     slot_rows = assign_region_slots(teams, rng)
-    apply_official_swiss_ranking_metrics(teams, official_group_rank_metrics)
+    apply_official_swiss_ranking_metrics(
+        teams,
+        official_group_rank_metrics,
+        seed_current_state=seed_swiss_state_from_official_metrics,
+    )
     assign_tournament_strengths(teams, rng)
     head_to_head_index = predictor.load_head_to_head_index()
 
@@ -1547,9 +1585,11 @@ def simulate_region(
                 "opponent_score": metrics["opponent_score"],
                 "calculated_opponent_score": metrics["calculated_opponent_score"],
                 "official_opponent_points": metrics["official_opponent_points"],
+                "source_reported_opponent_points": metrics["source_reported_opponent_points"],
                 "official_avg_base_hp_diff": metrics["official_avg_base_hp_diff"],
                 "official_avg_team_damage": metrics["official_avg_team_damage"],
                 "ranking_metric_source": metrics["ranking_metric_source"],
+                "ranking_completeness": metrics["ranking_completeness"],
                 "mu0": round(team.mu0, 6),
                 "final_bucket": team.final_bucket,
                 "advancement": team.advancement,
@@ -1725,9 +1765,11 @@ def write_simulation_outputs(simulation: dict[str, Any]) -> dict[str, Path]:
             "opponent_score",
             "calculated_opponent_score",
             "official_opponent_points",
+            "source_reported_opponent_points",
             "official_avg_base_hp_diff",
             "official_avg_team_damage",
             "ranking_metric_source",
+            "ranking_completeness",
             "mu0",
             "final_bucket",
             "advancement",

@@ -604,6 +604,8 @@ def _serialize_simulation(
                     "officialAvgBaseHpDiff": _optional_float(row.get("official_avg_base_hp_diff")),
                     "officialAvgTeamDamage": _optional_float(row.get("official_avg_team_damage")),
                     "rankingMetricSource": str(row.get("ranking_metric_source") or "simulation_proxy"),
+                    "rankingCompleteness": str(row.get("ranking_completeness") or "simulation_proxy"),
+                    "sourceReportedOpponentPoints": _optional_float(row.get("source_reported_opponent_points")),
                     "simulationGameDiff": _optional_float(row.get("simulation_game_diff")),
                     "finalRank": int(ranking_row["rank"]),
                 }
@@ -630,6 +632,8 @@ def _serialize_simulation(
             "officialAvgBaseHpDiff": _optional_float(row.get("official_avg_base_hp_diff")),
             "officialAvgTeamDamage": _optional_float(row.get("official_avg_team_damage")),
             "rankingMetricSource": str(row.get("ranking_metric_source") or "simulation_proxy"),
+            "rankingCompleteness": str(row.get("ranking_completeness") or "simulation_proxy"),
+            "sourceReportedOpponentPoints": _optional_float(row.get("source_reported_opponent_points")),
             "mu0": float(row["mu0"]),
             "finalBucket": row["final_bucket"],
             "advancement": row["advancement"],
@@ -2335,6 +2339,15 @@ def _live_final_rankings_are_official(payload: dict[str, Any]) -> bool:
     )
 
 
+def _has_official_rank_records(metrics_by_team_key: dict[str, dict[str, Any]] | None) -> bool:
+    if not metrics_by_team_key:
+        return False
+    return any(
+        metrics.get("wins") is not None and metrics.get("losses") is not None
+        for metrics in metrics_by_team_key.values()
+    )
+
+
 def _replace_unofficial_live_final_rankings(payload: dict[str, Any], region_slug: str) -> None:
     payload["finalRankings"] = _official_live_final_ranking_placeholders(region_slug)
     summary = payload.setdefault("summary", {})
@@ -2376,6 +2389,12 @@ def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", sam
         slot_assignments=slot_assignments,
         official_swiss_pairings=official_swiss_pairings,
         official_group_rank_metrics=official_group_rank_metrics,
+        seed_swiss_state_from_official_metrics=(
+            mode == "live"
+            and context.source_status == "active"
+            and context.completed_count == 0
+            and _has_official_rank_records(official_group_rank_metrics)
+        ),
     )
     payload = _serialize_simulation(
         region_slug,

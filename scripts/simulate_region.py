@@ -225,6 +225,7 @@ def simulate_region(
     rating_overrides: dict[str, float] | None = None,
     official_swiss_pairings: dict[str, dict[int, list[tuple[str, str]]]] | None = None,
     official_group_rank_metrics: dict[str, dict[str, Any]] | None = None,
+    seed_swiss_state_from_official_metrics: bool = False,
 ) -> dict[str, Any]:
     if region not in REGION_CONFIGS:
         raise ValueError(f"Unsupported region: {region}")
@@ -243,7 +244,11 @@ def simulate_region(
         slot_rows = region_core.assign_region_slots_from_map(teams, slot_assignments)
     else:
         slot_rows = region_core.assign_region_slots(teams, rng)
-    region_core.apply_official_swiss_ranking_metrics(teams, official_group_rank_metrics)
+    region_core.apply_official_swiss_ranking_metrics(
+        teams,
+        official_group_rank_metrics,
+        seed_current_state=seed_swiss_state_from_official_metrics,
+    )
     assign_tournament_strengths(teams, rng)
     head_to_head_index = h2h.clone_runtime_head_to_head_index()
 
@@ -303,9 +308,11 @@ def simulate_region(
                 "opponent_score": metrics["opponent_score"],
                 "calculated_opponent_score": metrics["calculated_opponent_score"],
                 "official_opponent_points": metrics["official_opponent_points"],
+                "source_reported_opponent_points": metrics["source_reported_opponent_points"],
                 "official_avg_base_hp_diff": metrics["official_avg_base_hp_diff"],
                 "official_avg_team_damage": metrics["official_avg_team_damage"],
                 "ranking_metric_source": metrics["ranking_metric_source"],
+                "ranking_completeness": metrics["ranking_completeness"],
                 "mu0": round(team.mu0, 6),
                 "final_bucket": team.final_bucket,
                 "advancement": team.advancement,
