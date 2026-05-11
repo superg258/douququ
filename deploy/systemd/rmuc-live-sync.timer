@@ -1,0 +1,18 @@
+[Unit]
+Description=Run RMUC live schedule sync periodically
+
+[Timer]
+# Times are evaluated in the server's local timezone.
+# 00:00-06:00: every 30 minutes. Remaining time: every 30 seconds.
+OnCalendar=*-*-* 00..05:00/30:00
+OnCalendar=*-*-* 06:00:00
+OnCalendar=*-*-* 06:00:30
+OnCalendar=*-*-* 06:01..59:0/30
+OnCalendar=*-*-* 07..23:*:0/30
+AccuracySec=5s
+RandomizedDelaySec=5s
+Persistent=true
+Unit=rmuc-live-sync.service
+
+[Install]
+WantedBy=timers.target

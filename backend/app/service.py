@@ -34,6 +34,7 @@ PUBLISHED_RATINGS_DIR = ts2_model.DERIVED_DIR / "published_2026"
 REGION_SIM_DIR = ts2_model.ROOT / "data" / "derived" / "2026_rmuc_region_simulations"
 RUNTIME_LIVE_DIR = ROOT / "data" / "runtime" / "rmuc_live"
 NORMALIZED_LIVE_SCHEDULE_PATH = RUNTIME_LIVE_DIR / "normalized_schedule.json"
+MINI_PROGRAM_PREDICTIONS_PATH = RUNTIME_LIVE_DIR / "mini_program_predictions.json"
 RUNTIME_PUBLISHED_RATINGS_DIR = RUNTIME_LIVE_DIR / "published_2026"
 MINI_PROGRAM_CLIENT = rmuc_live.MiniProgramPredictionClient()
 
@@ -232,6 +233,26 @@ def _read_json_if_exists(path: Path) -> Any | None:
 def load_normalized_live_schedule() -> dict[str, Any] | None:
     payload = _read_json_if_exists(NORMALIZED_LIVE_SCHEDULE_PATH)
     return payload if isinstance(payload, dict) else None
+
+
+def _mini_program_predictions_enabled() -> bool:
+    return os.getenv("RMUC_MINI_PROGRAM_ENABLED", "1").strip().lower() not in {"0", "false", "no", "off"}
+
+
+def load_mini_program_predictions() -> dict[str, dict[str, Any]]:
+    if not _mini_program_predictions_enabled():
+        return {}
+    payload = _read_json_if_exists(MINI_PROGRAM_PREDICTIONS_PATH)
+    if not isinstance(payload, dict):
+        return {}
+    predictions = payload.get("predictions")
+    if not isinstance(predictions, dict):
+        return {}
+    return {
+        str(match_id): prediction
+        for match_id, prediction in predictions.items()
+        if isinstance(prediction, dict)
+    }
 
 
 @lru_cache(maxsize=1)
@@ -816,15 +837,16 @@ def build_live_state_payload(region_slug: str) -> dict[str, Any]:
 
 
 def _mini_program_predictions_for_context(context: rmuc_live.LiveRuntimeContext) -> dict[str, dict[str, Any]]:
-    if os.getenv("RMUC_MINI_PROGRAM_ENABLED", "1") in {"0", "false", "False"}:
+    if not _mini_program_predictions_enabled():
         return {}
+    persisted_predictions = load_mini_program_predictions()
     out: dict[str, dict[str, Any]] = {}
     for match in context.matches_by_pair.values():
         if isinstance(match.get("miniProgramPrediction"), dict):
             continue
         official_id = str(match.get("officialMatchId") or "")
-        if official_id and official_id not in out:
-            out[official_id] = MINI_PROGRAM_CLIENT.get(official_id)
+        if official_id and official_id in persisted_predictions and official_id not in out:
+            out[official_id] = persisted_predictions[official_id]
     return out
 
 
@@ -1013,6 +1035,7 @@ def _attach_live_schedule_metadata(
         return
     source_order_by_id = _official_schedule_order_by_id(schedule_by_label)
     group_source_by_id = _official_group_source_by_id(schedule_by_label)
+    persisted_predictions = load_mini_program_predictions()
     for match in payload.get("matches", []):
         if not isinstance(match, dict):
             continue
@@ -1026,6 +1049,11 @@ def _attach_live_schedule_metadata(
             match["plannedStartAt"] = str(schedule["plannedStartAt"])
         if not match.get("miniProgramPrediction") and isinstance(schedule.get("miniProgramPrediction"), dict):
             match["miniProgramPrediction"] = schedule["miniProgramPrediction"]
+        if not match.get("miniProgramPrediction"):
+            official_match_id = str(schedule.get("officialMatchId") or match.get("officialMatchId") or "").strip()
+            persisted_prediction = persisted_predictions.get(official_match_id)
+            if isinstance(persisted_prediction, dict):
+                match["miniProgramPrediction"] = persisted_prediction
         if schedule.get("isConfirmedMatchup") is False:
             if schedule.get("officialMatchId"):
                 match["officialMatchId"] = str(schedule["officialMatchId"])

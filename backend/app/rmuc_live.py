@@ -1212,12 +1212,20 @@ class MiniProgramPredictionClient:
         blue_count = int(data.get("blueCount") or 0)
         tie_count = int(data.get("tieCount") or 0)
         total_count = red_count + blue_count + tie_count
-        if total_count > 0:
-            red_rate = red_count / total_count
-            blue_rate = blue_count / total_count
-            tie_rate = tie_count / total_count
-        else:
-            red_rate = blue_rate = tie_rate = 0.0
+        if total_count <= 0:
+            return {
+                "status": "unavailable",
+                "matchId": match_id,
+                "reason": "mini-program prediction has no votes",
+                "redCount": red_count,
+                "blueCount": blue_count,
+                "tieCount": tie_count,
+                "totalCount": total_count,
+                "fetchedAt": _now_iso(),
+            }
+        red_rate = red_count / total_count
+        blue_rate = blue_count / total_count
+        tie_rate = tie_count / total_count
         return {
             "status": "available",
             "matchId": match_id,

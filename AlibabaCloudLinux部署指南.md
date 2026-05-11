@@ -316,12 +316,50 @@ RestartSec=3
 WantedBy=multi-user.target
 ```
 
-### 9.3 启动服务
+### 9.3 实时赛程同步定时器
+
+新增的官方赛程和“王牌预言家”同步不在后端请求路径里实时抓取，而是由独立的 `systemd timer` 定时运行：
+
+- 官方赛程写入：`/opt/douququ/data/runtime/rmuc_live/normalized_schedule.json`
+- 王牌预言家写入：`/opt/douququ/data/runtime/rmuc_live/mini_program_predictions.json`
+- 同步状态汇总：`/opt/douququ/data/runtime/rmuc_live/sync_manifest.json`
+
+仓库已提供模板，部署时直接复制：
+
+```bash
+sudo cp /opt/douququ/deploy/systemd/rmuc-live-sync.service /etc/systemd/system/rmuc-live-sync.service
+sudo cp /opt/douququ/deploy/systemd/rmuc-live-sync.timer /etc/systemd/system/rmuc-live-sync.timer
+```
+
+当前定时策略是：
+
+- `00:00-06:00`：每 30 分钟同步一次
+- `06:00:30-23:59:30`：每 30 秒同步一次
+- `AccuracySec=5s`、`RandomizedDelaySec=5s`：保留少量抖动，避免完全固定时刻集中请求
+
+如果部署用户不是 `douququ`，同步修改 `/etc/systemd/system/rmuc-live-sync.service` 里的 `User`、`Group` 和 `/opt/douququ` 路径。
+
+上线前建议先手动跑一轮，确认网络和写入权限正常：
+
+```bash
+cd /opt/douququ
+sudo -u douququ /opt/douququ/.venv/bin/python /opt/douququ/scripts/sync_rmuc_live.py --mini-program-ttl-seconds 300 --mini-program-refresh-window-seconds 60
+ls -lh /opt/douququ/data/runtime/rmuc_live/
+```
+
+如果需要临时关闭王牌预言家同步，可以把 `rmuc-live-sync.service` 里的环境变量改成：
+
+```ini
+Environment=RMUC_MINI_PROGRAM_ENABLED=0
+```
+
+### 9.4 启动服务
 
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now rmuc-backend
 sudo systemctl enable --now rmuc-frontend
+sudo systemctl enable --now rmuc-live-sync.timer
 ```
 
 检查状态：
@@ -329,6 +367,8 @@ sudo systemctl enable --now rmuc-frontend
 ```bash
 sudo systemctl status rmuc-backend
 sudo systemctl status rmuc-frontend
+sudo systemctl status rmuc-live-sync.timer
+systemctl list-timers rmuc-live-sync.timer
 ```
 
 查看日志：
@@ -336,6 +376,7 @@ sudo systemctl status rmuc-frontend
 ```bash
 sudo journalctl -u rmuc-backend -f
 sudo journalctl -u rmuc-frontend -f
+sudo journalctl -u rmuc-live-sync.service -n 100 --no-pager
 ```
 
 ## 10. 配置 Nginx
@@ -456,6 +497,16 @@ curl http://127.0.0.1:8001/api/health
 curl http://127.0.0.1:8001/api/overview | head
 curl -I http://127.0.0.1:3005
 curl -I http://你的域名或公网IP
+systemctl list-timers rmuc-live-sync.timer
+sudo journalctl -u rmuc-live-sync.service -n 50 --no-pager
+test -s /opt/douququ/data/runtime/rmuc_live/normalized_schedule.json
+test -s /opt/douququ/data/runtime/rmuc_live/sync_manifest.json
+```
+
+如果启用了王牌预言家同步，再确认缓存文件已经生成：
+
+```bash
+test -s /opt/douququ/data/runtime/rmuc_live/mini_program_predictions.json
 ```
 
 ### 13.2 前端构建校验
@@ -515,6 +566,7 @@ cd /opt/douququ/frontend
 sudo -u douququ npm run build
 sudo systemctl restart rmuc-backend
 sudo systemctl restart rmuc-frontend
+sudo systemctl restart rmuc-live-sync.timer
 sudo systemctl reload nginx
 ```
 
@@ -523,8 +575,10 @@ sudo systemctl reload nginx
 ```bash
 sudo systemctl status rmuc-backend
 sudo systemctl status rmuc-frontend
+sudo systemctl status rmuc-live-sync.timer
 sudo systemctl status nginx
 curl http://127.0.0.1:8001/api/health
+systemctl list-timers rmuc-live-sync.timer
 ```
 
 ## 15. 常见问题
@@ -601,6 +655,34 @@ sudo systemctl daemon-reload
 sudo systemctl restart rmuc-backend
 ```
 
+### 15.6 实时赛程没有更新
+
+先确认定时器是否启用、下一次触发时间是否正常：
+
+```bash
+sudo systemctl status rmuc-live-sync.timer
+systemctl list-timers rmuc-live-sync.timer
+```
+
+再看最近一次同步日志：
+
+```bash
+sudo journalctl -u rmuc-live-sync.service -n 100 --no-pager
+```
+
+如果日志提示权限问题，重点检查：
+
+- `/opt/douququ/data/runtime/rmuc_live/` 是否允许部署用户写入
+- `rmuc-live-sync.service` 里的 `User`、`Group` 是否和实际部署用户一致
+- `WorkingDirectory=/opt/douququ` 是否正确
+
+如果日志正常但页面仍未显示实时结果，检查运行期产物：
+
+```bash
+ls -lh /opt/douququ/data/runtime/rmuc_live/
+cat /opt/douququ/data/runtime/rmuc_live/sync_manifest.json
+```
+
 ## 16. 推荐最终状态
 
 推荐上线后的结构：
@@ -609,11 +691,13 @@ sudo systemctl restart rmuc-backend
 - Python 虚拟环境：`/opt/douququ/.venv`
 - 前端监听：`127.0.0.1:3005`
 - 后端监听：`127.0.0.1:8001`
+- 实时同步：`rmuc-live-sync.timer`
+- 实时数据目录：`/opt/douququ/data/runtime/rmuc_live`
 - 对外入口：Nginx `80/443`
 - 进程托管：`systemd`
 - 云侧放通：安全组 `22/80/443`
 
 如果你准备继续推进，我下一步可以直接再给你两份成品：
 
-1. 一份可直接复制到服务器的 `rmuc-backend.service` 和 `rmuc-frontend.service`
+1. 一份可直接复制到服务器的 `rmuc-backend.service`、`rmuc-frontend.service` 和 `rmuc-live-sync.timer`
 2. 一份带 HTTPS、安全头和缓存策略的 `Nginx` 完整配置
