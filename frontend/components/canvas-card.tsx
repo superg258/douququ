@@ -60,7 +60,7 @@ export function formatMatchCardScheduleTime(plannedStartAt?: string | null) {
 export const PREDICTION_MATCH_VISUAL_CLASSES = {
   container: "border border-dashed border-rm-blue/8 bg-black/60",
   statusBadge: "border-rm-blue/20 text-rm-blue/40 bg-rm-blue/[0.03]",
-  scoreLabel: "border border-dashed border-rm-blue/12 bg-rm-blue/[0.03] px-1.5 py-0.5 text-rm-blue/55",
+  scoreLabel: "border border-current bg-rm-blue/[0.03] px-1.5 py-0.5 text-rm-blue/55",
   sideAccent: "opacity-[0.12]",
   redTeamRow: "bg-[linear-gradient(90deg,rgba(232,48,42,0.05),transparent_60%)]",
   blueTeamRow: "bg-[linear-gradient(90deg,rgba(42,159,255,0.05),transparent_60%)]",
@@ -71,6 +71,9 @@ export const PREDICTION_MATCH_VISUAL_CLASSES = {
 
 export const OFFICIAL_PLACEHOLDER_SCORE_LABEL_CLASS =
   "border border-rm-status-scheduled/35 bg-rm-status-scheduled/8 px-1.5 py-0.5 text-rm-status-scheduled/85";
+
+export const DEFAULT_SCORE_LABEL_CLASS =
+  "border border-current bg-black/30 px-1.5 py-0.5 text-rm-metal-text";
 
 export function deriveMatchCardState(row: MatchRow, mode?: "sim" | "live") {
   const isSimulationMode = mode === "sim";
@@ -716,7 +719,7 @@ function MatchCanvasCardComponent({
     ? OFFICIAL_PLACEHOLDER_SCORE_LABEL_CLASS
     : isPrediction
       ? PREDICTION_MATCH_VISUAL_CLASSES.scoreLabel
-      : "border border-white/10 bg-black/30 px-1.5 py-0.5";
+      : DEFAULT_SCORE_LABEL_CLASS;
 
   return (
     <div
@@ -783,7 +786,7 @@ function MatchCanvasCardComponent({
             </span>
           )}
           <span className={scoreLabelClassName}>{scoreLabel}</span>
-          <span className="border border-white/10 bg-black/30 px-1.5 py-0.5">{card.metaLabel}</span>
+          <span className={DEFAULT_SCORE_LABEL_CLASS}>{card.metaLabel}</span>
         </div>
       </div>
 

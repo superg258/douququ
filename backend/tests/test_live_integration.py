@@ -804,22 +804,9 @@ def test_live_slot_assignments_accept_only_complete_legal_region_slots() -> None
     assert reason is None
 
 
-def test_live_payload_builder_uses_ai_favorite_for_pending_prediction_without_real_result(monkeypatch) -> None:
+def test_live_payload_builder_uses_deterministic_elo_favorite_for_pending_prediction_without_real_result() -> None:
     red_team_key = "red-school::main"
     blue_team_key = "blue-school::main"
-
-    def fake_prediction_payload(*args, **kwargs) -> dict:
-        return {
-            "p_game_base_red": 0.72,
-            "p_game_adj_red": 0.72,
-            "p_series_red": 0.8,
-            "p_series_blue": 0.2,
-            "scoreline_distribution": {"0:2": 1.0},
-            "head_to_head_summary": {"delta_h2h": 0.0},
-            "confidence_label": "high",
-        }
-
-    monkeypatch.setattr(service.region_sim, "build_prediction_payload", fake_prediction_payload)
     context = rmuc_live.LiveRuntimeContext(
         region_slug="south_region",
         source_status="active",
@@ -845,8 +832,22 @@ def test_live_payload_builder_uses_ai_favorite_for_pending_prediction_without_re
     builder = service.live_payload_builder_factory(context)
 
     payload = builder(
-        SimpleNamespace(team_key=red_team_key),
-        SimpleNamespace(team_key=blue_team_key),
+        SimpleNamespace(
+            team_key=red_team_key,
+            college_name="红方大学",
+            team_name="Main",
+            mu0=1700.0,
+            sigma0=40.0,
+            beta_perf=0.5,
+        ),
+        SimpleNamespace(
+            team_key=blue_team_key,
+            college_name="蓝方大学",
+            team_name="Main",
+            mu0=1600.0,
+            sigma0=40.0,
+            beta_perf=0.5,
+        ),
         best_of=3,
         samples=8,
         match_seed=1,
@@ -856,8 +857,8 @@ def test_live_payload_builder_uses_ai_favorite_for_pending_prediction_without_re
         match_label="",
     )
 
-    assert payload["p_series_red"] == 0.8
-    assert payload["p_series_blue"] == 0.2
+    assert payload["p_series_red"] > 0.5
+    assert payload["p_series_blue"] < 0.5
     assert payload["scoreline_distribution"] == {"2:0": 1.0}
     assert "fixed_scoreline" not in payload
 

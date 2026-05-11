@@ -167,6 +167,7 @@ describe("prematch-center helpers", () => {
     const href = buildPrematchHref(match);
 
     expect(href).toContain("mode=live");
+    expect(href).not.toContain("seed=");
   });
 
   it("generates correct region path and workspace view in href", () => {
@@ -192,6 +193,19 @@ describe("prematch-center helpers", () => {
     expect(href).toMatch(/^\/regions\/south_region\?/);
     expect(href).toContain("view=swiss-a");
     expect(href).toContain("mode=live");
+    expect(href).not.toContain("seed=");
+    expect(href).not.toContain("highlight=");
+  });
+
+  it("keeps seeds on simulation schedule entry hrefs", () => {
+    const match = buildMockMatch({
+      dataSource: "simulation_proxy",
+      regionSlug: "south_region",
+      workspaceView: "swiss-a",
+    });
+    const href = buildPrematchScheduleHref(match);
+
+    expect(href).toContain("mode=sim");
     expect(href).toContain("seed=20260414");
     expect(href).not.toContain("highlight=");
   });

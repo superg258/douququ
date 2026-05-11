@@ -4,6 +4,7 @@ import csv
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from urllib.parse import quote
 
 from fastapi.testclient import TestClient
@@ -809,6 +810,269 @@ def test_live_payload_hides_predicted_final_rankings_after_official_draw_until_f
     assert all(row["collegeName"] == "待确认" for row in payload["finalRankings"])
     assert payload["summary"]["nationalQualifiers"] == []
     assert payload["summary"]["repechageQualifiers"] == []
+
+
+def _south_region_official_slot_assignments() -> dict[str, str]:
+    rows = [row for row in service.load_ratings_rows() if row["admitted_region"] == "南部赛区"]
+    return {
+        service.compute_team_key(row["college_name"], row["team_name"]): slot
+        for row, slot in zip(rows, service.region_sim.region_core.ALL_SLOTS, strict=True)
+    }
+
+
+def _write_active_live_schedule(
+    path: Path,
+    *,
+    region_slug: str = "south_region",
+    slot_assignments: dict[str, str] | None = None,
+    matches: list[dict[str, object]] | None = None,
+) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "sourceStatus": "active",
+                "sourceUpdatedAt": "2026-05-10T12:00:00+08:00",
+                "fetchedAt": "2026-05-10T12:00:00+08:00",
+                "regions": {
+                    region_slug: {
+                        "matches": matches or [],
+                        "slotAssignments": slot_assignments or {},
+                        "groupRankMetrics": {},
+                    }
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+
+def _without_volatile_simulation_fields(payload: dict[str, object]) -> dict[str, object]:
+    stable = json.loads(json.dumps(payload, ensure_ascii=False))
+    meta = stable.get("meta", {})
+    if isinstance(meta, dict):
+        meta.pop("seed", None)
+        meta.pop("generatedAt", None)
+    return stable
+
+
+def test_active_live_prediction_payload_is_seed_independent_with_official_slots(tmp_path, monkeypatch) -> None:
+    normalized_path = tmp_path / "normalized_schedule.json"
+    _write_active_live_schedule(normalized_path, slot_assignments=_south_region_official_slot_assignments())
+    monkeypatch.setattr(service, "NORMALIZED_LIVE_SCHEDULE_PATH", normalized_path)
+    service._reset_live_state_caches()
+
+    first = service.build_simulation_payload("south_region", 20260414, mode="live", samples=1)
+    second = service.build_simulation_payload("south_region", 20261111, mode="live", samples=1)
+
+    assert first["meta"]["liveStatus"]["predictionBasis"] == "current_elo_h2h_deterministic"
+    assert second["meta"]["liveStatus"]["predictionBasis"] == "current_elo_h2h_deterministic"
+    assert _without_volatile_simulation_fields(first) == _without_volatile_simulation_fields(second)
+
+
+def test_active_live_prediction_uses_current_elo_before_preseason_rating(tmp_path, monkeypatch) -> None:
+    rows = [row for row in service.load_ratings_rows() if row["admitted_region"] == "南部赛区"]
+    weakest = min(rows, key=lambda row: float(row["mu0"]))
+    strongest = max(rows, key=lambda row: float(row["mu0"]))
+    reserved_team_keys = {str(weakest["team_key"]), str(strongest["team_key"])}
+    remaining_team_keys = [str(row["team_key"]) for row in rows if str(row["team_key"]) not in reserved_team_keys]
+    slot_assignments = {
+        str(weakest["team_key"]): "A1",
+        str(strongest["team_key"]): "A9",
+    }
+    remaining_slots = [slot for slot in service.region_sim.region_core.ALL_SLOTS if slot not in {"A1", "A9"}]
+    slot_assignments.update(
+        {team_key: slot for team_key, slot in zip(remaining_team_keys, remaining_slots, strict=True)}
+    )
+
+    normalized_path = tmp_path / "normalized_schedule.json"
+    published_dir = tmp_path / "published_2026"
+    published_dir.mkdir(parents=True)
+    _write_active_live_schedule(normalized_path, slot_assignments=slot_assignments)
+    (published_dir / "current_snapshot.json").write_text(
+        json.dumps(
+            [
+                {"school_key": weakest.get("school_key") or service.rmuc_live.legacy_elo.make_school_key(weakest["college_name"]), "published_rating": 2200.0},
+                {"school_key": strongest.get("school_key") or service.rmuc_live.legacy_elo.make_school_key(strongest["college_name"]), "published_rating": 1200.0},
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(service, "NORMALIZED_LIVE_SCHEDULE_PATH", normalized_path)
+    monkeypatch.setattr(service, "RUNTIME_PUBLISHED_RATINGS_DIR", published_dir)
+    service.load_current_rating_index.cache_clear()
+    service.load_global_elo_rank_map.cache_clear()
+    service._reset_live_state_caches()
+
+    payload = service.build_simulation_payload("south_region", 20260414, mode="live", samples=1)
+    match = next(row for row in payload["matches"] if row["matchLabel"] == "A-SWISS-1-1")
+
+    assert match["redTeam"]["teamKey"] == weakest["team_key"]
+    assert match["blueTeam"]["teamKey"] == strongest["team_key"]
+    assert match["redCurrentElo"] == 2200.0
+    assert match["blueCurrentElo"] == 1200.0
+    assert match["pGameRed"] == 0.95
+    assert match["winnerTeamKey"] == weakest["team_key"]
+
+
+def test_live_builder_keeps_official_results_and_uses_runtime_h2h_for_later_predictions() -> None:
+    red_team = SimpleNamespace(
+        team_key="red-school::main",
+        college_name="红方大学",
+        team_name="Main",
+        mu0=1700.0,
+        sigma0=40.0,
+        beta_perf=0.5,
+    )
+    blue_team = SimpleNamespace(
+        team_key="blue-school::main",
+        college_name="蓝方大学",
+        team_name="Main",
+        mu0=1600.0,
+        sigma0=40.0,
+        beta_perf=0.5,
+    )
+    context = service.rmuc_live.LiveRuntimeContext(
+        region_slug="south_region",
+        source_status="active",
+        reason=None,
+        matches_by_pair={},
+        matches_by_pair_round={
+            ("red-school::main", "blue-school::main", "swiss", 1): {
+                "matchId": "2026RMUC:OFFICIAL-1",
+                "officialMatchId": "OFFICIAL-1",
+                "officialStatus": "DONE",
+                "plannedStartAt": "2026-05-02T12:00:00+00:00",
+                "scoreline": "0:2",
+                "isCompleted": True,
+            }
+        },
+        matches_by_pair_label={},
+        swiss_pairings={},
+        slot_assignments={},
+        group_rank_metrics={},
+        completed_count=1,
+        confirmed_count=1,
+    )
+    builder = service.live_payload_builder_factory(context, current_rating_index={})
+    head_to_head_index = service.region_sim.h2h.clone_runtime_head_to_head_index()
+
+    official_payload = builder(
+        red_team,
+        blue_team,
+        best_of=3,
+        samples=1,
+        match_seed=111,
+        head_to_head_index=head_to_head_index,
+        stage="swiss",
+        round_number=1,
+        match_label="A-SWISS-1-1",
+    )
+    service.region_sim.record_runtime_head_to_head_result(head_to_head_index, red_team, blue_team, 0, 2)
+    later_payload = builder(
+        red_team,
+        blue_team,
+        best_of=3,
+        samples=1,
+        match_seed=222,
+        head_to_head_index=head_to_head_index,
+        stage="swiss",
+        round_number=2,
+        match_label="A-SWISS-2-1",
+    )
+
+    assert official_payload["fixed_scoreline"] == "0:2"
+    assert later_payload["head_to_head_summary"]["delta_h2h"] < 0
+    assert later_payload["p_game_adj_red"] < later_payload["p_game_base_red"]
+
+
+def test_live_builder_uses_ledger_before_ratings_for_completed_match_probability() -> None:
+    red_team = SimpleNamespace(
+        team_key="red-school::main",
+        college_name="红方大学",
+        team_name="Main",
+        mu0=1700.0,
+        sigma0=40.0,
+        beta_perf=0.5,
+    )
+    blue_team = SimpleNamespace(
+        team_key="blue-school::main",
+        college_name="蓝方大学",
+        team_name="Main",
+        mu0=1600.0,
+        sigma0=40.0,
+        beta_perf=0.5,
+    )
+    context = service.rmuc_live.LiveRuntimeContext(
+        region_slug="south_region",
+        source_status="active",
+        reason=None,
+        matches_by_pair={},
+        matches_by_pair_round={
+            ("red-school::main", "blue-school::main", "swiss", 1): {
+                "matchId": "2026RMUC:OFFICIAL-1",
+                "officialMatchId": "OFFICIAL-1",
+                "officialStatus": "DONE",
+                "plannedStartAt": "2026-05-02T12:00:00+00:00",
+                "scoreline": "0:2",
+                "isCompleted": True,
+            }
+        },
+        matches_by_pair_label={},
+        swiss_pairings={},
+        slot_assignments={},
+        group_rank_metrics={},
+        completed_count=1,
+        confirmed_count=1,
+    )
+    builder = service.live_payload_builder_factory(
+        context,
+        {
+            ("2026RMUC:OFFICIAL-1", "red-school"): {
+                "published_rating_before_match": 1300.0,
+                "published_rating_after_match": 1288.0,
+            },
+            ("2026RMUC:OFFICIAL-1", "blue-school"): {
+                "published_rating_before_match": 1900.0,
+                "published_rating_after_match": 1912.0,
+            },
+        },
+        current_rating_index={
+            "red-school::main": {"currentElo": 2200.0},
+            "blue-school::main": {"currentElo": 1200.0},
+        },
+    )
+
+    payload = builder(
+        red_team,
+        blue_team,
+        best_of=3,
+        samples=1,
+        match_seed=111,
+        head_to_head_index={},
+        stage="swiss",
+        round_number=1,
+        match_label="A-SWISS-1-1",
+    )
+
+    assert payload["fixed_scoreline"] == "0:2"
+    assert payload["p_game_base_red"] == 0.05
+    assert payload["p_game_adj_red"] == 0.05
+    assert payload["p_series_red"] < 0.01
+
+
+def test_live_payload_without_official_slots_hides_simulated_group_rankings(tmp_path, monkeypatch) -> None:
+    normalized_path = tmp_path / "normalized_schedule.json"
+    _write_active_live_schedule(normalized_path, slot_assignments={})
+    monkeypatch.setattr(service, "NORMALIZED_LIVE_SCHEDULE_PATH", normalized_path)
+    service._reset_live_state_caches()
+
+    payload = service.build_simulation_payload("south_region", 20260414, mode="live", samples=1)
+
+    assert payload["meta"]["liveStatus"]["slotAssignmentSource"] == "official_placeholder"
+    assert payload["groupRankings"] == {"A": [], "B": []}
+    assert all(slot["teamKey"] == "" for slot in payload["slots"])
 
 
 def _fake_match(

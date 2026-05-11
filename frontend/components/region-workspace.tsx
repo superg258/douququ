@@ -15,6 +15,7 @@ import { formatMatchLabel, formatRankingResultLabel, translateConfidenceLabel, t
 import { buildPredictionRecap } from "@/lib/prediction-insights";
 import {
   buildRegionHref,
+  DEFAULT_SEED,
   getOrCreateSessionSeed,
   parseSeed,
   refreshSessionSeed,
@@ -24,10 +25,16 @@ import {
 } from "@/lib/region-config";
 import { buildTeamHref } from "@/lib/team-profile";
 import { sortTeamsForWorkspaceSearch } from "@/lib/workspace-search";
-import { resolveHighlightSelectionState, type InspectorPanelState } from "@/lib/workspace-selection";
+import {
+  filterTeamDrawerMatches,
+  resolveHighlightSelectionState,
+  resolveWorkspaceInspectorTeam,
+  shouldRenderTeamInspector,
+  type InspectorPanelState,
+} from "@/lib/workspace-selection";
 import { deriveRealtimeAvailability } from "@/lib/realtime";
 import { deriveMatchRatingBreakdown, formatSignedRatingDelta, ratingDeltaTone, type MatchRatingBreakdown } from "@/lib/live-rating";
-import { predictScoreline } from "@/components/canvas-card";
+import { formatMatchCardScheduleTime, predictScoreline } from "@/components/canvas-card";
 import type {
   InspectorSelection,
   LiveStateResponse,
@@ -45,8 +52,8 @@ function percent(value: number) {
   return `${(value * 100).toFixed(1)}%`;
 }
 
-function displayElo(team: OverviewTeam) {
-  return team.currentElo ?? team.mu0;
+function displayElo(team: { currentElo?: number; mu0?: number }) {
+  return team.currentElo ?? team.mu0 ?? null;
 }
 
 function hasMatchElo(match: MatchRow) {
@@ -334,7 +341,12 @@ function SearchModal({ open, title, onClose, children }: { open: boolean; title:
 }
 
 function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selectedRanking, selectedPath, selectedMatch, onMatchOpen, onTeamOpen, onClose }: any) {
-  if (selection?.kind === "team" && selectedOverviewTeam && selectedRanking) {
+  if (shouldRenderTeamInspector(selection, selectedOverviewTeam)) {
+    const displayedElo = displayElo(selectedOverviewTeam);
+    const probabilities = selectedOverviewTeam.probabilities ?? null;
+    const globalRankLabel =
+      typeof selectedOverviewTeam.eloGlobalRank === "number" ? `全球 #${selectedOverviewTeam.eloGlobalRank}` : "全球排名待确认";
+
     return (
       <div className="h-full flex flex-col bg-rm-metal-panel/95 border-l border-rm-metal-border w-full md:w-80 shadow-2xl p-4 overflow-y-auto overflow-x-hidden animate-in slide-in-from-right-8 clip-chamfer-tr-bl">
         <div className="flex justify-between items-start border-b border-rm-metal-border pb-4 mb-4">
@@ -352,36 +364,60 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
           </div>
           <button onClick={onClose} className="text-rm-metal-text hover:text-rm-red font-mono text-[10px]">X</button>
         </div>
-        
+
         <div className="space-y-6">
           <div className="bg-rm-metal-dark border border-rm-metal-border p-3 grid grid-cols-2 gap-2 text-[10px] font-mono">
-            <span className="text-rm-metal-text">Elo {displayElo(selectedOverviewTeam).toFixed(1)}</span>
-            <span className="text-rm-metal-text">全球 #{selectedOverviewTeam.eloGlobalRank}</span>
-            <span className="col-span-2 text-rm-status-safe">国赛率 {percent(selectedOverviewTeam.probabilities.national)}</span>
-            <span className="col-span-2 text-rm-status-warn">复活赛 {percent(selectedOverviewTeam.probabilities.repechage)}</span>
-            <span className="col-span-2 text-rm-blue">夺冠率 {percent(selectedOverviewTeam.probabilities.champion)}</span>
+            <span className="text-rm-metal-text">Elo {displayedElo === null ? "待确认" : displayedElo.toFixed(1)}</span>
+            <span className="text-rm-metal-text">{globalRankLabel}</span>
+            {probabilities ? (
+              <>
+                <span className="col-span-2 text-rm-status-safe">国赛率 {percent(probabilities.national)}</span>
+                <span className="col-span-2 text-rm-status-warn">复活赛 {percent(probabilities.repechage)}</span>
+                <span className="col-span-2 text-rm-blue">夺冠率 {percent(probabilities.champion)}</span>
+              </>
+            ) : (
+              <span className="col-span-2 text-rm-metal-text">概率待模型同步</span>
+            )}
           </div>
 
           <div>
-            <h4 className="text-xs text-white font-bold uppercase tracking-widest mb-2 border-l-2 border-rm-blue pl-2">模拟晋级路径</h4>
-            <p className="text-[11px] text-rm-metal-text mb-3">{formatRankingResultLabel(selectedRanking.rank, selectedRanking.finalBucket, selectedRanking.advancement)}</p>
+            <h4 className="text-xs text-white font-bold uppercase tracking-widest mb-2 border-l-2 border-rm-blue pl-2">赛程路径</h4>
+            <p className="text-[11px] text-rm-metal-text mb-3">
+              {selectedRanking
+                ? formatRankingResultLabel(selectedRanking.rank, selectedRanking.finalBucket, selectedRanking.advancement)
+                : "实时最终名次待官方确认；当前仅展示队伍概率与已完赛/已排期赛程。"}
+            </p>
             <div className="space-y-2">
-              {selectedPath.map((match: any) => {
+              {selectedPath.length ? selectedPath.map((match: any) => {
                 const opponent = match.redTeam.teamKey === selectedOverviewTeam.teamKey ? match.blueTeam : match.redTeam;
-                const isWin = match.winnerTeamKey === selectedOverviewTeam.teamKey;
+                const hasActualResult = Boolean(match.isRealResult);
+                const isWin = hasActualResult && match.winnerTeamKey === selectedOverviewTeam.teamKey;
+                const scheduleLabel = formatMatchCardScheduleTime(match.plannedStartAt) ?? "已排期";
+                const detailLabel = hasActualResult ? match.scoreline : scheduleLabel;
                 return (
                   <button key={match.matchLabel} onClick={() => onMatchOpen(match)} className="w-full flex items-center justify-between bg-rm-metal-dark border border-rm-metal-border p-2 hover:border-rm-blue transition-colors text-left group">
                     <div className="flex items-center gap-2 overflow-hidden">
-                      <span className={`flex-none w-5 h-5 flex items-center justify-center text-[10px] font-bold ${isWin ? 'bg-rm-status-safe text-black' : 'bg-rm-metal-text border border-rm-metal-text/30 text-white'}`}>{isWin ? "W" : "L"}</span>
+                      <span className={cn(
+                        "flex-none w-5 h-5 flex items-center justify-center text-[10px] font-bold",
+                        hasActualResult
+                          ? (isWin ? "bg-rm-status-safe text-black" : "bg-rm-metal-text border border-rm-metal-text/30 text-white")
+                          : "border border-rm-status-scheduled/40 bg-rm-status-scheduled/10 text-rm-status-scheduled"
+                      )}>
+                        {hasActualResult ? (isWin ? "W" : "L") : "排"}
+                      </span>
                       <div className="flex flex-col overflow-hidden">
                         <span className="text-[11px] font-bold text-white truncate">{opponent.collegeName}</span>
-                        <span className="text-[9px] text-rm-metal-text font-mono truncate">{match.scoreline} / {translateStageLabel(match.stage)}</span>
+                        <span className="text-[9px] text-rm-metal-text font-mono truncate">{detailLabel} / {translateStageLabel(match.stage)}</span>
                       </div>
                     </div>
                     <span className="text-[10px] text-rm-metal-text font-mono opacity-0 group-hover:opacity-100 transition-opacity">V</span>
                   </button>
                 );
-              })}
+              }) : (
+                <div className="border border-dashed border-rm-metal-border bg-rm-metal-dark px-3 py-4 text-[11px] text-rm-metal-text">
+                  暂无可展示赛程路径。
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -643,12 +679,13 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   }, [regionSlug]);
 
   useEffect(() => {
-    if (seed === null) {
+    if (dataMode === "sim" && seed === null) {
       return;
     }
+    const requestSeed = dataMode === "sim" ? seed! : (seed ?? DEFAULT_SEED);
     setError(null);
     setSimulation(null);
-    getSimulation(regionSlug, seed, dataMode)
+    getSimulation(regionSlug, requestSeed, dataMode)
       .then(setSimulation)
       .catch((err: Error) => setError(err.message));
   }, [regionSlug, seed, dataMode, liveSimulationRefreshKey]);
@@ -670,11 +707,11 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   );
 
   useEffect(() => {
-    if (parsedSeed || sessionSeed === null) {
+    if (requestedMode !== "sim" || parsedSeed || sessionSeed === null) {
       return;
     }
     updateQuery({ seed: String(sessionSeed) });
-  }, [parsedSeed, sessionSeed, updateQuery]);
+  }, [parsedSeed, requestedMode, sessionSeed, updateQuery]);
 
   const allTeams = useMemo(() => overview?.regions.flatMap((region) => region.teams) ?? [], [overview]);
   const searchResults = useMemo(
@@ -684,16 +721,23 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   const selectedTeamKey = selection?.kind === "team" ? selection.teamKey : null;
   const selectedMatchLabel = selection?.kind === "match" ? selection.matchLabel : null;
   const selectedOverviewTeam = useMemo(
-    () => (selectedTeamKey ? allTeams.find((team) => team.teamKey === selectedTeamKey) ?? null : null),
-    [allTeams, selectedTeamKey]
+    () => resolveWorkspaceInspectorTeam({
+      selectedTeamKey,
+      allTeams,
+      slots: simulation?.slots ?? [],
+      matches: simulation?.matches ?? [],
+      regionSlug,
+      regionName: REGION_LABELS[regionSlug],
+    }),
+    [allTeams, regionSlug, selectedTeamKey, simulation]
   );
   const selectedRanking = useMemo(
     () => (simulation && selectedTeamKey ? simulation.finalRankings.find((row) => row.teamKey === selectedTeamKey) ?? null : null),
     [simulation, selectedTeamKey]
   );
   const selectedPath = useMemo(
-    () => (simulation && selectedTeamKey ? teamPath(simulation, selectedTeamKey) : []),
-    [simulation, selectedTeamKey]
+    () => (simulation && selectedTeamKey ? filterTeamDrawerMatches(teamPath(simulation, selectedTeamKey), dataMode) : []),
+    [dataMode, simulation, selectedTeamKey]
   );
   const selectedMatch = useMemo(
     () => (simulation && selectedMatchLabel ? simulation.matches.find((row) => row.matchLabel === selectedMatchLabel) ?? null : null),
@@ -772,7 +816,11 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
     setSearchOpen(false);
     setSearchText("");
     setInspectorOpen(true);
-    router.push(buildRegionHref(team.regionSlug, view, { seed: resolveSeed(), highlight: team.teamKey, mode: requestedMode }));
+    router.push(buildRegionHref(team.regionSlug, view, {
+      seed: requestedMode === "sim" ? resolveSeed() : null,
+      highlight: team.teamKey,
+      mode: requestedMode,
+    }));
     const nextSelection: InspectorSelection = { kind: "team", teamKey: team.teamKey };
     selectionRef.current = { selection: nextSelection, inspectorOpen: true };
     setSelection(nextSelection);
@@ -796,7 +844,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
     selectionRef.current = { selection: null, inspectorOpen: false };
     setInspectorOpen(false);
     setSelection(null);
-    router.push(buildRegionHref(nextRegion, view, { seed: resolveSeed(), mode: requestedMode }));
+    router.push(buildRegionHref(nextRegion, view, { seed: requestedMode === "sim" ? resolveSeed() : null, mode: requestedMode }));
   };
 
   const inspectorVisible = inspectorOpen || Boolean(selection);
@@ -876,7 +924,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   const renderModeToggle = () => (
     <div className="flex shrink-0 overflow-hidden border border-white/10 bg-rm-metal-dark/80">
       <button
-        onClick={() => updateQuery({ mode: "live" })}
+        onClick={() => updateQuery({ mode: "live", seed: null })}
         title={realtimeAvailability.hint}
         className={cn(
           "px-2.5 py-1.5 text-xs font-bold uppercase transition-colors",
@@ -890,7 +938,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
         {realtimeEnabled ? "实时" : "实时未接入"}
       </button>
       <button
-        onClick={() => updateQuery({ mode: "sim" })}
+        onClick={() => updateQuery({ mode: "sim", seed: String(resolveSeed()) })}
         className={cn(
           "px-2.5 py-1.5 text-xs font-bold uppercase transition-colors",
           requestedMode === "sim" ? "bg-rm-blue text-white" : "text-rm-metal-text hover:text-white"
@@ -969,9 +1017,11 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
           {renderSearchButton()}
           {renderLegendButton()}
           {renderInspectorButton()}
-          <span className="hidden md:inline text-[10px] text-rm-metal-text font-mono shrink-0">
-            种子 {seed}
-          </span>
+          {dataMode === "sim" && seed !== null ? (
+            <span className="hidden md:inline text-[10px] text-rm-metal-text font-mono shrink-0">
+              种子 {seed}
+            </span>
+          ) : null}
         </div>
 
         {/* Mobile row 1: navigation, region, mode. */}

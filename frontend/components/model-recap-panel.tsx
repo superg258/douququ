@@ -116,7 +116,7 @@ export function ModelRecapPanel({
                   <Link
                     key={match.id}
                     href={buildRegionHref(match.regionSlug, match.workspaceView, {
-                      seed: match.seed,
+                      seed: null,
                       mode: "live",
                       highlight: match.actualWinnerTeamKey ?? match.predictedWinnerTeamKey,
                     })}
@@ -173,7 +173,7 @@ export function ModelRecapPanel({
                 <Link
                   key={match.id}
                   href={buildRegionHref(match.regionSlug, match.workspaceView, {
-                    seed: match.seed,
+                    seed: null,
                     mode: "live",
                     highlight: match.actualWinnerTeamKey ?? match.predictedWinnerTeamKey,
                   })}

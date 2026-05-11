@@ -16,7 +16,7 @@ export function formatTeamProfileSubtitle(teamName: string, slot: TeamProfileSub
 export function buildTeamRegionHref(profile: TeamProfileResponse) {
   const { regionSlug, view, seed, mode, highlightTeamKey } = profile.regionEntry;
   return buildRegionHref(regionSlug, view, {
-    seed,
+    seed: mode === "sim" ? seed : null,
     mode,
     highlight: highlightTeamKey,
   });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_SCORE_LABEL_CLASS,
   OFFICIAL_PLACEHOLDER_SCORE_LABEL_CLASS,
   PREDICTION_MATCH_VISUAL_CLASSES,
   deriveMatchCardState,
@@ -154,6 +155,19 @@ describe("deriveMatchCardState", () => {
     expect(PREDICTION_MATCH_VISUAL_CLASSES.redScorePanel).toContain("rgba(232,48,42,0.12)");
     expect(PREDICTION_MATCH_VISUAL_CLASSES.redScorePanel).toContain("text-white/30");
     expect(PREDICTION_MATCH_VISUAL_CLASSES.dividerBackground).toContain("rgba(232,48,42,0.12)");
+  });
+
+  it("uses a solid frame for the prediction score label", () => {
+    expect(PREDICTION_MATCH_VISUAL_CLASSES.scoreLabel).toContain("border ");
+    expect(PREDICTION_MATCH_VISUAL_CLASSES.scoreLabel).toContain("border-current");
+    expect(PREDICTION_MATCH_VISUAL_CLASSES.scoreLabel).toContain("text-rm-blue/55");
+    expect(PREDICTION_MATCH_VISUAL_CLASSES.scoreLabel).not.toContain("border-dashed");
+  });
+
+  it("uses the score label text color for the default score label frame", () => {
+    expect(DEFAULT_SCORE_LABEL_CLASS).toContain("border-current");
+    expect(DEFAULT_SCORE_LABEL_CLASS).toContain("text-rm-metal-text");
+    expect(DEFAULT_SCORE_LABEL_CLASS).not.toContain("border-white");
   });
 
   it("uses a solid frame for the official placeholder pending score label", () => {

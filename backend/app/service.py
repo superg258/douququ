@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import os
 import sys
 from datetime import UTC, datetime, timedelta, timezone
@@ -1272,6 +1273,85 @@ def _collapse_live_prediction_distribution(payload: dict[str, Any], *, best_of: 
     }
 
 
+def _prediction_elo_for_team(team: Any, current_rating_index: dict[str, dict[str, Any]]) -> float:
+    rating = current_rating_index.get(str(team.team_key))
+    if rating is not None and rating.get("currentElo") is not None:
+        return float(rating["currentElo"])
+    return float(getattr(team, "mu0"))
+
+
+def _deterministic_live_prediction_payload(
+    red_team: Any,
+    blue_team: Any,
+    *,
+    best_of: int,
+    head_to_head_index: dict[tuple[str, str], dict[str, Any]],
+    current_rating_index: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    red_elo = _prediction_elo_for_team(red_team, current_rating_index)
+    blue_elo = _prediction_elo_for_team(blue_team, current_rating_index)
+    beta_perf = (float(getattr(red_team, "beta_perf", 0.0)) + float(getattr(blue_team, "beta_perf", 0.0))) / 2.0
+    red_theta = (red_elo - 1500.0) / float(region_sim.RATING_SCALE)
+    blue_theta = (blue_elo - 1500.0) / float(region_sim.RATING_SCALE)
+    p_game_base_red = 1.0 / (1.0 + math.exp(-((red_theta - blue_theta) / max(beta_perf, 1e-6))))
+    p_game_base_red = region_sim.legacy_elo.clip(p_game_base_red, 0.05, 0.95)
+    head_to_head_summary = region_sim.h2h.summarize_head_to_head(
+        red_team.college_name,
+        blue_team.college_name,
+        p_base=p_game_base_red,
+        head_to_head_index=head_to_head_index,
+    )
+    p_game_adj_red = float(head_to_head_summary["p_game_adj"])
+    raw_distribution = region_sim._compute_scoreline_distribution(best_of, p_game_adj_red)
+    p_series_red = sum(
+        probability
+        for scoreline, probability in raw_distribution.items()
+        if int(scoreline.split(":")[0]) > int(scoreline.split(":")[1])
+    )
+    return {
+        "p_game_base_red": p_game_base_red,
+        "p_game_adj_red": p_game_adj_red,
+        "p_series_red": p_series_red,
+        "p_series_blue": 1.0 - p_series_red,
+        "scoreline_distribution": raw_distribution,
+        "head_to_head_summary": head_to_head_summary,
+        "confidence_label": region_sim._classify_confidence(red_team, blue_team),
+    }
+
+
+def _live_prediction_rating_index_for_match(
+    *,
+    red_team_key: str,
+    blue_team_key: str,
+    override: dict[str, Any],
+    current_rating_index: dict[str, dict[str, Any]],
+    rating_index: dict[tuple[str, str], dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    if not rating_index:
+        return current_rating_index
+    red_row = _ledger_row_for_match(
+        rating_index,
+        match_id=str(override.get("match_id") or "") or None,
+        official_match_id=str(override.get("official_match_id") or "") or None,
+        school_key=_school_key_from_team_key(red_team_key),
+    )
+    blue_row = _ledger_row_for_match(
+        rating_index,
+        match_id=str(override.get("match_id") or "") or None,
+        official_match_id=str(override.get("official_match_id") or "") or None,
+        school_key=_school_key_from_team_key(blue_team_key),
+    )
+    red_before = _float_from_row(red_row, "published_rating_before_match")
+    blue_before = _float_from_row(blue_row, "published_rating_before_match")
+    if red_before is None or blue_before is None:
+        return current_rating_index
+
+    out = dict(current_rating_index)
+    out[red_team_key] = {**out.get(red_team_key, {}), "currentElo": red_before}
+    out[blue_team_key] = {**out.get(blue_team_key, {}), "currentElo": blue_before}
+    return out
+
+
 def _stage_label(stage: str, group_name: str | None = None) -> str:
     labels = {
         "swiss": "瑞士轮",
@@ -2271,28 +2351,35 @@ def build_team_profile_payload(
 def live_payload_builder_factory(
     context: rmuc_live.LiveRuntimeContext,
     rating_index: dict[tuple[str, str], dict[str, Any]] | None = None,
+    *,
+    current_rating_index: dict[str, dict[str, Any]] | None = None,
 ):
     rating_index = rating_index or {}
+    current_rating_index = current_rating_index or {}
 
     def _builder(red_team, blue_team, *, best_of, samples, match_seed, head_to_head_index, **kwargs):
-        payload = region_sim.build_prediction_payload(
+        override = context.payload_override_for(
+            red_team_key=red_team.team_key,
+            blue_team_key=blue_team.team_key,
+            stage=str(kwargs.get("stage") or ""),
+            round_number=int(kwargs["round_number"]) if kwargs.get("round_number") is not None else None,
+            match_label=str(kwargs["match_label"]) if kwargs.get("match_label") is not None else None,
+        )
+        prediction_rating_index = _live_prediction_rating_index_for_match(
+            red_team_key=red_team.team_key,
+            blue_team_key=blue_team.team_key,
+            override=override,
+            current_rating_index=current_rating_index,
+            rating_index=rating_index,
+        )
+        payload = _deterministic_live_prediction_payload(
             red_team,
             blue_team,
             best_of=best_of,
-            samples=samples,
-            match_seed=match_seed,
             head_to_head_index=head_to_head_index,
-            **kwargs,
+            current_rating_index=prediction_rating_index,
         )
-        payload.update(
-            context.payload_override_for(
-                red_team_key=red_team.team_key,
-                blue_team_key=blue_team.team_key,
-                stage=str(kwargs.get("stage") or ""),
-                round_number=int(kwargs["round_number"]) if kwargs.get("round_number") is not None else None,
-                match_label=str(kwargs["match_label"]) if kwargs.get("match_label") is not None else None,
-            )
-        )
+        payload.update(override)
         _collapse_live_prediction_distribution(payload, best_of=best_of)
         _attach_published_match_rating_history(
             payload,
@@ -2454,6 +2541,60 @@ def _official_live_final_ranking_placeholders(region_slug: str) -> list[dict[str
     return rows
 
 
+def _official_live_group_ranking_placeholders() -> dict[str, list[dict[str, Any]]]:
+    return {"A": [], "B": []}
+
+
+def _apply_unassigned_live_match_placeholder(match: dict[str, Any]) -> None:
+    match["isConfirmedMatchup"] = False
+    match["isRealResult"] = False
+    match["redTeam"] = {
+        "teamKey": "",
+        "collegeName": "待确认",
+        "teamName": "官方落位待确认",
+        "slot": None,
+    }
+    match["blueTeam"] = {
+        "teamKey": "",
+        "collegeName": "待确认",
+        "teamName": "官方落位待确认",
+        "slot": None,
+    }
+    match["scoreline"] = "0:0"
+    match["winnerTeamKey"] = ""
+    match["loserTeamKey"] = ""
+    match["pGameRed"] = 0.5
+    match["pGameBlue"] = 0.5
+    match["pSeriesRed"] = 0.5
+    match["pSeriesBlue"] = 0.5
+    match["deltaH2H"] = 0.0
+    match["confidenceLabel"] = "low"
+    for key in (
+        "redCurrentElo",
+        "blueCurrentElo",
+        "redMu0",
+        "blueMu0",
+        "redDelta",
+        "blueDelta",
+        "redLiveDelta",
+        "blueLiveDelta",
+        "redPriorDelta",
+        "bluePriorDelta",
+        "redPriorAdjustmentLabel",
+        "bluePriorAdjustmentLabel",
+    ):
+        match.pop(key, None)
+
+
+def _hide_unofficial_live_matches_without_slots(payload: dict[str, Any]) -> None:
+    for match in payload.get("matches", []):
+        if not isinstance(match, dict):
+            continue
+        if match.get("officialMatchId"):
+            continue
+        _apply_unassigned_live_match_placeholder(match)
+
+
 def _live_final_rankings_are_official(payload: dict[str, Any]) -> bool:
     final_matches = [
         match
@@ -2498,8 +2639,12 @@ def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", sam
         context = rmuc_live.LiveRuntimeContext.inactive(region_slug)
 
     if mode == "live" and context.source_status == "active":
-        builder = live_payload_builder_factory(context, _published_match_rating_index(region_slug))
         slot_assignments, live_slot_assignment_reason = _validated_live_slot_assignments(region_slug, context)
+        builder = live_payload_builder_factory(
+            context,
+            _published_match_rating_index(region_slug),
+            current_rating_index=load_current_rating_index(),
+        )
         official_swiss_pairings = context.swiss_pairings
         official_group_rank_metrics = context.group_rank_metrics
         effective_seed = seed
@@ -2536,6 +2681,8 @@ def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", sam
         )
         if slot_assignments is None:
             payload["slots"] = _official_live_slot_placeholders(region_slug, context)
+            payload["groupRankings"] = _official_live_group_ranking_placeholders()
+            _hide_unofficial_live_matches_without_slots(payload)
         if not _live_final_rankings_are_official(payload):
             _replace_unofficial_live_final_rankings(payload, region_slug)
     if mode == "live":
@@ -2548,4 +2695,11 @@ def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", sam
             else "simulated_fallback"
         )
         live_status["slotAssignmentReason"] = live_slot_assignment_reason
+        live_status["predictionBasis"] = (
+            "current_elo_h2h_deterministic"
+            if context.source_status == "active" and slot_assignments is not None
+            else "official_placeholder"
+            if context.source_status == "active"
+            else "seeded_simulation_fallback"
+        )
     return payload

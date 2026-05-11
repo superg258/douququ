@@ -69,7 +69,7 @@ export function getPrematchTimelineDisplayLabel(match: PrematchCenterMatch) {
 export function buildPrematchHref(match: PrematchCenterMatch) {
   const targetMode = match.dataSource === "official_live" ? "live" : "sim";
   return buildRegionHref(match.regionSlug, match.workspaceView, {
-    seed: match.seed,
+    seed: targetMode === "sim" ? match.seed : null,
     mode: targetMode,
     highlight: match.predictedWinnerTeamKey,
   });
@@ -78,7 +78,7 @@ export function buildPrematchHref(match: PrematchCenterMatch) {
 export function buildPrematchScheduleHref(match: PrematchCenterMatch) {
   const targetMode = match.dataSource === "official_live" ? "live" : "sim";
   return buildRegionHref(match.regionSlug, match.workspaceView, {
-    seed: match.seed,
+    seed: targetMode === "sim" ? match.seed : null,
     mode: targetMode,
   });
 }
