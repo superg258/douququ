@@ -1,4 +1,4 @@
-export const LIVE_REFRESH_INTERVAL_MS = 30_000;
+export const LIVE_REFRESH_INTERVAL_MS = 3 * 60 * 1000;
 
 export function startRealtimePolling(
   load: () => void,

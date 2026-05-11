@@ -7,6 +7,10 @@ describe("realtime polling", () => {
     vi.unstubAllGlobals();
   });
 
+  it("uses a three minute default refresh interval", () => {
+    expect(LIVE_REFRESH_INTERVAL_MS).toBe(180_000);
+  });
+
   it("loads immediately and repeats until stopped", () => {
     const load = vi.fn();
     const setInterval = vi.fn(() => 101);
