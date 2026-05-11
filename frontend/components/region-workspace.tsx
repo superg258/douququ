@@ -11,7 +11,7 @@ import { WorkspaceStageView } from "@/components/workspace-stage";
 import { getLiveState, getOverview, getSimulation } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { buildWorkspaceStage } from "@/lib/canvas-builders";
-import { formatMatchLabel, formatRankingResultLabel, translateConfidenceLabel, translateStageLabel } from "@/lib/display";
+import { formatMatchLabel, formatRankingResultLabel, translateConfidenceLabel, translateOfficialStatusLabel, translateStageLabel } from "@/lib/display";
 import { buildPredictionRecap } from "@/lib/prediction-insights";
 import {
   buildRegionHref,
@@ -512,7 +512,7 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
                 <span className="text-rm-metal-text">官方赛程编号</span>
                 <span className="text-white font-bold text-right">{selectedMatch.officialMatchId}</span>
                 <span className="text-rm-metal-text">官方状态</span>
-                <span className="text-white font-bold text-right">{selectedMatch.officialStatus ?? "暂无数据"}</span>
+                <span className="text-white font-bold text-right">{translateOfficialStatusLabel(selectedMatch.officialStatus)}</span>
                 <div className="col-span-2 border-t border-rm-metal-border my-1"></div>
               </>
             ) : null}

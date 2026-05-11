@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { buildWorkspaceStage } from "@/lib/canvas-builders";
+import { translateOfficialStatusLabel } from "@/lib/display";
 import type { SlotRow } from "@/lib/types";
 
 function slot(overrides: Partial<SlotRow> = {}): SlotRow {
@@ -21,6 +22,12 @@ function slot(overrides: Partial<SlotRow> = {}): SlotRow {
 }
 
 describe("user-facing display labels", () => {
+  it("renders official status codes in Chinese", () => {
+    expect(translateOfficialStatusLabel("WAITING")).toBe("待开赛");
+    expect(translateOfficialStatusLabel("DONE")).toBe("已完赛");
+    expect(translateOfficialStatusLabel(undefined)).toBe("暂无数据");
+  });
+
   it("renders slot seed tiers in Chinese instead of internal tier codes", () => {
     const stage = buildWorkspaceStage("slots", "south_region", {
       meta: {

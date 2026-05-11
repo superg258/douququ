@@ -102,10 +102,11 @@ export function deriveMatchCardState(row: MatchRow, mode?: "sim" | "live") {
 
 export function deriveTeamCardState(card: TeamCanvasCard, mode?: "sim" | "live") {
   const isSimulated = mode === "sim" ? false : (card.isSimulated ?? card.variant === "summary");
+  const isPendingPlaceholder = mode === "live" && card.variant === "summary" && !card.teamKey;
   const isSafe = card.tone === "emerald" || card.tone === "amber";
   const isSummary = card.variant === "summary";
-  const certaintyLabel = isSimulated ? "预期" : "实际";
-  const outcomeLabel = isSafe ? "晋级" : "淘汰";
+  const certaintyLabel = isPendingPlaceholder ? "待确认" : isSimulated ? "预期" : "实际";
+  const outcomeLabel = isPendingPlaceholder ? "" : isSafe ? "晋级" : "淘汰";
   const hasDashedFrame = isSummary && isSimulated;
   const visualTier = isSummary && !isSafe
     ? (isSimulated ? "predicted-eliminated" : "actual-eliminated")

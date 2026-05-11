@@ -241,6 +241,25 @@ describe("deriveTeamCardState", () => {
     });
   });
 
+  it("labels placeholder summary outcomes as pending in live mode", () => {
+    expect(
+      deriveTeamCardState(
+        teamCard({
+          teamKey: "",
+          collegeName: "待确认",
+          teamName: "学校队伍待确认",
+          tone: "amber",
+          isSimulated: true,
+        }),
+        "live"
+      )
+    ).toMatchObject({
+      summaryLabel: "待确认",
+      visualTier: "predicted-safe",
+      hasDashedFrame: true,
+    });
+  });
+
   it("uses actual outcome visuals for summary cards in pure simulation mode", () => {
     expect(deriveTeamCardState(teamCard({ tone: "amber", isSimulated: true }), "sim")).toMatchObject({
       isSimulated: false,

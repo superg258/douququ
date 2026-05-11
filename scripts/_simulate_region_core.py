@@ -397,6 +397,37 @@ def _first_metric(row: dict[str, Any], *keys: str) -> float | None:
     return None
 
 
+def _is_empty_official_rank_snapshot(metrics_by_team_key: dict[str, dict[str, Any]]) -> bool:
+    has_rank_records = False
+    rank_metric_keys = (
+        "official_opponent_points",
+        "source_reported_opponent_points",
+        "opponent_points",
+        "opponentScore",
+        "opponent_score",
+        "official_avg_base_hp_diff",
+        "avg_base_hp_diff",
+        "avgBaseHpDiff",
+        "baseHpDiff",
+        "official_avg_team_damage",
+        "avg_team_damage",
+        "avgTeamDamage",
+        "teamDamage",
+    )
+    for metrics in metrics_by_team_key.values():
+        wins = _parse_optional_metric(metrics.get("wins"))
+        losses = _parse_optional_metric(metrics.get("losses"))
+        if wins is not None or losses is not None:
+            has_rank_records = True
+        if (wins or 0.0) + (losses or 0.0) > 0.0:
+            return False
+        for key in rank_metric_keys:
+            value = _parse_optional_metric(metrics.get(key))
+            if value is not None and abs(value) > 1e-9:
+                return False
+    return has_rank_records
+
+
 def apply_official_swiss_ranking_metrics(
     teams: list[RegionTeam],
     metrics_by_team_key: dict[str, dict[str, Any]] | None,
@@ -405,33 +436,35 @@ def apply_official_swiss_ranking_metrics(
 ) -> None:
     if not metrics_by_team_key:
         return
+    empty_rank_snapshot = _is_empty_official_rank_snapshot(metrics_by_team_key)
     for team in teams:
         metrics = metrics_by_team_key.get(team.team_key)
         if not metrics:
             continue
-        team.official_opponent_points = _first_metric(
-            metrics,
-            "official_opponent_points",
-            "source_reported_opponent_points",
-            "opponent_points",
-            "opponentScore",
-            "opponent_score",
-        )
-        team.source_reported_opponent_points = _first_metric(metrics, "source_reported_opponent_points")
-        team.official_avg_base_hp_diff = _first_metric(
-            metrics,
-            "official_avg_base_hp_diff",
-            "avg_base_hp_diff",
-            "avgBaseHpDiff",
-            "baseHpDiff",
-        )
-        team.official_avg_team_damage = _first_metric(
-            metrics,
-            "official_avg_team_damage",
-            "avg_team_damage",
-            "avgTeamDamage",
-            "teamDamage",
-        )
+        if not empty_rank_snapshot:
+            team.official_opponent_points = _first_metric(
+                metrics,
+                "official_opponent_points",
+                "source_reported_opponent_points",
+                "opponent_points",
+                "opponentScore",
+                "opponent_score",
+            )
+            team.source_reported_opponent_points = _first_metric(metrics, "source_reported_opponent_points")
+            team.official_avg_base_hp_diff = _first_metric(
+                metrics,
+                "official_avg_base_hp_diff",
+                "avg_base_hp_diff",
+                "avgBaseHpDiff",
+                "baseHpDiff",
+            )
+            team.official_avg_team_damage = _first_metric(
+                metrics,
+                "official_avg_team_damage",
+                "avg_team_damage",
+                "avgTeamDamage",
+                "teamDamage",
+            )
         if any(
             value is not None
             for value in (team.official_opponent_points, team.official_avg_base_hp_diff, team.official_avg_team_damage)

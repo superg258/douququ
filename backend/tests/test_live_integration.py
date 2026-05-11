@@ -881,6 +881,68 @@ def test_live_mode_defers_pending_matches_until_source_rounds_are_complete(tmp_p
     assert payload["matches"][57].get("officialStatus") is None
 
 
+def test_live_mode_preserves_long_horizon_qualification_forecasts_when_official_sources_unconfirmed(
+    tmp_path, monkeypatch
+) -> None:
+    normalized = _mock_south_live_normalized(completed_count=0)
+    matches_by_label = {
+        match["matchLabel"]: match
+        for match in normalized["regions"]["south_region"]["matches"]
+    }
+    qualification = matches_by_label["QUAL-1-1"]
+    r16_1 = matches_by_label["R16-1"]
+    r16_2 = matches_by_label["R16-2"]
+    qualification.update(
+        {
+            "officialStatus": "WAITING",
+            "isCompleted": False,
+            "isConfirmedMatchup": False,
+            "scoreline": "0:0",
+            "redSchoolKey": "",
+            "redTeamKey": "",
+            "redCollegeName": "",
+            "redTeamName": "",
+            "redSlot": "",
+            "blueSchoolKey": "",
+            "blueTeamKey": "",
+            "blueCollegeName": "",
+            "blueTeamName": "",
+            "blueSlot": "",
+            "redWins": 0,
+            "blueWins": 0,
+            "redFillSourceType": "Match",
+            "redFillSourceId": r16_1["officialMatchId"],
+            "redFillSourceNumber": 2,
+            "redFillStatus": "PENDING",
+            "blueFillSourceType": "Match",
+            "blueFillSourceId": r16_2["officialMatchId"],
+            "blueFillSourceNumber": 2,
+            "blueFillStatus": "PENDING",
+        }
+    )
+    normalized_path = tmp_path / "normalized_schedule.json"
+    normalized_path.write_text(json.dumps(normalized, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(service, "NORMALIZED_LIVE_SCHEDULE_PATH", normalized_path)
+    monkeypatch.setattr(service, "RUNTIME_PUBLISHED_RATINGS_DIR", tmp_path / "published_2026")
+    monkeypatch.setenv("RMUC_MINI_PROGRAM_ENABLED", "0")
+    service._reset_live_state_caches()
+
+    payload = service.build_simulation_payload("south_region", 20260414, mode="live", samples=8)
+    matches = {match["matchLabel"]: match for match in payload["matches"]}
+    qualification_payload = matches["QUAL-1-1"]
+
+    assert qualification_payload["officialMatchId"] == qualification["officialMatchId"]
+    assert qualification_payload["officialStatus"] == "WAITING"
+    assert qualification_payload["isConfirmedMatchup"] is False
+    assert qualification_payload["scoreline"] != "0:0"
+    assert qualification_payload["redTeam"]["teamKey"]
+    assert qualification_payload["blueTeam"]["teamKey"]
+    assert qualification_payload["redTeam"]["collegeName"] != "第67场败者"
+    assert qualification_payload["blueTeam"]["collegeName"] != "第68场败者"
+    live_status = payload["meta"]["liveStatus"]
+    assert service._prematch_data_source("live", live_status, qualification_payload) == "simulation_proxy"
+
+
 def test_live_mode_uses_match_ledger_rating_history_without_current_snapshot_backfill(tmp_path, monkeypatch) -> None:
     normalized = _mock_south_live_normalized(completed_count=1)
     first_live_match = normalized["regions"]["south_region"]["matches"][0]

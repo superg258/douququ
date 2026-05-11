@@ -51,6 +51,18 @@ const SEED_TIER_LABELS: Record<string, string> = {
   U: "非种子",
 };
 
+const OFFICIAL_STATUS_LABELS: Record<string, string> = {
+  WAITING: "待开赛",
+  PENDING: "待开赛",
+  READY: "待开赛",
+  RUNNING: "比赛中",
+  LIVE: "比赛中",
+  DONE: "已完赛",
+  FINISHED: "已完赛",
+  CANCELLED: "已取消",
+  CANCELED: "已取消",
+};
+
 function fallbackLabel(value: string) {
   return value
     .replaceAll("_", " ")
@@ -98,6 +110,12 @@ export function translateConfidenceLabel(confidence: string) {
 
 export function formatSeedTierLabel(seedTier: string) {
   return SEED_TIER_LABELS[seedTier] ?? fallbackLabel(seedTier);
+}
+
+export function translateOfficialStatusLabel(status: string | null | undefined) {
+  if (!status) return "暂无数据";
+  const normalized = status.trim().toUpperCase();
+  return OFFICIAL_STATUS_LABELS[normalized] ?? fallbackLabel(status);
 }
 
 export function formatMatchLabel(matchLabel: string) {
