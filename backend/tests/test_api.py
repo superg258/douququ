@@ -65,6 +65,17 @@ def test_health() -> None:
     assert response.json() == {"status": "ok"}
 
 
+def test_large_api_responses_are_gzipped() -> None:
+    response = client.get(
+        "/api/prematch-center?seed=20260414&mode=live",
+        headers={"Accept-Encoding": "gzip"},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-encoding"] == "gzip"
+    assert int(response.headers["content-length"]) < 100_000
+
+
 def test_ts2_backend_artifacts_exist_with_expected_schema() -> None:
     ratings_path = TS2_DERIVED_DIR / "preseason_ratings.csv"
     manifest_path = TS2_DERIVED_DIR / "model_manifest.json"

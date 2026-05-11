@@ -34,12 +34,15 @@ body {
 }
 
 .canvas-background {
-  /* 85% dark overlay + 主视图.png + HUD radial glow */
+  /* 85% dark overlay + optimized hero background + HUD radial glow */
   background-image:
     radial-gradient(ellipse at 30% 50%, rgba(232, 48, 42, 0.06) 0%, transparent 55%),
     radial-gradient(ellipse at 70% 50%, rgba(42, 159, 255, 0.06) 0%, transparent 55%),
     linear-gradient(rgba(4, 6, 8, 0.85), rgba(4, 6, 8, 0.85)),
-    url('/主视图.png');
+    image-set(
+      url('/rm-hero-bg-v1.webp') type('image/webp'),
+      url('/rm-hero-bg-v1.jpg') type('image/jpeg')
+    );
   background-size: cover, cover, cover, cover;
   background-position: center;
   background-repeat: no-repeat;
