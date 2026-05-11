@@ -10,22 +10,25 @@ import {
 } from "@/lib/prematch-center";
 import type { PrematchCenterMatch } from "@/lib/types";
 
-function DataSourceDot({ source }: { source: PrematchCenterMatch["dataSource"] }) {
-  const isOfficial = source === "official_live";
-  const isProxy = source === "simulation_proxy";
-  const label = getDataSourceLabel(source);
+function DataSourceDot({ match }: { match: PrematchCenterMatch }) {
+  const isOfficial = match.dataSource === "official_live";
+  const isPlaceholder = isOfficial && match.scheduleState === "official_placeholder";
+  const isProxy = match.dataSource === "simulation_proxy";
+  const label = getDataSourceLabel(match.dataSource, match.scheduleState, match.timelineState);
   return (
     <span
       title={label}
       className={`inline-flex items-center gap-1 shrink-0 font-mono text-[9px] leading-none
-        ${isOfficial ? "text-rm-status-safe" : ""}
+        ${isOfficial && !isPlaceholder ? "text-rm-status-safe" : ""}
+        ${isPlaceholder ? "text-rm-status-scheduled" : ""}
         ${isProxy ? "text-rm-status-warn" : ""}
         ${!isOfficial && !isProxy ? "text-rm-status-prediction" : ""}
       `}
     >
       <span
         className={`w-1.5 h-1.5 rounded-full animate-dot-pulse
-          ${isOfficial ? "bg-rm-status-safe shadow-[0_0_4px_rgba(0,232,120,0.6)]" : ""}
+          ${isOfficial && !isPlaceholder ? "bg-rm-status-safe shadow-[0_0_4px_rgba(0,232,120,0.6)]" : ""}
+          ${isPlaceholder ? "bg-rm-status-scheduled shadow-[0_0_4px_rgba(255,176,0,0.6)]" : ""}
           ${isProxy ? "bg-rm-status-warn shadow-[0_0_4px_rgba(255,176,0,0.6)]" : ""}
           ${!isOfficial && !isProxy ? "bg-rm-status-prediction shadow-[0_0_4px_rgba(42,159,255,0.6)]" : ""}
         `}
@@ -274,7 +277,7 @@ export function PrematchMatchCard({
           </span>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          <DataSourceDot source={match.dataSource} />
+          <DataSourceDot match={match} />
           {time && (
             <span className="font-mono text-[10px] text-rm-status-scheduled tabular-nums shrink-0">
               {time}

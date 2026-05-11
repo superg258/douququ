@@ -2,6 +2,13 @@ export type RegionSlug = "east_region" | "south_region" | "north_region";
 export type WorkspaceView = "slots" | "swiss-a" | "swiss-b" | "qualification" | "playoff" | "final-rankings";
 export type CanvasTone = "cyan" | "amber" | "steel" | "emerald";
 export type LiveSourceStatus = "active" | "inactive" | "missing" | "error";
+export type LiveDataLevel =
+  | "official_results"
+  | "confirmed_matchups"
+  | "schedule_shell"
+  | "source_connected"
+  | "inactive"
+  | "missing";
 export type EloRankSource = "live" | "preseason";
 
 export interface LiveStatusSummary {
@@ -10,6 +17,10 @@ export interface LiveStatusSummary {
   sourceUpdatedAt: string | null;
   completedOfficialMatches: number;
   confirmedOfficialMatches: number;
+  officialScheduleMatches?: number;
+  officialPlaceholderMatches?: number;
+  liveDataLevel?: LiveDataLevel | string;
+  liveDataLabel?: string | null;
   ledgerRows: number;
   recentError?: string | null;
 }
@@ -520,6 +531,10 @@ export interface PrematchRegionStatus {
   sourceUpdatedAt: string | null;
   completedOfficialMatches: number;
   confirmedOfficialMatches: number;
+  officialScheduleMatches?: number;
+  officialPlaceholderMatches?: number;
+  liveDataLevel?: LiveDataLevel | string;
+  liveDataLabel?: string | null;
   slotAssignmentSource?: string | null;
   slotAssignmentReason?: string | null;
 }
@@ -634,6 +649,7 @@ export interface PrematchCenterResponse {
   pendingMatchCount: number;
   confirmedPendingMatchCount: number;
   scheduledPendingMatchCount: number;
+  officialPlaceholderMatchCount?: number;
   nextMatch: PrematchCenterMatch | null;
   nextActionMatch?: PrematchCenterMatch | null;
   timelineBuckets?: {
@@ -660,6 +676,7 @@ export interface CommandCenterResponse {
   pendingMatchCount: number;
   confirmedPendingMatchCount: number;
   scheduledPendingMatchCount: number;
+  officialPlaceholderMatchCount?: number;
   nextActionMatch: PrematchCenterMatch | null;
   timelineBuckets: NonNullable<PrematchCenterResponse["timelineBuckets"]>;
 }

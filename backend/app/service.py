@@ -5,6 +5,7 @@ import json
 import os
 import sys
 from datetime import UTC, datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -235,6 +236,55 @@ def load_normalized_live_schedule() -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else None
 
 
+def _official_schedule_match_counts(region: Any) -> tuple[int, int]:
+    if not isinstance(region, dict):
+        return 0, 0
+    matches = region.get("matches")
+    if not isinstance(matches, list):
+        return 0, 0
+    schedule_count = 0
+    placeholder_count = 0
+    for match in matches:
+        if not isinstance(match, dict) or not match.get("officialMatchId"):
+            continue
+        schedule_count += 1
+        if match.get("isConfirmedMatchup") is False:
+            placeholder_count += 1
+    return schedule_count, placeholder_count
+
+
+def _live_data_level(
+    *,
+    source_status: str,
+    completed_count: int,
+    confirmed_count: int,
+    official_schedule_count: int,
+) -> str:
+    if source_status != "active":
+        return "missing" if source_status == "missing" else "inactive"
+    if completed_count > 0:
+        return "official_results"
+    if confirmed_count > 0:
+        return "confirmed_matchups"
+    if official_schedule_count > 0:
+        return "schedule_shell"
+    return "source_connected"
+
+
+def _live_data_label(level: str, reason: Any = None) -> str:
+    labels = {
+        "official_results": "官方赛果已接入",
+        "confirmed_matchups": "官方对阵已确认，赛果待同步",
+        "schedule_shell": "官方排期已接入，对阵待确认",
+        "source_connected": "官方实时源已连接，赛程待同步",
+        "missing": "尚未同步官方实时赛程",
+        "inactive": "官方实时源未接入",
+    }
+    if level in {"inactive", "missing"} and reason:
+        return str(reason)
+    return labels.get(level, labels["inactive"])
+
+
 def _mini_program_predictions_enabled() -> bool:
     return os.getenv("RMUC_MINI_PROGRAM_ENABLED", "1").strip().lower() not in {"0", "false", "no", "off"}
 
@@ -297,12 +347,22 @@ def live_state_unavailable_payload(region_slug: str, reason: str) -> dict[str, A
 def summarize_live_status(region_slug: str) -> dict[str, Any]:
     normalized = load_normalized_live_schedule()
     if not normalized:
+        level = _live_data_level(
+            source_status="missing",
+            completed_count=0,
+            confirmed_count=0,
+            official_schedule_count=0,
+        )
         return {
             "sourceStatus": "missing",
             "sourceReason": "尚未同步官方实时赛程",
             "sourceUpdatedAt": None,
             "completedOfficialMatches": 0,
             "confirmedOfficialMatches": 0,
+            "officialScheduleMatches": 0,
+            "officialPlaceholderMatches": 0,
+            "liveDataLevel": level,
+            "liveDataLabel": _live_data_label(level, "尚未同步官方实时赛程"),
             "ledgerRows": 0,
             "recentError": None,
         }
@@ -311,12 +371,27 @@ def summarize_live_status(region_slug: str) -> dict[str, Any]:
     context = rmuc_live.LiveRuntimeContext.from_normalized(normalized, region_slug)
     ledger = _read_json_if_exists(_published_live_match_ledger_path_for(RUNTIME_PUBLISHED_RATINGS_DIR))
     ledger_rows = len(ledger) if isinstance(ledger, list) else 0
+    effective_source_status = source_status if region or source_status != "active" else "inactive"
+    official_schedule_matches, official_placeholder_matches = _official_schedule_match_counts(region)
+    completed_count = context.completed_count if context.source_status == "active" else 0
+    confirmed_count = context.confirmed_count if context.source_status == "active" else 0
+    live_data_level = _live_data_level(
+        source_status=effective_source_status,
+        completed_count=completed_count,
+        confirmed_count=confirmed_count,
+        official_schedule_count=official_schedule_matches,
+    )
+    source_reason = normalized.get("reason") if source_status != "active" else (None if region else "实时源未包含当前赛区")
     return {
-        "sourceStatus": source_status if region or source_status != "active" else "inactive",
-        "sourceReason": normalized.get("reason") if source_status != "active" else (None if region else "实时源未包含当前赛区"),
+        "sourceStatus": effective_source_status,
+        "sourceReason": source_reason,
         "sourceUpdatedAt": normalized.get("sourceUpdatedAt") or normalized.get("fetchedAt"),
-        "completedOfficialMatches": context.completed_count if context.source_status == "active" else 0,
-        "confirmedOfficialMatches": context.confirmed_count if context.source_status == "active" else 0,
+        "completedOfficialMatches": completed_count,
+        "confirmedOfficialMatches": confirmed_count,
+        "officialScheduleMatches": official_schedule_matches if effective_source_status == "active" else 0,
+        "officialPlaceholderMatches": official_placeholder_matches if effective_source_status == "active" else 0,
+        "liveDataLevel": live_data_level,
+        "liveDataLabel": _live_data_label(live_data_level, source_reason),
         "ledgerRows": ledger_rows,
         "recentError": normalized.get("reason") if source_status != "active" else None,
     }
@@ -1235,13 +1310,16 @@ def _confidence_label(confidence: str) -> str:
 def _parse_datetime(value: Any) -> datetime | None:
     if not value:
         return None
+    text = str(value).strip()
     try:
-        text = str(value)
         if text.endswith("Z"):
             text = f"{text[:-1]}+00:00"
         parsed = datetime.fromisoformat(text)
     except ValueError:
-        return None
+        try:
+            parsed = parsedate_to_datetime(text)
+        except (TypeError, ValueError, IndexError, AttributeError):
+            return None
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=UTC)
     return parsed
@@ -1637,21 +1715,33 @@ def _live_elo_updated_at() -> str | None:
 
 
 def _coverage_label(region_statuses: list[dict[str, Any]]) -> str:
-    active = [
-        str(status.get("regionName") or status.get("regionSlug"))
-        for status in region_statuses
-        if status.get("sourceStatus") == "active"
-    ]
-    inactive = [
-        str(status.get("regionName") or status.get("regionSlug"))
-        for status in region_statuses
-        if status.get("sourceStatus") != "active"
-    ]
-    if not active:
+    if not any(status.get("sourceStatus") == "active" for status in region_statuses):
         return "官方实时源未接入，全部使用模拟代理"
-    if not inactive:
-        return "官方实时覆盖全部赛区"
-    return f"{'、'.join(active)}官方实时，{'、'.join(inactive)}模拟代理"
+
+    labels: list[tuple[str, str]] = []
+    for status in region_statuses:
+        region_name = str(status.get("regionName") or status.get("regionSlug"))
+        if status.get("sourceStatus") != "active":
+            labels.append((region_name, "模拟代理"))
+            continue
+        if int(status.get("completedOfficialMatches") or 0) > 0:
+            labels.append((region_name, "官方赛果"))
+        elif int(status.get("confirmedOfficialMatches") or 0) > 0:
+            labels.append((region_name, "官方对阵"))
+        elif (
+            int(status.get("officialScheduleMatches") or 0) > 0
+            or int(status.get("officialPlaceholderMatches") or 0) > 0
+            or status.get("slotAssignmentSource") == "official_placeholder"
+        ):
+            labels.append((region_name, "官方排期"))
+        else:
+            labels.append((region_name, "官方实时待赛程"))
+
+    active_labels = [label for _, label in labels if label != "模拟代理"]
+    inactive_labels = [label for _, label in labels if label == "模拟代理"]
+    if not inactive_labels and len(region_statuses) > 1 and len(set(active_labels)) == 1:
+        return f"{active_labels[0]}覆盖全部赛区"
+    return "，".join(f"{region_name}{label}" for region_name, label in labels)
 
 
 def build_source_freshness(
@@ -1701,6 +1791,7 @@ def build_prematch_center_payload(
     pending_count = 0
     confirmed_pending_count = 0
     scheduled_count = 0
+    official_placeholder_count = 0
     region_statuses: list[dict[str, Any]] = []
     current_rating_index = load_current_rating_index()
     global_rank_map = load_global_elo_rank_map()
@@ -1720,6 +1811,10 @@ def build_prematch_center_payload(
                 "sourceUpdatedAt": live_status.get("sourceUpdatedAt"),
                 "completedOfficialMatches": live_status.get("completedOfficialMatches", 0),
                 "confirmedOfficialMatches": live_status.get("confirmedOfficialMatches", 0),
+                "officialScheduleMatches": live_status.get("officialScheduleMatches", 0),
+                "officialPlaceholderMatches": live_status.get("officialPlaceholderMatches", 0),
+                "liveDataLevel": live_status.get("liveDataLevel"),
+                "liveDataLabel": live_status.get("liveDataLabel"),
                 "slotAssignmentSource": live_status.get("slotAssignmentSource"),
                 "slotAssignmentReason": live_status.get("slotAssignmentReason"),
             }
@@ -1754,20 +1849,21 @@ def build_prematch_center_payload(
                 confirmed_pending_count += 1
             if match.get("plannedStartAt") and is_confirmed_matchup:
                 scheduled_count += 1
-            upcoming_matches.append(
-                _serialize_prematch_item(
-                    region_slug=region_slug,
-                    region_name=region_name,
-                    seed=int(meta.get("seed", seed)),
-                    requested_mode=mode,
-                    live_status=live_status,
-                    match=match,
-                    timezone_name=timezone_name,
-                    prior_upset_team_keys=prior_upset_team_keys,
-                    global_rank_map=global_rank_map,
-                    current_rating_index=current_rating_index,
-                )
+            item = _serialize_prematch_item(
+                region_slug=region_slug,
+                region_name=region_name,
+                seed=int(meta.get("seed", seed)),
+                requested_mode=mode,
+                live_status=live_status,
+                match=match,
+                timezone_name=timezone_name,
+                prior_upset_team_keys=prior_upset_team_keys,
+                global_rank_map=global_rank_map,
+                current_rating_index=current_rating_index,
             )
+            if item.get("scheduleState") == "official_placeholder":
+                official_placeholder_count += 1
+            upcoming_matches.append(item)
 
     upcoming_matches.sort(key=_prematch_sort_key)
     next_action_match = next(
@@ -1831,6 +1927,7 @@ def build_prematch_center_payload(
         "pendingMatchCount": pending_count,
         "confirmedPendingMatchCount": confirmed_pending_count,
         "scheduledPendingMatchCount": scheduled_count,
+        "officialPlaceholderMatchCount": official_placeholder_count,
         "nextMatch": upcoming_matches[0] if upcoming_matches else None,
         "nextActionMatch": next_action_match,
         "timelineBuckets": timeline_buckets,
@@ -1863,6 +1960,7 @@ def build_command_center_payload(
         "pendingMatchCount": prematch["pendingMatchCount"],
         "confirmedPendingMatchCount": prematch["confirmedPendingMatchCount"],
         "scheduledPendingMatchCount": prematch["scheduledPendingMatchCount"],
+        "officialPlaceholderMatchCount": prematch["officialPlaceholderMatchCount"],
         "nextActionMatch": prematch["nextActionMatch"],
         "timelineBuckets": prematch["timelineBuckets"],
     }
@@ -2438,7 +2536,7 @@ def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", sam
         )
         if slot_assignments is None:
             payload["slots"] = _official_live_slot_placeholders(region_slug, context)
-        if slot_assignments is None and not _live_final_rankings_are_official(payload):
+        if not _live_final_rankings_are_official(payload):
             _replace_unofficial_live_final_rankings(payload, region_slug)
     if mode == "live":
         live_status = payload["meta"].setdefault("liveStatus", {})

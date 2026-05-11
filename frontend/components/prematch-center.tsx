@@ -12,6 +12,7 @@ import {
   isOfficialPrematchSchedule,
   isPrematchCompleteState,
   selectSpotlightMatches,
+  shouldUseAnimatedPrematchEmptyShell,
   sortPrematchMatchesByTime,
 } from "@/lib/prematch-center";
 import type { PrematchCenterMatch, PrematchCenterResponse } from "@/lib/types";
@@ -94,13 +95,12 @@ export function PrematchCenter() {
   const {
     completedMatchCount,
     pendingMatchCount,
+    officialPlaceholderMatchCount = 0,
     nextMatch,
     nextActionMatch,
     allUpcomingMatches,
   } = data;
   const isAllDone = isPrematchCompleteState(data);
-  const isPrestartEmpty = pendingMatchCount === 0 && completedMatchCount === 0;
-  const showSummaryEmptyState = isAllDone || isPrestartEmpty;
 
   const scheduledMatches = sortPrematchMatchesByTime(allUpcomingMatches.filter(isOfficialPrematchSchedule));
   const actionMatch = nextActionMatch ?? nextMatch;
@@ -111,7 +111,13 @@ export function PrematchCenter() {
     : scheduledMatches;
   const scheduledCount = scheduledMatches.length;
   const spotlightMatches = selectSpotlightMatches(scheduledOthers);
-  const noScheduledCopy = getNoScheduledStateCopy(pendingMatchCount);
+  const noScheduledCopy = getNoScheduledStateCopy(pendingMatchCount, officialPlaceholderMatchCount);
+  const showAnimatedEmptyShell = shouldUseAnimatedPrematchEmptyShell({
+    completedMatchCount,
+    pendingMatchCount,
+    officialPlaceholderMatchCount,
+    scheduledMatchCount: scheduledCount,
+  });
   const summaryEmptyStateLabel = isAllDone ? "赛事完结" : "赛程待同步";
   const summaryEmptyStateTitle = isAllDone ? "已接入赛区赛程完赛，后续赛区待同步" : noScheduledCopy.title;
   const summaryEmptyStateDescription = isAllDone
@@ -140,7 +146,7 @@ export function PrematchCenter() {
       {/* ══════════════════════════════════════
           Empty state — completed or waiting for official schedule
           ══════════════════════════════════════ */}
-      {showSummaryEmptyState && (
+      {showAnimatedEmptyShell && (
         <div className="relative bg-rm-metal-panel border border-rm-metal-border
           overflow-hidden"
           style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.02), inset 0 -1px 0 rgba(0,0,0,0.2)" }}
@@ -216,7 +222,7 @@ export function PrematchCenter() {
       {/* ══════════════════════════════════════
           Layer 2 — Next match hero (scheduled only)
           ══════════════════════════════════════ */}
-      {!showSummaryEmptyState && scheduledNext && (
+      {!showAnimatedEmptyShell && scheduledNext && (
         <div className="mb-5">
           {scheduledNext.timelineState && (
             <div className="mb-2 font-mono text-[10px] tracking-widest text-rm-status-warn">
@@ -230,7 +236,7 @@ export function PrematchCenter() {
       {/* ══════════════════════════════════════
           Layer 3 — Spotlight matches
           ══════════════════════════════════════ */}
-      {!showSummaryEmptyState && scheduledOthers.length > 0 && spotlightMatches.length > 0 && (
+      {!showAnimatedEmptyShell && scheduledOthers.length > 0 && spotlightMatches.length > 0 && (
         <div>
           <SectionHeader
             label="▸ 焦点战局"
@@ -242,7 +248,7 @@ export function PrematchCenter() {
       )}
 
       {/* ── No scheduled matches at all ── */}
-      {!showSummaryEmptyState && scheduledCount === 0 && (
+      {!showAnimatedEmptyShell && scheduledCount === 0 && (
         <div className="bg-rm-metal-panel border border-rm-metal-border px-6 py-6 text-center space-y-4">
           <div>
             <p className="font-sans text-sm font-semibold text-rm-metal-textLight mb-1">

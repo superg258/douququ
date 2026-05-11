@@ -777,7 +777,7 @@ def test_live_payload_hides_unofficial_final_rankings(tmp_path, monkeypatch) -> 
     assert payload["summary"]["repechageQualifiers"] == []
 
 
-def test_live_payload_keeps_predicted_final_rankings_after_official_draw(tmp_path, monkeypatch) -> None:
+def test_live_payload_hides_predicted_final_rankings_after_official_draw_until_finals_complete(tmp_path, monkeypatch) -> None:
     sim_payload = service.build_simulation_payload("south_region", 20260414, mode="sim", samples=8)
     slot_assignments = {slot["teamKey"]: slot["slot"] for slot in sim_payload["slots"]}
     normalized_path = tmp_path / "normalized_schedule.json"
@@ -805,10 +805,10 @@ def test_live_payload_keeps_predicted_final_rankings_after_official_draw(tmp_pat
 
     assert payload["meta"]["liveStatus"]["slotAssignmentSource"] == "official"
     assert payload["finalRankings"]
-    assert any(row["teamKey"] for row in payload["finalRankings"])
-    assert all(row["collegeName"] != "待确认" for row in payload["finalRankings"])
-    assert payload["summary"]["nationalQualifiers"]
-    assert payload["summary"]["repechageQualifiers"]
+    assert all(row["teamKey"] == "" for row in payload["finalRankings"])
+    assert all(row["collegeName"] == "待确认" for row in payload["finalRankings"])
+    assert payload["summary"]["nationalQualifiers"] == []
+    assert payload["summary"]["repechageQualifiers"] == []
 
 
 def _fake_match(
@@ -2217,7 +2217,32 @@ def test_prematch_center_does_not_count_official_placeholders_as_scheduled(monke
     assert payload["pendingMatchCount"] == 1
     assert payload["confirmedPendingMatchCount"] == 0
     assert payload["scheduledPendingMatchCount"] == 0
+    assert payload["officialPlaceholderMatchCount"] == 1
     assert payload["allUpcomingMatches"][0]["scheduleState"] == "official_placeholder"
+
+
+def test_source_freshness_parses_rfc1123_official_schedule_timestamp() -> None:
+    payload = service.build_source_freshness(
+        generated_at="2026-05-11T15:00:00+08:00",
+        now=datetime(2026, 5, 11, 15, 0, tzinfo=service._prematch_timezone("Asia/Shanghai")),
+        region_statuses=[
+            {
+                "regionSlug": "south_region",
+                "regionName": "南部赛区",
+                "sourceStatus": "active",
+                "sourceReason": None,
+                "sourceUpdatedAt": "Sun, 10 May 2026 11:52:27 GMT",
+                "completedOfficialMatches": 0,
+                "confirmedOfficialMatches": 0,
+                "officialScheduleMatches": 88,
+                "officialPlaceholderMatches": 88,
+                "slotAssignmentSource": "official_placeholder",
+            }
+        ],
+    )
+
+    assert payload["officialScheduleUpdatedAt"] == "2026-05-10T11:52:27+00:00"
+    assert payload["coverageLabel"] == "南部赛区官方排期"
 
 
 def test_prematch_center_treats_unconfirmed_predicted_shell_as_simulation_proxy(monkeypatch) -> None:

@@ -52,6 +52,11 @@ export function LiveCommandCenterPanel({
           {center.unavailableReason}
         </div>
       )}
+      {center.statusNotice && (
+        <div className="border border-rm-blue/30 bg-rm-blue/8 px-4 py-3 font-mono text-xs text-rm-blue">
+          {center.statusNotice}
+        </div>
+      )}
       <div className="space-y-6">
         {sections.map((section) => (
           <div key={section.id} className="space-y-3">

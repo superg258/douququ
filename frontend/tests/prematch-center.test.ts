@@ -18,6 +18,7 @@ import {
   isPrematchCompleteState,
   isVisiblePrematchSchedule,
   selectSpotlightMatches,
+  shouldUseAnimatedPrematchEmptyShell,
   sortPrematchMatchesByTime,
   getTimelineStateLabel,
 } from "@/lib/prematch-center";
@@ -110,8 +111,10 @@ function buildMockMatch(overrides: Partial<PrematchCenterMatch> = {}): PrematchC
 
 describe("prematch-center helpers", () => {
   /* ── Data source labels ── */
-  it("returns correct Chinese labels for all data sources", () => {
-    expect(getDataSourceLabel("official_live")).toBe("官方实时");
+  it("returns precise Chinese labels for official schedule maturity", () => {
+    expect(getDataSourceLabel("official_live", "official_placeholder")).toBe("官方排期");
+    expect(getDataSourceLabel("official_live", "scheduled")).toBe("官方对阵");
+    expect(getDataSourceLabel("official_live", "confirmed_unfinished", "review_pending")).toBe("官方赛果");
     expect(getDataSourceLabel("simulation")).toBe("模拟预测");
     expect(getDataSourceLabel("simulation_proxy")).toBe("模拟预测");
   });
@@ -212,10 +215,33 @@ describe("prematch-center helpers", () => {
       description:
         "当前还没有接入已排期或已开赛的官方赛程。待官方同步排期后，这里会展示下一场、焦点战和实时预测入口。",
     });
-    expect(getNoScheduledStateCopy(3)).toEqual({
-      title: "暂无已排期赛程",
-      description: "当前 3 场未赛均为模拟推演。待官方同步赛程后，已排期场次将在此展示。",
+    expect(getNoScheduledStateCopy(3, 3)).toEqual({
+      title: "官方排期已同步，对阵待确认",
+      description: "当前 3 场官方排期仍为占位状态，真实对阵确认后会进入实时预测列表。",
     });
+    expect(getNoScheduledStateCopy(3, 0)).toEqual({
+      title: "暂无可行动官方对阵",
+      description: "当前 3 场未赛均为模拟推演。待官方确认对阵后，已排期场次将在此展示。",
+    });
+  });
+
+  it("keeps official placeholder-only states in the animated empty shell", () => {
+    expect(
+      shouldUseAnimatedPrematchEmptyShell({
+        completedMatchCount: 0,
+        pendingMatchCount: 266,
+        officialPlaceholderMatchCount: 266,
+        scheduledMatchCount: 0,
+      })
+    ).toBe(true);
+    expect(
+      shouldUseAnimatedPrematchEmptyShell({
+        completedMatchCount: 0,
+        pendingMatchCount: 266,
+        officialPlaceholderMatchCount: 265,
+        scheduledMatchCount: 1,
+      })
+    ).toBe(false);
   });
 
   it("provides three empty-state region links in order", () => {

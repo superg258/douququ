@@ -224,6 +224,34 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
   const fallbackMode = realtimeEnabled ? "live" : "sim";
   const fallbackHref = buildRegionHref(region.regionSlug, realtimeEnabled ? "qualification" : "playoff", { mode: fallbackMode });
   const accent = REGION_ACCENT[region.regionSlug] ?? REGION_ACCENT.north_region;
+  const entryCopy =
+    realtimeAvailability.badge === "官方排期"
+      ? {
+          mode: "实时模式",
+          title: "官方排期",
+          body: "官方排期已接入，对阵和赛果待同步。",
+          cta: "查看官方排期 →",
+        }
+      : realtimeAvailability.badge === "官方对阵"
+        ? {
+            mode: "实时模式",
+            title: "官方对阵",
+            body: "官方对阵已确认，赛果和 Elo 更新待同步。",
+            cta: "查看官方对阵 →",
+          }
+        : realtimeEnabled
+          ? {
+              mode: "实时模式",
+              title: "实时赛程",
+              body: "官方赛果已接入，Elo 战力预测与观众投票并列展示。",
+              cta: "进入实时赛程 →",
+            }
+          : {
+              mode: "模拟沙盘",
+              title: "赛程沙盘",
+              body: "官方赛程尚未接入，当前入口为模拟赛程。",
+              cta: "进入赛程沙盘 →",
+            };
 
   return (
     <div className={cn(
@@ -264,10 +292,10 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <span className="text-[8px] font-mono uppercase tracking-[0.2em] text-rm-metal-textFaint">
-              赛程入口 · {realtimeEnabled ? "实时模式" : "模拟沙盘"}
+              赛程入口 · {entryCopy.mode}
             </span>
             <span className="block truncate text-sm font-bold tracking-wide text-rm-metal-textLight mt-0.5">
-              {realtimeEnabled ? "实时赛程" : "赛程沙盘"}
+              {entryCopy.title}
             </span>
           </div>
           <span className={cn(
@@ -280,9 +308,7 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
           </span>
         </div>
         <p className="mt-2 text-[10px] leading-relaxed text-rm-metal-textMuted">
-          {realtimeEnabled
-            ? "官方赛果已接入，Elo 战力预测与观众投票并列展示。"
-            : "官方赛程尚未接入，当前入口为模拟赛程。"}
+          {entryCopy.body}
         </p>
         <div className="mt-2.5 flex items-start gap-2 text-[8px] font-mono font-bold tracking-widest">
           <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
@@ -305,7 +331,7 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
               ? "shadow-[0_0_10px_rgba(232,196,74,0.2)] border-[#E8C44A]/60 bg-[#E8C44A]/15 text-[#E8C44A] group-hover/entry:bg-[#E8C44A] group-hover/entry:text-black group-hover/entry:shadow-[0_0_18px_rgba(232,196,74,0.4)]"
               : "shadow-[0_0_10px_rgba(45,212,191,0.18)] border-[#2DD4BF]/50 bg-[#2DD4BF]/12 text-[#2DD4BF] group-hover/entry:bg-[#2DD4BF] group-hover/entry:text-black group-hover/entry:shadow-[0_0_18px_rgba(45,212,191,0.35)]",
           )}>
-            {realtimeEnabled ? "进入实时赛程 →" : "进入赛程沙盘 →"}
+            {entryCopy.cta}
           </span>
         </div>
       </Link>

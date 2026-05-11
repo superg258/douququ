@@ -143,4 +143,27 @@ describe("RegionCard", () => {
     expect(markup).toContain("辛校");
     expect(markup).not.toContain("进入沙盘查看完整数据");
   });
+
+  it("labels active official schedule shells without claiming official results", () => {
+    const response = overview();
+    response.regions[0].liveStatus = {
+      sourceStatus: "active",
+      sourceReason: null,
+      sourceUpdatedAt: "2026-05-10T12:00:00+08:00",
+      completedOfficialMatches: 0,
+      confirmedOfficialMatches: 0,
+      ledgerRows: 0,
+      officialScheduleMatches: 88,
+      officialPlaceholderMatches: 88,
+      liveDataLevel: "schedule_shell",
+      liveDataLabel: "官方排期已接入，对阵待确认",
+    } as any;
+
+    const region = buildOverviewDashboard(response).regions[0];
+    const markup = renderToStaticMarkup(createElement(RegionCard, { region, entryHref: null }));
+
+    expect(markup).toContain("官方排期");
+    expect(markup).toContain("官方排期已接入，对阵和赛果待同步。");
+    expect(markup).not.toContain("官方赛果已接入，Elo 战力预测与观众投票并列展示。");
+  });
 });

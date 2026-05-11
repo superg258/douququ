@@ -87,6 +87,7 @@ describe("live command center", () => {
       pendingMatchCount: 1,
       confirmedPendingMatchCount: 1,
       scheduledPendingMatchCount: 1,
+      officialPlaceholderMatchCount: 0,
       nextActionMatch: baseMatch,
       timelineBuckets: {
         liveNow: [],
@@ -168,5 +169,41 @@ describe("live command center", () => {
 
     expect(command.hasOfficialSchedule).toBe(false);
     expect(command.unavailableReason).toBe("官方实时源未接入");
+  });
+
+  it("explains active official schedule shells with no actionable matchups", () => {
+    const command = buildLiveCommandCenter(
+      buildCommand({
+        pendingMatchCount: 266,
+        confirmedPendingMatchCount: 0,
+        scheduledPendingMatchCount: 0,
+        officialPlaceholderMatchCount: 266,
+        nextActionMatch: null,
+        sourceFreshness: {
+          serviceGeneratedAt: "2026-05-06T00:00:00+00:00",
+          modelGeneratedAt: "2026-05-06T00:00:00+00:00",
+          officialScheduleUpdatedAt: "2026-05-06T00:00:00+00:00",
+          liveEloUpdatedAt: null,
+          officialScheduleAgeMinutes: 30,
+          liveEloStatus: "missing",
+          activeRegionCount: 3,
+          totalRegionCount: 3,
+          coverageLabel: "官方排期覆盖全部赛区",
+          regionStatuses: [],
+        },
+        timelineBuckets: {
+          liveNow: [],
+          upNext: [],
+          todayPending: [],
+          confirmedUpcoming: [],
+          overdueUnresolved: [],
+          simulationUnassigned: [],
+          reviewPending: [],
+        },
+      })
+    );
+
+    expect(command.hasOfficialSchedule).toBe(true);
+    expect(command.statusNotice).toBe("官方排期已同步，但暂无可行动对阵；当前 266 场官方排期仍为对阵待确认。");
   });
 });

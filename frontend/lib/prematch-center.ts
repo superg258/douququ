@@ -8,12 +8,21 @@ import type {
 import { formatBeijingMonthDayTime, formatBeijingTime, getBeijingHour } from "@/lib/time-format";
 
 const DATA_SOURCE_LABELS: Record<PrematchDataSource, string> = {
-  official_live: "官方实时",
+  official_live: "官方对阵",
   simulation: "模拟预测",
   simulation_proxy: "模拟预测",
 };
 
-export function getDataSourceLabel(source: PrematchDataSource) {
+export function getDataSourceLabel(
+  source: PrematchDataSource,
+  scheduleState?: PrematchCenterMatch["scheduleState"],
+  timelineState?: PrematchTimelineState
+) {
+  if (source === "official_live") {
+    if (timelineState === "review_pending") return "官方赛果";
+    if (scheduleState === "official_placeholder") return "官方排期";
+    if (scheduleState === "scheduled" || scheduleState === "confirmed_unfinished") return "官方对阵";
+  }
   return DATA_SOURCE_LABELS[source] ?? source;
 }
 
@@ -48,6 +57,9 @@ export function isOfficialPrematchSchedule(match: PrematchCenterMatch) {
 }
 
 export function getPrematchTimelineDisplayLabel(match: PrematchCenterMatch) {
+  if (match.scheduleState === "official_placeholder") {
+    return "官方排期";
+  }
   if (match.scheduleState === "simulation_proxy" || match.dataSource === "simulation_proxy") {
     return "模拟预测";
   }
@@ -89,7 +101,24 @@ export function isPrematchCompleteState(
   return data.pendingMatchCount === 0 && data.completedMatchCount > 0;
 }
 
-export function getNoScheduledStateCopy(pendingMatchCount: number) {
+export function shouldUseAnimatedPrematchEmptyShell({
+  completedMatchCount,
+  pendingMatchCount,
+  officialPlaceholderMatchCount = 0,
+  scheduledMatchCount,
+}: {
+  completedMatchCount: number;
+  pendingMatchCount: number;
+  officialPlaceholderMatchCount?: number;
+  scheduledMatchCount: number;
+}) {
+  const isAllDone = pendingMatchCount === 0 && completedMatchCount > 0;
+  const isPrestartEmpty = pendingMatchCount === 0 && completedMatchCount === 0;
+  const isOfficialPlaceholderOnly = scheduledMatchCount === 0 && officialPlaceholderMatchCount > 0;
+  return isAllDone || isPrestartEmpty || isOfficialPlaceholderOnly;
+}
+
+export function getNoScheduledStateCopy(pendingMatchCount: number, officialPlaceholderCount = 0) {
   if (pendingMatchCount === 0) {
     return {
       title: "官方赛程尚未开始同步",
@@ -98,9 +127,16 @@ export function getNoScheduledStateCopy(pendingMatchCount: number) {
     };
   }
 
+  if (officialPlaceholderCount > 0) {
+    return {
+      title: "官方排期已同步，对阵待确认",
+      description: `当前 ${officialPlaceholderCount} 场官方排期仍为占位状态，真实对阵确认后会进入实时预测列表。`,
+    };
+  }
+
   return {
-    title: "暂无已排期赛程",
-    description: `当前 ${pendingMatchCount} 场未赛均为模拟推演。待官方同步赛程后，已排期场次将在此展示。`,
+    title: "暂无可行动官方对阵",
+    description: `当前 ${pendingMatchCount} 场未赛均为模拟推演。待官方确认对阵后，已排期场次将在此展示。`,
   };
 }
 

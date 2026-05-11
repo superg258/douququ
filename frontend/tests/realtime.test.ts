@@ -7,7 +7,7 @@ import {
 import type { LiveStateResponse, MiniProgramPrediction } from "@/lib/types";
 
 describe("realtime helpers", () => {
-  it("enables live mode only when the live source is active for the current region", () => {
+  it("describes active schedule shells separately from completed live results", () => {
     const liveState: LiveStateResponse = {
       available: true,
       sourceStatus: "active",
@@ -20,15 +20,35 @@ describe("realtime helpers", () => {
       completedOfficialMatches: 1,
       confirmedOfficialMatches: 2,
       ledgerRows: 2,
+      officialScheduleMatches: 8,
+      officialPlaceholderMatches: 0,
+      liveDataLevel: "official_results",
+      liveDataLabel: "官方赛果已接入",
       currentSnapshot: [],
       matchLedger: [],
       teamIndex: {},
-    };
+    } as LiveStateResponse;
+
+    const scheduleShell = {
+      ...liveState,
+      available: false,
+      completedOfficialMatches: 0,
+      confirmedOfficialMatches: 0,
+      officialScheduleMatches: 88,
+      officialPlaceholderMatches: 88,
+      liveDataLevel: "schedule_shell",
+      liveDataLabel: "官方排期已接入，对阵待确认",
+    } as LiveStateResponse;
 
     expect(deriveRealtimeAvailability("south_region", liveState)).toEqual({
       enabled: true,
-      badge: "实时数据",
-      hint: "实时数据已连接",
+      badge: "官方赛果",
+      hint: "官方赛果已接入",
+    });
+    expect(deriveRealtimeAvailability("south_region", scheduleShell)).toEqual({
+      enabled: true,
+      badge: "官方排期",
+      hint: "官方排期已接入，对阵待确认",
     });
     expect(deriveRealtimeAvailability("east_region", liveState).enabled).toBe(false);
   });

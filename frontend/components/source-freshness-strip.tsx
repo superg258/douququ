@@ -48,6 +48,9 @@ export function SourceFreshnessStrip({
           <div>
             <div className="font-mono text-[9px] tracking-widest text-rm-metal-textFaint">官方赛程同步</div>
             <div className="font-mono text-xs text-rm-status-warn">{formatDateTime(freshness.officialScheduleUpdatedAt)}</div>
+            <div className="mt-1 font-mono text-[10px] leading-snug text-rm-metal-textMuted">
+              {freshness.coverageLabel}
+            </div>
           </div>
         </div>
       </div>

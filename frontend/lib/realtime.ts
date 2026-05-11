@@ -4,7 +4,7 @@ type RealtimeState = LiveStateResponse | LiveStatusSummary | null | undefined;
 
 export interface RealtimeAvailability {
   enabled: boolean;
-  badge: "实时数据" | "暂无实时";
+  badge: "官方赛果" | "官方对阵" | "官方排期" | "实时数据" | "暂无实时";
   hint: string;
 }
 
@@ -31,10 +31,45 @@ export function deriveRealtimeAvailability(regionSlug: RegionSlug, state: Realti
   }
 
   if (state.sourceStatus === "active") {
+    const completed = Number(state.completedOfficialMatches ?? 0);
+    const confirmed = Number(state.confirmedOfficialMatches ?? 0);
+    const officialSchedule = Number(state.officialScheduleMatches ?? 0);
+    const officialPlaceholders = Number(state.officialPlaceholderMatches ?? 0);
+    const level =
+      state.liveDataLevel ||
+      (completed > 0
+        ? "official_results"
+        : confirmed > 0
+          ? "confirmed_matchups"
+          : officialSchedule > 0 || officialPlaceholders > 0
+            ? "schedule_shell"
+            : "source_connected");
+
+    if (level === "official_results" || completed > 0) {
+      return {
+        enabled: true,
+        badge: "官方赛果",
+        hint: state.liveDataLabel || "官方赛果已接入",
+      };
+    }
+    if (level === "confirmed_matchups" || confirmed > 0) {
+      return {
+        enabled: true,
+        badge: "官方对阵",
+        hint: state.liveDataLabel || "官方对阵已确认，赛果待同步",
+      };
+    }
+    if (level === "schedule_shell" || officialSchedule > 0 || officialPlaceholders > 0) {
+      return {
+        enabled: true,
+        badge: "官方排期",
+        hint: state.liveDataLabel || "官方排期已接入，对阵待确认",
+      };
+    }
     return {
-      enabled: true,
-      badge: "实时数据",
-      hint: "实时数据已连接",
+      enabled: false,
+      badge: "暂无实时",
+      hint: state.liveDataLabel || "官方实时源已连接，赛程待同步",
     };
   }
 
