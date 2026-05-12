@@ -476,9 +476,10 @@ export interface CanvasConnector {
   fromY: number;
   toX: number;
   toY: number;
-  kind?: "curve" | "bracket" | "merge";
+  kind?: "curve" | "bracket" | "merge" | "merge-split";
   viaX?: number;
   branchY?: number[];
+  targetBranchY?: number[];
   branchLabels?: Array<{ y: number; text: string }>;
   tone?: CanvasTone;
   weight?: "normal" | "strong";

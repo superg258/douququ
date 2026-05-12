@@ -639,4 +639,87 @@ describe("buildWorkspaceStage live outcome certainty", () => {
     });
     expect(new Set(cardIds).size).toBe(cardIds.length);
   });
+
+  it("uses one playoff band connector from quarterfinals to semifinals", () => {
+    const stage = buildWorkspaceStage(
+      "playoff",
+      "south_region",
+      simulation({
+        matches: [
+          match({
+            matchLabel: "QF-1",
+            stage: "quarterfinal",
+            roundNumber: 6,
+            groupName: "",
+            redTeam: alpha,
+            blueTeam: beta,
+            winnerTeamKey: alpha.teamKey,
+            loserTeamKey: beta.teamKey,
+          }),
+          match({
+            matchLabel: "QF-2",
+            stage: "quarterfinal",
+            roundNumber: 6,
+            groupName: "",
+            redTeam: gamma,
+            blueTeam: delta,
+            winnerTeamKey: gamma.teamKey,
+            loserTeamKey: delta.teamKey,
+          }),
+          match({
+            matchLabel: "QF-3",
+            stage: "quarterfinal",
+            roundNumber: 6,
+            groupName: "",
+            redTeam: beta,
+            blueTeam: gamma,
+            winnerTeamKey: beta.teamKey,
+            loserTeamKey: gamma.teamKey,
+          }),
+          match({
+            matchLabel: "QF-4",
+            stage: "quarterfinal",
+            roundNumber: 6,
+            groupName: "",
+            redTeam: delta,
+            blueTeam: alpha,
+            winnerTeamKey: delta.teamKey,
+            loserTeamKey: alpha.teamKey,
+          }),
+          match({
+            matchLabel: "SF-1",
+            stage: "semifinal",
+            roundNumber: 7,
+            groupName: "",
+            redTeam: alpha,
+            blueTeam: beta,
+            winnerTeamKey: alpha.teamKey,
+            loserTeamKey: beta.teamKey,
+          }),
+          match({
+            matchLabel: "SF-2",
+            stage: "semifinal",
+            roundNumber: 7,
+            groupName: "",
+            redTeam: gamma,
+            blueTeam: delta,
+            winnerTeamKey: gamma.teamKey,
+            loserTeamKey: delta.teamKey,
+          }),
+        ],
+      })
+    );
+
+    const connectorIds = stage.connectors.map((connector) => connector.id);
+    const quarterfinalConnector = stage.connectors.find((connector) => connector.id === "QF-band=>SF-band");
+
+    expect(connectorIds).not.toContain("QF-1+QF-2=>SF-1");
+    expect(connectorIds).not.toContain("QF-3+QF-4=>SF-2");
+    expect(quarterfinalConnector).toMatchObject({
+      kind: "merge-split",
+      tone: "cyan",
+      branchY: expect.arrayContaining([452, 882, 1312, 1742]),
+      targetBranchY: expect.arrayContaining([667, 1527]),
+    });
+  });
 });

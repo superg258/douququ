@@ -475,6 +475,39 @@ function connectCardGroupToCard(
   };
 }
 
+function connectCardGroupToCards(
+  sourceCards: Array<CanvasCard | undefined>,
+  targetCards: Array<CanvasCard | undefined>,
+  id: string,
+  tone: CanvasTone = "steel"
+): CanvasConnector | null {
+  const resolvedSources = sourceCards.filter((card): card is CanvasCard => Boolean(card));
+  const resolvedTargets = targetCards.filter((card): card is CanvasCard => Boolean(card));
+  if (!resolvedSources.length || !resolvedTargets.length) {
+    return null;
+  }
+
+  const fromX = Math.max(...resolvedSources.map((card) => card.x + card.width)) + 6;
+  const branchY = resolvedSources.map((card) => card.y + card.height / 2);
+  const targetBranchY = resolvedTargets.map((card) => card.y + card.height / 2);
+  const toX = Math.min(...resolvedTargets.map((card) => card.x)) - 6;
+  const gap = Math.max(24, toX - fromX);
+
+  return {
+    id,
+    kind: "merge-split",
+    fromX,
+    fromY: branchY.reduce((sum, y) => sum + y, 0) / branchY.length,
+    toX,
+    toY: targetBranchY.reduce((sum, y) => sum + y, 0) / targetBranchY.length,
+    viaX: fromX + Math.max(24, Math.min(88, gap * 0.42)),
+    branchY,
+    targetBranchY,
+    tone,
+    weight: tone === "amber" ? "strong" : "normal",
+  };
+}
+
 function isOfficialPlaceholderMatch(match: MatchRow) {
   return Boolean(match.officialMatchId) && (!match.redTeam.teamKey || !match.blueTeam.teamKey);
 }
@@ -1150,17 +1183,21 @@ function buildPlayoffStage(regionSlug: RegionSlug, simulation: SimulationRespons
     { sources: ["R16-3", "R16-4"], target: "QF-2", tone: "cyan" },
     { sources: ["R16-5", "R16-6"], target: "QF-3", tone: "cyan" },
     { sources: ["R16-7", "R16-8"], target: "QF-4", tone: "cyan" },
-    { sources: ["QF-1", "QF-2"], target: "SF-1", tone: "cyan" },
-    { sources: ["QF-3", "QF-4"], target: "SF-2", tone: "cyan" },
     { sources: ["SF-1", "SF-2"], target: "FINAL-1", tone: "amber" },
     { sources: ["SF-1", "SF-2"], target: "THIRD-1", tone: "amber" },
   ];
 
-  const connectors = mainEdges
-    .map(({ sources, target, tone }) =>
+  const connectors = [
+    ...mainEdges.map(({ sources, target, tone }) =>
       connectCardGroupToCard(sources.map((source) => cardMap.get(source)), cardMap.get(target), `${sources.join("+")}=>${target}`, tone)
-    )
-    .filter((connector): connector is CanvasConnector => Boolean(connector));
+    ),
+    connectCardGroupToCards(
+      ["QF-1", "QF-2", "QF-3", "QF-4"].map((source) => cardMap.get(source)),
+      ["SF-1", "SF-2"].map((target) => cardMap.get(target)),
+      "QF-band=>SF-band",
+      "cyan"
+    ),
+  ].filter((connector): connector is CanvasConnector => Boolean(connector));
 
   const maxBottom = cards.reduce((max, card) => Math.max(max, card.y + card.height), 0);
 

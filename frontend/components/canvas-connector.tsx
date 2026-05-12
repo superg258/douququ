@@ -49,6 +49,25 @@ function bracketPath(connector: CanvasConnector) {
     return segments.join(" ");
   }
 
+  if (connector.kind === "merge-split") {
+    const targetBranchY = (connector.targetBranchY ?? [connector.toY]).slice().sort((left, right) => left - right);
+    const allBranchY = [...branchY, ...targetBranchY];
+    const spineTop = Math.min(...allBranchY);
+    const spineBottom = Math.max(...allBranchY);
+    const segments: string[] = [];
+
+    branchY.forEach((y) => {
+      segments.push(`M ${connector.fromX} ${y} Q ${viaX} ${y} ${viaX} ${y}`);
+    });
+    segments.push(`M ${viaX} ${spineTop} V ${spineBottom}`);
+    targetBranchY.forEach((y) => {
+      const toMidX = (viaX + connector.toX) / 2;
+      segments.push(`M ${viaX} ${y} Q ${toMidX} ${y} ${connector.toX} ${y}`);
+    });
+
+    return segments.join(" ");
+  }
+
   const segments = [`M ${connector.fromX} ${connector.fromY} H ${viaX}`];
   const spineTop = Math.min(connector.fromY, branchY[0]);
   const spineBottom = Math.max(connector.fromY, branchY[branchY.length - 1]);
@@ -69,7 +88,7 @@ export function CanvasConnectorView({
   selectedTeamKey: string | null;
   highlightedTeamKey: string | null;
 }) {
-  const d = connector.kind !== "bracket" && connector.kind !== "merge" ? connectorPath(connector) : bracketPath(connector);
+  const d = connector.kind !== "bracket" && connector.kind !== "merge" && connector.kind !== "merge-split" ? connectorPath(connector) : bracketPath(connector);
   const isSelected = connector.teamKey && connector.teamKey === selectedTeamKey;
   const isHighlighted = connector.teamKey && connector.teamKey === highlightedTeamKey;
   const strokeWidth = "stroke-[3px]";
