@@ -1366,6 +1366,229 @@ def test_live_schedule_metadata_preserves_predicted_unconfirmed_matchups_after_d
     assert service._prematch_schedule_state("simulation_proxy", match) == "simulation_proxy"
 
 
+def _completed_swiss_schedule(label: str, round_number: int, red_source: int, blue_source: int) -> dict[str, object]:
+    return {
+        "matchLabel": label,
+        "officialMatchId": f"done-{label}",
+        "officialStatus": "DONE",
+        "stage": "swiss",
+        "roundNumber": round_number,
+        "groupName": "A",
+        "isCompleted": True,
+        "isConfirmedMatchup": True,
+        "redFillSourceType": "Group",
+        "redFillSourceId": "2707",
+        "redFillSourceNumber": red_source,
+        "blueFillSourceType": "Group",
+        "blueFillSourceId": "2707",
+        "blueFillSourceNumber": blue_source,
+    }
+
+
+def _unconfirmed_swiss_schedule(label: str, round_number: int, red_source: int, blue_source: int) -> dict[str, object]:
+    return {
+        "matchLabel": label,
+        "officialMatchId": f"pending-{label}",
+        "officialStatus": "WAITING",
+        "plannedStartAt": "2026-05-14T08:30:00+08:00",
+        "stage": "swiss",
+        "roundNumber": round_number,
+        "groupName": "A",
+        "isCompleted": False,
+        "isConfirmedMatchup": False,
+        "scoreline": "0:0",
+        "redFillSourceType": "Group",
+        "redFillSourceId": "2707",
+        "redFillSourceNumber": red_source,
+        "blueFillSourceType": "Group",
+        "blueFillSourceId": "2707",
+        "blueFillSourceNumber": blue_source,
+    }
+
+
+def test_live_schedule_metadata_promotes_round3_2_0_after_1_0_group_complete(tmp_path, monkeypatch) -> None:
+    normalized_path = tmp_path / "normalized_schedule.json"
+    normalized_path.write_text(
+        json.dumps(
+            {
+                "sourceStatus": "active",
+                "regions": {
+                    "south_region": {
+                        "matches": [
+                            _completed_swiss_schedule("A-SWISS-2-1", 2, 1, 2),
+                            _completed_swiss_schedule("A-SWISS-2-2", 2, 3, 4),
+                            _completed_swiss_schedule("A-SWISS-2-3", 2, 6, 5),
+                            _completed_swiss_schedule("A-SWISS-2-4", 2, 8, 7),
+                            _unconfirmed_swiss_schedule("A-SWISS-3-1", 3, 1, 2),
+                        ]
+                    }
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(service, "NORMALIZED_LIVE_SCHEDULE_PATH", normalized_path)
+    payload = {
+        "matches": [
+            _fake_match(
+                match_label="A-SWISS-3-1",
+                planned_start_at=None,
+                is_real_result=False,
+                p_series_red=0.72,
+                p_game_red=0.64,
+                official_status=None,
+                official_match_id=None,
+            )
+        ]
+    }
+    payload["matches"][0]["roundNumber"] = 3
+
+    service._attach_live_schedule_metadata(payload, "south_region", preserve_predicted_unconfirmed=True)
+
+    match = payload["matches"][0]
+    assert match["isConfirmedMatchup"] is True
+    assert service._prematch_data_source("live", {"sourceStatus": "active"}, match) == "official_live"
+    assert service._prematch_schedule_state("official_live", match) == "scheduled"
+
+
+def test_live_schedule_metadata_promotes_round3_0_2_after_0_1_group_complete(tmp_path, monkeypatch) -> None:
+    normalized_path = tmp_path / "normalized_schedule.json"
+    normalized_path.write_text(
+        json.dumps(
+            {
+                "sourceStatus": "active",
+                "regions": {
+                    "south_region": {
+                        "matches": [
+                            _completed_swiss_schedule("A-SWISS-2-5", 2, 9, 10),
+                            _completed_swiss_schedule("A-SWISS-2-6", 2, 11, 12),
+                            _completed_swiss_schedule("A-SWISS-2-7", 2, 14, 13),
+                            _completed_swiss_schedule("A-SWISS-2-8", 2, 16, 15),
+                            _unconfirmed_swiss_schedule("A-SWISS-3-7", 3, 14, 13),
+                        ]
+                    }
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(service, "NORMALIZED_LIVE_SCHEDULE_PATH", normalized_path)
+    payload = {
+        "matches": [
+            _fake_match(
+                match_label="A-SWISS-3-7",
+                planned_start_at=None,
+                is_real_result=False,
+                p_series_red=0.72,
+                p_game_red=0.64,
+                official_status=None,
+                official_match_id=None,
+            )
+        ]
+    }
+    payload["matches"][0]["roundNumber"] = 3
+
+    service._attach_live_schedule_metadata(payload, "south_region", preserve_predicted_unconfirmed=True)
+
+    match = payload["matches"][0]
+    assert match["isConfirmedMatchup"] is True
+    assert service._prematch_data_source("live", {"sourceStatus": "active"}, match) == "official_live"
+    assert service._prematch_schedule_state("official_live", match) == "scheduled"
+
+
+def test_live_schedule_metadata_requires_both_sources_for_round4_2_1_group(tmp_path, monkeypatch) -> None:
+    normalized_path = tmp_path / "normalized_schedule.json"
+    normalized_path.write_text(
+        json.dumps(
+            {
+                "sourceStatus": "active",
+                "regions": {
+                    "south_region": {
+                        "matches": [
+                            _completed_swiss_schedule("A-SWISS-3-1", 3, 1, 2),
+                            _completed_swiss_schedule("A-SWISS-3-2", 3, 3, 4),
+                            _unconfirmed_swiss_schedule("A-SWISS-4-1", 4, 3, 4),
+                        ]
+                    }
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(service, "NORMALIZED_LIVE_SCHEDULE_PATH", normalized_path)
+    payload = {
+        "matches": [
+            _fake_match(
+                match_label="A-SWISS-4-1",
+                planned_start_at=None,
+                is_real_result=False,
+                p_series_red=0.72,
+                p_game_red=0.64,
+                official_status=None,
+                official_match_id=None,
+            )
+        ]
+    }
+    payload["matches"][0]["roundNumber"] = 4
+
+    service._attach_live_schedule_metadata(payload, "south_region", preserve_predicted_unconfirmed=True)
+
+    match = payload["matches"][0]
+    assert match["isConfirmedMatchup"] is False
+    assert service._prematch_data_source("live", {"sourceStatus": "active"}, match) == "simulation_proxy"
+
+
+def test_live_schedule_metadata_promotes_round4_2_1_after_2_0_and_1_1_groups_complete(tmp_path, monkeypatch) -> None:
+    normalized_path = tmp_path / "normalized_schedule.json"
+    normalized_path.write_text(
+        json.dumps(
+            {
+                "sourceStatus": "active",
+                "regions": {
+                    "south_region": {
+                        "matches": [
+                            _completed_swiss_schedule("A-SWISS-3-1", 3, 1, 2),
+                            _completed_swiss_schedule("A-SWISS-3-2", 3, 3, 4),
+                            _completed_swiss_schedule("A-SWISS-3-3", 3, 6, 5),
+                            _completed_swiss_schedule("A-SWISS-3-4", 3, 8, 7),
+                            _completed_swiss_schedule("A-SWISS-3-5", 3, 9, 10),
+                            _completed_swiss_schedule("A-SWISS-3-6", 3, 11, 12),
+                            _unconfirmed_swiss_schedule("A-SWISS-4-1", 4, 3, 4),
+                        ]
+                    }
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(service, "NORMALIZED_LIVE_SCHEDULE_PATH", normalized_path)
+    payload = {
+        "matches": [
+            _fake_match(
+                match_label="A-SWISS-4-1",
+                planned_start_at=None,
+                is_real_result=False,
+                p_series_red=0.72,
+                p_game_red=0.64,
+                official_status=None,
+                official_match_id=None,
+            )
+        ]
+    }
+    payload["matches"][0]["roundNumber"] = 4
+
+    service._attach_live_schedule_metadata(payload, "south_region", preserve_predicted_unconfirmed=True)
+
+    match = payload["matches"][0]
+    assert match["isConfirmedMatchup"] is True
+    assert service._prematch_data_source("live", {"sourceStatus": "active"}, match) == "official_live"
+    assert service._prematch_schedule_state("official_live", match) == "scheduled"
+
+
 def test_live_schedule_metadata_names_unconfirmed_source_matches(tmp_path, monkeypatch) -> None:
     normalized_path = tmp_path / "normalized_schedule.json"
     normalized_path.write_text(

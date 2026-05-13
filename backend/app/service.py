@@ -1151,6 +1151,110 @@ def _match_has_predicted_team_refs(match: dict[str, Any]) -> bool:
     return _team_ref_has_key(match, "red") and _team_ref_has_key(match, "blue")
 
 
+def _swiss_record_for_source_position(round_number: int, source_position: int) -> tuple[int, int] | None:
+    if round_number == 2:
+        if 1 <= source_position <= 8:
+            return (1, 0)
+        if 9 <= source_position <= 16:
+            return (0, 1)
+    if round_number == 3:
+        if 1 <= source_position <= 4:
+            return (2, 0)
+        if 5 <= source_position <= 12:
+            return (1, 1)
+        if 13 <= source_position <= 16:
+            return (0, 2)
+    if round_number == 4:
+        if 1 <= source_position <= 2:
+            return (3, 0)
+        if 3 <= source_position <= 8:
+            return (2, 1)
+        if 9 <= source_position <= 14:
+            return (1, 2)
+        if 15 <= source_position <= 16:
+            return (0, 3)
+    if round_number == 5:
+        if 3 <= source_position <= 5:
+            return (3, 1)
+        if 6 <= source_position <= 11:
+            return (2, 2)
+        if 12 <= source_position <= 14:
+            return (1, 3)
+    return None
+
+
+def _schedule_swiss_group_name(schedule: dict[str, Any]) -> str:
+    group_name = str(schedule.get("groupName") or "").strip()
+    if group_name:
+        return group_name[:1]
+    match_label = str(schedule.get("matchLabel") or "")
+    return match_label.split("-", maxsplit=1)[0][:1]
+
+
+def _schedule_swiss_source_record(schedule: dict[str, Any]) -> tuple[int, int] | None:
+    round_number = _positive_int(schedule.get("roundNumber"))
+    red_position = _positive_int(schedule.get("redFillSourceNumber"))
+    blue_position = _positive_int(schedule.get("blueFillSourceNumber"))
+    if round_number is None or red_position is None or blue_position is None:
+        return None
+    red_record = _swiss_record_for_source_position(round_number, red_position)
+    blue_record = _swiss_record_for_source_position(round_number, blue_position)
+    return red_record if red_record is not None and red_record == blue_record else None
+
+
+def _swiss_predecessor_records(record: tuple[int, int]) -> list[tuple[int, int]]:
+    wins, losses = record
+    predecessors: list[tuple[int, int]] = []
+    if wins > 0:
+        predecessors.append((wins - 1, losses))
+    if losses > 0:
+        predecessors.append((wins, losses - 1))
+    return predecessors
+
+
+def _swiss_source_group_completed(
+    schedule_by_label: dict[str, dict[str, Any]],
+    *,
+    group_name: str,
+    round_number: int,
+    source_record: tuple[int, int],
+) -> bool:
+    source_matches = [
+        schedule
+        for schedule in schedule_by_label.values()
+        if _positive_int(schedule.get("roundNumber")) == round_number
+        and _schedule_swiss_group_name(schedule) == group_name
+        and _schedule_swiss_source_record(schedule) == source_record
+    ]
+    return bool(source_matches) and all(bool(schedule.get("isCompleted")) for schedule in source_matches)
+
+
+def _can_promote_unconfirmed_swiss_schedule(
+    schedule: dict[str, Any],
+    schedule_by_label: dict[str, dict[str, Any]],
+) -> bool:
+    match_label = str(schedule.get("matchLabel") or "")
+    if "-SWISS-" not in match_label:
+        return False
+    round_number = _positive_int(schedule.get("roundNumber"))
+    if round_number is None or round_number < 3:
+        return False
+    group_name = _schedule_swiss_group_name(schedule)
+    source_record = _schedule_swiss_source_record(schedule)
+    if not group_name or source_record is None:
+        return False
+    previous_round = round_number - 1
+    return all(
+        _swiss_source_group_completed(
+            schedule_by_label,
+            group_name=group_name,
+            round_number=previous_round,
+            source_record=predecessor_record,
+        )
+        for predecessor_record in _swiss_predecessor_records(source_record)
+    )
+
+
 def _attach_live_schedule_metadata(
     payload: dict[str, Any],
     region_slug: str,
@@ -1191,7 +1295,13 @@ def _attach_live_schedule_metadata(
                 match["officialStatus"] = str(schedule["officialStatus"])
             if preserve_predicted_unconfirmed and _match_has_predicted_team_refs(match):
                 match["isRealResult"] = False
-                match["isConfirmedMatchup"] = False
+                if match.get("isConfirmedMatchup") is not False and _can_promote_unconfirmed_swiss_schedule(
+                    schedule,
+                    schedule_by_label,
+                ):
+                    match["isConfirmedMatchup"] = True
+                else:
+                    match["isConfirmedMatchup"] = False
                 continue
             _apply_unconfirmed_official_schedule(match, schedule, source_order_by_id, group_source_by_id)
 
