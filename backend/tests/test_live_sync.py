@@ -53,6 +53,18 @@ def test_sync_mini_program_predictions_reuses_fresh_cache_and_fetches_windowed_m
         {
             "generatedAt": "2026-05-11T07:59:30+00:00",
             "predictions": {
+                "30888": {
+                    "status": "available",
+                    "matchId": "30888",
+                    "redCount": 4,
+                    "blueCount": 6,
+                    "tieCount": 0,
+                    "totalCount": 10,
+                    "redRate": 0.4,
+                    "blueRate": 0.6,
+                    "tieRate": 0.0,
+                    "fetchedAt": "2026-05-10T07:59:30+00:00",
+                },
                 "30900": {
                     "status": "available",
                     "matchId": "30900",
@@ -101,9 +113,11 @@ def test_sync_mini_program_predictions_reuses_fresh_cache_and_fetches_windowed_m
     assert status["candidateMatchIds"] == 2
     assert status["reused"] == 1
     assert status["refreshed"] == 1
+    assert status["storedPredictions"] == 3
 
     payload = json.loads((runtime_dir / "mini_program_predictions.json").read_text(encoding="utf-8"))
-    assert sorted(payload["predictions"]) == ["30900", "30901"]
+    assert sorted(payload["predictions"]) == ["30888", "30900", "30901"]
+    assert payload["predictions"]["30888"]["redRate"] == 0.4
     assert payload["predictions"]["30900"]["redRate"] == 0.7
     assert payload["predictions"]["30901"]["blueRate"] == 0.8
 
@@ -111,6 +125,30 @@ def test_sync_mini_program_predictions_reuses_fresh_cache_and_fetches_windowed_m
     assert manifest["officialSchedule"]["sourceStatus"] == "active"
     assert manifest["officialSchedule"]["matchCount"] == 4
     assert manifest["miniProgramPrediction"]["candidateMatchIds"] == 2
+
+
+def test_collect_mini_program_match_ids_treats_naive_schedule_times_as_beijing() -> None:
+    now = datetime(2026, 5, 12, 16, 0, tzinfo=UTC)
+    normalized = {
+        "sourceStatus": "active",
+        "regions": {
+            "south_region": {
+                "matches": [
+                    {"officialMatchId": "30900", "plannedStartAt": "2026-05-13T00:10:00"},
+                    {"officialMatchId": "30901", "plannedStartAt": "2026-05-13T08:10:00"},
+                ]
+            }
+        },
+    }
+
+    match_ids = sync_rmuc_live.collect_mini_program_match_ids(
+        normalized,
+        now=now,
+        lookback_hours=0,
+        lookahead_hours=1,
+    )
+
+    assert match_ids == ["30900"]
 
 
 def test_live_runtime_context_uses_persisted_mini_program_predictions(tmp_path: Path, monkeypatch) -> None:

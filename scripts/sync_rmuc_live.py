@@ -5,7 +5,7 @@ import argparse
 import json
 import os
 import sys
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
@@ -30,9 +30,10 @@ MINI_PROGRAM_PREDICTIONS_FILENAME = "mini_program_predictions.json"
 SYNC_MANIFEST_FILENAME = "sync_manifest.json"
 DEFAULT_MINI_PROGRAM_TTL_SECONDS = 300
 DEFAULT_MINI_PROGRAM_REFRESH_WINDOW_SECONDS = 60
-DEFAULT_MINI_PROGRAM_LOOKBACK_HOURS = 6
+DEFAULT_MINI_PROGRAM_LOOKBACK_HOURS = 24
 DEFAULT_MINI_PROGRAM_LOOKAHEAD_HOURS = 48
 DEFAULT_MINI_PROGRAM_MAX_MATCHES = 96
+BEIJING_TZ = timezone(timedelta(hours=8))
 
 
 def parse_args() -> argparse.Namespace:
@@ -103,7 +104,7 @@ def _parse_datetime(value: Any) -> datetime | None:
         except (TypeError, ValueError):
             return None
     if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=UTC)
+        return parsed.replace(tzinfo=BEIJING_TZ).astimezone(UTC)
     return parsed.astimezone(UTC)
 
 
@@ -210,7 +211,7 @@ def sync_mini_program_predictions(
         max_matches=max_matches,
     )
     existing = _load_existing_mini_program_predictions(runtime_dir)
-    predictions: dict[str, dict[str, Any]] = {}
+    predictions: dict[str, dict[str, Any]] = dict(existing)
     errors: dict[str, str] = {}
     reused = 0
     refreshed = 0
@@ -236,6 +237,11 @@ def sync_mini_program_predictions(
         predictions[match_id] = prediction
         refreshed += 1
 
+    window_predictions = {
+        match_id: predictions[match_id]
+        for match_id in match_ids
+        if match_id in predictions
+    }
     status = {
         "sourceStatus": "active" if not errors else "partial_error",
         "enabled": True,
@@ -247,8 +253,9 @@ def sync_mini_program_predictions(
         "candidateMatchIds": len(match_ids),
         "reused": reused,
         "refreshed": refreshed,
-        "available": sum(1 for prediction in predictions.values() if prediction.get("status") == "available"),
-        "unavailable": sum(1 for prediction in predictions.values() if prediction.get("status") != "available"),
+        "available": sum(1 for prediction in window_predictions.values() if prediction.get("status") == "available"),
+        "unavailable": sum(1 for prediction in window_predictions.values() if prediction.get("status") != "available"),
+        "storedPredictions": len(predictions),
         "errorCount": len(errors),
         "errors": errors,
     }
@@ -273,6 +280,7 @@ def disabled_mini_program_status(reason: str, *, fetched_at: datetime) -> dict[s
         "refreshed": 0,
         "available": 0,
         "unavailable": 0,
+        "storedPredictions": 0,
         "errorCount": 0,
         "errors": {},
     }
