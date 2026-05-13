@@ -712,6 +712,8 @@ def _live_match_dependency_ready(match: dict[str, Any], matches: list[dict[str, 
 def _live_match_can_lock(match: dict[str, Any], matches: list[dict[str, Any]]) -> bool:
     if match.get("isCompleted"):
         return True
+    if match.get("hasLiveScoreline"):
+        return True
     return bool(match.get("isConfirmedMatchup")) and _live_match_dependency_ready(match, matches)
 
 
@@ -731,6 +733,8 @@ def _normalize_match(match: dict[str, Any], *, region_slug: str, zone_name: str)
     status = str(match.get("status") or "").strip().upper()
     result = str(match.get("result") or "").strip().upper()
     scoreline = _scoreline(match)
+    red_wins = int(scoreline.split(":", maxsplit=1)[0])
+    blue_wins = int(scoreline.split(":", maxsplit=1)[1])
     stage_family = _stage_family(match, zone_name)
     order_number = int(match.get("orderNumber") or 0)
     stage = _stage_from_family(stage_family)
@@ -747,6 +751,7 @@ def _normalize_match(match: dict[str, Any], *, region_slug: str, zone_name: str)
         match_label = _post_group_match_label_from_order_number(order_number, stage=stage, region_slug=region_slug)
     planned_start_at = str(match.get("planStartedAt") or "").strip() or None
     match_date = planned_start_at[:10] if planned_start_at else None
+    is_completed = is_confirmed_matchup and status == "DONE" and result in {"RED", "BLUE"}
     normalized_match = {
         "officialMatchId": official_match_id,
         "matchId": f"2026RMUC:{official_match_id}",
@@ -766,12 +771,13 @@ def _normalize_match(match: dict[str, Any], *, region_slug: str, zone_name: str)
         "officialStatus": status,
         "result": result,
         "scoreline": scoreline,
-        "isCompleted": is_confirmed_matchup and status == "DONE" and result in {"RED", "BLUE"},
+        "isCompleted": is_completed,
+        "hasLiveScoreline": is_confirmed_matchup and (is_completed or red_wins + blue_wins > 0),
         "isConfirmedMatchup": is_confirmed_matchup,
         "redSlot": red_slot,
         "blueSlot": blue_slot,
-        "redWins": int(scoreline.split(":", maxsplit=1)[0]),
-        "blueWins": int(scoreline.split(":", maxsplit=1)[1]),
+        "redWins": red_wins,
+        "blueWins": blue_wins,
     }
     if red is not None:
         normalized_match.update(
@@ -1127,6 +1133,8 @@ class LiveRuntimeContext:
             out["mini_program_prediction"] = match["miniProgramPrediction"]
         if match.get("isCompleted"):
             out["fixed_scoreline"] = scoreline
+        elif match.get("hasLiveScoreline"):
+            out["display_scoreline"] = scoreline
         return out
 
 

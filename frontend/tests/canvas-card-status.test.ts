@@ -130,6 +130,26 @@ describe("deriveMatchCardState", () => {
     ).toBe("已排期");
   });
 
+  it("shows official pending scorelines without actual-result semantics", () => {
+    expect(
+      deriveMatchCardState(
+        match({
+          officialMatchId: "30900",
+          officialStatus: "PENDING",
+          plannedStartAt: "2026-05-13T00:10:00+00:00",
+          scoreline: "1:2",
+          hasLiveScoreline: true,
+        }),
+        "live"
+      )
+    ).toMatchObject({
+      statusLabel: "比分待确认",
+      showsResolvedScoreline: true,
+      usesActualResultVisuals: false,
+      isTentativeScoreline: true,
+    });
+  });
+
   it("does not call official placeholder matches scheduled before teams are confirmed", () => {
     expect(
       deriveMatchCardState(

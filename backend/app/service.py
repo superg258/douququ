@@ -723,6 +723,8 @@ def _serialize_simulation(
             serialized_match["officialStatus"] = str(row["official_status"])
         if row.get("planned_start_at") is not None:
             serialized_match["plannedStartAt"] = str(row["planned_start_at"])
+        if row.get("has_live_scoreline"):
+            serialized_match["hasLiveScoreline"] = True
         if row.get("mini_program_prediction") is not None:
             serialized_match["miniProgramPrediction"] = row["mini_program_prediction"]
         match_rows.append(serialized_match)
@@ -1179,6 +1181,9 @@ def _attach_live_schedule_metadata(
             persisted_prediction = persisted_predictions.get(official_match_id)
             if isinstance(persisted_prediction, dict):
                 match["miniProgramPrediction"] = persisted_prediction
+        if schedule.get("hasLiveScoreline") and not match.get("isRealResult"):
+            match["scoreline"] = str(schedule.get("scoreline") or match.get("scoreline") or "0:0")
+            match["hasLiveScoreline"] = True
         if schedule.get("isConfirmedMatchup") is False:
             if schedule.get("officialMatchId"):
                 match["officialMatchId"] = str(schedule["officialMatchId"])

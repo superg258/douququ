@@ -774,7 +774,8 @@ def simulate_series(
         match_label=match_label,
     )
     forced_scoreline = payload.get("fixed_scoreline")
-    scoreline = forced_scoreline if forced_scoreline else sample_from_distribution(payload["scoreline_distribution"], rng)
+    display_scoreline = payload.get("display_scoreline")
+    scoreline = forced_scoreline or display_scoreline or sample_from_distribution(payload["scoreline_distribution"], rng)
     
     is_confirmed_matchup = not (red_team.dependent_on_prediction or blue_team.dependent_on_prediction)
     if not forced_scoreline:
@@ -802,6 +803,7 @@ def simulate_series(
         "confidence_label": payload["confidence_label"],
         "scoreline": scoreline,
         "is_actual_result": bool(forced_scoreline),
+        "has_live_scoreline": bool(display_scoreline and not forced_scoreline),
         "is_confirmed_matchup": is_confirmed_matchup,
         "red_games": red_games,
         "blue_games": blue_games,
@@ -927,6 +929,8 @@ def match_row(
     for optional_key in ("official_match_id", "official_status", "planned_start_at", "mini_program_prediction"):
         if result.get(optional_key) is not None:
             row[optional_key] = result[optional_key]
+    if result.get("has_live_scoreline"):
+        row["has_live_scoreline"] = True
     if update is not None:
         row["red_mu0"] = round(red_mu_before, 1)
         row["blue_mu0"] = round(blue_mu_before, 1)

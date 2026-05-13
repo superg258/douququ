@@ -95,6 +95,28 @@ def test_normalize_schedule_payload_marks_rmuc_source_active() -> None:
     assert match["stageFamily"] == "regional_group"
     assert match["redTeamKey"] == "太原理工大学::TRoMaC"
     assert match["blueTeamKey"] == "西交利物浦大学::GMaster"
+    assert match["hasLiveScoreline"] is True
+
+
+def test_normalize_pending_match_with_reported_games_keeps_scoreline_out_of_runtime_records() -> None:
+    payload = _schedule_payload()
+    source_match = payload["data"]["event"]["zones"]["nodes"][0]["groupMatches"]["nodes"][0]
+    source_match["status"] = "PENDING"
+    source_match["result"] = "EMPTY"
+    source_match["redSideWinGameCount"] = 1
+    source_match["blueSideWinGameCount"] = 2
+
+    normalized = rmuc_live.normalize_schedule_payload(
+        payload,
+        fetched_at=datetime(2026, 5, 13, tzinfo=UTC),
+        source_headers={},
+    )
+
+    match = normalized["regions"]["south_region"]["matches"][0]
+    assert match["scoreline"] == "1:2"
+    assert match["hasLiveScoreline"] is True
+    assert match["isCompleted"] is False
+    assert rmuc_live.build_runtime_match_records(normalized) == []
 
 
 def test_normalize_schedule_payload_keeps_official_placeholder_schedule() -> None:
@@ -1150,9 +1172,10 @@ def test_live_overlay_keeps_mini_program_for_confirmed_unfinished_match() -> Non
         **match,
         "officialStatus": "PENDING",
         "result": "",
-        "scoreline": "0:0",
-        "redWins": 0,
-        "blueWins": 0,
+        "scoreline": "1:2",
+        "redWins": 1,
+        "blueWins": 2,
+        "hasLiveScoreline": True,
         "isCompleted": False,
         "isConfirmedMatchup": True,
     }
@@ -1182,6 +1205,7 @@ def test_live_overlay_keeps_mini_program_for_confirmed_unfinished_match() -> Non
 
     assert payload["official_match_id"] == "296001"
     assert payload["official_status"] == "PENDING"
+    assert payload["display_scoreline"] == "1:2"
     assert "fixed_scoreline" not in payload
     assert payload["mini_program_prediction"]["redRate"] == 0.62
 

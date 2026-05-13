@@ -71,15 +71,17 @@ export const PREDICTION_MATCH_VISUAL_CLASSES = {
 export function deriveMatchCardState(row: MatchRow, mode?: "sim" | "live") {
   const isSimulationMode = mode === "sim";
   const hasRealResult = Boolean(row.isRealResult);
+  const isTentativeScoreline = !isSimulationMode && !hasRealResult && Boolean(row.hasLiveScoreline);
   const hasPredictedTeamRefs = Boolean(row.redTeam.teamKey && row.blueTeam.teamKey);
   const isOfficialPlaceholder = !isSimulationMode && !hasRealResult && Boolean(row.officialMatchId) && row.isConfirmedMatchup === false && !hasPredictedTeamRefs;
   const isOfficialScheduled = !isSimulationMode && !hasRealResult && Boolean(row.officialMatchId) && row.isConfirmedMatchup !== false;
   const isPrediction = !isSimulationMode && !hasRealResult && !isOfficialScheduled;
-  const showsResolvedScoreline = isSimulationMode || hasRealResult;
+  const showsResolvedScoreline = isSimulationMode || hasRealResult || isTentativeScoreline;
   const usesActualResultVisuals = isSimulationMode || hasRealResult;
   const scheduleTimeLabel = formatMatchCardScheduleTime(row.plannedStartAt);
   const statusLabel = (() => {
     if (hasRealResult) return "已完赛";
+    if (isTentativeScoreline) return "比分待确认";
     if (isOfficialPlaceholder) return "队伍待定";
     if (isPrediction) return "预测";
     if (isOfficialScheduled) return "已排期";
@@ -95,6 +97,7 @@ export function deriveMatchCardState(row: MatchRow, mode?: "sim" | "live") {
     isPrediction,
     showsResolvedScoreline,
     usesActualResultVisuals,
+    isTentativeScoreline,
     scheduleTimeLabel,
     statusLabel,
   };
@@ -438,6 +441,7 @@ function MatchTeamLine({
   isPrediction,
   isSimulated,
   isScheduled,
+  isTentativeScoreline,
   selectedTeamKey,
   highlightedTeamKey,
   onTeamSelect,
@@ -448,14 +452,17 @@ function MatchTeamLine({
   isPrediction: boolean;
   isSimulated: boolean;
   isScheduled: boolean;
+  isTentativeScoreline: boolean;
   selectedTeamKey: string | null;
   highlightedTeamKey: string | null;
   onTeamSelect: (teamKey: string) => void;
 }) {
   const isRed = side.side === "red";
-  const isRealWinner = resultResolved && !isSimulated && side.isWinner;
+  const isTentativeWinner = resultResolved && isTentativeScoreline && side.isWinner;
+  const isTentativeLoser = resultResolved && isTentativeScoreline && !side.isWinner;
+  const isRealWinner = resultResolved && !isSimulated && !isTentativeScoreline && side.isWinner;
   const isSimWinner = resultResolved && isSimulated && side.isWinner;
-  const isRealLoser = resultResolved && !isSimulated && !side.isWinner;
+  const isRealLoser = resultResolved && !isSimulated && !isTentativeScoreline && !side.isWinner;
   const isSimLoser = resultResolved && isSimulated && !side.isWinner;
   const isWinner = resultResolved && side.isWinner;
   const isLoser = resultResolved && !side.isWinner;
@@ -479,6 +486,14 @@ function MatchTeamLine({
     ? (isRed
         ? "bg-[linear-gradient(90deg,rgba(232,48,42,0.03),transparent)]"
         : "bg-[linear-gradient(90deg,rgba(42,159,255,0.03),transparent)]")
+    : isTentativeWinner
+    ? (isRed
+        ? "bg-[linear-gradient(90deg,rgba(232,48,42,0.14),rgba(232,48,42,0.05),transparent)]"
+        : "bg-[linear-gradient(90deg,rgba(42,159,255,0.14),rgba(42,159,255,0.05),transparent)]")
+    : isTentativeLoser
+    ? (isRed
+        ? "bg-[linear-gradient(90deg,rgba(232,48,42,0.06),transparent)]"
+        : "bg-[linear-gradient(90deg,rgba(42,159,255,0.06),transparent)]")
     : isPrediction
     ? (isRed
         ? PREDICTION_MATCH_VISUAL_CLASSES.redTeamRow
@@ -599,6 +614,14 @@ function MatchTeamLine({
           ? (isRed
               ? "bg-[linear-gradient(180deg,rgba(232,48,42,0.10),rgba(232,48,42,0.06),rgba(232,48,42,0.08))] text-rm-result-loser/50"
               : "bg-[linear-gradient(180deg,rgba(42,159,255,0.10),rgba(42,159,255,0.06),rgba(42,159,255,0.08))] text-rm-result-loser/50")
+          : isTentativeWinner
+          ? (isRed
+              ? "bg-[linear-gradient(180deg,rgba(232,48,42,0.45),rgba(232,48,42,0.30),rgba(200,35,28,0.34))] text-white/80"
+              : "bg-[linear-gradient(180deg,rgba(42,159,255,0.45),rgba(42,159,255,0.30),rgba(30,130,220,0.34))] text-white/80")
+          : isTentativeLoser
+          ? (isRed
+              ? "bg-[linear-gradient(180deg,rgba(232,48,42,0.22),rgba(232,48,42,0.14),rgba(232,48,42,0.18))] text-white/55"
+              : "bg-[linear-gradient(180deg,rgba(42,159,255,0.22),rgba(42,159,255,0.14),rgba(42,159,255,0.18))] text-white/55")
           : isScheduled
           ? (isRed
               ? "bg-[linear-gradient(180deg,rgba(232,48,42,0.35),rgba(232,48,42,0.25),rgba(200,35,28,0.30))] text-white/60"
@@ -616,6 +639,8 @@ function MatchTeamLine({
         </span>
         {isRealWinner ? (
           <span className="text-[9px] font-extrabold leading-none text-[#D0D0D0]">胜</span>
+        ) : isTentativeWinner ? (
+          <span className="text-[8px] font-semibold leading-none text-white/60">暂领先</span>
         ) : isSimWinner ? (
           <span className="text-[8px] font-semibold leading-none text-white/50">预测胜</span>
         ) : !resultResolved ? (
@@ -653,8 +678,8 @@ function MatchCanvasCardComponent({
   const row = card.match;
   const expectedRed = row.pSeriesRed ?? card.redSide.probability;
   const cardState = deriveMatchCardState(row, mode);
-  const { isSimulationMode, isOfficialScheduled, isOfficialPlaceholder, isPrediction, showsResolvedScoreline, usesActualResultVisuals, scheduleTimeLabel } = cardState;
-  const rendersDimmedPredictionOutcome = showsResolvedScoreline && !usesActualResultVisuals;
+  const { isSimulationMode, isOfficialScheduled, isOfficialPlaceholder, isPrediction, showsResolvedScoreline, usesActualResultVisuals, isTentativeScoreline, scheduleTimeLabel } = cardState;
+  const rendersDimmedPredictionOutcome = showsResolvedScoreline && !usesActualResultVisuals && !isTentativeScoreline;
   const [redGamesText, blueGamesText] = (row.scoreline || "0:0").split(":");
   const redGames = Number(redGamesText);
   const blueGames = Number(blueGamesText);
@@ -676,6 +701,7 @@ function MatchCanvasCardComponent({
       return "border-2 border-rm-status-safe bg-[#0D0D10] shadow-[0_0_12px_rgba(0,232,120,0.15)]";
     }
     // Tier 2: scheduled — medium
+    if (isTentativeScoreline) return "border border-rm-status-warn/60 bg-black/70 shadow-[0_0_10px_rgba(255,184,46,0.10)]";
     if (isOfficialPlaceholder) return "border border-dashed border-rm-status-scheduled/45 bg-black/55";
     if (isOfficialScheduled) return "border border-rm-status-scheduled/50 bg-black/65";
     // Tier 3: pure prediction — dimmest
@@ -695,6 +721,7 @@ function MatchCanvasCardComponent({
       return { label: "已完赛", className: "border-rm-status-safe text-rm-status-safe bg-rm-status-safe/20 shadow-[0_0_10px_rgba(0,232,120,0.3)]" };
     }
     // Tier 2: scheduled — muted
+    if (isTentativeScoreline) return { label: "比分待确认", className: "border-rm-status-warn/70 text-rm-status-warn bg-rm-status-warn/12" };
     if (isOfficialPlaceholder) return { label: "队伍待定", className: "border-dashed border-rm-status-scheduled/55 text-rm-status-scheduled/75 bg-rm-status-scheduled/8" };
     if (isOfficialScheduled) return { label: "已排期", className: "border-rm-status-scheduled/60 text-rm-status-scheduled/80 bg-rm-status-scheduled/10" };
     // Tier 3: prediction — faint
@@ -784,6 +811,7 @@ function MatchCanvasCardComponent({
         isPrediction={isPrediction}
         isSimulated={rendersDimmedPredictionOutcome}
         isScheduled={isOfficialScheduled}
+        isTentativeScoreline={isTentativeScoreline}
         selectedTeamKey={selectedTeamKey}
         highlightedTeamKey={highlightedTeamKey}
         onTeamSelect={onTeamSelect}
@@ -810,6 +838,7 @@ function MatchCanvasCardComponent({
         isPrediction={isPrediction}
         isSimulated={rendersDimmedPredictionOutcome}
         isScheduled={isOfficialScheduled}
+        isTentativeScoreline={isTentativeScoreline}
         selectedTeamKey={selectedTeamKey}
         highlightedTeamKey={highlightedTeamKey}
         onTeamSelect={onTeamSelect}

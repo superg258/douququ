@@ -211,6 +211,7 @@ export interface MatchRow {
   bestOf: number;
   isRealResult?: boolean;
   isConfirmedMatchup?: boolean;
+  hasLiveScoreline?: boolean;
   redTeam: TeamRef;
   blueTeam: TeamRef;
   scoreline: string;
