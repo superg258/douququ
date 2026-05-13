@@ -174,6 +174,8 @@ class RegionTeam:
     official_avg_team_damage: float | None = None
     ranking_metric_source: str = "simulation_proxy"
     ranking_completeness: str = "simulation_proxy"
+    official_rank_wins: int | None = None
+    official_rank_losses: int | None = None
     official_record_seeded: bool = False
     final_bucket: str = ""
     advancement: str = ""
@@ -441,6 +443,11 @@ def apply_official_swiss_ranking_metrics(
         metrics = metrics_by_team_key.get(team.team_key)
         if not metrics:
             continue
+        official_rank_wins = _parse_optional_metric(metrics.get("wins"))
+        official_rank_losses = _parse_optional_metric(metrics.get("losses"))
+        if official_rank_wins is not None and official_rank_losses is not None:
+            team.official_rank_wins = int(official_rank_wins)
+            team.official_rank_losses = int(official_rank_losses)
         if not empty_rank_snapshot:
             team.official_opponent_points = _first_metric(
                 metrics,
@@ -472,12 +479,10 @@ def apply_official_swiss_ranking_metrics(
             team.ranking_metric_source = str(metrics.get("ranking_metric_source") or metrics.get("source") or "official_live")
             team.ranking_completeness = str(metrics.get("ranking_completeness") or "official_rank_snapshot")
         if seed_current_state:
-            wins = _parse_optional_metric(metrics.get("wins"))
-            losses = _parse_optional_metric(metrics.get("losses"))
-            if wins is not None and losses is not None:
-                team.swiss_wins = int(wins)
-                team.swiss_losses = int(losses)
-                played_round = int(wins + losses)
+            if official_rank_wins is not None and official_rank_losses is not None:
+                team.swiss_wins = int(official_rank_wins)
+                team.swiss_losses = int(official_rank_losses)
+                played_round = int(official_rank_wins + official_rank_losses)
                 if team.swiss_wins >= 3 and team.swiss_qualified_round is None:
                     team.swiss_qualified_round = played_round
                 if team.swiss_losses >= 3 and team.swiss_eliminated_round is None:
@@ -518,7 +523,7 @@ def swiss_opponent_score(team: RegionTeam, teams_by_key: dict[str, RegionTeam]) 
 
 
 def effective_swiss_opponent_score(team: RegionTeam, teams_by_key: dict[str, RegionTeam]) -> float:
-    if team.official_opponent_points is not None:
+    if team.official_opponent_points is not None and _official_rank_snapshot_matches_current_state(team):
         return team.official_opponent_points
     return float(swiss_opponent_score(team, teams_by_key))
 
@@ -542,6 +547,26 @@ def _official_metric_or_zero(value: float | None) -> float:
     return 0.0 if value is None else float(value)
 
 
+def _official_rank_snapshot_matches_current_state(team: RegionTeam) -> bool:
+    official_wins = getattr(team, "official_rank_wins", None)
+    official_losses = getattr(team, "official_rank_losses", None)
+    if official_wins is None or official_losses is None:
+        return True
+    if int(team.swiss_wins) != int(official_wins) or int(team.swiss_losses) != int(official_losses):
+        return False
+    official_played = int(official_wins) + int(official_losses)
+    opponent_count = len(getattr(team, "swiss_opponents", []))
+    if opponent_count == official_played:
+        return True
+    return bool(getattr(team, "official_record_seeded", False) and opponent_count == 0)
+
+
+def _effective_official_rank_metric(team: RegionTeam, value: float | None) -> float:
+    if not _official_rank_snapshot_matches_current_state(team):
+        return 0.0
+    return _official_metric_or_zero(value)
+
+
 def swiss_sort_key(team: RegionTeam, teams_by_key: dict[str, RegionTeam]) -> tuple[float, ...]:
     qualified_speed = -float(team.swiss_qualified_round) if team.swiss_qualified_round is not None else -99.0
     seed_fallback = -float(team.seed_rank_in_region)
@@ -551,8 +576,8 @@ def swiss_sort_key(team: RegionTeam, teams_by_key: dict[str, RegionTeam]) -> tup
         -float(team.swiss_losses),
         qualified_speed,
         effective_swiss_opponent_score(team, teams_by_key),
-        _official_metric_or_zero(team.official_avg_base_hp_diff),
-        _official_metric_or_zero(team.official_avg_team_damage),
+        _effective_official_rank_metric(team, team.official_avg_base_hp_diff),
+        _effective_official_rank_metric(team, team.official_avg_team_damage),
         float(team.swiss_game_diff),
         team.mu0,
         seed_fallback,
@@ -565,8 +590,8 @@ def swiss_cross_group_key(team: RegionTeam, teams_by_key: dict[str, RegionTeam])
         -float(team.swiss_losses),
         -float(team.swiss_qualified_round) if team.swiss_qualified_round is not None else -99.0,
         effective_swiss_opponent_score(team, teams_by_key),
-        _official_metric_or_zero(team.official_avg_base_hp_diff),
-        _official_metric_or_zero(team.official_avg_team_damage),
+        _effective_official_rank_metric(team, team.official_avg_base_hp_diff),
+        _effective_official_rank_metric(team, team.official_avg_team_damage),
         float(team.swiss_game_diff),
         team.mu0,
         -float(team.seed_rank_in_region),

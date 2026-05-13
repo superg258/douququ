@@ -78,3 +78,55 @@ def test_empty_official_rank_snapshot_does_not_freeze_simulated_opponent_score()
     assert region_core.effective_swiss_opponent_score(two_one, teams_by_key) == -1.0
     assert region_core.effective_swiss_opponent_score(two_zero, teams_by_key) == -2.0
     assert [team.team_key for team in ranked] == ["two-one-winner", "two-zero-winner"]
+
+
+def test_official_rank_snapshot_only_applies_to_matching_completed_state() -> None:
+    region_core = service.region_sim.region_core
+    official_one_zero = _team("official-one-zero", seed_rank=2)
+    predicted_one_zero = _team("predicted-one-zero", seed_rank=1)
+    official_opponent = _team("official-opponent", seed_rank=3)
+    predicted_opponent = _team("predicted-opponent", seed_rank=4)
+    teams = [official_one_zero, predicted_one_zero, official_opponent, predicted_opponent]
+
+    region_core.apply_official_swiss_ranking_metrics(
+        teams,
+        {
+            official_one_zero.team_key: {
+                "wins": 1.0,
+                "losses": 0.0,
+                "official_opponent_points": -1.0,
+                "ranking_metric_source": "official_live",
+            },
+            predicted_one_zero.team_key: {
+                "wins": 0.0,
+                "losses": 0.0,
+                "official_opponent_points": 0.0,
+                "ranking_metric_source": "official_live",
+            },
+        },
+    )
+
+    official_one_zero.swiss_wins = 1
+    official_one_zero.swiss_game_diff = 1
+    official_one_zero.swiss_opponents = [official_opponent.team_key]
+    official_opponent.swiss_losses = 1
+    official_opponent.swiss_game_diff = -1
+    official_opponent.swiss_opponents = [official_one_zero.team_key]
+
+    predicted_one_zero.swiss_wins = 1
+    predicted_one_zero.swiss_game_diff = 2
+    predicted_one_zero.swiss_opponents = [predicted_opponent.team_key]
+    predicted_opponent.swiss_losses = 1
+    predicted_opponent.swiss_game_diff = -2
+    predicted_opponent.swiss_opponents = [predicted_one_zero.team_key]
+
+    teams_by_key = {team.team_key: team for team in teams}
+    ranked = sorted(
+        [predicted_one_zero, official_one_zero],
+        key=lambda team: region_core.swiss_sort_key(team, teams_by_key),
+        reverse=True,
+    )
+
+    assert region_core.effective_swiss_opponent_score(official_one_zero, teams_by_key) == -1.0
+    assert region_core.effective_swiss_opponent_score(predicted_one_zero, teams_by_key) == -2.0
+    assert [team.team_key for team in ranked] == ["official-one-zero", "predicted-one-zero"]
