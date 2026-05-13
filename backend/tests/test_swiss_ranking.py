@@ -40,6 +40,33 @@ def _empty_official_metric() -> dict[str, float | str]:
     }
 
 
+def test_official_swiss_pairing_merge_preserves_matched_official_orientation_with_unmatched_rows() -> None:
+    region_core = service.region_sim.region_core
+    official_red = _team("official-red", seed_rank=1)
+    official_blue = _team("official-blue", seed_rank=2)
+    unmatched_red = _team("unmatched-red", seed_rank=3)
+    unmatched_blue = _team("unmatched-blue", seed_rank=4)
+    fallback_only_red = _team("fallback-only-red", seed_rank=5)
+    fallback_only_blue = _team("fallback-only-blue", seed_rank=6)
+
+    merged = region_core._merge_official_swiss_pairings(
+        fallback_pairings=[
+            (official_blue, official_red),
+            (fallback_only_red, fallback_only_blue),
+        ],
+        official_pairings=[
+            (official_red, official_blue),
+            (unmatched_red, unmatched_blue),
+        ],
+    )
+
+    assert [(red.team_key, blue.team_key) for red, blue in merged] == [
+        ("official-red", "official-blue"),
+        ("unmatched-red", "unmatched-blue"),
+        ("fallback-only-red", "fallback-only-blue"),
+    ]
+
+
 def test_empty_official_rank_snapshot_does_not_freeze_simulated_opponent_score() -> None:
     region_core = service.region_sim.region_core
     two_one = _team("two-one-winner", seed_rank=2)

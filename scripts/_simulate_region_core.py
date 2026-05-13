@@ -651,35 +651,12 @@ def _merge_official_swiss_pairings(
     if not official_pairings:
         return fallback_pairings
 
-    official_by_team_set: dict[frozenset[str], tuple[RegionTeam, RegionTeam]] = {
-        frozenset((red_team.team_key, blue_team.team_key)): (red_team, blue_team)
-        for red_team, blue_team in official_pairings
-    }
-    used_official_sets: set[frozenset[str]] = set()
-    merged: list[tuple[RegionTeam, RegionTeam]] = []
-    for fallback_red, fallback_blue in fallback_pairings:
-        team_set = frozenset((fallback_red.team_key, fallback_blue.team_key))
-        official_pairing = official_by_team_set.get(team_set)
-        if official_pairing is None:
-            merged.append((fallback_red, fallback_blue))
-            continue
-        merged.append(official_pairing)
-        used_official_sets.add(team_set)
-
-    unmatched_official_pairings = [
-        pairing
-        for team_set, pairing in official_by_team_set.items()
-        if team_set not in used_official_sets
-    ]
-    if not unmatched_official_pairings:
-        return merged
-
     official_team_keys = {
         team.team_key
-        for pairing in unmatched_official_pairings
+        for pairing in official_pairings
         for team in pairing
     }
-    return unmatched_official_pairings + [
+    return official_pairings + [
         (red_team, blue_team)
         for red_team, blue_team in fallback_pairings
         if red_team.team_key not in official_team_keys and blue_team.team_key not in official_team_keys
