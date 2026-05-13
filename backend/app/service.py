@@ -1191,6 +1191,7 @@ def _attach_live_schedule_metadata(
                 match["officialStatus"] = str(schedule["officialStatus"])
             if preserve_predicted_unconfirmed and _match_has_predicted_team_refs(match):
                 match["isRealResult"] = False
+                match["isConfirmedMatchup"] = False
                 continue
             _apply_unconfirmed_official_schedule(match, schedule, source_order_by_id, group_source_by_id)
 

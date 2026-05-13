@@ -1345,7 +1345,6 @@ def test_live_schedule_metadata_preserves_predicted_unconfirmed_matchups_after_d
             )
         ]
     }
-    payload["matches"][0]["isConfirmedMatchup"] = False
 
     service._attach_live_schedule_metadata(
         payload,
