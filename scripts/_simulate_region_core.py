@@ -783,7 +783,14 @@ def simulate_series(
         blue_team.dependent_on_prediction = True
 
     red_games, blue_games = parse_scoreline(scoreline)
-    winner = red_team if red_games > blue_games else blue_team
+    if red_games > blue_games:
+        winner = red_team
+    elif blue_games > red_games:
+        winner = blue_team
+    else:
+        # In-progress official scorelines can be tied; keep the live score for display,
+        # but pick a temporary internal winner so the predictive bracket can advance.
+        winner = red_team if float(payload["p_series_red"]) >= float(payload["p_series_blue"]) else blue_team
     loser = blue_team if winner is red_team else red_team
     result = {
         "stage": stage,

@@ -460,6 +460,87 @@ def test_simulate_swiss_group_can_start_from_official_current_records() -> None:
     assert len(match_rows) == 25
 
 
+def test_tied_live_display_scoreline_uses_model_favorite_for_internal_winner() -> None:
+    region_core = service.region_sim.region_core
+    red = region_core.RegionTeam(
+        team_key="red-school::main",
+        college_name="红方大学",
+        team_name="Main",
+        admitted_region="南部赛区",
+        seed_tier="unseeded",
+        seed_rank_in_region=1,
+        ranking_global_rank=1,
+        shape_rank=1,
+        mu0=1700.0,
+        sigma0=40.0,
+        z_25game=0.0,
+        z_robot25_raw=0.0,
+        z_26rmul=0.0,
+        z_form=0.0,
+        tilde_z_hist=0.0,
+        n_matches_2025_rmuc=0,
+        n_matches_2026_rmul=0,
+        robot_stage_reliability=0.0,
+        simulation_mu=1700.0,
+        match_sigma=16.0,
+        slot="A1",
+        group_name="A",
+    )
+    blue = region_core.RegionTeam(
+        team_key="blue-school::main",
+        college_name="蓝方大学",
+        team_name="Main",
+        admitted_region="南部赛区",
+        seed_tier="unseeded",
+        seed_rank_in_region=2,
+        ranking_global_rank=2,
+        shape_rank=2,
+        mu0=1600.0,
+        sigma0=40.0,
+        z_25game=0.0,
+        z_robot25_raw=0.0,
+        z_26rmul=0.0,
+        z_form=0.0,
+        tilde_z_hist=0.0,
+        n_matches_2025_rmuc=0,
+        n_matches_2026_rmul=0,
+        robot_stage_reliability=0.0,
+        simulation_mu=1600.0,
+        match_sigma=16.0,
+        slot="A9",
+        group_name="A",
+    )
+
+    def payload_builder(*args, **kwargs):
+        return {
+            "p_game_base_red": 0.6,
+            "p_game_adj_red": 0.6,
+            "p_series_red": 0.7,
+            "p_series_blue": 0.3,
+            "scoreline_distribution": {"2:0": 1.0},
+            "head_to_head_summary": {"delta_h2h": 0.0},
+            "confidence_label": "test",
+            "display_scoreline": "1:1",
+        }
+
+    result = region_core.simulate_series(
+        red,
+        blue,
+        best_of=3,
+        stage="swiss",
+        round_number=1,
+        match_label="A-SWISS-1-1",
+        rng=random.Random(1),
+        head_to_head_index={},
+        samples=1,
+        payload_builder=payload_builder,
+    )
+
+    assert result["scoreline"] == "1:1"
+    assert result["has_live_scoreline"] is True
+    assert result["winner"] is red
+
+
 def test_live_school_rename_aliases_do_not_split_team_keys() -> None:
     payload = _schedule_payload()
     zone = payload["data"]["event"]["zones"]["nodes"][0]

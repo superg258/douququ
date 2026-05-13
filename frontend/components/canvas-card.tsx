@@ -442,6 +442,7 @@ function MatchTeamLine({
   isSimulated,
   isScheduled,
   isTentativeScoreline,
+  isTentativeDraw,
   selectedTeamKey,
   highlightedTeamKey,
   onTeamSelect,
@@ -453,19 +454,20 @@ function MatchTeamLine({
   isSimulated: boolean;
   isScheduled: boolean;
   isTentativeScoreline: boolean;
+  isTentativeDraw: boolean;
   selectedTeamKey: string | null;
   highlightedTeamKey: string | null;
   onTeamSelect: (teamKey: string) => void;
 }) {
   const isRed = side.side === "red";
-  const isTentativeWinner = resultResolved && isTentativeScoreline && side.isWinner;
-  const isTentativeLoser = resultResolved && isTentativeScoreline && !side.isWinner;
+  const isTentativeWinner = resultResolved && isTentativeScoreline && !isTentativeDraw && side.isWinner;
+  const isTentativeLoser = resultResolved && isTentativeScoreline && !isTentativeDraw && !side.isWinner;
   const isRealWinner = resultResolved && !isSimulated && !isTentativeScoreline && side.isWinner;
   const isSimWinner = resultResolved && isSimulated && side.isWinner;
   const isRealLoser = resultResolved && !isSimulated && !isTentativeScoreline && !side.isWinner;
   const isSimLoser = resultResolved && isSimulated && !side.isWinner;
-  const isWinner = resultResolved && side.isWinner;
-  const isLoser = resultResolved && !side.isWinner;
+  const isWinner = resultResolved && !isTentativeDraw && side.isWinner;
+  const isLoser = resultResolved && !isTentativeDraw && !side.isWinner;
   const hasTeamKey = Boolean(side.teamKey);
   const isFocused = hasTeamKey && (selectedTeamKey === side.teamKey || highlightedTeamKey === side.teamKey);
   const pointerIntentRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
@@ -639,6 +641,8 @@ function MatchTeamLine({
         </span>
         {isRealWinner ? (
           <span className="text-[9px] font-extrabold leading-none text-[#D0D0D0]">胜</span>
+        ) : isTentativeDraw ? (
+          <span className="text-[8px] font-semibold leading-none text-white/60">平局</span>
         ) : isTentativeWinner ? (
           <span className="text-[8px] font-semibold leading-none text-white/60">暂领先</span>
         ) : isSimWinner ? (
@@ -683,6 +687,7 @@ function MatchCanvasCardComponent({
   const [redGamesText, blueGamesText] = (row.scoreline || "0:0").split(":");
   const redGames = Number(redGamesText);
   const blueGames = Number(blueGamesText);
+  const isTentativeDraw = isTentativeScoreline && Number.isFinite(redGames) && Number.isFinite(blueGames) && redGames === blueGames;
   const predictedScore = predictScoreline(row.pGameRed ?? expectedRed, expectedRed, row.bestOf || 3);
   const resolvedDisplayScore = scoreParts(row.scoreline);
   const predictedDisplayScore = scoreParts(predictedScore.scoreline);
@@ -812,6 +817,7 @@ function MatchCanvasCardComponent({
         isSimulated={rendersDimmedPredictionOutcome}
         isScheduled={isOfficialScheduled}
         isTentativeScoreline={isTentativeScoreline}
+        isTentativeDraw={isTentativeDraw}
         selectedTeamKey={selectedTeamKey}
         highlightedTeamKey={highlightedTeamKey}
         onTeamSelect={onTeamSelect}
@@ -839,6 +845,7 @@ function MatchCanvasCardComponent({
         isSimulated={rendersDimmedPredictionOutcome}
         isScheduled={isOfficialScheduled}
         isTentativeScoreline={isTentativeScoreline}
+        isTentativeDraw={isTentativeDraw}
         selectedTeamKey={selectedTeamKey}
         highlightedTeamKey={highlightedTeamKey}
         onTeamSelect={onTeamSelect}

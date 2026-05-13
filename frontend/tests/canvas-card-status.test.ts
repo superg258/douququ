@@ -232,6 +232,47 @@ describe("CanvasCardView match card chrome", () => {
 
     expect(html).not.toContain("BO3");
   });
+
+  it("renders tied live scorelines as draws even when backend keeps a prediction winner", () => {
+    const row = match({
+      officialMatchId: "30903",
+      officialStatus: "STARTED",
+      plannedStartAt: "2026-05-13T11:00:00+08:00",
+      scoreline: "1:1",
+      hasLiveScoreline: true,
+      winnerTeamKey: "blue",
+      loserTeamKey: "red",
+    });
+    const base = matchCanvasCard();
+    const html = renderToStaticMarkup(
+      React.createElement(CanvasCardView, {
+        card: {
+          ...base,
+          match: row,
+          redSide: {
+            ...base.redSide,
+            score: "1",
+            isWinner: false,
+          },
+          blueSide: {
+            ...base.blueSide,
+            score: "1",
+            isWinner: true,
+          },
+        },
+        mode: "live",
+        selectedTeamKey: null,
+        highlightedTeamKey: null,
+        hasActiveHighlight: false,
+        onTeamSelect: () => undefined,
+        onMatchSelect: () => undefined,
+        selectedMatchLabel: null,
+      })
+    );
+
+    expect(html.match(/平局/g)?.length).toBe(2);
+    expect(html).not.toContain("暂领先");
+  });
 });
 
 describe("deriveTeamCardState", () => {
