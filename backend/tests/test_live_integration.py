@@ -353,6 +353,68 @@ def test_normalize_schedule_payload_maps_slot_only_group_rank_rows_after_officia
     assert metrics["official_avg_team_damage"] == 1666.0
 
 
+def test_normalize_schedule_payload_preserves_official_rank_snapshot_once_post_group_locks() -> None:
+    payload = _schedule_payload()
+    zone = payload["data"]["event"]["zones"]["nodes"][0]
+    zone["knockoutMatches"]["nodes"] = [
+        {
+            "id": "30966",
+            "matchType": "KNOCKOUT",
+            "orderNumber": 67,
+            "slug": "16进8淘汰赛",
+            "planGameCount": 3,
+            "planStartedAt": "2026-05-16T06:10:00Z",
+            "status": "WAITING",
+            "result": "EMPTY",
+            "redSideWinGameCount": 0,
+            "blueSideWinGameCount": 0,
+            "redSide": {"player": _team("应急管理大学", "风暴", "A1")},
+            "blueSide": {"player": _team("东北大学", "T-DT", "A9")},
+        }
+    ]
+    group_rank_payload = {
+        "zones": [
+            {
+                "zoneName": "南部赛区",
+                "groups": [
+                    {
+                        "groupName": "A组",
+                        "groupPlayers": [
+                            [
+                                {"itemName": "排名", "itemValue": 6},
+                                {
+                                    "itemName": "战队",
+                                    "itemValue": {
+                                        "collegeName": "太原理工大学",
+                                        "teamName": "TRoMaC",
+                                    },
+                                },
+                                {"itemName": "胜/平/负", "itemValue": "1/0/0"},
+                                {"itemName": "积分", "itemValue": 3},
+                                {"itemName": "对手分", "itemValue": 99},
+                                {"itemName": "时均总基地净胜血量", "itemValue": 135.5},
+                                {"itemName": "时均全队总伤害血量", "itemValue": 2468.5},
+                            ]
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+
+    normalized = rmuc_live.normalize_schedule_payload(
+        payload,
+        fetched_at=datetime(2026, 5, 16, tzinfo=UTC),
+        source_headers={},
+        group_rank_payload=group_rank_payload,
+    )
+
+    metrics = normalized["regions"]["south_region"]["groupRankMetrics"]["太原理工大学::TRoMaC"]
+    assert metrics["source_reported_opponent_points"] == 99.0
+    assert metrics["official_opponent_points"] == 99.0
+    assert metrics["ranking_completeness"] == "official_rank_snapshot"
+
+
 def test_swiss_sort_prefers_fewer_losses_before_fallback_seed() -> None:
     region_core = service.region_sim.region_core
     stronger_record = SimpleNamespace(

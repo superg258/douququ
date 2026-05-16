@@ -348,6 +348,13 @@ def _computed_swiss_opponent_points(matches: list[dict[str, Any]]) -> dict[str, 
     }
 
 
+def _has_locked_official_post_group_schedule(matches: list[dict[str, Any]]) -> bool:
+    return any(
+        str(match.get("stageFamily") or "") == "post_group" and bool(match.get("isConfirmedMatchup"))
+        for match in matches
+    )
+
+
 def _stage_family(match: dict[str, Any], zone_name: str) -> str:
     match_type = str(match.get("matchType") or "").upper()
     if "复活" in zone_name:
@@ -869,6 +876,7 @@ def normalize_schedule_payload(
                 row["officialMatchId"],
             )
         )
+        locked_post_group_schedule = _has_locked_official_post_group_schedule(matches)
         slot_assignments = _collect_slot_assignments(zone)
         metric_bucket = group_rank_metric_buckets.get(region_slug, {})
         region_group_rank_metrics = dict(metric_bucket.get("teams", {}))
@@ -885,6 +893,11 @@ def normalize_schedule_payload(
                     "ranking_metric_source": "official_live",
                 },
             )
+            reported_opponent_points = _optional_float(metrics.get("source_reported_opponent_points"))
+            if locked_post_group_schedule and reported_opponent_points is not None:
+                metrics["official_opponent_points"] = reported_opponent_points
+                metrics.setdefault("ranking_completeness", "official_rank_snapshot")
+                continue
             metrics["official_opponent_points"] = opponent_points
             metrics["ranking_metric_source"] = "official_live"
             metrics["ranking_completeness"] = "official_schedule_replay"
