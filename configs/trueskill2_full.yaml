@@ -56,10 +56,59 @@ regional_pre_model:
   shape_evidence_scale: 0.90
   rmul_finish_scale: 1.00
   station_calibration_scale: 0.12
-  prior_delta_cap_min: 0.25
-  prior_delta_cap_max: 1.00
+  prior_delta_cap_min: 0.35
+  prior_delta_cap_max: 1.25
   history_cap_curve: 0.80
   online_live_update_scale: 0.50
+  live_update_strategy: season_delta_fusion
+  prior_delta_sigma_weight: 0.55
+  history_sigma_weight: 0.30
+  base_event_sigma: 0.25
+  season_delta_cap: 3.00
+  season_delta_sigma_floor: 0.30
+  season_delta_process_sigma: 0.08
+  result_obs_sigma_base: 0.45
+  expected_loss_sigma_multiplier: 2.50
+  expected_loss_probability_threshold: 0.35
+  surprise_residual_threshold: 0.25
+  sweep_bonus_2_0: 0.10
+  max_sigma_inflation: 0.18
+  early_group_sigma_floor: 0.42
+  early_group_sigma_floor_matches: 2.0
+  momentum_update_enabled: true
+  result_momentum_scale: 0.35
+  result_momentum_decay: 0.55
+  result_momentum_cap: 0.50
+  live_form_update_enabled: true
+  form_freshness_decay_minutes: 90.0
+  form_freshness_floor: 0.25
+  form_freshness_mode: event_count_v1
+  form_team_damage_weight: 0.90
+  form_base_hp_weight: 0.10
+  form_opponent_points_weight: 0.00
+  form_scale: 1.60
+  form_temperature: 1.20
+  form_obs_sigma_base: 0.70
+  opponent_form_expected_scale: 0.75
+  opponent_form_adjustment_weight: 1.00
+  robot_form_blend_weight: 0.35
+  robot_form_scale: 1.25
+  robot_form_temperature: 1.20
+  robot_form_obs_sigma_base: 1.15
+  robot_form_reliability_floor: 0.35
+  robot_gate_conflict_weight: 0.05
+  robot_gate_robot_only_weight: 0.50
+  robot_gate_neutral_weight: 0.25
+  prediction_head_base_weight: 0.25
+  prediction_head_season_delta_weight: 1.00
+  prediction_head_momentum_weight: 0.00
+  prediction_head_temperature: 1.00
+  prediction_head_early_group_min_matches: 1.0
+  prediction_head_early_group_max_matches: 1.0
+  prediction_head_process_residual_weight: 0.35
+  prediction_head_process_residual_cap: 0.40
+  prediction_head_robot_form_agreement_weight: 0.15
+  prediction_head_robot_form_agreement_cap: 0.30
   same_year_shape_weight: 0.40
   same_year_rmul_weight: 0.95
   same_year_consistency_weight: 0.55

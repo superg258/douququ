@@ -107,7 +107,7 @@ def _load_current_rating_index_cached(
         preseason_elo = float(row["mu0"])
         snapshot = snapshot_by_school_key.get(school_key)
         current_elo = float(snapshot["published_rating"]) if snapshot is not None else preseason_elo
-        out[team_key] = {
+        row_payload: dict[str, Any] = {
             "teamKey": team_key,
             "schoolKey": school_key,
             "currentElo": current_elo,
@@ -115,6 +115,20 @@ def _load_current_rating_index_cached(
             "eloDeltaFromPreseason": current_elo - preseason_elo,
             "eloRankSource": "live" if snapshot is not None else "preseason",
         }
+        if snapshot is not None:
+            for source_key, target_key in (
+                ("rmuc_program_base_theta", "programBaseTheta"),
+                ("season_delta_mu", "seasonDeltaMu"),
+                ("rmuc_momentum_theta", "momentumTheta"),
+                ("season_delta_sigma_theta", "seasonDeltaSigmaTheta"),
+                ("regional_group_matches_played", "regionalGroupMatchesPlayed"),
+            ):
+                value = snapshot.get(source_key)
+                if value not in (None, ""):
+                    row_payload[target_key] = float(value)
+            row_payload["currentStageFamily"] = str(snapshot.get("current_stage_family") or "")
+            row_payload["predictionHeadSource"] = "current_snapshot_components"
+        out[team_key] = row_payload
     return out
 
 
@@ -148,6 +162,19 @@ def load_global_elo_rank_map() -> dict[str, int]:
 
 
 load_global_elo_rank_map.cache_clear = _load_global_elo_rank_map_cached.cache_clear  # type: ignore[attr-defined]
+
+
+LIVE_PREDICTION_HEAD_BASE_WEIGHT = 0.25
+LIVE_PREDICTION_HEAD_SEASON_DELTA_WEIGHT = 1.00
+LIVE_PREDICTION_HEAD_MOMENTUM_WEIGHT = 0.00
+LIVE_PREDICTION_HEAD_TEMPERATURE = 1.00
+LIVE_PREDICTION_HEAD_EARLY_GROUP_MIN_MATCHES = 1.0
+LIVE_PREDICTION_HEAD_EARLY_GROUP_MAX_MATCHES = 1.0
+LIVE_PREDICTION_HEAD_PROCESS_RESIDUAL_WEIGHT = 0.35
+LIVE_PREDICTION_HEAD_PROCESS_RESIDUAL_CAP = 0.40
+LIVE_PREDICTION_HEAD_ROBOT_FORM_AGREEMENT_WEIGHT = 0.15
+LIVE_PREDICTION_HEAD_ROBOT_FORM_AGREEMENT_CAP = 0.30
+DEFAULT_PUBLISHED_RATING_SCALE = 135.0
 
 
 def _rating_fields_for_team(
@@ -1438,11 +1465,159 @@ def _collapse_live_prediction_distribution(payload: dict[str, Any], *, best_of: 
     }
 
 
+def _live_prediction_head_config() -> dict[str, float]:
+    manifest = _read_json_if_exists(_published_manifest_path_for(_effective_published_dir()))
+    manifest_payload = manifest if isinstance(manifest, dict) else {}
+    signature = manifest_payload.get("model_config_signature")
+    signature_payload = signature if isinstance(signature, dict) else {}
+
+    def _config_float(key: str, default: float) -> float:
+        value = signature_payload.get(key, manifest_payload.get(key, default))
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return float(default)
+
+    return {
+        "base_weight": _config_float("prediction_head_base_weight", LIVE_PREDICTION_HEAD_BASE_WEIGHT),
+        "season_delta_weight": _config_float(
+            "prediction_head_season_delta_weight",
+            LIVE_PREDICTION_HEAD_SEASON_DELTA_WEIGHT,
+        ),
+        "momentum_weight": _config_float("prediction_head_momentum_weight", LIVE_PREDICTION_HEAD_MOMENTUM_WEIGHT),
+        "temperature": max(_config_float("prediction_head_temperature", LIVE_PREDICTION_HEAD_TEMPERATURE), 1e-6),
+        "early_group_min_matches": _config_float(
+            "prediction_head_early_group_min_matches",
+            LIVE_PREDICTION_HEAD_EARLY_GROUP_MIN_MATCHES,
+        ),
+        "early_group_max_matches": _config_float(
+            "prediction_head_early_group_max_matches",
+            LIVE_PREDICTION_HEAD_EARLY_GROUP_MAX_MATCHES,
+        ),
+        "process_residual_weight": _config_float(
+            "prediction_head_process_residual_weight",
+            LIVE_PREDICTION_HEAD_PROCESS_RESIDUAL_WEIGHT,
+        ),
+        "process_residual_cap": max(
+            _config_float("prediction_head_process_residual_cap", LIVE_PREDICTION_HEAD_PROCESS_RESIDUAL_CAP),
+            0.0,
+        ),
+        "robot_form_agreement_weight": _config_float(
+            "prediction_head_robot_form_agreement_weight",
+            LIVE_PREDICTION_HEAD_ROBOT_FORM_AGREEMENT_WEIGHT,
+        ),
+        "robot_form_agreement_cap": max(
+            _config_float(
+                "prediction_head_robot_form_agreement_cap",
+                LIVE_PREDICTION_HEAD_ROBOT_FORM_AGREEMENT_CAP,
+            ),
+            0.0,
+        ),
+        "rating_scale": max(_config_float("rating_scale", DEFAULT_PUBLISHED_RATING_SCALE), 1e-6),
+    }
+
+
+def _optional_float_value(value: Any) -> float | None:
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _prediction_elo_for_team(team: Any, current_rating_index: dict[str, dict[str, Any]]) -> float:
     rating = current_rating_index.get(str(team.team_key))
     if rating is not None and rating.get("currentElo") is not None:
         return float(rating["currentElo"])
     return float(getattr(team, "mu0"))
+
+
+def _live_process_residual_theta(rating: dict[str, Any], *, prediction_head_config: dict[str, float]) -> float:
+    weight = max(float(prediction_head_config.get("process_residual_weight", 0.0)), 0.0)
+    cap = max(float(prediction_head_config.get("process_residual_cap", 0.0)), 0.0)
+    if weight <= 0.0 or cap <= 0.0:
+        return 0.0
+    adjusted_form = _optional_float_value(rating.get("formOpponentAdjustedObsMu"))
+    season_delta_mu = _optional_float_value(rating.get("seasonDeltaMu"))
+    form_gain = _optional_float_value(rating.get("formObsGain"))
+    if adjusted_form is None or season_delta_mu is None or form_gain is None or form_gain <= 0.0:
+        return 0.0
+    freshness = _optional_float_value(rating.get("formEventFreshnessWeight"))
+    if freshness is None:
+        freshness = _optional_float_value(rating.get("formFreshnessWeight"))
+    if freshness is None or freshness <= 0.0:
+        return 0.0
+    residual = max(min(float(adjusted_form) - float(season_delta_mu), cap), -cap)
+    return weight * min(max(float(freshness), 0.0), 1.0) * residual
+
+
+def _live_robot_form_agreement_theta(rating: dict[str, Any], *, prediction_head_config: dict[str, float]) -> float:
+    weight = max(float(prediction_head_config.get("robot_form_agreement_weight", 0.0)), 0.0)
+    cap = max(float(prediction_head_config.get("robot_form_agreement_cap", 0.0)), 0.0)
+    if weight <= 0.0 or cap <= 0.0:
+        return 0.0
+    form_mu = _optional_float_value(rating.get("formObsMu"))
+    robot_signal = _optional_float_value(rating.get("formRobotFamilySignal"))
+    form_gain = _optional_float_value(rating.get("formObsGain"))
+    if form_mu is None or robot_signal is None or form_gain is None or form_gain <= 0.0:
+        return 0.0
+    conflict_value = rating.get("formRobotSignalConflict", False)
+    if conflict_value is True or str(conflict_value).lower() == "true":
+        return 0.0
+    if abs(form_mu) <= 1e-9 or abs(robot_signal) <= 1e-9 or (form_mu * robot_signal) <= 0.0:
+        return 0.0
+    freshness = _optional_float_value(rating.get("formEventFreshnessWeight"))
+    if freshness is None:
+        freshness = _optional_float_value(rating.get("formFreshnessWeight"))
+    if freshness is None or freshness <= 0.0:
+        return 0.0
+    agreement = math.copysign(min(abs(float(form_mu)), abs(float(robot_signal)), cap), float(form_mu))
+    return weight * min(max(float(freshness), 0.0), 1.0) * agreement
+
+
+def _prediction_theta_for_team(
+    team: Any,
+    current_rating_index: dict[str, dict[str, Any]],
+    *,
+    prediction_head_config: dict[str, float],
+) -> float:
+    rating = current_rating_index.get(str(team.team_key), {})
+    current_elo = _prediction_elo_for_team(team, current_rating_index)
+    stage_family = str(rating.get("stageFamily") or rating.get("currentStageFamily") or "")
+    group_matches_before = _optional_float_value(
+        rating.get("regionalGroupMatchesPlayedBefore", rating.get("regionalGroupMatchesPlayed"))
+    )
+    uses_component_head = (
+        stage_family == "regional_group"
+        and group_matches_before is not None
+        and float(prediction_head_config["early_group_min_matches"])
+        <= group_matches_before
+        <= float(prediction_head_config["early_group_max_matches"])
+    )
+    robot_form_agreement_theta = _live_robot_form_agreement_theta(
+        rating,
+        prediction_head_config=prediction_head_config,
+    )
+    if not uses_component_head:
+        theta = (current_elo - 1500.0) / float(prediction_head_config["rating_scale"])
+        if stage_family == "regional_group":
+            theta += robot_form_agreement_theta
+        return theta
+
+    base_theta = _optional_float_value(rating.get("programBaseTheta"))
+    season_delta_mu = _optional_float_value(rating.get("seasonDeltaMu"))
+    momentum_theta = _optional_float_value(rating.get("momentumTheta")) or 0.0
+    if base_theta is not None and season_delta_mu is not None:
+        process_residual_theta = _live_process_residual_theta(rating, prediction_head_config=prediction_head_config)
+        return (
+            (float(prediction_head_config["base_weight"]) * base_theta)
+            + (float(prediction_head_config["season_delta_weight"]) * season_delta_mu)
+            + (float(prediction_head_config["momentum_weight"]) * momentum_theta)
+            + process_residual_theta
+            + robot_form_agreement_theta
+        )
+    return (current_elo - 1500.0) / float(prediction_head_config["rating_scale"])
 
 
 def _deterministic_live_prediction_payload(
@@ -1452,13 +1627,24 @@ def _deterministic_live_prediction_payload(
     best_of: int,
     head_to_head_index: dict[tuple[str, str], dict[str, Any]],
     current_rating_index: dict[str, dict[str, Any]],
+    prediction_head_config: dict[str, float] | None = None,
 ) -> dict[str, Any]:
+    prediction_head_config = prediction_head_config or _live_prediction_head_config()
     red_elo = _prediction_elo_for_team(red_team, current_rating_index)
     blue_elo = _prediction_elo_for_team(blue_team, current_rating_index)
     beta_perf = (float(getattr(red_team, "beta_perf", 0.0)) + float(getattr(blue_team, "beta_perf", 0.0))) / 2.0
-    red_theta = (red_elo - 1500.0) / float(region_sim.RATING_SCALE)
-    blue_theta = (blue_elo - 1500.0) / float(region_sim.RATING_SCALE)
-    p_game_base_red = 1.0 / (1.0 + math.exp(-((red_theta - blue_theta) / max(beta_perf, 1e-6))))
+    red_theta = _prediction_theta_for_team(
+        red_team,
+        current_rating_index,
+        prediction_head_config=prediction_head_config,
+    )
+    blue_theta = _prediction_theta_for_team(
+        blue_team,
+        current_rating_index,
+        prediction_head_config=prediction_head_config,
+    )
+    beta_eff = max(beta_perf * float(prediction_head_config["temperature"]), 1e-6)
+    p_game_base_red = 1.0 / (1.0 + math.exp(-((red_theta - blue_theta) / beta_eff)))
     p_game_base_red = region_sim.legacy_elo.clip(p_game_base_red, 0.05, 0.95)
     head_to_head_summary = region_sim.h2h.summarize_head_to_head(
         red_team.college_name,
@@ -1491,6 +1677,7 @@ def _live_prediction_rating_index_for_match(
     override: dict[str, Any],
     current_rating_index: dict[str, dict[str, Any]],
     rating_index: dict[tuple[str, str], dict[str, Any]],
+    prediction_head_config: dict[str, float],
 ) -> dict[str, dict[str, Any]]:
     if not rating_index:
         return current_rating_index
@@ -1511,9 +1698,47 @@ def _live_prediction_rating_index_for_match(
     if red_before is None or blue_before is None:
         return current_rating_index
 
+    def _ledger_prediction_fields(row: dict[str, Any] | None, before_rating: float) -> dict[str, Any]:
+        out: dict[str, Any] = {"currentElo": before_rating}
+        season_delta_mu = _float_from_row(row, "season_delta_mu_before_match")
+        if season_delta_mu is None:
+            return out
+        momentum_theta = _float_from_row(row, "momentum_theta_before_match") or 0.0
+        published_theta = (before_rating - 1500.0) / float(prediction_head_config["rating_scale"])
+        out.update(
+            {
+                "programBaseTheta": published_theta - season_delta_mu - momentum_theta,
+                "seasonDeltaMu": season_delta_mu,
+                "momentumTheta": momentum_theta,
+                "predictionHeadSource": "ledger_before_match_components",
+            }
+        )
+        if row is not None:
+            out["stageFamily"] = str(row.get("stage_family") or "")
+        group_matches_after = _float_from_row(row, "regional_group_matches_played")
+        if group_matches_after is not None:
+            out["regionalGroupMatchesPlayedBefore"] = max(group_matches_after - 1.0, 0.0)
+        sigma_theta = _float_from_row(row, "season_delta_sigma_before_match")
+        if sigma_theta is not None:
+            out["seasonDeltaSigmaTheta"] = sigma_theta
+        for source_key, target_key in (
+            ("form_obs_mu", "formObsMu"),
+            ("form_opponent_adjusted_obs_mu", "formOpponentAdjustedObsMu"),
+            ("form_obs_gain", "formObsGain"),
+            ("form_freshness_weight", "formFreshnessWeight"),
+            ("form_event_freshness_weight", "formEventFreshnessWeight"),
+            ("form_robot_family_signal", "formRobotFamilySignal"),
+        ):
+            value = _float_from_row(row, source_key)
+            if value is not None:
+                out[target_key] = value
+        if row is not None:
+            out["formRobotSignalConflict"] = bool(row.get("form_robot_signal_conflict", False))
+        return out
+
     out = dict(current_rating_index)
-    out[red_team_key] = {**out.get(red_team_key, {}), "currentElo": red_before}
-    out[blue_team_key] = {**out.get(blue_team_key, {}), "currentElo": blue_before}
+    out[red_team_key] = {**out.get(red_team_key, {}), **_ledger_prediction_fields(red_row, red_before)}
+    out[blue_team_key] = {**out.get(blue_team_key, {}), **_ledger_prediction_fields(blue_row, blue_before)}
     return out
 
 
@@ -2521,6 +2746,7 @@ def live_payload_builder_factory(
 ):
     rating_index = rating_index or {}
     current_rating_index = current_rating_index or {}
+    prediction_head_config = _live_prediction_head_config()
 
     def _builder(red_team, blue_team, *, best_of, samples, match_seed, head_to_head_index, **kwargs):
         override = context.payload_override_for(
@@ -2536,6 +2762,7 @@ def live_payload_builder_factory(
             override=override,
             current_rating_index=current_rating_index,
             rating_index=rating_index,
+            prediction_head_config=prediction_head_config,
         )
         payload = _deterministic_live_prediction_payload(
             red_team,
@@ -2543,6 +2770,7 @@ def live_payload_builder_factory(
             best_of=best_of,
             head_to_head_index=head_to_head_index,
             current_rating_index=prediction_rating_index,
+            prediction_head_config=prediction_head_config,
         )
         payload.update(override)
         _collapse_live_prediction_distribution(payload, best_of=best_of)
@@ -2861,7 +3089,7 @@ def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", sam
         )
         live_status["slotAssignmentReason"] = live_slot_assignment_reason
         live_status["predictionBasis"] = (
-            "current_elo_h2h_deterministic"
+            "current_ts2_component_head_h2h"
             if context.source_status == "active" and slot_assignments is not None
             else "official_placeholder"
             if context.source_status == "active"

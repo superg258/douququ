@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 MINIMUM_PYTHON = (3, 11)
@@ -95,7 +97,14 @@ from .features import build_static_features
 from .fit import run_fit
 from .history_sources import build_rmul_3v3_ranking_history_frame, build_shape_history_frame
 from .ingest import build_canonical_matches_dataframe, build_season_team_index, write_dataset_artifacts
+from .live_archive import (
+    build_archive_manifest,
+    build_form_observations_from_group_rank_payload,
+    load_archive_snapshot_payload,
+    select_snapshot_before,
+)
 from .predict import run_export_ratings, run_predict, run_published_stage_predict, run_stage_predict
+from .strategy_backtest import run_strategy_backtest
 from .validation import run_validate_model
 
 
@@ -186,6 +195,69 @@ def _validate_model(args: argparse.Namespace) -> int:
         backtest_dir=Path(args.backtest_dir) if args.backtest_dir else None,
         out_dir=Path(args.out),
     )
+    return 0
+
+
+def _strategy_backtest(args: argparse.Namespace) -> int:
+    run_strategy_backtest(
+        preseason_path=Path(args.preseason),
+        matches_path=Path(args.matches),
+        form_observations_path=Path(args.form_observations) if args.form_observations else None,
+        beta_perf=float(args.beta_perf),
+        online_update_scale=float(args.online_update_scale),
+        out_dir=Path(args.out),
+    )
+    return 0
+
+
+def _parse_utc_datetime(value: str) -> datetime:
+    normalized = value.replace("Z", "+00:00")
+    parsed = datetime.fromisoformat(normalized)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _write_table(frame: object, out_path: Path) -> None:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    suffix = out_path.suffix.lower()
+    if suffix == ".parquet":
+        frame.to_parquet(out_path, index=False)
+    elif suffix == ".json":
+        out_path.write_text(frame.to_json(orient="records", force_ascii=False, indent=2), encoding="utf-8")
+    else:
+        frame.to_csv(out_path, index=False)
+
+
+def _build_form_observations(args: argparse.Namespace) -> int:
+    snapshot_name: str | None = None
+    snapshot_age_minutes: float | None = None
+    if args.group_rank:
+        group_rank_path = Path(args.group_rank)
+        payload = json.loads(group_rank_path.read_text(encoding="utf-8"))
+        snapshot_name = group_rank_path.name
+    else:
+        if not args.cutoff:
+            raise RuntimeError("--cutoff is required when --archive is used")
+        manifest = build_archive_manifest(Path(args.archive))
+        selected = select_snapshot_before(
+            manifest,
+            source_type="group_rank_info",
+            cutoff=_parse_utc_datetime(args.cutoff),
+            max_age_minutes=float(args.max_age_minutes) if args.max_age_minutes is not None else None,
+        )
+        if selected is None:
+            raise RuntimeError("No group_rank_info snapshot satisfies the cutoff/max-age constraint")
+        payload = load_archive_snapshot_payload(Path(args.archive), selected)
+        snapshot_name = selected.member_name
+        snapshot_age_minutes = selected.age_minutes
+
+    observations = build_form_observations_from_group_rank_payload(
+        payload,
+        snapshot_name=snapshot_name,
+        snapshot_age_minutes=snapshot_age_minutes,
+    )
+    _write_table(observations, Path(args.out))
     return 0
 
 
@@ -282,6 +354,24 @@ def build_parser() -> argparse.ArgumentParser:
     validate.add_argument("--backtest-dir", required=False)
     validate.add_argument("--out", required=True)
     validate.set_defaults(func=_validate_model)
+
+    strategy = subparsers.add_parser("strategy-backtest", help="Compare TS2 season-delta update strategy variants")
+    strategy.add_argument("--preseason", required=True)
+    strategy.add_argument("--matches", required=True)
+    strategy.add_argument("--form-observations", required=False)
+    strategy.add_argument("--beta-perf", required=True, type=float)
+    strategy.add_argument("--online-update-scale", type=float, default=0.50)
+    strategy.add_argument("--out", required=True)
+    strategy.set_defaults(func=_strategy_backtest)
+
+    form = subparsers.add_parser("build-form-observations", help="Build season-delta form observations from live group-rank snapshots")
+    form_source = form.add_mutually_exclusive_group(required=True)
+    form_source.add_argument("--group-rank", required=False, help="Path to a group_rank_info JSON payload")
+    form_source.add_argument("--archive", required=False, help="Path to raw_data.tar.gz with timestamped live snapshots")
+    form.add_argument("--cutoff", required=False, help="UTC cutoff for archive snapshot selection, e.g. 2026-05-13T01:45:00Z")
+    form.add_argument("--max-age-minutes", type=float, default=None)
+    form.add_argument("--out", required=True)
+    form.set_defaults(func=_build_form_observations)
     return parser
 
 

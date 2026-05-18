@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from datetime import UTC, datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
@@ -19,13 +20,23 @@ if str(ROOT) not in sys.path:
 from backend.app import rmuc_live  # noqa: E402
 from research.trueskill2.fit import (  # noqa: E402
     _build_published_current_snapshot,
+    _regional_pre_config,
+    _season_delta_config,
     build_published_live_state_updates,
+)
+from research.trueskill2.history_sources import RegionalPreModelConfig  # noqa: E402
+from research.trueskill2.live_archive import build_form_observations_from_group_rank_payload  # noqa: E402
+from research.trueskill2.season_delta import compute_effective_sigma_theta  # noqa: E402
+from research.trueskill2.season_delta import (  # noqa: E402
+    adjust_form_observation_for_freshness,
+    compute_event_form_freshness,
 )
 
 
 DEFAULT_RUNTIME_DIR = ROOT / "data" / "runtime" / "rmuc_live"
 DEFAULT_BASE_PUBLISHED_DIR = ROOT / "data" / "derived" / "2026_rmuc_ts2" / "published_2026"
 DEFAULT_PRESEASON_RATINGS = ROOT / "data" / "derived" / "2026_rmuc_ts2" / "preseason_ratings.csv"
+DEFAULT_TS2_CONFIG = ROOT / "configs" / "trueskill2_full.yaml"
 MINI_PROGRAM_PREDICTIONS_FILENAME = "mini_program_predictions.json"
 SYNC_MANIFEST_FILENAME = "sync_manifest.json"
 DEFAULT_MINI_PROGRAM_TTL_SECONDS = 300
@@ -34,6 +45,7 @@ DEFAULT_MINI_PROGRAM_LOOKBACK_HOURS = 24
 DEFAULT_MINI_PROGRAM_LOOKAHEAD_HOURS = 48
 DEFAULT_MINI_PROGRAM_MAX_MATCHES = 96
 BEIJING_TZ = timezone(timedelta(hours=8))
+RUNTIME_SNAPSHOT_RE = re.compile(r"^(group_rank_info|robot_data)\.(\d{8}T\d{6}Z)\.json$")
 
 
 def parse_args() -> argparse.Namespace:
@@ -41,6 +53,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--runtime-dir", type=Path, default=DEFAULT_RUNTIME_DIR)
     parser.add_argument("--base-published-dir", type=Path, default=DEFAULT_BASE_PUBLISHED_DIR)
     parser.add_argument("--preseason-ratings", type=Path, default=DEFAULT_PRESEASON_RATINGS)
+    parser.add_argument("--config", type=Path, default=DEFAULT_TS2_CONFIG)
     parser.add_argument("--snapshot-date", default=datetime.now(tz=UTC).date().isoformat())
     parser.add_argument("--skip-fetch", action="store_true", help="Use existing raw schedule.json instead of fetching upstream.")
     parser.add_argument("--skip-mini-program", action="store_true", help="Do not refresh mini-program prediction cache.")
@@ -112,6 +125,158 @@ def write_raw_snapshot(raw_dir: Path, name: str, payload: dict[str, Any], fetche
     safe_timestamp = fetched_at.strftime("%Y%m%dT%H%M%SZ")
     write_json_atomic(raw_dir / f"{name}.json", payload)
     write_json_atomic(raw_dir / f"{name}.{safe_timestamp}.json", payload)
+
+
+def _runtime_snapshot_index(raw_dir: Path, source_type: str) -> list[tuple[datetime, Path]]:
+    snapshots: list[tuple[datetime, Path]] = []
+    for path in raw_dir.glob(f"{source_type}.*.json"):
+        match = RUNTIME_SNAPSHOT_RE.match(path.name)
+        if match is None or match.group(1) != source_type:
+            continue
+        fetched_at = datetime.strptime(match.group(2), "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
+        snapshots.append((fetched_at, path))
+    return sorted(snapshots, key=lambda item: (item[0], item[1].name))
+
+
+def _select_runtime_snapshot_before(index: list[tuple[datetime, Path]], cutoff: datetime) -> tuple[datetime, Path, float] | None:
+    cutoff_utc = cutoff.astimezone(UTC)
+    selected: tuple[datetime, Path] | None = None
+    for fetched_at, path in index:
+        if fetched_at <= cutoff_utc:
+            selected = (fetched_at, path)
+        else:
+            break
+    if selected is None:
+        return None
+    fetched_at, path = selected
+    return fetched_at, path, float((cutoff_utc - fetched_at).total_seconds() / 60.0)
+
+
+def _same_school_in_match(match: dict[str, Any], school_key_text: str) -> bool:
+    return school_key_text in {
+        str(match.get("redSchoolKey") or ""),
+        str(match.get("blueSchoolKey") or ""),
+    }
+
+
+def _expected_group_matches_before(
+    *,
+    match: dict[str, Any],
+    school_key_text: str,
+    all_matches: list[dict[str, Any]],
+) -> float | None:
+    planned_start = _parse_datetime(match.get("plannedStartAt")) or _parse_datetime(match.get("matchDate"))
+    if planned_start is None:
+        return None
+    region_slug = str(match.get("regionSlug") or "")
+    count = 0
+    for candidate in all_matches:
+        if str(candidate.get("regionSlug") or "") != region_slug:
+            continue
+        if str(candidate.get("stageFamily") or "") != "regional_group":
+            continue
+        if not candidate.get("isCompleted"):
+            continue
+        if not _same_school_in_match(candidate, school_key_text):
+            continue
+        candidate_start = _parse_datetime(candidate.get("plannedStartAt")) or _parse_datetime(candidate.get("matchDate"))
+        if candidate_start is None or candidate_start >= planned_start:
+            continue
+        count += 1
+    return float(count)
+
+
+def build_runtime_live_form_observations(
+    *,
+    normalized: dict[str, Any],
+    raw_dir: Path,
+    regional_cfg: RegionalPreModelConfig,
+):
+    import pandas as pd
+
+    if not bool(regional_cfg.live_form_update_enabled):
+        return pd.DataFrame()
+    group_index = _runtime_snapshot_index(raw_dir, "group_rank_info")
+    if not group_index:
+        return pd.DataFrame()
+    robot_index = _runtime_snapshot_index(raw_dir, "robot_data")
+    season_cfg = _season_delta_config(regional_cfg)
+    frame_cache: dict[tuple[str, str], Any] = {}
+    all_matches = list(_iter_normalized_matches(normalized) or [])
+    rows: list[dict[str, Any]] = []
+    for match in all_matches:
+        if not match.get("isCompleted"):
+            continue
+        planned_start = _parse_datetime(match.get("plannedStartAt")) or _parse_datetime(match.get("matchDate"))
+        if planned_start is None:
+            continue
+        group_snapshot = _select_runtime_snapshot_before(group_index, planned_start)
+        if group_snapshot is None:
+            continue
+        _, group_path, group_age = group_snapshot
+        robot_snapshot = _select_runtime_snapshot_before(robot_index, planned_start) if robot_index else None
+        robot_path = robot_snapshot[1] if robot_snapshot is not None else None
+        cache_key = (group_path.name, robot_path.name if robot_path is not None else "")
+        if cache_key not in frame_cache:
+            group_payload = load_json(group_path)
+            robot_payload = load_json(robot_path) if robot_path is not None else None
+            frame_cache[cache_key] = build_form_observations_from_group_rank_payload(
+                group_payload if isinstance(group_payload, dict) else None,
+                robot_payload=robot_payload if isinstance(robot_payload, dict) else None,
+                snapshot_name=group_path.name,
+                snapshot_age_minutes=group_age,
+                robot_snapshot_name=robot_path.name if robot_path is not None else None,
+                robot_snapshot_age_minutes=robot_snapshot[2] if robot_snapshot is not None else None,
+                config=season_cfg,
+                apply_time_freshness=str(regional_cfg.form_freshness_mode) != "event_count_v1",
+            )
+        observations = frame_cache[cache_key]
+        if getattr(observations, "empty", True):
+            continue
+        by_school = {str(row["school_key"]): row for row in observations.to_dict(orient="records")}
+        for school in (str(match.get("redSchoolKey") or ""), str(match.get("blueSchoolKey") or "")):
+            row = by_school.get(school)
+            if row is None:
+                continue
+            try:
+                if float(row.get("group_matches_played") or 0.0) < 1.0:
+                    continue
+            except (TypeError, ValueError):
+                continue
+            out = dict(row)
+            expected_played = _expected_group_matches_before(
+                match=match,
+                school_key_text=school,
+                all_matches=all_matches,
+            )
+            if str(regional_cfg.form_freshness_mode) == "event_count_v1":
+                event_freshness = compute_event_form_freshness(
+                    snapshot_matches_played=row.get("group_matches_played"),
+                    expected_matches_played_before=expected_played,
+                    time_freshness_weight=float(row.get("form_freshness_weight") or 1.0),
+                )
+                if event_freshness.weight <= 0.0:
+                    continue
+                freshened = adjust_form_observation_for_freshness(
+                    obs_mu=float(row.get("obs_mu") or 0.0),
+                    obs_sigma=float(row.get("obs_sigma") or 0.0),
+                    freshness_weight=event_freshness.weight,
+                    config=season_cfg,
+                )
+                out["obs_mu"] = float(freshened.obs_mu)
+                out["obs_sigma"] = float(freshened.obs_sigma)
+                out["form_freshness_weight"] = float(event_freshness.weight)
+                out["form_event_freshness_weight"] = float(event_freshness.weight)
+                out["form_event_freshness_status"] = event_freshness.status
+                out["form_expected_group_matches_before"] = expected_played
+            else:
+                out["form_event_freshness_weight"] = None
+                out["form_event_freshness_status"] = "time_decay"
+                out["form_expected_group_matches_before"] = expected_played
+            out["match_id"] = str(match.get("matchId") or "")
+            out["region_slug"] = str(match.get("regionSlug") or "")
+            rows.append(out)
+    return pd.DataFrame(rows)
 
 
 def _iter_normalized_matches(normalized: dict[str, Any]):
@@ -320,10 +485,28 @@ def load_manifest(base_published_dir: Path) -> dict[str, Any]:
     return {"season": 2026, "rating_scale": 135.0, "beta_perf": 1.8865294456481934, "online_live_update_scale": 0.33}
 
 
-def build_preseason_snapshot(preseason_ratings: Path, *, season: int, snapshot_date: str, rating_scale: float):
+def load_regional_config(config_path: Path | None) -> RegionalPreModelConfig:
+    if config_path is not None and config_path.exists():
+        import yaml
+
+        payload = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+        return _regional_pre_config(payload)
+    return _regional_pre_config({})
+
+
+def build_preseason_snapshot(
+    preseason_ratings: Path,
+    *,
+    season: int,
+    snapshot_date: str,
+    rating_scale: float,
+    regional_cfg: RegionalPreModelConfig | None = None,
+):
     import pandas as pd
 
     rows = pd.read_csv(preseason_ratings)
+    regional_cfg = regional_cfg or RegionalPreModelConfig()
+    season_cfg = _season_delta_config(regional_cfg)
     frame = rows[
         [
             "school_key",
@@ -343,6 +526,27 @@ def build_preseason_snapshot(preseason_ratings: Path, *, season: int, snapshot_d
     frame["freeze_date"] = snapshot_date
     frame["regional_prior_decay_version"] = "regional_group_linear_3_match_v1"
     frame["rating_scale"] = float(rating_scale)
+    frame["season_delta_mu"] = frame["regional_prior_theta"].astype(float)
+
+    if "pre_signal_sd_theta" in rows.columns:
+        pre_signal_sd = pd.to_numeric(rows["pre_signal_sd_theta"], errors="coerce").fillna(0.30)
+    else:
+        pre_signal_sd = pd.Series(0.30, index=rows.index, dtype=float)
+    if "rmuc_history_strength" in rows.columns:
+        history_strength = pd.to_numeric(rows["rmuc_history_strength"], errors="coerce").fillna(1.0)
+    else:
+        history_strength = pd.Series(1.0, index=rows.index, dtype=float)
+    frame["season_delta_sigma_theta"] = [
+        compute_effective_sigma_theta(
+            pre_signal_sd=float(sd),
+            regional_prior_delta_theta=float(delta),
+            rmuc_history_strength=float(strength),
+            config=season_cfg,
+        )
+        for sd, delta, strength in zip(pre_signal_sd, frame["regional_prior_theta"], history_strength, strict=True)
+    ]
+    frame["effective_sigma_theta"] = frame["season_delta_sigma_theta"]
+    frame["effective_sigma_rating"] = float(rating_scale) * frame["effective_sigma_theta"]
     frame["published_regional_pre_rating"] = 1500.0 + (
         float(rating_scale) * (frame["rmuc_program_base_theta"] + frame["regional_prior_theta"])
     )
@@ -358,6 +562,124 @@ def existing_live_updates(runtime_published_dir: Path):
     return pd.DataFrame(load_json(path))
 
 
+def runtime_model_config_signature(regional_cfg: RegionalPreModelConfig) -> dict[str, Any]:
+    return {
+        "live_update_strategy": str(regional_cfg.live_update_strategy),
+        "momentum_update_enabled": bool(regional_cfg.momentum_update_enabled),
+        "live_form_update_enabled": bool(regional_cfg.live_form_update_enabled),
+        "result_obs_sigma_base": float(regional_cfg.result_obs_sigma_base),
+        "expected_loss_sigma_multiplier": float(regional_cfg.expected_loss_sigma_multiplier),
+        "expected_loss_probability_threshold": float(regional_cfg.expected_loss_probability_threshold),
+        "surprise_residual_threshold": float(regional_cfg.surprise_residual_threshold),
+        "sweep_bonus_2_0": float(regional_cfg.sweep_bonus_2_0),
+        "max_sigma_inflation": float(regional_cfg.max_sigma_inflation),
+        "form_freshness_mode": str(regional_cfg.form_freshness_mode),
+        "result_momentum_scale": float(regional_cfg.result_momentum_scale),
+        "result_momentum_decay": float(regional_cfg.result_momentum_decay),
+        "result_momentum_cap": float(regional_cfg.result_momentum_cap),
+        "form_freshness_decay_minutes": float(regional_cfg.form_freshness_decay_minutes),
+        "form_freshness_floor": float(regional_cfg.form_freshness_floor),
+        "early_group_sigma_floor": float(regional_cfg.early_group_sigma_floor),
+        "early_group_sigma_floor_matches": float(regional_cfg.early_group_sigma_floor_matches),
+        "form_team_damage_weight": float(regional_cfg.form_team_damage_weight),
+        "form_base_hp_weight": float(regional_cfg.form_base_hp_weight),
+        "form_opponent_points_weight": float(regional_cfg.form_opponent_points_weight),
+        "form_scale": float(regional_cfg.form_scale),
+        "form_temperature": float(regional_cfg.form_temperature),
+        "form_obs_sigma_base": float(regional_cfg.form_obs_sigma_base),
+        "opponent_form_expected_scale": float(regional_cfg.opponent_form_expected_scale),
+        "opponent_form_adjustment_weight": float(regional_cfg.opponent_form_adjustment_weight),
+        "robot_form_blend_weight": float(regional_cfg.robot_form_blend_weight),
+        "robot_form_scale": float(regional_cfg.robot_form_scale),
+        "robot_form_temperature": float(regional_cfg.robot_form_temperature),
+        "robot_form_obs_sigma_base": float(regional_cfg.robot_form_obs_sigma_base),
+        "robot_form_reliability_floor": float(regional_cfg.robot_form_reliability_floor),
+        "robot_gate_conflict_weight": float(regional_cfg.robot_gate_conflict_weight),
+        "robot_gate_robot_only_weight": float(regional_cfg.robot_gate_robot_only_weight),
+        "robot_gate_neutral_weight": float(regional_cfg.robot_gate_neutral_weight),
+        "prediction_head_base_weight": float(regional_cfg.prediction_head_base_weight),
+        "prediction_head_season_delta_weight": float(regional_cfg.prediction_head_season_delta_weight),
+        "prediction_head_momentum_weight": float(regional_cfg.prediction_head_momentum_weight),
+        "prediction_head_temperature": float(regional_cfg.prediction_head_temperature),
+        "prediction_head_early_group_min_matches": float(regional_cfg.prediction_head_early_group_min_matches),
+        "prediction_head_early_group_max_matches": float(regional_cfg.prediction_head_early_group_max_matches),
+        "prediction_head_process_residual_weight": float(regional_cfg.prediction_head_process_residual_weight),
+        "prediction_head_process_residual_cap": float(regional_cfg.prediction_head_process_residual_cap),
+        "prediction_head_robot_form_agreement_weight": float(
+            regional_cfg.prediction_head_robot_form_agreement_weight
+        ),
+        "prediction_head_robot_form_agreement_cap": float(
+            regional_cfg.prediction_head_robot_form_agreement_cap
+        ),
+    }
+
+
+def existing_manifest_compatible(runtime_published_dir: Path, regional_cfg: RegionalPreModelConfig) -> bool:
+    manifest = load_json_if_exists(runtime_published_dir / "published_manifest.json")
+    if not isinstance(manifest, dict):
+        return False
+    expected = runtime_model_config_signature(regional_cfg)
+    actual = manifest.get("model_config_signature")
+    if isinstance(actual, dict):
+        return actual == expected
+    for key, value in expected.items():
+        if key not in manifest:
+            return False
+        if manifest.get(key) != value:
+            return False
+    return True
+
+
+def existing_updates_compatible(existing, regional_cfg: RegionalPreModelConfig) -> bool:
+    if existing.empty:
+        return True
+    required = {"match_id", "match_date", "school_key", "update_strategy"}
+    if not required.issubset(existing.columns):
+        return False
+    strategy = str(regional_cfg.live_update_strategy)
+    if not existing["update_strategy"].fillna("").astype(str).eq(strategy).all():
+        return False
+    if strategy == "season_delta_fusion":
+        fusion_required = {
+            "season_delta_mu_after_match",
+            "season_delta_sigma_after_match",
+            "season_delta_sigma_before_inflation",
+            "season_delta_sigma_after_inflation",
+            "surprise_residual",
+            "sigma_inflation",
+            "result_obs_mu",
+            "result_obs_sigma",
+            "result_obs_gain",
+        }
+        if not fusion_required.issubset(existing.columns):
+            return False
+        if bool(regional_cfg.live_form_update_enabled):
+            form_required = {
+                "form_obs_mu",
+                "form_obs_sigma",
+                "form_obs_gain",
+                "form_update_delta_theta",
+                "form_freshness_weight",
+                "form_event_freshness_weight",
+                "form_event_freshness_status",
+                "form_expected_group_matches_before",
+                "form_opponent_adjusted_obs_mu",
+                "form_evidence_key",
+                "form_snapshot_name",
+            }
+            if not form_required.issubset(existing.columns):
+                return False
+        if bool(regional_cfg.momentum_update_enabled):
+            momentum_required = {
+                "momentum_theta_before_match",
+                "momentum_theta_after_match",
+                "momentum_update_delta_theta",
+            }
+            if not momentum_required.issubset(existing.columns):
+                return False
+    return True
+
+
 def save_frame_json(path: Path, frame) -> None:
     payload = json.loads(frame.to_json(orient="records", force_ascii=False))
     write_json_atomic(path, payload)
@@ -370,11 +692,13 @@ def publish_runtime_artifacts(
     base_published_dir: Path,
     preseason_ratings: Path,
     snapshot_date: str,
+    config_path: Path | None = DEFAULT_TS2_CONFIG,
 ) -> None:
     import pandas as pd
 
     runtime_published_dir = runtime_dir / "published_2026"
     manifest = load_manifest(base_published_dir)
+    regional_cfg = load_regional_config(config_path)
     season = int(normalized.get("season") or manifest.get("season") or snapshot_date[:4])
     rating_scale = float(manifest.get("rating_scale", 135.0))
     preseason = build_preseason_snapshot(
@@ -382,8 +706,11 @@ def publish_runtime_artifacts(
         season=season,
         snapshot_date=snapshot_date,
         rating_scale=rating_scale,
+        regional_cfg=regional_cfg,
     )
     existing = existing_live_updates(runtime_published_dir)
+    if not existing_manifest_compatible(runtime_published_dir, regional_cfg) or not existing_updates_compatible(existing, regional_cfg):
+        existing = pd.DataFrame()
     existing_pairs = {
         (str(row["match_id"]), str(row["school_key"]))
         for row in existing[["match_id", "school_key"]].to_dict(orient="records")
@@ -393,14 +720,22 @@ def publish_runtime_artifacts(
         existing_match_school_pairs=existing_pairs,
     )
     new_matches = pd.DataFrame(match_records)
+    form_observations = build_runtime_live_form_observations(
+        normalized=normalized,
+        raw_dir=runtime_dir / "raw",
+        regional_cfg=regional_cfg,
+    )
     live_updates = build_published_live_state_updates(
         preseason_snapshot=preseason,
         live_state_store=existing,
         new_matches=new_matches,
         rating_scale=rating_scale,
-        pre_decay_matches=3,
+        pre_decay_matches=int(regional_cfg.pre_decay_matches),
         beta_perf=float(manifest.get("beta_perf", 1.8865294456481934)),
-        online_update_scale=float(manifest.get("online_live_update_scale", 0.33)),
+        online_update_scale=float(manifest.get("online_live_update_scale", regional_cfg.online_live_update_scale)),
+        update_strategy=str(regional_cfg.live_update_strategy),
+        season_delta_config=_season_delta_config(regional_cfg),
+        form_observations=form_observations,
     )
     if not existing.empty:
         live_updates = pd.concat([existing, live_updates], ignore_index=True)
@@ -420,7 +755,39 @@ def publish_runtime_artifacts(
             "snapshot_date": snapshot_date,
             "rating_scale": rating_scale,
             "beta_perf": float(manifest.get("beta_perf", 1.8865294456481934)),
-            "online_live_update_scale": float(manifest.get("online_live_update_scale", 0.33)),
+            "online_live_update_scale": float(manifest.get("online_live_update_scale", regional_cfg.online_live_update_scale)),
+            "live_update_strategy": str(regional_cfg.live_update_strategy),
+            "momentum_update_enabled": bool(regional_cfg.momentum_update_enabled),
+            "live_form_update_enabled": bool(regional_cfg.live_form_update_enabled),
+            "model_config_signature": runtime_model_config_signature(regional_cfg),
+            "result_obs_sigma_base": float(regional_cfg.result_obs_sigma_base),
+            "expected_loss_sigma_multiplier": float(regional_cfg.expected_loss_sigma_multiplier),
+            "expected_loss_probability_threshold": float(regional_cfg.expected_loss_probability_threshold),
+            "surprise_residual_threshold": float(regional_cfg.surprise_residual_threshold),
+            "sweep_bonus_2_0": float(regional_cfg.sweep_bonus_2_0),
+            "max_sigma_inflation": float(regional_cfg.max_sigma_inflation),
+            "form_freshness_mode": str(regional_cfg.form_freshness_mode),
+            "form_freshness_decay_minutes": float(regional_cfg.form_freshness_decay_minutes),
+            "form_freshness_floor": float(regional_cfg.form_freshness_floor),
+            "early_group_sigma_floor": float(regional_cfg.early_group_sigma_floor),
+            "early_group_sigma_floor_matches": float(regional_cfg.early_group_sigma_floor_matches),
+            "form_opponent_points_weight": float(regional_cfg.form_opponent_points_weight),
+            "opponent_form_adjustment_weight": float(regional_cfg.opponent_form_adjustment_weight),
+            "robot_gate_conflict_weight": float(regional_cfg.robot_gate_conflict_weight),
+            "prediction_head_base_weight": float(regional_cfg.prediction_head_base_weight),
+            "prediction_head_season_delta_weight": float(regional_cfg.prediction_head_season_delta_weight),
+            "prediction_head_momentum_weight": float(regional_cfg.prediction_head_momentum_weight),
+            "prediction_head_temperature": float(regional_cfg.prediction_head_temperature),
+            "prediction_head_early_group_min_matches": float(regional_cfg.prediction_head_early_group_min_matches),
+            "prediction_head_early_group_max_matches": float(regional_cfg.prediction_head_early_group_max_matches),
+            "prediction_head_process_residual_weight": float(regional_cfg.prediction_head_process_residual_weight),
+            "prediction_head_process_residual_cap": float(regional_cfg.prediction_head_process_residual_cap),
+            "prediction_head_robot_form_agreement_weight": float(
+                regional_cfg.prediction_head_robot_form_agreement_weight
+            ),
+            "prediction_head_robot_form_agreement_cap": float(
+                regional_cfg.prediction_head_robot_form_agreement_cap
+            ),
             "generated_at": datetime.now(tz=UTC).isoformat(),
             "source_status": normalized.get("sourceStatus"),
             "source_updated_at": normalized.get("sourceUpdatedAt"),
@@ -522,6 +889,7 @@ def main() -> None:
             base_published_dir=args.base_published_dir,
             preseason_ratings=args.preseason_ratings,
             snapshot_date=args.snapshot_date,
+            config_path=args.config,
         )
     else:
         clear_stale_runtime_published_artifacts(args.runtime_dir)

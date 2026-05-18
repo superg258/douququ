@@ -27,6 +27,17 @@ from .regional_pre import (
     compute_regional_prior_runtime_components,
     fit_regional_prior_model,
 )
+from .season_delta import (
+    SeasonDeltaConfig,
+    apply_result_sigma_inflation,
+    compute_effective_sigma_theta,
+    compute_group_stage_sigma_floor,
+    compute_opponent_adjusted_form_observation,
+    compute_match_result_observations,
+    compute_result_sigma_inflation,
+    compute_result_momentum_update,
+    fuse_observation,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -76,6 +87,16 @@ def _serializable_state_rows(state_rows: list[dict[str, Any]]) -> list[dict[str,
     return [{key: value for key, value in row.items()} for row in state_rows]
 
 
+def _config_bool(value: Any, default: bool = False) -> bool:
+    if value is None:
+        return bool(default)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(value)
+
+
 def _regional_pre_config(config: dict[str, Any] | None) -> RegionalPreModelConfig:
     payload = ((config or {}).get("regional_pre_model") or (config or {}).get("regional_pre") or {}) if isinstance(config, dict) else {}
     return RegionalPreModelConfig(
@@ -114,6 +135,99 @@ def _regional_pre_config(config: dict[str, Any] | None) -> RegionalPreModelConfi
         prior_delta_cap_max=float(payload.get("prior_delta_cap_max", 0.90)),
         history_cap_curve=float(payload.get("history_cap_curve", 0.80)),
         online_live_update_scale=float(payload.get("online_live_update_scale", 0.33)),
+        live_update_strategy=str(payload.get("live_update_strategy", "fixed_k")),
+        prior_delta_sigma_weight=float(payload.get("prior_delta_sigma_weight", 0.55)),
+        history_sigma_weight=float(payload.get("history_sigma_weight", 0.30)),
+        base_event_sigma=float(payload.get("base_event_sigma", 0.25)),
+        season_delta_cap=float(payload.get("season_delta_cap", 3.00)),
+        season_delta_sigma_floor=float(payload.get("season_delta_sigma_floor", 0.30)),
+        season_delta_process_sigma=float(payload.get("season_delta_process_sigma", 0.08)),
+        result_obs_sigma_base=float(payload.get("result_obs_sigma_base", 0.60)),
+        expected_loss_sigma_multiplier=float(payload.get("expected_loss_sigma_multiplier", 1.00)),
+        expected_loss_probability_threshold=float(payload.get("expected_loss_probability_threshold", 0.35)),
+        live_form_update_enabled=_config_bool(payload.get("live_form_update_enabled"), False),
+        form_team_damage_weight=float(payload.get("form_team_damage_weight", 0.90)),
+        form_base_hp_weight=float(payload.get("form_base_hp_weight", 0.10)),
+        form_opponent_points_weight=float(payload.get("form_opponent_points_weight", 0.0)),
+        form_scale=float(payload.get("form_scale", 1.60)),
+        form_temperature=float(payload.get("form_temperature", 1.20)),
+        form_obs_sigma_base=float(payload.get("form_obs_sigma_base", 0.60)),
+        robot_form_blend_weight=float(payload.get("robot_form_blend_weight", 0.35)),
+        robot_form_scale=float(payload.get("robot_form_scale", 1.25)),
+        robot_form_temperature=float(payload.get("robot_form_temperature", 1.20)),
+        robot_form_obs_sigma_base=float(payload.get("robot_form_obs_sigma_base", 1.15)),
+        robot_form_reliability_floor=float(payload.get("robot_form_reliability_floor", 0.35)),
+        momentum_update_enabled=_config_bool(payload.get("momentum_update_enabled"), False),
+        result_momentum_scale=float(payload.get("result_momentum_scale", 0.35)),
+        result_momentum_decay=float(payload.get("result_momentum_decay", 0.55)),
+        result_momentum_cap=float(payload.get("result_momentum_cap", 0.50)),
+        surprise_residual_threshold=float(payload.get("surprise_residual_threshold", 0.25)),
+        sweep_bonus_2_0=float(payload.get("sweep_bonus_2_0", 0.10)),
+        max_sigma_inflation=float(payload.get("max_sigma_inflation", 0.18)),
+        form_freshness_decay_minutes=float(payload.get("form_freshness_decay_minutes", 90.0)),
+        form_freshness_floor=float(payload.get("form_freshness_floor", 0.25)),
+        form_freshness_mode=str(payload.get("form_freshness_mode", "event_count_v1")),
+        early_group_sigma_floor=float(payload.get("early_group_sigma_floor", 0.30)),
+        early_group_sigma_floor_matches=float(payload.get("early_group_sigma_floor_matches", 0.0)),
+        opponent_form_expected_scale=float(payload.get("opponent_form_expected_scale", 0.50)),
+        opponent_form_adjustment_weight=float(payload.get("opponent_form_adjustment_weight", 0.35)),
+        robot_gate_conflict_weight=float(payload.get("robot_gate_conflict_weight", 0.05)),
+        robot_gate_robot_only_weight=float(payload.get("robot_gate_robot_only_weight", 0.50)),
+        robot_gate_neutral_weight=float(payload.get("robot_gate_neutral_weight", 0.25)),
+        prediction_head_base_weight=float(payload.get("prediction_head_base_weight", 0.25)),
+        prediction_head_season_delta_weight=float(payload.get("prediction_head_season_delta_weight", 1.00)),
+        prediction_head_momentum_weight=float(payload.get("prediction_head_momentum_weight", 0.00)),
+        prediction_head_temperature=float(payload.get("prediction_head_temperature", 1.00)),
+        prediction_head_early_group_min_matches=float(payload.get("prediction_head_early_group_min_matches", 1.0)),
+        prediction_head_early_group_max_matches=float(payload.get("prediction_head_early_group_max_matches", 1.0)),
+        prediction_head_process_residual_weight=float(payload.get("prediction_head_process_residual_weight", 0.35)),
+        prediction_head_process_residual_cap=float(payload.get("prediction_head_process_residual_cap", 0.40)),
+        prediction_head_robot_form_agreement_weight=float(
+            payload.get("prediction_head_robot_form_agreement_weight", 0.15)
+        ),
+        prediction_head_robot_form_agreement_cap=float(payload.get("prediction_head_robot_form_agreement_cap", 0.30)),
+    )
+
+
+def _season_delta_config(config: RegionalPreModelConfig | None = None) -> SeasonDeltaConfig:
+    cfg = config or RegionalPreModelConfig()
+    return SeasonDeltaConfig(
+        prior_delta_sigma_weight=float(cfg.prior_delta_sigma_weight),
+        history_sigma_weight=float(cfg.history_sigma_weight),
+        base_event_sigma=float(cfg.base_event_sigma),
+        delta_cap=float(cfg.season_delta_cap),
+        sigma_floor=float(cfg.season_delta_sigma_floor),
+        process_sigma=float(cfg.season_delta_process_sigma),
+        result_obs_sigma_base=float(cfg.result_obs_sigma_base),
+        expected_loss_sigma_multiplier=float(cfg.expected_loss_sigma_multiplier),
+        expected_loss_probability_threshold=float(cfg.expected_loss_probability_threshold),
+        team_damage_weight=float(cfg.form_team_damage_weight),
+        base_hp_weight=float(cfg.form_base_hp_weight),
+        opponent_points_weight=float(cfg.form_opponent_points_weight),
+        form_scale=float(cfg.form_scale),
+        form_temperature=float(cfg.form_temperature),
+        form_obs_sigma_base=float(cfg.form_obs_sigma_base),
+        robot_form_blend_weight=float(cfg.robot_form_blend_weight),
+        robot_form_scale=float(cfg.robot_form_scale),
+        robot_form_temperature=float(cfg.robot_form_temperature),
+        robot_form_obs_sigma_base=float(cfg.robot_form_obs_sigma_base),
+        robot_form_reliability_floor=float(cfg.robot_form_reliability_floor),
+        momentum_update_enabled=bool(cfg.momentum_update_enabled),
+        result_momentum_scale=float(cfg.result_momentum_scale),
+        result_momentum_decay=float(cfg.result_momentum_decay),
+        result_momentum_cap=float(cfg.result_momentum_cap),
+        surprise_residual_threshold=float(cfg.surprise_residual_threshold),
+        sweep_bonus_2_0=float(cfg.sweep_bonus_2_0),
+        max_sigma_inflation=float(cfg.max_sigma_inflation),
+        form_freshness_decay_minutes=float(cfg.form_freshness_decay_minutes),
+        form_freshness_floor=float(cfg.form_freshness_floor),
+        early_group_sigma_floor=float(cfg.early_group_sigma_floor),
+        early_group_sigma_floor_matches=float(cfg.early_group_sigma_floor_matches),
+        opponent_form_expected_scale=float(cfg.opponent_form_expected_scale),
+        opponent_form_adjustment_weight=float(cfg.opponent_form_adjustment_weight),
+        robot_gate_conflict_weight=float(cfg.robot_gate_conflict_weight),
+        robot_gate_robot_only_weight=float(cfg.robot_gate_robot_only_weight),
+        robot_gate_neutral_weight=float(cfg.robot_gate_neutral_weight),
     )
 
 
@@ -519,6 +633,19 @@ def _build_regional_pre_snapshot(model_dir: Path, snapshot_date: str) -> Any:
     snapshot["regional_pre_blend_lambda"] = np.nan
     snapshot["regional_pre_offset_theta"] = snapshot["regional_prior_delta_theta"]
     snapshot["regional_pre_offset_rating"] = rating_scale * snapshot["regional_pre_offset_theta"]
+    season_cfg = _season_delta_config(regional_cfg)
+    snapshot["season_delta_mu"] = snapshot["regional_pre_offset_theta"]
+    snapshot["season_delta_sigma_theta"] = snapshot.apply(
+        lambda row: compute_effective_sigma_theta(
+            pre_signal_sd=float(row["pre_signal_sd"]),
+            regional_prior_delta_theta=float(row["regional_pre_offset_theta"]),
+            rmuc_history_strength=float(row["rmuc_history_strength"]),
+            config=season_cfg,
+        ),
+        axis=1,
+    )
+    snapshot["effective_sigma_theta"] = snapshot["season_delta_sigma_theta"]
+    snapshot["effective_sigma_rating"] = rating_scale * snapshot["effective_sigma_theta"]
     snapshot["regional_live_pre_residual_signal"] = snapshot["regional_pre_offset_theta"] * snapshot["regional_pre_decay_factor"]
     snapshot["regional_live_pre_residual_rating"] = rating_scale * snapshot["regional_live_pre_residual_signal"]
     snapshot["regional_prior_effective_theta"] = snapshot["regional_live_pre_residual_signal"]
@@ -771,7 +898,35 @@ def build_published_preseason_snapshot(
     frame = snapshot.copy()
     if "school_name" not in frame.columns:
         frame["school_name"] = frame["school_key"]
-    frame = frame[["school_key", "school_name", "rmuc_long_term_base_theta_mean", "regional_pre_offset_theta"]].copy()
+    if "pre_signal_sd" not in frame.columns:
+        frame["pre_signal_sd"] = 0.30
+    if "rmuc_history_strength" not in frame.columns:
+        frame["rmuc_history_strength"] = 1.0
+    if "season_delta_mu" not in frame.columns:
+        frame["season_delta_mu"] = frame["regional_pre_offset_theta"]
+    if "season_delta_sigma_theta" not in frame.columns:
+        frame["season_delta_sigma_theta"] = frame.apply(
+            lambda row: compute_effective_sigma_theta(
+                pre_signal_sd=float(row["pre_signal_sd"]),
+                regional_prior_delta_theta=float(row["regional_pre_offset_theta"]),
+                rmuc_history_strength=float(row["rmuc_history_strength"]),
+            ),
+            axis=1,
+        )
+    frame["effective_sigma_theta"] = frame["season_delta_sigma_theta"]
+    frame["effective_sigma_rating"] = float(rating_scale) * frame["effective_sigma_theta"]
+    frame = frame[
+        [
+            "school_key",
+            "school_name",
+            "rmuc_long_term_base_theta_mean",
+            "regional_pre_offset_theta",
+            "season_delta_mu",
+            "season_delta_sigma_theta",
+            "effective_sigma_theta",
+            "effective_sigma_rating",
+        ]
+    ].copy()
     frame = frame.rename(
         columns={
             "rmuc_long_term_base_theta_mean": "rmuc_program_base_theta",
@@ -801,6 +956,10 @@ def build_published_preseason_snapshot(
             "freeze_date",
             "rmuc_program_base_theta",
             "regional_prior_theta",
+            "season_delta_mu",
+            "season_delta_sigma_theta",
+            "effective_sigma_theta",
+            "effective_sigma_rating",
             "regional_prior_decay_version",
             "rating_scale",
             "published_regional_pre_rating",
@@ -832,6 +991,9 @@ def build_published_live_state_updates(
     pre_decay_matches: int,
     beta_perf: float,
     online_update_scale: float,
+    update_strategy: str = "fixed_k",
+    season_delta_config: SeasonDeltaConfig | None = None,
+    form_observations: Any | None = None,
 ) -> Any:
     pd, _ = require_dataframe_deps()
     team_region_slug_map = _load_2026_region_slug_map()
@@ -853,6 +1015,35 @@ def build_published_live_state_updates(
                 "live_state_theta_before_match",
                 "live_state_theta_after_match",
                 "live_update_delta_theta",
+                "season_delta_mu_before_match",
+                "season_delta_mu_after_match",
+                "season_delta_sigma_before_match",
+                "season_delta_sigma_after_match",
+                "season_delta_sigma_before_inflation",
+                "season_delta_sigma_after_inflation",
+                "surprise_residual",
+                "sigma_inflation",
+                "momentum_theta_before_match",
+                "momentum_theta_after_match",
+                "momentum_update_delta_theta",
+                "result_obs_mu",
+                "result_obs_sigma",
+                "result_obs_gain",
+                "form_obs_mu",
+                "form_obs_sigma",
+                "form_obs_gain",
+                "form_update_delta_theta",
+                "form_freshness_weight",
+                "form_opponent_expected_mu",
+                "form_opponent_adjustment_mu",
+                "form_opponent_adjusted_obs_mu",
+                "form_evidence_key",
+                "form_snapshot_name",
+                "form_snapshot_age_minutes",
+                "form_robot_snapshot_name",
+                "form_robot_family_signal",
+                "form_robot_signal_alignment",
+                "form_robot_signal_conflict",
                 "confirmed_prior_theta_before_match",
                 "confirmed_prior_theta_after_match",
                 "residual_prior_theta_before_match",
@@ -871,6 +1062,7 @@ def build_published_live_state_updates(
                 "prior_component_delta_rating",
                 "confirmed_prior_rating_after_match",
                 "residual_prior_rating_after_match",
+                "update_strategy",
             ]
         )
 
@@ -885,6 +1077,14 @@ def build_published_live_state_updates(
     preseason_rows = preseason_snapshot.to_dict(orient="records")
     base_theta_map = {str(row["school_key"]): float(row["rmuc_program_base_theta"]) for row in preseason_rows}
     prior_theta_map = {str(row["school_key"]): float(row["regional_prior_theta"]) for row in preseason_rows}
+    season_delta_mu_map = {
+        str(row["school_key"]): float(row.get("season_delta_mu", row["regional_prior_theta"]))
+        for row in preseason_rows
+    }
+    season_delta_sigma_map = {
+        str(row["school_key"]): float(row.get("season_delta_sigma_theta", row.get("effective_sigma_theta", 0.30)))
+        for row in preseason_rows
+    }
     school_name_map = {str(row["school_key"]): str(row.get("school_name", row["school_key"])) for row in preseason_rows}
     season_map = {str(row["school_key"]): int(row["season"]) for row in preseason_rows}
 
@@ -894,16 +1094,25 @@ def build_published_live_state_updates(
     current_residual_prior_map = {key: float(prior_theta_map.get(key, 0.0)) for key in base_theta_map}
     current_prior_retention_fraction_map = {key: 1.0 for key in base_theta_map}
     current_prior_absorption_fraction_map = {key: 0.0 for key in base_theta_map}
+    current_momentum_map = {key: 0.0 for key in base_theta_map}
     if not existing.empty:
         latest_existing = existing.sort_values(["match_date", "match_id"], kind="stable").groupby("school_key", as_index=False).tail(1)
         for row in latest_existing.to_dict(orient="records"):
             school_key = str(row["school_key"])
             current_live_map[school_key] = float(row["live_state_theta_after_match"])
+            if "momentum_theta_after_match" in row and row.get("momentum_theta_after_match") not in (None, ""):
+                current_momentum_map[school_key] = float(row["momentum_theta_after_match"])
             current_group_count_map[school_key] = int(row["regional_group_matches_played"])
             confirmed_prior = float(row.get("confirmed_prior_theta_after_match", 0.0))
             residual_prior = float(row.get("residual_prior_theta_after_match", 0.0))
             current_confirmed_prior_map[school_key] = confirmed_prior
             current_residual_prior_map[school_key] = residual_prior
+            if "season_delta_mu_after_match" in row and row.get("season_delta_mu_after_match") not in (None, ""):
+                season_delta_mu_map[school_key] = float(row["season_delta_mu_after_match"])
+            else:
+                season_delta_mu_map[school_key] = confirmed_prior + residual_prior + float(row["live_state_theta_after_match"])
+            if "season_delta_sigma_after_match" in row and row.get("season_delta_sigma_after_match") not in (None, ""):
+                season_delta_sigma_map[school_key] = float(row["season_delta_sigma_after_match"])
             prior_theta = float(prior_theta_map.get(school_key, 0.0))
             retained_prior = confirmed_prior + residual_prior
             if "prior_retention_fraction_after_match" in row and row.get("prior_retention_fraction_after_match") not in (None, ""):
@@ -922,6 +1131,33 @@ def build_published_live_state_updates(
             current_prior_absorption_fraction_map[school_key] = min(max(float(absorption), 0.0), 1.0)
 
     update_rows: list[dict[str, Any]] = []
+    update_strategy = str(update_strategy or "fixed_k")
+    season_cfg = season_delta_config or SeasonDeltaConfig()
+    momentum_enabled = update_strategy == "season_delta_fusion" and bool(season_cfg.momentum_update_enabled)
+    form_observation_map: dict[tuple[str, str], dict[str, Any]] = {}
+    if form_observations is not None and not getattr(form_observations, "empty", True):
+        for row in form_observations.to_dict(orient="records"):
+            match_key = str(row.get("match_id") or "")
+            school = str(row.get("school_key") or "")
+            if match_key and school:
+                form_observation_map[(match_key, school)] = row
+    applied_form_snapshots: dict[str, set[str]] = defaultdict(set)
+    if not existing.empty and "form_snapshot_name" in existing.columns:
+        for row in existing.to_dict(orient="records"):
+            school = str(row.get("school_key") or "")
+            evidence_key = str(row.get("form_evidence_key") or "").strip()
+            snapshot = str(row.get("form_snapshot_name") or "").strip()
+            robot_snapshot = str(row.get("form_robot_snapshot_name") or "").strip()
+            gain = row.get("form_obs_gain")
+            try:
+                applied = float(gain) > 0.0
+            except (TypeError, ValueError):
+                applied = False
+            if school and applied:
+                if evidence_key:
+                    applied_form_snapshots[school].add(evidence_key)
+                elif snapshot:
+                    applied_form_snapshots[school].add(f"{snapshot}|{robot_snapshot}")
     for match in new_matches.sort_values(["match_date", "match_id"], kind="stable").to_dict(orient="records"):
         if str(match.get("ruleset_id")) != "RMUC":
             continue
@@ -939,32 +1175,266 @@ def build_published_live_state_updates(
         ):
             continue
 
+        form_obs_mu_map = {red_school_key: 0.0, blue_school_key: 0.0}
+        form_obs_sigma_map = {red_school_key: 0.0, blue_school_key: 0.0}
+        form_obs_gain_map = {red_school_key: 0.0, blue_school_key: 0.0}
+        form_update_delta_map = {red_school_key: 0.0, blue_school_key: 0.0}
+        form_freshness_weight_map = {red_school_key: 1.0, blue_school_key: 1.0}
+        form_opponent_expected_map = {red_school_key: 0.0, blue_school_key: 0.0}
+        form_opponent_adjustment_map = {red_school_key: 0.0, blue_school_key: 0.0}
+        form_opponent_adjusted_obs_map = {red_school_key: 0.0, blue_school_key: 0.0}
+        form_snapshot_name_map = {red_school_key: "", blue_school_key: ""}
+        form_snapshot_age_map = {red_school_key: None, blue_school_key: None}
+        form_event_weight_map = {red_school_key: None, blue_school_key: None}
+        form_event_status_map = {red_school_key: "", blue_school_key: ""}
+        form_expected_group_count_map = {red_school_key: None, blue_school_key: None}
+        form_robot_snapshot_map = {red_school_key: "", blue_school_key: ""}
+        form_robot_signal_map = {red_school_key: 0.0, blue_school_key: 0.0}
+        form_robot_alignment_map = {red_school_key: "", blue_school_key: ""}
+        form_robot_conflict_map = {red_school_key: False, blue_school_key: False}
+        before_momentum_map = {
+            red_school_key: float(current_momentum_map.get(red_school_key, 0.0)),
+            blue_school_key: float(current_momentum_map.get(blue_school_key, 0.0)),
+        }
+        form_baseline_mu_map = {
+            red_school_key: float(season_delta_mu_map.get(red_school_key, 0.0)),
+            blue_school_key: float(season_delta_mu_map.get(blue_school_key, 0.0)),
+        }
+        if update_strategy == "season_delta_fusion" and form_observation_map:
+            for school in (red_school_key, blue_school_key):
+                opponent_school = blue_school_key if school == red_school_key else red_school_key
+                form_row = form_observation_map.get((match_id, school))
+                if form_row is None:
+                    continue
+                snapshot_name = str(form_row.get("snapshot_name") or "").strip()
+                robot_snapshot_name = str(form_row.get("robot_snapshot_name") or "").strip()
+                evidence_key = str(form_row.get("form_evidence_key") or "").strip()
+                snapshot_key = evidence_key or f"{snapshot_name or match_id}|{robot_snapshot_name}"
+                form_snapshot_name_map[school] = snapshot_name
+                form_robot_snapshot_map[school] = robot_snapshot_name
+                try:
+                    form_snapshot_age_map[school] = float(form_row.get("snapshot_age_minutes"))
+                except (TypeError, ValueError):
+                    form_snapshot_age_map[school] = None
+                try:
+                    form_freshness_weight_map[school] = float(form_row.get("form_freshness_weight", 1.0) or 1.0)
+                except (TypeError, ValueError):
+                    form_freshness_weight_map[school] = 1.0
+                try:
+                    form_event_weight_map[school] = float(form_row.get("form_event_freshness_weight"))
+                except (TypeError, ValueError):
+                    form_event_weight_map[school] = None
+                form_event_status_map[school] = str(form_row.get("form_event_freshness_status") or "")
+                try:
+                    form_expected_group_count_map[school] = float(form_row.get("form_expected_group_matches_before"))
+                except (TypeError, ValueError):
+                    form_expected_group_count_map[school] = None
+                try:
+                    form_robot_signal_map[school] = float(form_row.get("robot_family_signal", 0.0) or 0.0)
+                except (TypeError, ValueError):
+                    form_robot_signal_map[school] = 0.0
+                form_robot_alignment_map[school] = str(form_row.get("robot_signal_alignment") or "")
+                form_robot_conflict_map[school] = bool(form_row.get("robot_signal_conflict", False))
+                if snapshot_key in applied_form_snapshots[school]:
+                    continue
+                try:
+                    obs_mu = float(form_row.get("obs_mu"))
+                    obs_sigma = float(form_row.get("obs_sigma"))
+                except (TypeError, ValueError):
+                    continue
+                if obs_sigma <= 0.0:
+                    continue
+                before_mu = float(season_delta_mu_map.get(school, 0.0))
+                before_sigma = float(season_delta_sigma_map.get(school, season_cfg.sigma_floor))
+                form_sigma_floor = compute_group_stage_sigma_floor(
+                    stage_family=stage_family,
+                    group_matches_played_before=int(current_group_count_map.get(school, 0)),
+                    config=season_cfg,
+                )
+                team_theta_for_expected = (
+                    float(base_theta_map.get(school, 0.0))
+                    + float(form_baseline_mu_map.get(school, before_mu))
+                    + (float(before_momentum_map.get(school, 0.0)) if momentum_enabled else 0.0)
+                )
+                opponent_theta_for_expected = (
+                    float(base_theta_map.get(opponent_school, 0.0))
+                    + float(form_baseline_mu_map.get(opponent_school, season_delta_mu_map.get(opponent_school, 0.0)))
+                    + (float(before_momentum_map.get(opponent_school, 0.0)) if momentum_enabled else 0.0)
+                )
+                adjusted_form = compute_opponent_adjusted_form_observation(
+                    obs_mu=obs_mu,
+                    team_theta=team_theta_for_expected,
+                    opponent_theta=opponent_theta_for_expected,
+                    beta_perf=beta_perf,
+                    config=season_cfg,
+                )
+                adjusted_obs_mu = float(adjusted_form.adjusted_obs_mu)
+                after_mu, after_sigma, form_gain = fuse_observation(
+                    mu=before_mu,
+                    sigma=before_sigma,
+                    obs_mu=adjusted_obs_mu,
+                    obs_sigma=obs_sigma,
+                    process_sigma=season_cfg.process_sigma,
+                    sigma_floor=form_sigma_floor,
+                    delta_cap=season_cfg.delta_cap,
+                )
+                season_delta_mu_map[school] = float(after_mu)
+                season_delta_sigma_map[school] = float(after_sigma)
+                form_obs_mu_map[school] = float(obs_mu)
+                form_obs_sigma_map[school] = float(obs_sigma)
+                form_obs_gain_map[school] = float(form_gain)
+                form_update_delta_map[school] = float(after_mu) - before_mu
+                form_opponent_expected_map[school] = float(adjusted_form.expected_form_mu)
+                form_opponent_adjustment_map[school] = float(adjusted_form.adjustment_mu)
+                form_opponent_adjusted_obs_map[school] = float(adjusted_obs_mu)
+                applied_form_snapshots[school].add(snapshot_key)
+
         pre_match_decay_red = (
             1.0 - float(current_prior_absorption_fraction_map.get(red_school_key, 0.0))
         )
         pre_match_decay_blue = (
             1.0 - float(current_prior_absorption_fraction_map.get(blue_school_key, 0.0))
         )
-        theta_red = (
-            float(base_theta_map.get(red_school_key, 0.0))
-            + float(current_confirmed_prior_map.get(red_school_key, 0.0))
-            + float(current_residual_prior_map.get(red_school_key, 0.0))
-            + float(current_live_map.get(red_school_key, 0.0))
-        )
-        theta_blue = (
-            float(base_theta_map.get(blue_school_key, 0.0))
-            + float(current_confirmed_prior_map.get(blue_school_key, 0.0))
-            + float(current_residual_prior_map.get(blue_school_key, 0.0))
-            + float(current_live_map.get(blue_school_key, 0.0))
-        )
+        if update_strategy == "season_delta_fusion":
+            theta_red = (
+                float(base_theta_map.get(red_school_key, 0.0))
+                + float(season_delta_mu_map.get(red_school_key, 0.0))
+                + (float(before_momentum_map[red_school_key]) if momentum_enabled else 0.0)
+            )
+            theta_blue = (
+                float(base_theta_map.get(blue_school_key, 0.0))
+                + float(season_delta_mu_map.get(blue_school_key, 0.0))
+                + (float(before_momentum_map[blue_school_key]) if momentum_enabled else 0.0)
+            )
+        else:
+            theta_red = (
+                float(base_theta_map.get(red_school_key, 0.0))
+                + float(current_confirmed_prior_map.get(red_school_key, 0.0))
+                + float(current_residual_prior_map.get(red_school_key, 0.0))
+                + float(current_live_map.get(red_school_key, 0.0))
+            )
+            theta_blue = (
+                float(base_theta_map.get(blue_school_key, 0.0))
+                + float(current_confirmed_prior_map.get(blue_school_key, 0.0))
+                + float(current_residual_prior_map.get(blue_school_key, 0.0))
+                + float(current_live_map.get(blue_school_key, 0.0))
+            )
         actual_red_score = _match_actual_red_score(match)
-        delta_red, delta_blue = compute_online_match_live_deltas(
+        total_games = float(match.get("red_wins", 0) or 0) + float(match.get("blue_wins", 0) or 0)
+        result_obs = compute_match_result_observations(
             theta_red=theta_red,
             theta_blue=theta_blue,
+            season_delta_mu_red=float(season_delta_mu_map.get(red_school_key, 0.0)),
+            season_delta_mu_blue=float(season_delta_mu_map.get(blue_school_key, 0.0)),
             actual_red_score=actual_red_score,
+            total_games=max(total_games, 1.0),
             beta_perf=beta_perf,
-            online_update_scale=online_update_scale,
+            config=season_cfg,
         )
+        result_obs_mu_map = {red_school_key: result_obs.red_obs_mu, blue_school_key: result_obs.blue_obs_mu}
+        result_obs_sigma_map = {
+            red_school_key: result_obs.red_obs_sigma,
+            blue_school_key: result_obs.blue_obs_sigma,
+        }
+        result_obs_gain_map = {red_school_key: 0.0, blue_school_key: 0.0}
+        momentum_after_map = dict(before_momentum_map)
+        before_season_delta_mu_map = {
+            red_school_key: float(season_delta_mu_map.get(red_school_key, 0.0)),
+            blue_school_key: float(season_delta_mu_map.get(blue_school_key, 0.0)),
+        }
+        before_season_delta_sigma_map = {
+            red_school_key: float(season_delta_sigma_map.get(red_school_key, season_cfg.sigma_floor)),
+            blue_school_key: float(season_delta_sigma_map.get(blue_school_key, season_cfg.sigma_floor)),
+        }
+        sigma_before_inflation_map = dict(before_season_delta_sigma_map)
+        sigma_after_inflation_map = dict(before_season_delta_sigma_map)
+        surprise_sigma = compute_result_sigma_inflation(
+            actual_red_score=actual_red_score,
+            probability_red=result_obs.probability_red,
+            total_games=max(total_games, 1.0),
+            config=season_cfg,
+        )
+        if update_strategy == "season_delta_fusion":
+            red_sigma_floor = compute_group_stage_sigma_floor(
+                stage_family=stage_family,
+                group_matches_played_before=int(current_group_count_map.get(red_school_key, 0)),
+                config=season_cfg,
+            )
+            blue_sigma_floor = compute_group_stage_sigma_floor(
+                stage_family=stage_family,
+                group_matches_played_before=int(current_group_count_map.get(blue_school_key, 0)),
+                config=season_cfg,
+            )
+            red_mu, red_sigma, red_gain = fuse_observation(
+                mu=before_season_delta_mu_map[red_school_key],
+                sigma=before_season_delta_sigma_map[red_school_key],
+                obs_mu=result_obs.red_obs_mu,
+                obs_sigma=result_obs.red_obs_sigma,
+                process_sigma=season_cfg.process_sigma,
+                sigma_floor=red_sigma_floor,
+                delta_cap=season_cfg.delta_cap,
+            )
+            blue_mu, blue_sigma, blue_gain = fuse_observation(
+                mu=before_season_delta_mu_map[blue_school_key],
+                sigma=before_season_delta_sigma_map[blue_school_key],
+                obs_mu=result_obs.blue_obs_mu,
+                obs_sigma=result_obs.blue_obs_sigma,
+                process_sigma=season_cfg.process_sigma,
+                sigma_floor=blue_sigma_floor,
+                delta_cap=season_cfg.delta_cap,
+            )
+            sigma_before_inflation_map = {
+                red_school_key: float(red_sigma),
+                blue_school_key: float(blue_sigma),
+            }
+            red_sigma = apply_result_sigma_inflation(
+                red_sigma,
+                surprise_sigma.sigma_inflation,
+                config=season_cfg,
+            )
+            blue_sigma = apply_result_sigma_inflation(
+                blue_sigma,
+                surprise_sigma.sigma_inflation,
+                config=season_cfg,
+            )
+            sigma_after_inflation_map = {
+                red_school_key: float(red_sigma),
+                blue_school_key: float(blue_sigma),
+            }
+            delta_red = red_mu - before_season_delta_mu_map[red_school_key]
+            delta_blue = blue_mu - before_season_delta_mu_map[blue_school_key]
+            season_delta_mu_map[red_school_key] = red_mu
+            season_delta_mu_map[blue_school_key] = blue_mu
+            season_delta_sigma_map[red_school_key] = red_sigma
+            season_delta_sigma_map[blue_school_key] = blue_sigma
+            result_obs_gain_map = {red_school_key: red_gain, blue_school_key: blue_gain}
+            if momentum_enabled:
+                momentum_after_map[red_school_key] = compute_result_momentum_update(
+                    previous_momentum=before_momentum_map[red_school_key],
+                    side="red",
+                    actual_red_score=actual_red_score,
+                    probability_red=result_obs.probability_red,
+                    total_games=max(total_games, 1.0),
+                    config=season_cfg,
+                )
+                momentum_after_map[blue_school_key] = compute_result_momentum_update(
+                    previous_momentum=before_momentum_map[blue_school_key],
+                    side="blue",
+                    actual_red_score=actual_red_score,
+                    probability_red=result_obs.probability_red,
+                    total_games=max(total_games, 1.0),
+                    config=season_cfg,
+                )
+        else:
+            delta_red, delta_blue = compute_online_match_live_deltas(
+                theta_red=theta_red,
+                theta_blue=theta_blue,
+                actual_red_score=actual_red_score,
+                beta_perf=beta_perf,
+                online_update_scale=online_update_scale,
+            )
+            season_delta_mu_map[red_school_key] = before_season_delta_mu_map[red_school_key] + float(delta_red)
+            season_delta_mu_map[blue_school_key] = before_season_delta_mu_map[blue_school_key] + float(delta_blue)
         scoreline = f"{int(match.get('red_wins', 0))}:{int(match.get('blue_wins', 0))}"
         update_delta_map = {
             red_school_key: float(delta_red),
@@ -974,6 +1444,11 @@ def build_published_live_state_updates(
             red_school_key: float(current_live_map.get(red_school_key, 0.0)),
             blue_school_key: float(current_live_map.get(blue_school_key, 0.0)),
         }
+        if update_strategy == "season_delta_fusion":
+            before_live_map = {
+                red_school_key: before_season_delta_mu_map[red_school_key] + (before_momentum_map[red_school_key] if momentum_enabled else 0.0),
+                blue_school_key: before_season_delta_mu_map[blue_school_key] + (before_momentum_map[blue_school_key] if momentum_enabled else 0.0),
+            }
         before_confirmed_map = {
             red_school_key: float(current_confirmed_prior_map.get(red_school_key, 0.0)),
             blue_school_key: float(current_confirmed_prior_map.get(blue_school_key, 0.0)),
@@ -994,8 +1469,18 @@ def build_published_live_state_updates(
             red_school_key: float(current_prior_absorption_fraction_map.get(red_school_key, 0.0)),
             blue_school_key: float(current_prior_absorption_fraction_map.get(blue_school_key, 0.0)),
         }
-        current_live_map[red_school_key] = float(current_live_map.get(red_school_key, 0.0)) + float(delta_red)
-        current_live_map[blue_school_key] = float(current_live_map.get(blue_school_key, 0.0)) + float(delta_blue)
+        if update_strategy == "season_delta_fusion":
+            current_momentum_map[red_school_key] = float(momentum_after_map.get(red_school_key, 0.0))
+            current_momentum_map[blue_school_key] = float(momentum_after_map.get(blue_school_key, 0.0))
+            current_live_map[red_school_key] = float(season_delta_mu_map.get(red_school_key, 0.0)) + (
+                float(current_momentum_map.get(red_school_key, 0.0)) if momentum_enabled else 0.0
+            )
+            current_live_map[blue_school_key] = float(season_delta_mu_map.get(blue_school_key, 0.0)) + (
+                float(current_momentum_map.get(blue_school_key, 0.0)) if momentum_enabled else 0.0
+            )
+        else:
+            current_live_map[red_school_key] = float(current_live_map.get(red_school_key, 0.0)) + float(delta_red)
+            current_live_map[blue_school_key] = float(current_live_map.get(blue_school_key, 0.0)) + float(delta_blue)
 
         for school_key in (red_school_key, blue_school_key):
             opponent_school_key = blue_school_key if school_key == red_school_key else red_school_key
@@ -1005,15 +1490,21 @@ def build_published_live_state_updates(
                 current_group_count_map[school_key] = int(current_group_count_map.get(school_key, 0)) + 1
             new_live = float(current_live_map.get(school_key, 0.0))
             group_matches_after = int(current_group_count_map.get(school_key, 0))
-            confirmed_prior_theta, residual_prior_theta, retention_fraction, absorption_fraction = _resolve_runtime_prior_components_after_match(
-                prior_theta=float(prior_theta_map.get(school_key, 0.0)),
-                live_update_delta_theta=float(update_delta_map.get(school_key, 0.0)),
-                prior_retention_fraction_before=float(before_retention_map.get(school_key, 1.0)),
-                prior_absorption_fraction_before=float(before_absorption_map.get(school_key, 0.0)),
-                stage_family=stage_family,
-                regional_group_matches_played=group_matches_after,
-                pre_decay_matches=pre_decay_matches,
-            )
+            if update_strategy == "season_delta_fusion":
+                confirmed_prior_theta = 0.0
+                residual_prior_theta = 0.0
+                retention_fraction = 1.0
+                absorption_fraction = 1.0
+            else:
+                confirmed_prior_theta, residual_prior_theta, retention_fraction, absorption_fraction = _resolve_runtime_prior_components_after_match(
+                    prior_theta=float(prior_theta_map.get(school_key, 0.0)),
+                    live_update_delta_theta=float(update_delta_map.get(school_key, 0.0)),
+                    prior_retention_fraction_before=float(before_retention_map.get(school_key, 1.0)),
+                    prior_absorption_fraction_before=float(before_absorption_map.get(school_key, 0.0)),
+                    stage_family=stage_family,
+                    regional_group_matches_played=group_matches_after,
+                    pre_decay_matches=pre_decay_matches,
+                )
             decay_factor = 1.0 - float(absorption_fraction)
             current_confirmed_prior_map[school_key] = float(confirmed_prior_theta)
             current_residual_prior_map[school_key] = float(residual_prior_theta)
@@ -1024,27 +1515,43 @@ def build_published_live_state_updates(
             before_confirmed = float(before_confirmed_map.get(school_key, 0.0))
             before_residual = float(before_residual_map.get(school_key, 0.0))
             before_decay_factor = float(before_decay_map.get(school_key, 0.0))
-            published_before = compute_published_rating(
-                program_base_theta=float(base_theta_map.get(school_key, 0.0)),
-                prior_theta=0.0,
-                confirmed_prior_theta=before_confirmed + before_residual,
-                decay_factor=0.0,
-                live_state_theta=before_live,
-                rating_scale=float(rating_scale),
-            )
-            published_after = compute_published_rating(
-                program_base_theta=float(base_theta_map.get(school_key, 0.0)),
-                prior_theta=0.0,
-                confirmed_prior_theta=float(confirmed_prior_theta) + float(residual_prior_theta),
-                decay_factor=0.0,
-                live_state_theta=float(new_live),
-                rating_scale=float(rating_scale),
-            )
-            prior_component_before_theta = before_confirmed + before_residual
-            prior_component_after_theta = float(confirmed_prior_theta) + float(residual_prior_theta)
+            if update_strategy == "season_delta_fusion":
+                published_before = 1500.0 + (
+                    float(rating_scale)
+                    * (float(base_theta_map.get(school_key, 0.0)) + float(before_live_map.get(school_key, 0.0)))
+                )
+                published_after = 1500.0 + (
+                    float(rating_scale)
+                    * (float(base_theta_map.get(school_key, 0.0)) + float(new_live))
+                )
+                prior_component_before_theta = float(before_season_delta_mu_map[school_key])
+                prior_component_after_theta = float(season_delta_mu_map.get(school_key, 0.0))
+            else:
+                published_before = compute_published_rating(
+                    program_base_theta=float(base_theta_map.get(school_key, 0.0)),
+                    prior_theta=0.0,
+                    confirmed_prior_theta=before_confirmed + before_residual,
+                    decay_factor=0.0,
+                    live_state_theta=before_live,
+                    rating_scale=float(rating_scale),
+                )
+                published_after = compute_published_rating(
+                    program_base_theta=float(base_theta_map.get(school_key, 0.0)),
+                    prior_theta=0.0,
+                    confirmed_prior_theta=float(confirmed_prior_theta) + float(residual_prior_theta),
+                    decay_factor=0.0,
+                    live_state_theta=float(new_live),
+                    rating_scale=float(rating_scale),
+                )
+                prior_component_before_theta = before_confirmed + before_residual
+                prior_component_after_theta = float(confirmed_prior_theta) + float(residual_prior_theta)
             published_delta_rating = float(published_after) - float(published_before)
             live_update_delta_rating = float(rating_scale) * float(update_delta_map.get(school_key, 0.0))
-            prior_component_delta_rating = float(rating_scale) * (prior_component_after_theta - prior_component_before_theta)
+            prior_component_delta_rating = (
+                0.0
+                if update_strategy == "season_delta_fusion"
+                else float(rating_scale) * (prior_component_after_theta - prior_component_before_theta)
+            )
             if school_key == red_school_key:
                 match_result = "win" if int(match.get("red_wins", 0)) > int(match.get("blue_wins", 0)) else "loss"
             else:
@@ -1066,6 +1573,40 @@ def build_published_live_state_updates(
                     "live_state_theta_before_match": before_live,
                     "live_state_theta_after_match": new_live,
                     "live_update_delta_theta": float(update_delta_map.get(school_key, 0.0)),
+                    "season_delta_mu_before_match": float(before_season_delta_mu_map[school_key]),
+                    "season_delta_mu_after_match": float(season_delta_mu_map.get(school_key, before_season_delta_mu_map[school_key])),
+                    "season_delta_sigma_before_match": float(before_season_delta_sigma_map[school_key]),
+                    "season_delta_sigma_after_match": float(season_delta_sigma_map.get(school_key, before_season_delta_sigma_map[school_key])),
+                    "season_delta_sigma_before_inflation": float(sigma_before_inflation_map.get(school_key, before_season_delta_sigma_map[school_key])),
+                    "season_delta_sigma_after_inflation": float(sigma_after_inflation_map.get(school_key, season_delta_sigma_map.get(school_key, before_season_delta_sigma_map[school_key]))),
+                    "surprise_residual": float(surprise_sigma.surprise_residual),
+                    "sigma_inflation": float(surprise_sigma.sigma_inflation if update_strategy == "season_delta_fusion" else 0.0),
+                    "momentum_theta_before_match": float(before_momentum_map.get(school_key, 0.0)),
+                    "momentum_theta_after_match": float(momentum_after_map.get(school_key, before_momentum_map.get(school_key, 0.0))),
+                    "momentum_update_delta_theta": float(momentum_after_map.get(school_key, 0.0)) - float(before_momentum_map.get(school_key, 0.0)),
+                    "result_obs_mu": float(result_obs_mu_map.get(school_key, 0.0)),
+                    "result_obs_sigma": float(result_obs_sigma_map.get(school_key, result_obs.obs_sigma)),
+                    "result_obs_gain": float(result_obs_gain_map.get(school_key, 0.0)),
+                    "form_obs_mu": float(form_obs_mu_map.get(school_key, 0.0)),
+                    "form_obs_sigma": float(form_obs_sigma_map.get(school_key, 0.0)),
+                    "form_obs_gain": float(form_obs_gain_map.get(school_key, 0.0)),
+                    "form_update_delta_theta": float(form_update_delta_map.get(school_key, 0.0)),
+                    "form_freshness_weight": float(form_freshness_weight_map.get(school_key, 1.0)),
+                    "form_opponent_expected_mu": float(form_opponent_expected_map.get(school_key, 0.0)),
+                    "form_opponent_adjustment_mu": float(form_opponent_adjustment_map.get(school_key, 0.0)),
+                    "form_opponent_adjusted_obs_mu": float(form_opponent_adjusted_obs_map.get(school_key, 0.0)),
+                    "form_evidence_key": str(
+                        (form_observation_map.get((match_id, school_key)) or {}).get("form_evidence_key") or ""
+                    ),
+                    "form_snapshot_name": form_snapshot_name_map.get(school_key, ""),
+                    "form_snapshot_age_minutes": form_snapshot_age_map.get(school_key),
+                    "form_event_freshness_weight": form_event_weight_map.get(school_key),
+                    "form_event_freshness_status": form_event_status_map.get(school_key, ""),
+                    "form_expected_group_matches_before": form_expected_group_count_map.get(school_key),
+                    "form_robot_snapshot_name": form_robot_snapshot_map.get(school_key, ""),
+                    "form_robot_family_signal": float(form_robot_signal_map.get(school_key, 0.0)),
+                    "form_robot_signal_alignment": form_robot_alignment_map.get(school_key, ""),
+                    "form_robot_signal_conflict": bool(form_robot_conflict_map.get(school_key, False)),
                     "confirmed_prior_theta_before_match": before_confirmed,
                     "confirmed_prior_theta_after_match": float(confirmed_prior_theta),
                     "residual_prior_theta_before_match": float(before_residual),
@@ -1084,6 +1625,7 @@ def build_published_live_state_updates(
                     "prior_component_delta_rating": float(prior_component_delta_rating),
                     "confirmed_prior_rating_after_match": float(rating_scale) * float(confirmed_prior_theta),
                     "residual_prior_rating_after_match": float(rating_scale) * float(residual_prior_theta),
+                    "update_strategy": update_strategy,
                 }
             )
     return pd.DataFrame.from_records(update_rows)
@@ -1097,7 +1639,12 @@ def _build_published_current_snapshot(
 ) -> Any:
     pd, _ = require_dataframe_deps()
     current = preseason_snapshot.copy()
+    if "season_delta_mu" not in current.columns:
+        current["season_delta_mu"] = current["regional_prior_theta"]
+    if "season_delta_sigma_theta" not in current.columns:
+        current["season_delta_sigma_theta"] = current.get("effective_sigma_theta", 0.30)
     current["rmuc_live_state_theta"] = 0.0
+    current["rmuc_momentum_theta"] = 0.0
     current["confirmed_prior_theta"] = 0.0
     current["residual_prior_theta"] = current["regional_prior_theta"]
     current["regional_group_matches_played"] = 0
@@ -1106,6 +1653,7 @@ def _build_published_current_snapshot(
     current["prior_absorption_fraction"] = 0.0
     current["current_stage_family"] = "regional_pre"
     if not live_state_store.empty:
+        preseason_sigma_map = current.set_index("school_key")["season_delta_sigma_theta"].to_dict()
         latest_source = (
             live_state_store.sort_values(["match_date", "match_id"], kind="stable")
             .groupby("school_key", as_index=False)
@@ -1115,9 +1663,22 @@ def _build_published_current_snapshot(
             latest_source["prior_retention_fraction_after_match"] = 1.0
         if "prior_absorption_fraction_after_match" not in latest_source.columns:
             latest_source["prior_absorption_fraction_after_match"] = latest_source["regional_group_matches_played"].astype(float).clip(upper=3.0) / 3.0
+        if "season_delta_mu_after_match" not in latest_source.columns:
+            latest_source["season_delta_mu_after_match"] = (
+                latest_source["confirmed_prior_theta_after_match"].astype(float)
+                + latest_source["residual_prior_theta_after_match"].astype(float)
+                + latest_source["live_state_theta_after_match"].astype(float)
+            )
+        if "season_delta_sigma_after_match" not in latest_source.columns:
+            latest_source["season_delta_sigma_after_match"] = np.nan
+        if "momentum_theta_after_match" not in latest_source.columns:
+            latest_source["momentum_theta_after_match"] = 0.0
         latest = latest_source.rename(
             columns={
                 "live_state_theta_after_match": "rmuc_live_state_theta",
+                "momentum_theta_after_match": "rmuc_momentum_theta",
+                "season_delta_mu_after_match": "season_delta_mu",
+                "season_delta_sigma_after_match": "season_delta_sigma_theta",
                 "confirmed_prior_theta_after_match": "confirmed_prior_theta",
                 "residual_prior_theta_after_match": "residual_prior_theta",
                 "pre_decay_factor_after_match": "regional_pre_decay_factor",
@@ -1129,6 +1690,9 @@ def _build_published_current_snapshot(
             [
                 "school_key",
                 "rmuc_live_state_theta",
+                "rmuc_momentum_theta",
+                "season_delta_mu",
+                "season_delta_sigma_theta",
                 "confirmed_prior_theta",
                 "residual_prior_theta",
                 "regional_group_matches_played",
@@ -1138,12 +1702,18 @@ def _build_published_current_snapshot(
                 "current_stage_family",
             ]
         ]
-        current = current.drop(columns=["rmuc_live_state_theta", "confirmed_prior_theta", "residual_prior_theta", "regional_group_matches_played", "regional_pre_decay_factor", "prior_retention_fraction", "prior_absorption_fraction", "current_stage_family"]).merge(
+        current = current.drop(columns=["rmuc_live_state_theta", "rmuc_momentum_theta", "season_delta_mu", "season_delta_sigma_theta", "confirmed_prior_theta", "residual_prior_theta", "regional_group_matches_played", "regional_pre_decay_factor", "prior_retention_fraction", "prior_absorption_fraction", "current_stage_family"]).merge(
             latest,
             on="school_key",
             how="left",
         )
         current["rmuc_live_state_theta"] = current["rmuc_live_state_theta"].fillna(0.0)
+        current["rmuc_momentum_theta"] = current["rmuc_momentum_theta"].fillna(0.0)
+        current["season_delta_mu"] = current["season_delta_mu"].fillna(current["regional_prior_theta"])
+        current["season_delta_sigma_theta"] = current["season_delta_sigma_theta"].fillna(
+            current["school_key"].map(preseason_sigma_map)
+        )
+        current["season_delta_sigma_theta"] = current["season_delta_sigma_theta"].fillna(current.get("effective_sigma_theta", 0.30))
         current["confirmed_prior_theta"] = current["confirmed_prior_theta"].fillna(0.0)
         current["residual_prior_theta"] = current["residual_prior_theta"].fillna(current["regional_prior_theta"])
         current["regional_group_matches_played"] = current["regional_group_matches_played"].fillna(0).astype(int)
@@ -1208,7 +1778,18 @@ def export_published_rating_artifacts(model_dir: Path, snapshot_date: str, out_d
     season = int(snapshot_date[:4])
 
     preseason_snapshot = build_published_preseason_snapshot(
-        snapshot=regional_pre_snapshot[["school_key", "school_name", "rmuc_long_term_base_theta_mean", "regional_pre_offset_theta"]],
+        snapshot=regional_pre_snapshot[
+            [
+                "school_key",
+                "school_name",
+                "rmuc_long_term_base_theta_mean",
+                "regional_pre_offset_theta",
+                "pre_signal_sd",
+                "rmuc_history_strength",
+                "season_delta_mu",
+                "season_delta_sigma_theta",
+            ]
+        ],
         season=season,
         freeze_date=snapshot_date,
         rating_scale=rating_scale,
@@ -1226,6 +1807,8 @@ def export_published_rating_artifacts(model_dir: Path, snapshot_date: str, out_d
         pre_decay_matches=int(regional_cfg.pre_decay_matches),
         beta_perf=beta_perf,
         online_update_scale=online_live_update_scale,
+        update_strategy=str(regional_cfg.live_update_strategy),
+        season_delta_config=_season_delta_config(regional_cfg),
     )
 
     current_snapshot = _build_published_current_snapshot(
@@ -1896,6 +2479,10 @@ def export_ratings_snapshot(model_dir: Path, snapshot_date: str, out_path: Path,
         "regional_pre_blend_lambda",
         "regional_pre_offset_theta",
         "regional_pre_offset_rating",
+        "season_delta_mu",
+        "season_delta_sigma_theta",
+        "effective_sigma_theta",
+        "effective_sigma_rating",
         "regional_prior_effective_theta",
         "regional_group_matches_played",
         "regional_post_group_started",
@@ -2010,6 +2597,10 @@ def export_ratings_snapshot(model_dir: Path, snapshot_date: str, out_path: Path,
             "regional_pre_blend_lambda",
             "regional_pre_offset_theta",
             "regional_pre_offset_rating",
+            "season_delta_mu",
+            "season_delta_sigma_theta",
+            "effective_sigma_theta",
+            "effective_sigma_rating",
             "regional_prior_effective_theta",
             "regional_group_matches_played",
             "regional_post_group_started",

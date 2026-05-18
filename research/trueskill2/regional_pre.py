@@ -402,11 +402,8 @@ def compute_prior_delta_cap(
     config: RegionalPreModelConfig | None = None,
 ) -> Any:
     cfg = config or RegionalPreModelConfig()
-    history = _clip01(np.asarray(history_strength, dtype=float))
     support = _clip01(np.asarray(recent_evidence_support, dtype=float))
-    novelty = np.power(1.0 - history, max(float(cfg.history_cap_curve), 1e-6))
-    cap = cfg.prior_delta_cap_min + ((cfg.prior_delta_cap_max - cfg.prior_delta_cap_min) * novelty)
-    cap *= 0.85 + (0.15 * support)
+    cap = cfg.prior_delta_cap_min + ((cfg.prior_delta_cap_max - cfg.prior_delta_cap_min) * support)
     return np.clip(cap, cfg.prior_delta_cap_min, cfg.prior_delta_cap_max)
 
 

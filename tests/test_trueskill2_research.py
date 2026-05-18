@@ -36,9 +36,11 @@ from research.trueskill2.regional_pre import (
     map_evidence_to_prior_delta,
     compute_history_context,
 )
+from research.trueskill2.season_delta import SeasonDeltaConfig, compute_effective_sigma_theta
 from research.trueskill2.fit import (
     _split_recent_season_values,
     _build_rmuc_long_term_base_snapshot,
+    _build_published_current_snapshot,
     build_published_preseason_snapshot,
     compute_published_rating,
     build_published_live_state_updates,
@@ -261,21 +263,21 @@ class TrueSkill2ResearchTests(unittest.TestCase):
         self.assertAlmostEqual(float(calibration.iloc[1]), 0.0, places=6)
         self.assertLess(abs(float(calibration.iloc[0])), abs(float(rmul_finish.iloc[0])))
 
-    def test_prior_delta_cap_is_smaller_for_strong_history(self) -> None:
+    def test_prior_delta_cap_is_driven_by_recent_evidence_support(self) -> None:
         centered = pd.Series([1.0, 1.0], dtype=float)
         deltas = map_evidence_to_prior_delta(
             centered,
             pd.Series([0.9, 0.1], dtype=float),
-            pd.Series([1.0, 1.0], dtype=float),
+            pd.Series([0.0, 1.0], dtype=float),
             RegionalPreModelConfig(
-                prior_delta_cap_min=0.12,
-                prior_delta_cap_max=0.60,
+                prior_delta_cap_min=0.35,
+                prior_delta_cap_max=1.25,
                 history_cap_curve=1.0,
             ),
         )
         self.assertGreater(float(deltas.iloc[1]), float(deltas.iloc[0]))
-        self.assertLessEqual(float(deltas.iloc[0]), 0.60)
-        self.assertLessEqual(float(deltas.iloc[1]), 0.60)
+        self.assertAlmostEqual(float(deltas.iloc[0]), 0.35 * np.tanh(1.0), places=6)
+        self.assertAlmostEqual(float(deltas.iloc[1]), 1.25 * np.tanh(1.0), places=6)
 
     def test_build_evidence_score_centers_training_distribution(self) -> None:
         frame = pd.DataFrame(
@@ -493,6 +495,8 @@ class TrueSkill2ResearchTests(unittest.TestCase):
                     "school_name": "Alpha",
                     "rmuc_long_term_base_theta_mean": 1.2,
                     "regional_pre_offset_theta": 0.4,
+                    "pre_signal_sd": 0.2,
+                    "rmuc_history_strength": 0.5,
                     "regional_pre_decay_factor": 1.0,
                 }
             ]
@@ -508,7 +512,736 @@ class TrueSkill2ResearchTests(unittest.TestCase):
         self.assertEqual(str(row["freeze_date"]), "2026-04-05")
         self.assertAlmostEqual(float(row["rmuc_program_base_theta"]), 1.2)
         self.assertAlmostEqual(float(row["regional_prior_theta"]), 0.4)
+        self.assertAlmostEqual(float(row["season_delta_mu"]), 0.4)
+        self.assertAlmostEqual(
+            float(row["season_delta_sigma_theta"]),
+            compute_effective_sigma_theta(
+                pre_signal_sd=0.2,
+                regional_prior_delta_theta=0.4,
+                rmuc_history_strength=0.5,
+            ),
+        )
+        self.assertAlmostEqual(float(row["effective_sigma_rating"]), 120.0 * float(row["season_delta_sigma_theta"]))
         self.assertAlmostEqual(float(row["published_regional_pre_rating"]), 1500.0 + (120.0 * 1.6))
+
+    def test_season_delta_fusion_live_updates_high_sigma_teams_faster(self) -> None:
+        canonical_matches = pd.DataFrame(
+            [
+                {
+                    "match_id": "m_fusion",
+                    "season": 2026,
+                    "match_date": "2026-05-01",
+                    "ruleset_id": "RMUC",
+                    "stage_id": "rmuc_regional_group",
+                    "stage_family": "regional_group",
+                    "red_school_key": "a",
+                    "blue_school_key": "b",
+                    "red_wins": 2,
+                    "blue_wins": 0,
+                    "winner_side": "red",
+                }
+            ]
+        )
+        preseason = pd.DataFrame(
+            [
+                {
+                    "school_key": "a",
+                    "school_name": "Alpha",
+                    "season": 2026,
+                    "rmuc_program_base_theta": 0.0,
+                    "regional_prior_theta": 0.0,
+                    "season_delta_mu": 0.0,
+                    "season_delta_sigma_theta": 1.0,
+                },
+                {
+                    "school_key": "b",
+                    "school_name": "Beta",
+                    "season": 2026,
+                    "rmuc_program_base_theta": 0.0,
+                    "regional_prior_theta": 0.0,
+                    "season_delta_mu": 0.0,
+                    "season_delta_sigma_theta": 0.3,
+                },
+            ]
+        )
+
+        updates = build_published_live_state_updates(
+            preseason_snapshot=preseason,
+            live_state_store=pd.DataFrame(),
+            new_matches=canonical_matches,
+            rating_scale=120.0,
+            pre_decay_matches=3,
+            beta_perf=1.0,
+            online_update_scale=0.5,
+            update_strategy="season_delta_fusion",
+        )
+
+        red = updates[(updates["match_id"] == "m_fusion") & (updates["school_key"] == "a")].iloc[0]
+        blue = updates[(updates["match_id"] == "m_fusion") & (updates["school_key"] == "b")].iloc[0]
+        self.assertGreater(float(red["result_obs_gain"]), float(blue["result_obs_gain"]))
+        self.assertGreater(float(red["season_delta_mu_after_match"]), 0.0)
+        self.assertLess(float(blue["season_delta_mu_after_match"]), 0.0)
+        self.assertAlmostEqual(float(red["published_delta_rating"]), float(red["live_update_delta_rating"]))
+
+    def test_season_delta_fusion_applies_live_form_once_per_snapshot_before_prediction(self) -> None:
+        canonical_matches = pd.DataFrame(
+            [
+                {
+                    "match_id": "m_form_1",
+                    "season": 2026,
+                    "match_date": "2026-05-01",
+                    "ruleset_id": "RMUC",
+                    "stage_id": "rmuc_regional_group",
+                    "stage_family": "regional_group",
+                    "red_school_key": "a",
+                    "blue_school_key": "b",
+                    "red_wins": 2,
+                    "blue_wins": 0,
+                    "winner_side": "red",
+                },
+                {
+                    "match_id": "m_form_2",
+                    "season": 2026,
+                    "match_date": "2026-05-02",
+                    "ruleset_id": "RMUC",
+                    "stage_id": "rmuc_regional_group",
+                    "stage_family": "regional_group",
+                    "red_school_key": "a",
+                    "blue_school_key": "b",
+                    "red_wins": 0,
+                    "blue_wins": 2,
+                    "winner_side": "blue",
+                },
+            ]
+        )
+        preseason = pd.DataFrame(
+            [
+                {
+                    "school_key": "a",
+                    "school_name": "Alpha",
+                    "season": 2026,
+                    "rmuc_program_base_theta": 0.0,
+                    "regional_prior_theta": 0.0,
+                    "season_delta_mu": 0.0,
+                    "season_delta_sigma_theta": 0.8,
+                },
+                {
+                    "school_key": "b",
+                    "school_name": "Beta",
+                    "season": 2026,
+                    "rmuc_program_base_theta": 0.0,
+                    "regional_prior_theta": 0.0,
+                    "season_delta_mu": 0.0,
+                    "season_delta_sigma_theta": 0.8,
+                },
+            ]
+        )
+        repeated_form = pd.DataFrame(
+            [
+                {"match_id": "m_form_1", "school_key": "a", "obs_mu": 0.7, "obs_sigma": 0.6, "snapshot_name": "snap_1"},
+                {"match_id": "m_form_1", "school_key": "b", "obs_mu": -0.7, "obs_sigma": 0.6, "snapshot_name": "snap_1"},
+                {"match_id": "m_form_2", "school_key": "a", "obs_mu": 0.7, "obs_sigma": 0.6, "snapshot_name": "snap_1"},
+                {"match_id": "m_form_2", "school_key": "b", "obs_mu": -0.7, "obs_sigma": 0.6, "snapshot_name": "snap_1"},
+            ]
+        )
+
+        updates = build_published_live_state_updates(
+            preseason_snapshot=preseason,
+            live_state_store=pd.DataFrame(),
+            new_matches=canonical_matches,
+            rating_scale=120.0,
+            pre_decay_matches=3,
+            beta_perf=1.0,
+            online_update_scale=0.5,
+            update_strategy="season_delta_fusion",
+            form_observations=repeated_form,
+        )
+
+        first_red = updates[(updates["match_id"] == "m_form_1") & (updates["school_key"] == "a")].iloc[0]
+        second_red = updates[(updates["match_id"] == "m_form_2") & (updates["school_key"] == "a")].iloc[0]
+        self.assertGreater(float(first_red["form_obs_gain"]), 0.0)
+        self.assertGreater(float(first_red["live_state_theta_before_match"]), 0.0)
+        self.assertEqual(first_red["form_snapshot_name"], "snap_1")
+        self.assertEqual(float(second_red["form_obs_gain"]), 0.0)
+        self.assertEqual(float(second_red["form_update_delta_theta"]), 0.0)
+
+    def test_season_delta_fusion_momentum_is_general_result_state(self) -> None:
+        canonical_matches = pd.DataFrame(
+            [
+                {
+                    "match_id": "m_momentum_1",
+                    "season": 2026,
+                    "match_date": "2026-05-01",
+                    "ruleset_id": "RMUC",
+                    "stage_id": "rmuc_regional_group",
+                    "stage_family": "regional_group",
+                    "red_school_key": "a",
+                    "blue_school_key": "b",
+                    "red_wins": 0,
+                    "blue_wins": 2,
+                    "winner_side": "blue",
+                },
+                {
+                    "match_id": "m_momentum_2",
+                    "season": 2026,
+                    "match_date": "2026-05-02",
+                    "ruleset_id": "RMUC",
+                    "stage_id": "rmuc_regional_group",
+                    "stage_family": "regional_group",
+                    "red_school_key": "a",
+                    "blue_school_key": "b",
+                    "red_wins": 1,
+                    "blue_wins": 2,
+                    "winner_side": "blue",
+                },
+            ]
+        )
+        preseason = pd.DataFrame(
+            [
+                {
+                    "school_key": "a",
+                    "school_name": "Alpha",
+                    "season": 2026,
+                    "rmuc_program_base_theta": 0.5,
+                    "regional_prior_theta": 0.0,
+                    "season_delta_mu": 0.0,
+                    "season_delta_sigma_theta": 0.8,
+                },
+                {
+                    "school_key": "b",
+                    "school_name": "Beta",
+                    "season": 2026,
+                    "rmuc_program_base_theta": 0.0,
+                    "regional_prior_theta": 0.0,
+                    "season_delta_mu": 0.0,
+                    "season_delta_sigma_theta": 0.8,
+                },
+            ]
+        )
+
+        updates = build_published_live_state_updates(
+            preseason_snapshot=preseason,
+            live_state_store=pd.DataFrame(),
+            new_matches=canonical_matches,
+            rating_scale=120.0,
+            pre_decay_matches=3,
+            beta_perf=1.0,
+            online_update_scale=0.5,
+            update_strategy="season_delta_fusion",
+            season_delta_config=SeasonDeltaConfig(
+                momentum_update_enabled=True,
+                result_momentum_scale=0.8,
+                result_momentum_decay=0.5,
+                result_momentum_cap=0.50,
+            ),
+        )
+
+        first_red = updates[(updates["match_id"] == "m_momentum_1") & (updates["school_key"] == "a")].iloc[0]
+        first_blue = updates[(updates["match_id"] == "m_momentum_1") & (updates["school_key"] == "b")].iloc[0]
+        second_red = updates[(updates["match_id"] == "m_momentum_2") & (updates["school_key"] == "a")].iloc[0]
+        self.assertLess(float(first_red["momentum_theta_after_match"]), 0.0)
+        self.assertGreater(float(first_blue["momentum_theta_after_match"]), 0.0)
+        self.assertAlmostEqual(
+            float(second_red["momentum_theta_before_match"]),
+            float(first_red["momentum_theta_after_match"]),
+        )
+        self.assertAlmostEqual(
+            float(second_red["live_state_theta_before_match"]),
+            float(second_red["season_delta_mu_before_match"]) + float(second_red["momentum_theta_before_match"]),
+        )
+        self.assertNotAlmostEqual(
+            float(first_red["published_delta_rating"]),
+            float(first_red["live_update_delta_rating"]),
+        )
+
+        current = _build_published_current_snapshot(
+            preseason_snapshot=preseason,
+            live_state_store=updates,
+            rating_scale=120.0,
+            season=2026,
+        )
+        current_red = current[current["school_key"] == "a"].iloc[0]
+        self.assertLess(float(current_red["rmuc_momentum_theta"]), 0.0)
+        self.assertAlmostEqual(
+            float(current_red["rmuc_live_state_theta"]),
+            float(current_red["season_delta_mu"]) + float(current_red["rmuc_momentum_theta"]),
+        )
+
+    def test_season_delta_fusion_records_surprise_and_opponent_adjusted_form(self) -> None:
+        canonical_matches = pd.DataFrame(
+            [
+                {
+                    "match_id": "m_surprise_form",
+                    "season": 2026,
+                    "match_date": "2026-05-01",
+                    "ruleset_id": "RMUC",
+                    "stage_id": "rmuc_regional_group",
+                    "stage_family": "regional_group",
+                    "red_school_key": "a",
+                    "blue_school_key": "b",
+                    "red_wins": 0,
+                    "blue_wins": 2,
+                    "winner_side": "blue",
+                },
+            ]
+        )
+        preseason = pd.DataFrame(
+            [
+                {
+                    "school_key": "a",
+                    "school_name": "Alpha",
+                    "season": 2026,
+                    "rmuc_program_base_theta": 1.0,
+                    "regional_prior_theta": 0.0,
+                    "season_delta_mu": 0.0,
+                    "season_delta_sigma_theta": 0.6,
+                },
+                {
+                    "school_key": "b",
+                    "school_name": "Beta",
+                    "season": 2026,
+                    "rmuc_program_base_theta": 0.0,
+                    "regional_prior_theta": 0.0,
+                    "season_delta_mu": 0.0,
+                    "season_delta_sigma_theta": 0.6,
+                },
+            ]
+        )
+        form = pd.DataFrame(
+            [
+                {
+                    "match_id": "m_surprise_form",
+                    "school_key": "a",
+                    "obs_mu": 0.8,
+                    "obs_sigma": 0.6,
+                    "snapshot_name": "snap_form",
+                    "form_freshness_weight": 1.0,
+                },
+                {
+                    "match_id": "m_surprise_form",
+                    "school_key": "b",
+                    "obs_mu": -0.8,
+                    "obs_sigma": 0.6,
+                    "snapshot_name": "snap_form",
+                    "form_freshness_weight": 1.0,
+                },
+            ]
+        )
+
+        updates = build_published_live_state_updates(
+            preseason_snapshot=preseason,
+            live_state_store=pd.DataFrame(),
+            new_matches=canonical_matches,
+            rating_scale=120.0,
+            pre_decay_matches=3,
+            beta_perf=1.0,
+            online_update_scale=0.5,
+            update_strategy="season_delta_fusion",
+            season_delta_config=SeasonDeltaConfig(
+                surprise_residual_threshold=0.25,
+                max_sigma_inflation=0.18,
+                opponent_form_expected_scale=0.50,
+                opponent_form_adjustment_weight=0.50,
+            ),
+            form_observations=form,
+        )
+
+        red_update = updates[(updates["match_id"] == "m_surprise_form") & (updates["school_key"] == "a")].iloc[0]
+        blue_update = updates[(updates["match_id"] == "m_surprise_form") & (updates["school_key"] == "b")].iloc[0]
+        self.assertGreater(float(red_update["surprise_residual"]), 0.25)
+        self.assertGreater(float(red_update["sigma_inflation"]), 0.0)
+        self.assertGreater(
+            float(red_update["season_delta_sigma_after_inflation"]),
+            float(red_update["season_delta_sigma_before_inflation"]),
+        )
+        self.assertAlmostEqual(
+            float(red_update["season_delta_sigma_after_match"]),
+            float(red_update["season_delta_sigma_after_inflation"]),
+        )
+        self.assertLess(float(red_update["form_opponent_adjusted_obs_mu"]), float(red_update["form_obs_mu"]))
+        self.assertGreater(float(blue_update["form_opponent_adjusted_obs_mu"]), float(blue_update["form_obs_mu"]))
+
+    def test_runtime_sync_publish_uses_configured_season_delta_strategy(self) -> None:
+        from scripts import sync_rmuc_live
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            base_published = root / "base_published"
+            runtime_dir = root / "runtime"
+            base_published.mkdir(parents=True)
+            (base_published / "published_manifest.json").write_text(
+                json.dumps(
+                    {
+                        "season": 2026,
+                        "rating_scale": 120.0,
+                        "beta_perf": 1.0,
+                        "online_live_update_scale": 0.5,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            config_path = root / "trueskill2_full.yaml"
+            config_path.write_text(
+                yaml.safe_dump(
+                    {
+                        "regional_pre_model": {
+                            "live_update_strategy": "season_delta_fusion",
+                            "pre_decay_matches": 3,
+                            "momentum_update_enabled": True,
+                            "result_momentum_scale": 0.8,
+                            "result_momentum_decay": 0.5,
+                            "result_momentum_cap": 0.5,
+                        }
+                    },
+                    allow_unicode=True,
+                ),
+                encoding="utf-8",
+            )
+            preseason_path = root / "preseason_ratings.csv"
+            pd.DataFrame(
+                [
+                    {
+                        "school_key": "a",
+                        "college_name": "Alpha",
+                        "program_base_theta": 0.5,
+                        "prior_delta_theta": 0.0,
+                        "pre_signal_sd_theta": 0.2,
+                        "rmuc_history_strength": 0.8,
+                    },
+                    {
+                        "school_key": "b",
+                        "college_name": "Beta",
+                        "program_base_theta": 0.0,
+                        "prior_delta_theta": 0.0,
+                        "pre_signal_sd_theta": 0.2,
+                        "rmuc_history_strength": 0.8,
+                    },
+                ]
+            ).to_csv(preseason_path, index=False)
+            old_published = runtime_dir / "published_2026"
+            old_published.mkdir(parents=True)
+            (old_published / "live_state_updates.json").write_text(
+                json.dumps(
+                    [
+                        {"match_id": "m_runtime", "match_date": "2026-05-01", "school_key": "a"},
+                        {"match_id": "m_runtime", "match_date": "2026-05-01", "school_key": "b"},
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            normalized = {
+                "sourceStatus": "active",
+                "season": 2026,
+                "fetchedAt": "2026-05-01T00:00:00Z",
+                "sourceUpdatedAt": "2026-05-01T00:00:00Z",
+                "regions": {
+                    "south_region": {
+                        "matches": [
+                            {
+                                "matchId": "m_runtime",
+                                "matchDate": "2026-05-01",
+                                "regionSlug": "south_region",
+                                "stageFamily": "regional_group",
+                                "isCompleted": True,
+                                "redSchoolKey": "a",
+                                "blueSchoolKey": "b",
+                                "redWins": 0,
+                                "blueWins": 2,
+                            }
+                        ]
+                    }
+                },
+            }
+
+            sync_rmuc_live.publish_runtime_artifacts(
+                normalized=normalized,
+                runtime_dir=runtime_dir,
+                base_published_dir=base_published,
+                preseason_ratings=preseason_path,
+                snapshot_date="2026-05-01",
+                config_path=config_path,
+            )
+
+            ledger = json.loads((runtime_dir / "published_2026" / "live_state_updates.json").read_text(encoding="utf-8"))
+            red_update = next(row for row in ledger if row["school_key"] == "a")
+            self.assertEqual(red_update["update_strategy"], "season_delta_fusion")
+            self.assertIn("season_delta_mu_after_match", red_update)
+            self.assertLess(float(red_update["momentum_theta_after_match"]), 0.0)
+
+            current = json.loads((runtime_dir / "published_2026" / "current_snapshot.json").read_text(encoding="utf-8"))
+            red_current = next(row for row in current if row["school_key"] == "a")
+            self.assertLess(float(red_current["rmuc_momentum_theta"]), 0.0)
+            self.assertAlmostEqual(
+                float(red_current["rmuc_live_state_theta"]),
+                float(red_current["season_delta_mu"]) + float(red_current["rmuc_momentum_theta"]),
+            )
+
+    def test_runtime_sync_publish_builds_pre_match_live_form_observations(self) -> None:
+        from scripts import sync_rmuc_live
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            base_published = root / "base_published"
+            runtime_dir = root / "runtime"
+            raw_dir = runtime_dir / "raw"
+            base_published.mkdir(parents=True)
+            raw_dir.mkdir(parents=True)
+            (base_published / "published_manifest.json").write_text(
+                json.dumps({"season": 2026, "rating_scale": 120.0, "beta_perf": 1.0}),
+                encoding="utf-8",
+            )
+            config_path = root / "trueskill2_full.yaml"
+            config_path.write_text(
+                yaml.safe_dump(
+                    {
+                        "regional_pre_model": {
+                            "live_update_strategy": "season_delta_fusion",
+                            "live_form_update_enabled": True,
+                        }
+                    },
+                    allow_unicode=True,
+                ),
+                encoding="utf-8",
+            )
+            pd.DataFrame(
+                [
+                    {
+                        "school_key": "a",
+                        "college_name": "a",
+                        "program_base_theta": 0.0,
+                        "prior_delta_theta": 0.0,
+                        "pre_signal_sd_theta": 0.2,
+                        "rmuc_history_strength": 0.8,
+                    },
+                    {
+                        "school_key": "b",
+                        "college_name": "b",
+                        "program_base_theta": 0.0,
+                        "prior_delta_theta": 0.0,
+                        "pre_signal_sd_theta": 0.2,
+                        "rmuc_history_strength": 0.8,
+                    },
+                ]
+            ).to_csv(root / "preseason_ratings.csv", index=False)
+            group_rank = {
+                "zones": [
+                    {
+                        "zoneName": "南部赛区",
+                        "groups": [
+                            {
+                                "groupName": "A组",
+                                "groupPlayers": [
+                                    [
+                                        {"itemName": "战队", "itemValue": {"collegeName": "a", "teamName": "A"}},
+                                        {"itemName": "胜/平/负", "itemValue": "1/0/0"},
+                                        {"itemName": "时均全队总伤害血量", "itemValue": 3000},
+                                        {"itemName": "时均总基地净胜血量", "itemValue": 50},
+                                    ],
+                                    [
+                                        {"itemName": "战队", "itemValue": {"collegeName": "b", "teamName": "B"}},
+                                        {"itemName": "胜/平/负", "itemValue": "0/0/1"},
+                                        {"itemName": "时均全队总伤害血量", "itemValue": 1200},
+                                        {"itemName": "时均总基地净胜血量", "itemValue": -50},
+                                    ],
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            }
+            robot = {
+                "zones": [
+                    {
+                        "zoneName": "南部赛区",
+                        "teams": [
+                            {"collegeName": "a", "name": "A", "robots": [{"eagHurt": 900, "gKillCount": 2, "eagKdaScore": 2, "gkDamage": 200}]},
+                            {"collegeName": "b", "name": "B", "robots": [{"eagHurt": 100, "gKillCount": 0.2, "eagKdaScore": 0.2, "gkDamage": 20}]},
+                        ],
+                    }
+                ]
+            }
+            (raw_dir / "group_rank_info.20260501T000000Z.json").write_text(json.dumps(group_rank), encoding="utf-8")
+            (raw_dir / "robot_data.20260501T000100Z.json").write_text(json.dumps(robot), encoding="utf-8")
+            normalized = {
+                "sourceStatus": "active",
+                "season": 2026,
+                "fetchedAt": "2026-05-01T00:20:00Z",
+                "sourceUpdatedAt": "2026-05-01T00:20:00Z",
+                "regions": {
+                    "south_region": {
+                        "matches": [
+                            {
+                                "matchId": "m_previous_form",
+                                "matchDate": "2026-05-01",
+                                "plannedStartAt": "2026-04-30T23:00:00Z",
+                                "regionSlug": "south_region",
+                                "stageFamily": "regional_group",
+                                "isCompleted": True,
+                                "redSchoolKey": "a",
+                                "blueSchoolKey": "b",
+                                "redWins": 2,
+                                "blueWins": 0,
+                            },
+                            {
+                                "matchId": "m_runtime_form",
+                                "matchDate": "2026-05-01",
+                                "plannedStartAt": "2026-05-01T00:10:00Z",
+                                "regionSlug": "south_region",
+                                "stageFamily": "regional_group",
+                                "isCompleted": True,
+                                "redSchoolKey": "a",
+                                "blueSchoolKey": "b",
+                                "redWins": 2,
+                                "blueWins": 0,
+                            }
+                        ]
+                    }
+                },
+            }
+
+            sync_rmuc_live.publish_runtime_artifacts(
+                normalized=normalized,
+                runtime_dir=runtime_dir,
+                base_published_dir=base_published,
+                preseason_ratings=root / "preseason_ratings.csv",
+                snapshot_date="2026-05-01",
+                config_path=config_path,
+            )
+
+            ledger = json.loads((runtime_dir / "published_2026" / "live_state_updates.json").read_text(encoding="utf-8"))
+            red_update = next(row for row in ledger if row["match_id"] == "m_runtime_form" and row["school_key"] == "a")
+            self.assertGreater(float(red_update["form_obs_gain"]), 0.0)
+            self.assertEqual(red_update["form_snapshot_name"], "group_rank_info.20260501T000000Z.json")
+            self.assertEqual(red_update["form_robot_snapshot_name"], "robot_data.20260501T000100Z.json")
+            self.assertGreater(float(red_update["published_rating_before_match"]), 1500.0)
+
+    def test_runtime_sync_uses_event_freshness_for_long_gap_between_matches(self) -> None:
+        from scripts import sync_rmuc_live
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            base_published = root / "base_published"
+            runtime_dir = root / "runtime"
+            raw_dir = runtime_dir / "raw"
+            base_published.mkdir(parents=True)
+            raw_dir.mkdir(parents=True)
+            (base_published / "published_manifest.json").write_text(
+                json.dumps({"season": 2026, "rating_scale": 120.0, "beta_perf": 1.0}),
+                encoding="utf-8",
+            )
+            config_path = root / "trueskill2_full.yaml"
+            config_path.write_text(
+                yaml.safe_dump(
+                    {
+                        "regional_pre_model": {
+                            "live_update_strategy": "season_delta_fusion",
+                            "live_form_update_enabled": True,
+                            "form_freshness_decay_minutes": 90.0,
+                        }
+                    },
+                    allow_unicode=True,
+                ),
+                encoding="utf-8",
+            )
+            pd.DataFrame(
+                [
+                    {
+                        "school_key": "a",
+                        "college_name": "a",
+                        "program_base_theta": 0.0,
+                        "prior_delta_theta": 0.0,
+                        "pre_signal_sd_theta": 0.2,
+                        "rmuc_history_strength": 0.8,
+                    },
+                    {
+                        "school_key": "b",
+                        "college_name": "b",
+                        "program_base_theta": 0.0,
+                        "prior_delta_theta": 0.0,
+                        "pre_signal_sd_theta": 0.2,
+                        "rmuc_history_strength": 0.8,
+                    },
+                ]
+            ).to_csv(root / "preseason_ratings.csv", index=False)
+            group_rank = {
+                "zones": [
+                    {
+                        "zoneName": "南部赛区",
+                        "groups": [
+                            {
+                                "groupName": "A组",
+                                "groupPlayers": [
+                                    [
+                                        {"itemName": "战队", "itemValue": {"collegeName": "a", "teamName": "A"}},
+                                        {"itemName": "胜/平/负", "itemValue": "1/0/0"},
+                                        {"itemName": "时均全队总伤害血量", "itemValue": 3000},
+                                        {"itemName": "时均总基地净胜血量", "itemValue": 50},
+                                    ],
+                                    [
+                                        {"itemName": "战队", "itemValue": {"collegeName": "b", "teamName": "B"}},
+                                        {"itemName": "胜/平/负", "itemValue": "1/0/0"},
+                                        {"itemName": "时均全队总伤害血量", "itemValue": 1200},
+                                        {"itemName": "时均总基地净胜血量", "itemValue": -50},
+                                    ],
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            }
+            (raw_dir / "group_rank_info.20260501T000000Z.json").write_text(json.dumps(group_rank), encoding="utf-8")
+            normalized = {
+                "sourceStatus": "active",
+                "season": 2026,
+                "fetchedAt": "2026-05-01T10:10:00Z",
+                "sourceUpdatedAt": "2026-05-01T10:10:00Z",
+                "regions": {
+                    "south_region": {
+                        "matches": [
+                            {
+                                "matchId": "m_previous",
+                                "matchDate": "2026-05-01",
+                                "plannedStartAt": "2026-05-01T00:10:00Z",
+                                "regionSlug": "south_region",
+                                "stageFamily": "regional_group",
+                                "isCompleted": True,
+                                "redSchoolKey": "a",
+                                "blueSchoolKey": "b",
+                                "redWins": 2,
+                                "blueWins": 0,
+                            },
+                            {
+                                "matchId": "m_after_long_gap",
+                                "matchDate": "2026-05-01",
+                                "plannedStartAt": "2026-05-01T10:00:00Z",
+                                "regionSlug": "south_region",
+                                "stageFamily": "regional_group",
+                                "isCompleted": True,
+                                "redSchoolKey": "a",
+                                "blueSchoolKey": "b",
+                                "redWins": 2,
+                                "blueWins": 0,
+                            },
+                        ]
+                    }
+                },
+            }
+
+            sync_rmuc_live.publish_runtime_artifacts(
+                normalized=normalized,
+                runtime_dir=runtime_dir,
+                base_published_dir=base_published,
+                preseason_ratings=root / "preseason_ratings.csv",
+                snapshot_date="2026-05-01",
+                config_path=config_path,
+            )
+
+            ledger = json.loads((runtime_dir / "published_2026" / "live_state_updates.json").read_text(encoding="utf-8"))
+            red_update = next(row for row in ledger if row["match_id"] == "m_after_long_gap" and row["school_key"] == "a")
+            self.assertEqual(red_update["form_event_freshness_status"], "current")
+            self.assertEqual(float(red_update["form_freshness_weight"]), 1.0)
+            self.assertEqual(float(red_update["form_expected_group_matches_before"]), 1.0)
+            self.assertGreater(float(red_update["form_obs_gain"]), 0.02)
 
     def test_build_published_live_state_updates_is_append_only_and_deduplicated(self) -> None:
         canonical_matches = pd.DataFrame(
@@ -579,7 +1312,7 @@ class TrueSkill2ResearchTests(unittest.TestCase):
         )
         self.assertEqual(len(repeated), 0)
 
-    def test_build_published_live_state_updates_records_match_ledger_deltas_and_win_drop_case(self) -> None:
+    def test_build_published_live_state_updates_records_match_ledger_deltas_and_win_recovery_case(self) -> None:
         canonical_matches = pd.DataFrame(
             [
                 {
@@ -652,8 +1385,8 @@ class TrueSkill2ResearchTests(unittest.TestCase):
         self.assertEqual(str(alpha["scoreline"]), "2:0")
         self.assertEqual(str(alpha["match_result"]), "win")
         self.assertGreater(float(alpha["live_update_delta_rating"]), 0.0)
-        self.assertLess(float(alpha["prior_component_delta_rating"]), 0.0)
-        self.assertLess(float(alpha["published_delta_rating"]), 0.0)
+        self.assertAlmostEqual(float(alpha["prior_component_delta_rating"]), 0.0)
+        self.assertGreater(float(alpha["published_delta_rating"]), 0.0)
         self.assertAlmostEqual(
             float(alpha["published_rating_after_match"]) - float(alpha["published_rating_before_match"]),
             float(alpha["published_delta_rating"]),
@@ -664,6 +1397,48 @@ class TrueSkill2ResearchTests(unittest.TestCase):
         )
         self.assertEqual(str(alpha["opponent_school_key"]), "b")
         self.assertIn("region_slug", updates.columns)
+
+    def test_published_current_snapshot_accepts_legacy_live_state_without_season_delta_columns(self) -> None:
+        preseason = pd.DataFrame(
+            [
+                {
+                    "school_key": "a",
+                    "school_name": "Alpha",
+                    "season": 2026,
+                    "rmuc_program_base_theta": 0.1,
+                    "regional_prior_theta": 0.6,
+                    "season_delta_mu": 0.6,
+                    "season_delta_sigma_theta": 0.8,
+                }
+            ]
+        )
+        legacy_store = pd.DataFrame(
+            [
+                {
+                    "match_id": "m_old",
+                    "match_date": "2026-05-01",
+                    "school_key": "a",
+                    "live_state_theta_after_match": -0.2,
+                    "confirmed_prior_theta_after_match": 0.2,
+                    "residual_prior_theta_after_match": 0.2,
+                    "regional_group_matches_played": 1,
+                    "pre_decay_factor_after_match": 2.0 / 3.0,
+                    "stage_family": "regional_group",
+                }
+            ]
+        )
+
+        current = _build_published_current_snapshot(
+            preseason_snapshot=preseason,
+            live_state_store=legacy_store,
+            rating_scale=120.0,
+            season=2026,
+        )
+
+        row = current.iloc[0]
+        self.assertAlmostEqual(float(row["season_delta_mu"]), 0.2)
+        self.assertAlmostEqual(float(row["season_delta_sigma_theta"]), 0.8)
+        self.assertAlmostEqual(float(row["published_theta"]), 0.1 + 0.2 + 0.2 - 0.2)
 
     def test_calibrate_online_live_update_scale_matches_historical_tempo_target(self) -> None:
         preseason = pd.DataFrame(
