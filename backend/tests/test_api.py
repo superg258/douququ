@@ -1600,6 +1600,66 @@ def test_live_payload_without_official_slots_hides_simulated_group_rankings(tmp_
     assert all(slot["teamKey"] == "" for slot in payload["slots"])
 
 
+def test_live_payload_ignores_official_swiss_pairings_until_slots_are_complete(tmp_path, monkeypatch) -> None:
+    simulated = service.build_simulation_payload("south_region", 20260414, mode="sim", samples=1)
+    a_team = next(slot for slot in simulated["slots"] if slot["slot"].startswith("A"))
+    b_team = next(slot for slot in simulated["slots"] if slot["slot"].startswith("B"))
+    normalized_path = tmp_path / "normalized_schedule.json"
+    _write_active_live_schedule(
+        normalized_path,
+        slot_assignments={a_team["teamKey"]: "A1"},
+        matches=[
+            {
+                "officialMatchId": "partial-official-feed-repro",
+                "matchId": "2026RMUC:partial-official-feed-repro",
+                "regionSlug": "south_region",
+                "regionName": "南部赛区",
+                "stageFamily": "regional_group",
+                "stage": "swiss",
+                "roundNumber": 1,
+                "groupName": "A",
+                "matchLabel": "A-SWISS-1-1",
+                "orderNumber": 1,
+                "bestOf": 3,
+                "plannedStartAt": "2026-05-21T00:30:00Z",
+                "matchDate": "2026-05-21",
+                "officialStatus": "TODO",
+                "result": "",
+                "scoreline": "0:0",
+                "isCompleted": False,
+                "hasLiveScoreline": False,
+                "isConfirmedMatchup": True,
+                "redTeamKey": b_team["teamKey"],
+                "redCollegeName": b_team["collegeName"],
+                "redTeamName": b_team["teamName"],
+                "blueTeamKey": a_team["teamKey"],
+                "blueCollegeName": a_team["collegeName"],
+                "blueTeamName": a_team["teamName"],
+                "redWins": 0,
+                "blueWins": 0,
+            }
+        ],
+    )
+    monkeypatch.setattr(service, "NORMALIZED_LIVE_SCHEDULE_PATH", normalized_path)
+    service._reset_live_state_caches()
+
+    payload = service.build_simulation_payload("south_region", 20260414, mode="live", samples=1)
+
+    assert payload["meta"]["liveStatus"]["slotAssignmentSource"] == "official_placeholder"
+    assert "官方落位数量不是 32" in payload["meta"]["liveStatus"]["slotAssignmentReason"]
+    assert payload["groupRankings"] == {"A": [], "B": []}
+
+    prematch = service.build_prematch_center_payload(
+        seed=20260414,
+        mode="live",
+        region_slugs=["south_region"],
+        now=datetime(2026, 5, 20, tzinfo=UTC),
+    )
+
+    assert prematch["source"]["regionStatuses"][0]["slotAssignmentSource"] == "official_placeholder"
+    assert "官方落位数量不是 32" in prematch["source"]["regionStatuses"][0]["slotAssignmentReason"]
+
+
 def _fake_match(
     *,
     match_label: str,

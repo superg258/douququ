@@ -3038,8 +3038,9 @@ def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", sam
             _published_match_rating_index(region_slug),
             current_rating_index=load_current_rating_index(),
         )
-        official_swiss_pairings = context.swiss_pairings
-        official_group_rank_metrics = context.group_rank_metrics
+        if slot_assignments is not None:
+            official_swiss_pairings = context.swiss_pairings
+            official_group_rank_metrics = context.group_rank_metrics
         effective_seed = seed
     else:
         builder = None
