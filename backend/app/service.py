@@ -1581,6 +1581,7 @@ def _prediction_theta_for_team(
     current_rating_index: dict[str, dict[str, Any]],
     *,
     prediction_head_config: dict[str, float],
+    allow_component_head: bool = True,
 ) -> float:
     rating = current_rating_index.get(str(team.team_key), {})
     current_elo = _prediction_elo_for_team(team, current_rating_index)
@@ -1589,7 +1590,8 @@ def _prediction_theta_for_team(
         rating.get("regionalGroupMatchesPlayedBefore", rating.get("regionalGroupMatchesPlayed"))
     )
     uses_component_head = (
-        stage_family == "regional_group"
+        allow_component_head
+        and stage_family == "regional_group"
         and group_matches_before is not None
         and float(prediction_head_config["early_group_min_matches"])
         <= group_matches_before
@@ -1628,6 +1630,7 @@ def _deterministic_live_prediction_payload(
     head_to_head_index: dict[tuple[str, str], dict[str, Any]],
     current_rating_index: dict[str, dict[str, Any]],
     prediction_head_config: dict[str, float] | None = None,
+    allow_component_head: bool = True,
 ) -> dict[str, Any]:
     prediction_head_config = prediction_head_config or _live_prediction_head_config()
     red_elo = _prediction_elo_for_team(red_team, current_rating_index)
@@ -1637,11 +1640,13 @@ def _deterministic_live_prediction_payload(
         red_team,
         current_rating_index,
         prediction_head_config=prediction_head_config,
+        allow_component_head=allow_component_head,
     )
     blue_theta = _prediction_theta_for_team(
         blue_team,
         current_rating_index,
         prediction_head_config=prediction_head_config,
+        allow_component_head=allow_component_head,
     )
     beta_eff = max(beta_perf * float(prediction_head_config["temperature"]), 1e-6)
     p_game_base_red = 1.0 / (1.0 + math.exp(-((red_theta - blue_theta) / beta_eff)))
@@ -2749,10 +2754,11 @@ def live_payload_builder_factory(
     prediction_head_config = _live_prediction_head_config()
 
     def _builder(red_team, blue_team, *, best_of, samples, match_seed, head_to_head_index, **kwargs):
+        stage = str(kwargs.get("stage") or "")
         override = context.payload_override_for(
             red_team_key=red_team.team_key,
             blue_team_key=blue_team.team_key,
-            stage=str(kwargs.get("stage") or ""),
+            stage=stage,
             round_number=int(kwargs["round_number"]) if kwargs.get("round_number") is not None else None,
             match_label=str(kwargs["match_label"]) if kwargs.get("match_label") is not None else None,
         )
@@ -2771,6 +2777,7 @@ def live_payload_builder_factory(
             head_to_head_index=head_to_head_index,
             current_rating_index=prediction_rating_index,
             prediction_head_config=prediction_head_config,
+            allow_component_head=stage == "swiss",
         )
         payload.update(override)
         _collapse_live_prediction_distribution(payload, best_of=best_of)

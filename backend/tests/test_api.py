@@ -1199,6 +1199,90 @@ def test_live_builder_prediction_head_shrinks_long_term_base_component() -> None
     assert payload["p_series_red"] < 0.5
 
 
+def test_live_builder_projected_knockout_uses_current_rating_instead_of_early_group_head(
+    monkeypatch,
+) -> None:
+    red_team = SimpleNamespace(
+        team_key="origin-school::main",
+        college_name="华东理工大学",
+        team_name="起源",
+        mu0=1690.0,
+        sigma0=40.0,
+        beta_perf=1.0,
+    )
+    blue_team = SimpleNamespace(
+        team_key="artinx-school::main",
+        college_name="南方科技大学",
+        team_name="ARTINX",
+        mu0=1633.0,
+        sigma0=40.0,
+        beta_perf=1.0,
+    )
+    monkeypatch.setattr(
+        service,
+        "_live_prediction_head_config",
+        lambda: {
+            "base_weight": 0.25,
+            "season_delta_weight": 1.0,
+            "momentum_weight": 0.0,
+            "temperature": 1.0,
+            "early_group_min_matches": 1.0,
+            "early_group_max_matches": 1.0,
+            "rating_scale": 120.0,
+            "process_residual_weight": 0.0,
+            "process_residual_cap": 0.40,
+            "robot_form_agreement_weight": 0.0,
+            "robot_form_agreement_cap": 0.30,
+        },
+    )
+    context = service.rmuc_live.LiveRuntimeContext(
+        region_slug="east_region",
+        source_status="active",
+        reason=None,
+        matches_by_pair={},
+        matches_by_pair_round={},
+        matches_by_pair_label={},
+        swiss_pairings={},
+        slot_assignments={},
+        group_rank_metrics={},
+        completed_count=1,
+        confirmed_count=1,
+    )
+    builder = service.live_payload_builder_factory(
+        context,
+        current_rating_index={
+            "origin-school::main": {
+                "currentElo": 1746.0,
+                "stageFamily": "regional_group",
+                "regionalGroupMatchesPlayed": 1,
+                "programBaseTheta": 0.50,
+                "seasonDeltaMu": 0.0,
+                "momentumTheta": 0.0,
+            },
+            "artinx-school::main": {
+                "currentElo": 1633.0,
+                "stageFamily": "regional_pre",
+                "regionalGroupMatchesPlayed": 0,
+            },
+        },
+    )
+
+    payload = builder(
+        red_team,
+        blue_team,
+        best_of=3,
+        samples=1,
+        match_seed=111,
+        head_to_head_index={},
+        stage="round_of_16",
+        round_number=1,
+        match_label="R16-4",
+    )
+
+    assert payload["p_game_base_red"] > 0.5
+    assert payload["p_series_red"] > 0.5
+
+
 def test_live_builder_prediction_head_keeps_later_group_raw_rating() -> None:
     red_team = SimpleNamespace(
         team_key="red-school::main",
