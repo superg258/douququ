@@ -1566,6 +1566,123 @@ def test_live_builder_prediction_head_uses_fresh_robot_form_agreement(monkeypatc
     assert payload["p_series_red"] > 0.5
 
 
+def test_live_builder_uses_pending_prediction_form_observation_for_swiss_match(monkeypatch) -> None:
+    red_team = SimpleNamespace(
+        team_key="red-school::main",
+        college_name="红方大学",
+        team_name="Main",
+        mu0=1500.0,
+        sigma0=40.0,
+        beta_perf=1.0,
+    )
+    blue_team = SimpleNamespace(
+        team_key="blue-school::main",
+        college_name="蓝方大学",
+        team_name="Main",
+        mu0=1500.0,
+        sigma0=40.0,
+        beta_perf=1.0,
+    )
+    monkeypatch.setattr(
+        service,
+        "_live_prediction_head_config",
+        lambda: {
+            "base_weight": 0.0,
+            "season_delta_weight": 0.0,
+            "momentum_weight": 0.0,
+            "temperature": 1.0,
+            "early_group_min_matches": 1.0,
+            "early_group_max_matches": 1.0,
+            "rating_scale": 120.0,
+            "process_residual_weight": 0.35,
+            "process_residual_cap": 0.40,
+            "robot_form_agreement_weight": 0.20,
+            "robot_form_agreement_cap": 0.30,
+        },
+    )
+    context = service.rmuc_live.LiveRuntimeContext(
+        region_slug="south_region",
+        source_status="active",
+        reason=None,
+        matches_by_pair={},
+        matches_by_pair_round={
+            ("red-school::main", "blue-school::main", "swiss", 2): {
+                "matchId": "2026RMUC:OFFICIAL-2",
+                "officialMatchId": "OFFICIAL-2",
+                "officialStatus": "WAITING",
+                "plannedStartAt": "2026-05-02T12:00:00+00:00",
+                "scoreline": "0:0",
+                "isCompleted": False,
+                "hasLiveScoreline": False,
+            }
+        },
+        matches_by_pair_label={},
+        swiss_pairings={},
+        slot_assignments={},
+        group_rank_metrics={},
+        completed_count=1,
+        confirmed_count=1,
+    )
+    builder = service.live_payload_builder_factory(
+        context,
+        rating_index={},
+        current_rating_index={
+            "red-school::main": {
+                "currentElo": 1500.0,
+                "programBaseTheta": 0.0,
+                "seasonDeltaMu": 0.0,
+                "momentumTheta": 0.0,
+                "stageFamily": "regional_group",
+                "regionalGroupMatchesPlayed": 1.0,
+            },
+            "blue-school::main": {
+                "currentElo": 1500.0,
+                "programBaseTheta": 0.0,
+                "seasonDeltaMu": 0.0,
+                "momentumTheta": 0.0,
+                "stageFamily": "regional_group",
+                "regionalGroupMatchesPlayed": 1.0,
+            },
+        },
+        prediction_form_index={
+            ("2026RMUC:OFFICIAL-2", "red-school"): {
+                "form_obs_mu": 0.45,
+                "form_opponent_adjusted_obs_mu": 0.40,
+                "form_obs_gain": 1.0,
+                "form_event_freshness_weight": 1.0,
+                "form_robot_family_signal": 0.55,
+                "form_robot_signal_conflict": False,
+                "form_expected_group_matches_before": 1.0,
+            },
+            ("2026RMUC:OFFICIAL-2", "blue-school"): {
+                "form_obs_mu": -0.45,
+                "form_opponent_adjusted_obs_mu": -0.40,
+                "form_obs_gain": 1.0,
+                "form_event_freshness_weight": 1.0,
+                "form_robot_family_signal": -0.55,
+                "form_robot_signal_conflict": False,
+                "form_expected_group_matches_before": 1.0,
+            },
+        },
+    )
+
+    payload = builder(
+        red_team,
+        blue_team,
+        best_of=3,
+        samples=1,
+        match_seed=111,
+        head_to_head_index={},
+        stage="swiss",
+        round_number=2,
+        match_label="A-SWISS-2-1",
+    )
+
+    assert "fixed_scoreline" not in payload
+    assert payload["p_game_base_red"] > 0.5
+    assert payload["p_series_red"] > 0.5
+
+
 def test_live_builder_prediction_head_applies_robot_form_agreement_after_early_window(monkeypatch) -> None:
     red_team = SimpleNamespace(
         team_key="red-school::main",

@@ -38,6 +38,7 @@ DEFAULT_BASE_PUBLISHED_DIR = ROOT / "data" / "derived" / "2026_rmuc_ts2" / "publ
 DEFAULT_PRESEASON_RATINGS = ROOT / "data" / "derived" / "2026_rmuc_ts2" / "preseason_ratings.csv"
 DEFAULT_TS2_CONFIG = ROOT / "configs" / "trueskill2_full.yaml"
 MINI_PROGRAM_PREDICTIONS_FILENAME = "mini_program_predictions.json"
+PREDICTION_FORM_OBSERVATIONS_FILENAME = "prediction_form_observations.json"
 SYNC_MANIFEST_FILENAME = "sync_manifest.json"
 DEFAULT_MINI_PROGRAM_TTL_SECONDS = 300
 DEFAULT_MINI_PROGRAM_REFRESH_WINDOW_SECONDS = 60
@@ -46,6 +47,7 @@ DEFAULT_MINI_PROGRAM_LOOKAHEAD_HOURS = 48
 DEFAULT_MINI_PROGRAM_MAX_MATCHES = 96
 BEIJING_TZ = timezone(timedelta(hours=8))
 RUNTIME_SNAPSHOT_RE = re.compile(r"^(group_rank_info|robot_data)\.(\d{8}T\d{6}Z)\.json$")
+COMPLETED_OFFICIAL_STATUSES = {"DONE", "FINISHED", "ENDED", "COMPLETE", "COMPLETED"}
 
 
 def parse_args() -> argparse.Namespace:
@@ -159,6 +161,15 @@ def _same_school_in_match(match: dict[str, Any], school_key_text: str) -> bool:
     }
 
 
+def _numeric_match_order(value: Any) -> float | None:
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _expected_group_matches_before(
     *,
     match: dict[str, Any],
@@ -166,9 +177,29 @@ def _expected_group_matches_before(
     all_matches: list[dict[str, Any]],
 ) -> float | None:
     planned_start = _parse_datetime(match.get("plannedStartAt")) or _parse_datetime(match.get("matchDate"))
-    if planned_start is None:
-        return None
     region_slug = str(match.get("regionSlug") or "")
+    if planned_start is None:
+        current_order = _numeric_match_order(match.get("orderNumber"))
+        if current_order is not None:
+            count = 0
+            for candidate in all_matches:
+                if str(candidate.get("regionSlug") or "") != region_slug:
+                    continue
+                if str(candidate.get("stageFamily") or "") != "regional_group":
+                    continue
+                if not candidate.get("isCompleted"):
+                    continue
+                if not _same_school_in_match(candidate, school_key_text):
+                    continue
+                candidate_order = _numeric_match_order(candidate.get("orderNumber"))
+                if candidate_order is None or candidate_order >= current_order:
+                    continue
+                count += 1
+            return float(count)
+        round_number = _numeric_match_order(match.get("roundNumber"))
+        if round_number is not None:
+            return float(max(round_number - 1.0, 0.0))
+        return None
     count = 0
     for candidate in all_matches:
         if str(candidate.get("regionSlug") or "") != region_slug:
@@ -184,6 +215,19 @@ def _expected_group_matches_before(
             continue
         count += 1
     return float(count)
+
+
+def _is_pending_prediction_form_match(match: dict[str, Any]) -> bool:
+    if str(match.get("stageFamily") or "") != "regional_group":
+        return False
+    if str(match.get("stage") or "") != "swiss":
+        return False
+    if match.get("isConfirmedMatchup") is not True:
+        return False
+    if match.get("isCompleted") or match.get("hasLiveScoreline"):
+        return False
+    status = str(match.get("officialStatus") or "").strip().upper()
+    return status not in COMPLETED_OFFICIAL_STATUSES
 
 
 def build_runtime_live_form_observations(
@@ -275,6 +319,101 @@ def build_runtime_live_form_observations(
                 out["form_expected_group_matches_before"] = expected_played
             out["match_id"] = str(match.get("matchId") or "")
             out["region_slug"] = str(match.get("regionSlug") or "")
+            rows.append(out)
+    return pd.DataFrame(rows)
+
+
+def build_runtime_prediction_form_observations(
+    *,
+    normalized: dict[str, Any],
+    raw_dir: Path,
+    regional_cfg: RegionalPreModelConfig,
+):
+    import pandas as pd
+
+    if not bool(regional_cfg.live_form_update_enabled):
+        return pd.DataFrame()
+    group_payload = load_json_if_exists(raw_dir / "group_rank_info.json")
+    if not isinstance(group_payload, dict):
+        return pd.DataFrame()
+    robot_payload = load_json_if_exists(raw_dir / "robot_data.json")
+    season_cfg = _season_delta_config(regional_cfg)
+    observations = build_form_observations_from_group_rank_payload(
+        group_payload,
+        robot_payload=robot_payload if isinstance(robot_payload, dict) else None,
+        snapshot_name="group_rank_info.json",
+        snapshot_age_minutes=None,
+        robot_snapshot_name="robot_data.json" if isinstance(robot_payload, dict) else None,
+        robot_snapshot_age_minutes=None,
+        config=season_cfg,
+        apply_time_freshness=str(regional_cfg.form_freshness_mode) != "event_count_v1",
+    )
+    if getattr(observations, "empty", True):
+        return pd.DataFrame()
+
+    by_school = {str(row["school_key"]): row for row in observations.to_dict(orient="records")}
+    all_matches = list(_iter_normalized_matches(normalized) or [])
+    rows: list[dict[str, Any]] = []
+    for match in all_matches:
+        if not _is_pending_prediction_form_match(match):
+            continue
+        for side in ("red", "blue"):
+            school = str(match.get(f"{side}SchoolKey") or "")
+            if not school:
+                continue
+            row = by_school.get(school)
+            if row is None:
+                continue
+            try:
+                group_matches_played = float(row.get("group_matches_played") or 0.0)
+            except (TypeError, ValueError):
+                continue
+            if group_matches_played < 1.0:
+                continue
+            expected_played = _expected_group_matches_before(
+                match=match,
+                school_key_text=school,
+                all_matches=all_matches,
+            )
+            out = dict(row)
+            if str(regional_cfg.form_freshness_mode) == "event_count_v1":
+                event_freshness = compute_event_form_freshness(
+                    snapshot_matches_played=row.get("group_matches_played"),
+                    expected_matches_played_before=expected_played,
+                    time_freshness_weight=float(row.get("form_freshness_weight") or 1.0),
+                )
+                if event_freshness.weight <= 0.0:
+                    continue
+                freshened = adjust_form_observation_for_freshness(
+                    obs_mu=float(row.get("obs_mu") or 0.0),
+                    obs_sigma=float(row.get("obs_sigma") or 0.0),
+                    freshness_weight=event_freshness.weight,
+                    config=season_cfg,
+                )
+                out["obs_mu"] = float(freshened.obs_mu)
+                out["obs_sigma"] = float(freshened.obs_sigma)
+                out["form_freshness_weight"] = float(event_freshness.weight)
+                out["form_event_freshness_weight"] = float(event_freshness.weight)
+                out["form_event_freshness_status"] = event_freshness.status
+            else:
+                out["form_event_freshness_weight"] = None
+                out["form_event_freshness_status"] = "time_decay"
+
+            out["match_id"] = str(match.get("matchId") or "")
+            out["official_match_id"] = str(match.get("officialMatchId") or "")
+            out["region_slug"] = str(match.get("regionSlug") or "")
+            out["stage_family"] = str(match.get("stageFamily") or "")
+            out["team_key"] = str(match.get(f"{side}TeamKey") or "")
+            out["school_key"] = school
+            out["team_side"] = side
+            out["form_expected_group_matches_before"] = expected_played
+            out["form_obs_mu"] = float(out.get("obs_mu") or 0.0)
+            out["form_obs_sigma"] = float(out.get("obs_sigma") or 0.0)
+            out["form_obs_gain"] = float(out.get("form_reliability") or 0.0)
+            out["form_opponent_adjusted_obs_mu"] = float(out.get("obs_mu") or 0.0)
+            out["form_robot_family_signal"] = float(out.get("robot_family_signal") or 0.0)
+            out["form_robot_signal_alignment"] = out.get("robot_signal_alignment")
+            out["form_robot_signal_conflict"] = bool(out.get("robot_signal_conflict", False))
             rows.append(out)
     return pd.DataFrame(rows)
 
@@ -725,6 +864,11 @@ def publish_runtime_artifacts(
         raw_dir=runtime_dir / "raw",
         regional_cfg=regional_cfg,
     )
+    prediction_form_observations = build_runtime_prediction_form_observations(
+        normalized=normalized,
+        raw_dir=runtime_dir / "raw",
+        regional_cfg=regional_cfg,
+    )
     live_updates = build_published_live_state_updates(
         preseason_snapshot=preseason,
         live_state_store=existing,
@@ -748,6 +892,7 @@ def publish_runtime_artifacts(
     save_frame_json(runtime_published_dir / "live_state_updates.json", live_updates)
     save_frame_json(runtime_published_dir / "live_match_ledger.json", live_updates)
     save_frame_json(runtime_published_dir / "current_snapshot.json", current_snapshot)
+    save_frame_json(runtime_dir / PREDICTION_FORM_OBSERVATIONS_FILENAME, prediction_form_observations)
     write_json_atomic(
         runtime_published_dir / "published_manifest.json",
         {
@@ -816,6 +961,9 @@ def clear_stale_runtime_published_artifacts(runtime_dir: Path) -> None:
         path = runtime_published_dir / filename
         if path.exists():
             path.unlink()
+    prediction_form_path = runtime_dir / PREDICTION_FORM_OBSERVATIONS_FILENAME
+    if prediction_form_path.exists():
+        prediction_form_path.unlink()
 
 
 def main() -> None:

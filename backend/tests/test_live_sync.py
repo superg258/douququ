@@ -151,6 +151,197 @@ def test_collect_mini_program_match_ids_treats_naive_schedule_times_as_beijing()
     assert match_ids == ["30900"]
 
 
+def _group_rank_player(
+    college_name: str,
+    team_name: str,
+    *,
+    record: str,
+    damage: float,
+    base_hp_diff: float,
+    opponent_points: float,
+) -> list[dict[str, Any]]:
+    return [
+        {"itemName": "战队", "itemValue": {"collegeName": college_name, "teamName": team_name}},
+        {"itemName": "胜/平/负", "itemValue": record},
+        {"itemName": "对手分", "itemValue": opponent_points},
+        {"itemName": "时均总基地净胜血量", "itemValue": str(base_hp_diff)},
+        {"itemName": "时均全队总伤害血量", "itemValue": str(damage)},
+    ]
+
+
+def test_prediction_form_observations_use_pending_match_round_counts(tmp_path: Path) -> None:
+    raw_dir = tmp_path / "raw"
+    _write_json(
+        raw_dir / "group_rank_info.json",
+        {
+            "zones": [
+                {
+                    "zoneName": "东部赛区",
+                    "groups": [
+                        {
+                            "groupName": "A组",
+                            "groupPlayers": [
+                                _group_rank_player(
+                                    "红方大学",
+                                    "Red",
+                                    record="1/0/0",
+                                    damage=12.0,
+                                    base_hp_diff=1.2,
+                                    opponent_points=1.0,
+                                ),
+                                _group_rank_player(
+                                    "蓝方大学",
+                                    "Blue",
+                                    record="1/0/0",
+                                    damage=8.0,
+                                    base_hp_diff=-1.2,
+                                    opponent_points=-1.0,
+                                ),
+                            ],
+                        }
+                    ],
+                }
+            ]
+        },
+    )
+    _write_json(
+        raw_dir / "robot_data.json",
+        {
+            "zones": [
+                {
+                    "zoneName": "东部赛区",
+                    "teams": [
+                        {
+                            "collegeName": "红方大学",
+                            "name": "Red",
+                            "robots": [{"eagHurt": 2000, "gKillCount": 6, "eagKdaScore": 7, "gkDamage": 900}],
+                        },
+                        {
+                            "collegeName": "蓝方大学",
+                            "name": "Blue",
+                            "robots": [{"eagHurt": 300, "gKillCount": 0, "eagKdaScore": 0, "gkDamage": 100}],
+                        },
+                    ],
+                }
+            ]
+        },
+    )
+    normalized = {
+        "sourceStatus": "active",
+        "regions": {
+            "east_region": {
+                "matches": [
+                    {
+                        "matchId": "2026RMUC:R1-PENDING",
+                        "officialMatchId": "R1-PENDING",
+                        "regionSlug": "east_region",
+                        "stage": "swiss",
+                        "stageFamily": "regional_group",
+                        "roundNumber": 1,
+                        "groupName": "A",
+                        "plannedStartAt": "2026-05-21T08:00:00+00:00",
+                        "officialStatus": "WAITING",
+                        "isCompleted": False,
+                        "hasLiveScoreline": False,
+                        "isConfirmedMatchup": True,
+                        "redSchoolKey": "红方大学",
+                        "blueSchoolKey": "蓝方大学",
+                        "redTeamKey": "红方大学::Red",
+                        "blueTeamKey": "蓝方大学::Blue",
+                    },
+                    {
+                        "matchId": "2026RMUC:R1-DONE",
+                        "officialMatchId": "R1-DONE",
+                        "regionSlug": "east_region",
+                        "stage": "swiss",
+                        "stageFamily": "regional_group",
+                        "roundNumber": 1,
+                        "groupName": "A",
+                        "plannedStartAt": "2026-05-21T08:10:00+00:00",
+                        "officialStatus": "DONE",
+                        "isCompleted": True,
+                        "hasLiveScoreline": True,
+                        "isConfirmedMatchup": True,
+                        "redSchoolKey": "红方大学",
+                        "blueSchoolKey": "蓝方大学",
+                        "redTeamKey": "红方大学::Red",
+                        "blueTeamKey": "蓝方大学::Blue",
+                    },
+                    {
+                        "matchId": "2026RMUC:R2-PENDING",
+                        "officialMatchId": "R2-PENDING",
+                        "regionSlug": "east_region",
+                        "stage": "swiss",
+                        "stageFamily": "regional_group",
+                        "roundNumber": 2,
+                        "groupName": "A",
+                        "plannedStartAt": "2026-05-21T09:00:00+00:00",
+                        "officialStatus": "WAITING",
+                        "isCompleted": False,
+                        "hasLiveScoreline": False,
+                        "isConfirmedMatchup": True,
+                        "redSchoolKey": "红方大学",
+                        "blueSchoolKey": "蓝方大学",
+                        "redTeamKey": "红方大学::Red",
+                        "blueTeamKey": "蓝方大学::Blue",
+                    },
+                    {
+                        "matchId": "2026RMUC:R2-DONE",
+                        "officialMatchId": "R2-DONE",
+                        "regionSlug": "east_region",
+                        "stage": "swiss",
+                        "stageFamily": "regional_group",
+                        "roundNumber": 2,
+                        "groupName": "A",
+                        "plannedStartAt": "2026-05-21T10:00:00+00:00",
+                        "officialStatus": "DONE",
+                        "isCompleted": True,
+                        "hasLiveScoreline": True,
+                        "isConfirmedMatchup": True,
+                        "redSchoolKey": "红方大学",
+                        "blueSchoolKey": "蓝方大学",
+                        "redTeamKey": "红方大学::Red",
+                        "blueTeamKey": "蓝方大学::Blue",
+                    },
+                    {
+                        "matchId": "2026RMUC:R3-PENDING",
+                        "officialMatchId": "R3-PENDING",
+                        "regionSlug": "east_region",
+                        "stage": "swiss",
+                        "stageFamily": "regional_group",
+                        "roundNumber": 3,
+                        "groupName": "A",
+                        "plannedStartAt": "2026-05-21T11:00:00+00:00",
+                        "officialStatus": "WAITING",
+                        "isCompleted": False,
+                        "hasLiveScoreline": False,
+                        "isConfirmedMatchup": True,
+                        "redSchoolKey": "红方大学",
+                        "blueSchoolKey": "蓝方大学",
+                        "redTeamKey": "红方大学::Red",
+                        "blueTeamKey": "蓝方大学::Blue",
+                    },
+                ]
+            }
+        },
+    }
+
+    frame = sync_rmuc_live.build_runtime_prediction_form_observations(
+        normalized=normalized,
+        raw_dir=raw_dir,
+        regional_cfg=sync_rmuc_live.load_regional_config(sync_rmuc_live.DEFAULT_TS2_CONFIG),
+    )
+    rows = frame.to_dict(orient="records")
+
+    assert [(row["match_id"], row["school_key"]) for row in rows] == [
+        ("2026RMUC:R2-PENDING", "红方大学"),
+        ("2026RMUC:R2-PENDING", "蓝方大学"),
+    ]
+    assert {row["form_event_freshness_status"] for row in rows} == {"current"}
+    assert rows[0]["form_robot_family_signal"] != 0.0
+    assert rows[0]["form_expected_group_matches_before"] == 1.0
+
+
 def test_live_runtime_context_uses_persisted_mini_program_predictions(tmp_path: Path, monkeypatch) -> None:
     normalized_path = tmp_path / "normalized_schedule.json"
     prediction_path = tmp_path / "mini_program_predictions.json"

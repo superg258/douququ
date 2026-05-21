@@ -37,6 +37,7 @@ REGION_SIM_DIR = ts2_model.ROOT / "data" / "derived" / "2026_rmuc_region_simulat
 RUNTIME_LIVE_DIR = ROOT / "data" / "runtime" / "rmuc_live"
 NORMALIZED_LIVE_SCHEDULE_PATH = RUNTIME_LIVE_DIR / "normalized_schedule.json"
 MINI_PROGRAM_PREDICTIONS_PATH = RUNTIME_LIVE_DIR / "mini_program_predictions.json"
+PREDICTION_FORM_OBSERVATIONS_PATH = RUNTIME_LIVE_DIR / "prediction_form_observations.json"
 RUNTIME_PUBLISHED_RATINGS_DIR = RUNTIME_LIVE_DIR / "published_2026"
 MINI_PROGRAM_CLIENT = rmuc_live.MiniProgramPredictionClient()
 
@@ -289,6 +290,7 @@ def _runtime_live_artifact_version() -> str:
     paths = [
         NORMALIZED_LIVE_SCHEDULE_PATH,
         MINI_PROGRAM_PREDICTIONS_PATH,
+        PREDICTION_FORM_OBSERVATIONS_PATH,
         _published_manifest_path_for(RUNTIME_PUBLISHED_RATINGS_DIR),
         _published_current_snapshot_path_for(RUNTIME_PUBLISHED_RATINGS_DIR),
         _published_live_match_ledger_path_for(RUNTIME_PUBLISHED_RATINGS_DIR),
@@ -400,6 +402,7 @@ def _reset_live_state_caches() -> None:
     load_published_live_match_ledger_rows.cache_clear()
     load_current_rating_index.cache_clear()
     load_global_elo_rank_map.cache_clear()
+    _load_prediction_form_index_cached.cache_clear()
 
 
 def live_state_unavailable_payload(region_slug: str, reason: str) -> dict[str, Any]:
@@ -1351,6 +1354,44 @@ def _published_match_rating_index(region_slug: str) -> dict[tuple[str, str], dic
     return out
 
 
+@lru_cache(maxsize=8)
+def _load_prediction_form_index_cached(
+    path_text: str,
+    mtime_ns: int,
+    size: int,
+    region_slug: str,
+) -> dict[tuple[str, str], dict[str, Any]]:
+    rows = _read_json_if_exists(Path(path_text))
+    if not isinstance(rows, list):
+        return {}
+    out: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        row_region_slug = str(row.get("region_slug") or "")
+        if row_region_slug and row_region_slug != region_slug:
+            continue
+        school_key = str(row.get("school_key") or "")
+        if not school_key:
+            continue
+        match_id = str(row.get("match_id") or "")
+        official_match_id = str(row.get("official_match_id") or "")
+        candidate_ids = []
+        for candidate in (match_id, f"2026RMUC:{official_match_id}" if official_match_id else "", official_match_id):
+            if candidate and candidate not in candidate_ids:
+                candidate_ids.append(candidate)
+        for candidate in candidate_ids:
+            out[(candidate, school_key)] = row
+    return out
+
+
+def _prediction_form_index(region_slug: str) -> dict[tuple[str, str], dict[str, Any]]:
+    return _load_prediction_form_index_cached(
+        *_path_signature(PREDICTION_FORM_OBSERVATIONS_PATH),
+        region_slug,
+    )
+
+
 def _school_key_from_team_key(team_key: str) -> str:
     return team_key.split("::", maxsplit=1)[0]
 
@@ -1380,6 +1421,39 @@ def _float_from_row(row: dict[str, Any] | None, key: str) -> float | None:
     if value in (None, ""):
         return None
     return float(value)
+
+
+def _bool_from_row(row: dict[str, Any] | None, key: str) -> bool:
+    if row is None:
+        return False
+    value = row.get(key)
+    return value is True or str(value).strip().lower() == "true"
+
+
+def _prediction_form_component_fields(row: dict[str, Any] | None) -> dict[str, Any]:
+    if row is None:
+        return {}
+    out: dict[str, Any] = {}
+    for source_key, target_key in (
+        ("form_obs_mu", "formObsMu"),
+        ("form_obs_sigma", "formObsSigma"),
+        ("form_opponent_adjusted_obs_mu", "formOpponentAdjustedObsMu"),
+        ("form_obs_gain", "formObsGain"),
+        ("form_freshness_weight", "formFreshnessWeight"),
+        ("form_event_freshness_weight", "formEventFreshnessWeight"),
+        ("form_robot_family_signal", "formRobotFamilySignal"),
+    ):
+        value = _float_from_row(row, source_key)
+        if value is not None:
+            out[target_key] = value
+    expected_group_matches = _float_from_row(row, "form_expected_group_matches_before")
+    if expected_group_matches is not None:
+        out["regionalGroupMatchesPlayedBefore"] = expected_group_matches
+    stage_family = str(row.get("stage_family") or "")
+    if stage_family:
+        out["stageFamily"] = stage_family
+    out["formRobotSignalConflict"] = _bool_from_row(row, "form_robot_signal_conflict")
+    return out
 
 
 def _prior_adjustment_label(row: dict[str, Any] | None) -> str:
@@ -1682,26 +1756,33 @@ def _live_prediction_rating_index_for_match(
     override: dict[str, Any],
     current_rating_index: dict[str, dict[str, Any]],
     rating_index: dict[tuple[str, str], dict[str, Any]],
+    prediction_form_index: dict[tuple[str, str], dict[str, Any]],
     prediction_head_config: dict[str, float],
 ) -> dict[str, dict[str, Any]]:
-    if not rating_index:
-        return current_rating_index
-    red_row = _ledger_row_for_match(
-        rating_index,
-        match_id=str(override.get("match_id") or "") or None,
-        official_match_id=str(override.get("official_match_id") or "") or None,
-        school_key=_school_key_from_team_key(red_team_key),
+    red_school_key = _school_key_from_team_key(red_team_key)
+    blue_school_key = _school_key_from_team_key(blue_team_key)
+    match_id = str(override.get("match_id") or "") or None
+    official_match_id = str(override.get("official_match_id") or "") or None
+    red_row = (
+        _ledger_row_for_match(
+            rating_index,
+            match_id=match_id,
+            official_match_id=official_match_id,
+            school_key=red_school_key,
+        )
+        if rating_index
+        else None
     )
-    blue_row = _ledger_row_for_match(
-        rating_index,
-        match_id=str(override.get("match_id") or "") or None,
-        official_match_id=str(override.get("official_match_id") or "") or None,
-        school_key=_school_key_from_team_key(blue_team_key),
+    blue_row = (
+        _ledger_row_for_match(
+            rating_index,
+            match_id=match_id,
+            official_match_id=official_match_id,
+            school_key=blue_school_key,
+        )
+        if rating_index
+        else None
     )
-    red_before = _float_from_row(red_row, "published_rating_before_match")
-    blue_before = _float_from_row(blue_row, "published_rating_before_match")
-    if red_before is None or blue_before is None:
-        return current_rating_index
 
     def _ledger_prediction_fields(row: dict[str, Any] | None, before_rating: float) -> dict[str, Any]:
         out: dict[str, Any] = {"currentElo": before_rating}
@@ -1726,24 +1807,41 @@ def _live_prediction_rating_index_for_match(
         sigma_theta = _float_from_row(row, "season_delta_sigma_before_match")
         if sigma_theta is not None:
             out["seasonDeltaSigmaTheta"] = sigma_theta
-        for source_key, target_key in (
-            ("form_obs_mu", "formObsMu"),
-            ("form_opponent_adjusted_obs_mu", "formOpponentAdjustedObsMu"),
-            ("form_obs_gain", "formObsGain"),
-            ("form_freshness_weight", "formFreshnessWeight"),
-            ("form_event_freshness_weight", "formEventFreshnessWeight"),
-            ("form_robot_family_signal", "formRobotFamilySignal"),
-        ):
-            value = _float_from_row(row, source_key)
-            if value is not None:
-                out[target_key] = value
-        if row is not None:
-            out["formRobotSignalConflict"] = bool(row.get("form_robot_signal_conflict", False))
+        out.update(_prediction_form_component_fields(row))
         return out
 
     out = dict(current_rating_index)
-    out[red_team_key] = {**out.get(red_team_key, {}), **_ledger_prediction_fields(red_row, red_before)}
-    out[blue_team_key] = {**out.get(blue_team_key, {}), **_ledger_prediction_fields(blue_row, blue_before)}
+    red_before = _float_from_row(red_row, "published_rating_before_match")
+    blue_before = _float_from_row(blue_row, "published_rating_before_match")
+    if red_before is not None and blue_before is not None:
+        out[red_team_key] = {**out.get(red_team_key, {}), **_ledger_prediction_fields(red_row, red_before)}
+        out[blue_team_key] = {**out.get(blue_team_key, {}), **_ledger_prediction_fields(blue_row, blue_before)}
+
+    if not override.get("fixed_scoreline") and prediction_form_index:
+        red_form_row = _ledger_row_for_match(
+            prediction_form_index,
+            match_id=match_id,
+            official_match_id=official_match_id,
+            school_key=red_school_key,
+        )
+        blue_form_row = _ledger_row_for_match(
+            prediction_form_index,
+            match_id=match_id,
+            official_match_id=official_match_id,
+            school_key=blue_school_key,
+        )
+        if red_form_row is not None:
+            out[red_team_key] = {
+                **out.get(red_team_key, {}),
+                **_prediction_form_component_fields(red_form_row),
+                "predictionHeadSource": "pending_prediction_form",
+            }
+        if blue_form_row is not None:
+            out[blue_team_key] = {
+                **out.get(blue_team_key, {}),
+                **_prediction_form_component_fields(blue_form_row),
+                "predictionHeadSource": "pending_prediction_form",
+            }
     return out
 
 
@@ -2748,9 +2846,11 @@ def live_payload_builder_factory(
     rating_index: dict[tuple[str, str], dict[str, Any]] | None = None,
     *,
     current_rating_index: dict[str, dict[str, Any]] | None = None,
+    prediction_form_index: dict[tuple[str, str], dict[str, Any]] | None = None,
 ):
     rating_index = rating_index or {}
     current_rating_index = current_rating_index or {}
+    prediction_form_index = prediction_form_index or {}
     prediction_head_config = _live_prediction_head_config()
 
     def _builder(red_team, blue_team, *, best_of, samples, match_seed, head_to_head_index, **kwargs):
@@ -2768,6 +2868,7 @@ def live_payload_builder_factory(
             override=override,
             current_rating_index=current_rating_index,
             rating_index=rating_index,
+            prediction_form_index=prediction_form_index,
             prediction_head_config=prediction_head_config,
         )
         payload = _deterministic_live_prediction_payload(
@@ -3044,6 +3145,7 @@ def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", sam
             context,
             _published_match_rating_index(region_slug),
             current_rating_index=load_current_rating_index(),
+            prediction_form_index=_prediction_form_index(region_slug),
         )
         if slot_assignments is not None:
             official_swiss_pairings = context.swiss_pairings
