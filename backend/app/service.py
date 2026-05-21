@@ -1516,14 +1516,14 @@ def _predicted_scoreline_from_rates(p_game_red: float, p_series_red: float, best
     p_series_red = max(0.0, min(1.0, p_series_red))
     if best_of == 5:
         if p_series_red >= 0.5:
-            if p_series_red < 0.65:
+            if p_series_red < 0.68:
                 return "3:2"
-            if p_series_red < 0.85:
+            if p_series_red < 0.88:
                 return "3:1"
             return "3:0"
-        if p_series_red > 0.35:
+        if p_series_red > 0.32:
             return "2:3"
-        if p_series_red > 0.15:
+        if p_series_red > 0.12:
             return "1:3"
         return "0:3"
 

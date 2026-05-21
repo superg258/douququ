@@ -1694,6 +1694,20 @@ def test_live_prediction_scoreline_uses_calibrated_bo3_scoreline_thresholds() ->
     assert service._predicted_scoreline_from_rates(0.358709, 0.293705, 3) == "0:2"
 
 
+def test_live_prediction_scoreline_uses_conservative_bo5_scoreline_thresholds() -> None:
+    payload = {"p_game_adj_red": 0.62, "p_series_red": 0.67}
+
+    service._collapse_live_prediction_distribution(payload, best_of=5)
+
+    assert payload["scoreline_distribution"] == {"3:2": 1.0}
+    assert service._predicted_scoreline_from_rates(0.64, 0.70, 5) == "3:1"
+    assert service._predicted_scoreline_from_rates(0.70, 0.86, 5) == "3:1"
+    assert service._predicted_scoreline_from_rates(0.72, 0.90, 5) == "3:0"
+    assert service._predicted_scoreline_from_rates(0.45, 0.33, 5) == "2:3"
+    assert service._predicted_scoreline_from_rates(0.40, 0.14, 5) == "1:3"
+    assert service._predicted_scoreline_from_rates(0.35, 0.10, 5) == "0:3"
+
+
 def test_live_builder_prediction_head_applies_robot_form_agreement_after_early_window(monkeypatch) -> None:
     red_team = SimpleNamespace(
         team_key="red-school::main",
