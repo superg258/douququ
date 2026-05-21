@@ -1511,7 +1511,8 @@ def _attach_published_match_rating_history(
     payload["blue_prior_adjustment_label"] = _prior_adjustment_label(blue_row)
 
 
-def _predicted_scoreline_from_series(p_series_red: float, best_of: int) -> str:
+def _predicted_scoreline_from_rates(p_game_red: float, p_series_red: float, best_of: int) -> str:
+    p_game_red = max(0.0, min(1.0, p_game_red))
     p_series_red = max(0.0, min(1.0, p_series_red))
     if best_of == 5:
         if p_series_red >= 0.5:
@@ -1526,16 +1527,20 @@ def _predicted_scoreline_from_series(p_series_red: float, best_of: int) -> str:
             return "1:3"
         return "0:3"
 
-    if p_series_red >= 0.5:
-        return "2:1" if p_series_red < 0.72 else "2:0"
-    return "1:2" if p_series_red > 0.28 else "0:2"
+    if p_game_red >= 0.5:
+        return "2:0" if p_game_red >= 0.6 else "2:1"
+    return "0:2" if p_game_red <= 0.4 else "1:2"
 
 
 def _collapse_live_prediction_distribution(payload: dict[str, Any], *, best_of: int) -> None:
     if payload.get("fixed_scoreline"):
         return
     payload["scoreline_distribution"] = {
-        _predicted_scoreline_from_series(float(payload["p_series_red"]), best_of): 1.0
+        _predicted_scoreline_from_rates(
+            float(payload["p_game_adj_red"]),
+            float(payload["p_series_red"]),
+            best_of,
+        ): 1.0
     }
 
 
@@ -2171,7 +2176,7 @@ def _serialize_prematch_item(
         "predictedWinnerSide": predicted_winner_side,
         "predictedWinnerTeamKey": predicted_winner["teamKey"],
         "predictedWinnerName": predicted_winner["collegeName"],
-        "predictedScoreline": _predicted_scoreline_from_series(red_rate, int(match["bestOf"])),
+        "predictedScoreline": _predicted_scoreline_from_rates(float(match["pGameRed"]), red_rate, int(match["bestOf"])),
         "confidenceLabel": match["confidenceLabel"],
         "confidenceText": _confidence_label(str(match["confidenceLabel"])),
         "audience": audience,
@@ -2616,7 +2621,11 @@ def build_prediction_recap_payload(
             predicted_side = "red" if float(match["pSeriesRed"]) >= float(match["pSeriesBlue"]) else "blue"
             actual_side = _actual_winner_side(match)
             winner_hit = predicted_side == actual_side
-            predicted_scoreline = _predicted_scoreline_from_series(float(match["pSeriesRed"]), int(match["bestOf"]))
+            predicted_scoreline = _predicted_scoreline_from_rates(
+                float(match["pGameRed"]),
+                float(match["pSeriesRed"]),
+                int(match["bestOf"]),
+            )
             score_hit = winner_hit and str(match.get("scoreline") or "") == predicted_scoreline
             upset_miss = actual_side is not None and not winner_hit
             for group in (summary, region_group, confidence_group, stage_group):

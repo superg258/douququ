@@ -5,6 +5,7 @@ import { useRef } from "react";
 import type { CanvasCard, MatchCanvasCard, MatchRow, TeamCanvasCard } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { getPredictedAdvantageLabel } from "@/lib/prediction-display";
+import { predictDisplayScoreline } from "@/lib/scoreline";
 import { formatBeijingMonthDayTime } from "@/lib/time-format";
 
 function toneClass(tone: CanvasCard["tone"]) {
@@ -20,37 +21,7 @@ function toneClass(tone: CanvasCard["tone"]) {
 }
 
 export function predictScoreline(pGameRed: number, pSeriesRed: number, bestOf: number = 3) {
-  const p = Math.max(0.0, Math.min(1.0, pGameRed));
-  const q = 1.0 - p;
-  if (bestOf === 3) {
-    const probs = {
-      "2:0": p * p,
-      "2:1": 2.0 * p * p * q,
-      "1:2": 2.0 * p * q * q,
-      "0:2": q * q,
-    };
-    if (pSeriesRed >= 0.5) return (pSeriesRed < 0.72) ? { scoreline: "2:1", probability: probs["2:1"] } : { scoreline: "2:0", probability: probs["2:0"] };
-    return (pSeriesRed > 0.28) ? { scoreline: "1:2", probability: probs["1:2"] } : { scoreline: "0:2", probability: probs["0:2"] };
-  } else {
-    // BO5
-    const probs = {
-      "3:0": p * p * p,
-      "3:1": 3.0 * p * p * p * q,
-      "3:2": 6.0 * p * p * p * q * q,
-      "2:3": 6.0 * p * p * q * q * q,
-      "1:3": 3.0 * p * q * q * q,
-      "0:3": q * q * q,
-    };
-    if (pSeriesRed >= 0.5) {
-      if (pSeriesRed < 0.65) return { scoreline: "3:2", probability: probs["3:2"] };
-      if (pSeriesRed < 0.85) return { scoreline: "3:1", probability: probs["3:1"] };
-      return { scoreline: "3:0", probability: probs["3:0"] };
-    } else {
-      if (pSeriesRed > 0.35) return { scoreline: "2:3", probability: probs["2:3"] };
-      if (pSeriesRed > 0.15) return { scoreline: "1:3", probability: probs["1:3"] };
-      return { scoreline: "0:3", probability: probs["0:3"] };
-    }
-  }
+  return predictDisplayScoreline(pGameRed, pSeriesRed, bestOf);
 }
 
 export function formatMatchCardScheduleTime(plannedStartAt?: string | null) {

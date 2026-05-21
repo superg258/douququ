@@ -1683,6 +1683,17 @@ def test_live_builder_uses_pending_prediction_form_observation_for_swiss_match(m
     assert payload["p_series_red"] > 0.5
 
 
+def test_live_prediction_scoreline_uses_calibrated_bo3_scoreline_thresholds() -> None:
+    payload = {"p_game_adj_red": 0.626451, "p_series_red": 0.685633}
+
+    service._collapse_live_prediction_distribution(payload, best_of=3)
+
+    assert payload["scoreline_distribution"] == {"2:0": 1.0}
+    assert service._predicted_scoreline_from_rates(0.570535, 0.605101, 3) == "2:1"
+    assert service._predicted_scoreline_from_rates(0.442718, 0.414453, 3) == "1:2"
+    assert service._predicted_scoreline_from_rates(0.358709, 0.293705, 3) == "0:2"
+
+
 def test_live_builder_prediction_head_applies_robot_form_agreement_after_early_window(monkeypatch) -> None:
     red_team = SimpleNamespace(
         team_key="red-school::main",
@@ -2510,7 +2521,7 @@ def test_prematch_center_groups_today_next_and_prediction_signals(monkeypatch) -
     assert [match["matchLabel"] for match in payload["timelineBuckets"]["reviewPending"]] == ["DONE-1"]
     next_match = payload["nextMatch"]
     assert next_match["workspaceView"] == "swiss-a"
-    assert next_match["predictedScoreline"] == "2:1"
+    assert next_match["predictedScoreline"] == "2:0"
     assert next_match["predictedWinnerSide"] == "red"
     assert next_match["modelAudienceDivergence"]["label"] == "明显分歧"
     assert next_match["modelAudienceDivergence"]["audienceFavoriteSide"] == "blue"
