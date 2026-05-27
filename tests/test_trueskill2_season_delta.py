@@ -607,10 +607,139 @@ def test_robot_payload_builds_conservative_family_signal() -> None:
     assert 0.0 < alpha_combined["form_freshness_weight"] < 1.0
     assert alpha_combined["robot_gate_weight"] > 0.0
     assert alpha_combined["robot_family_signal"] > 0.0
+    assert "robot_objective_signal" in combined.columns
+    assert alpha_combined["robot_objective_signal"] > gamma_combined["robot_objective_signal"]
     assert alpha_combined["obs_mu"] >= alpha_group["obs_mu"]
     assert alpha_combined["obs_sigma"] > alpha_group["obs_sigma"]
     assert gamma_combined["robot_family_signal"] < 0.0
     assert gamma_combined["obs_mu"] < 0.0
+
+
+def test_robot_payload_marks_base_capability_thresholds() -> None:
+    group_payload = {
+        "zones": [
+            {
+                "zoneName": "南部赛区",
+                "groups": [
+                    {
+                        "groupName": "A组",
+                        "groupPlayers": [
+                            [
+                                {"itemName": "排名", "itemValue": 1},
+                                {
+                                    "itemName": "战队",
+                                    "itemValue": {"collegeName": "Fixed Dart University", "teamName": "Fixed"},
+                                },
+                                {"itemName": "胜/平/负", "itemValue": "1/0/1"},
+                            ],
+                            [
+                                {"itemName": "排名", "itemValue": 2},
+                                {
+                                    "itemName": "战队",
+                                    "itemValue": {"collegeName": "Base Dart University", "teamName": "BaseDart"},
+                                },
+                                {"itemName": "胜/平/负", "itemValue": "1/0/1"},
+                            ],
+                            [
+                                {"itemName": "排名", "itemValue": 3},
+                                {
+                                    "itemName": "战队",
+                                    "itemValue": {
+                                        "collegeName": "Reduced Dart University",
+                                        "teamName": "ReducedDart",
+                                    },
+                                },
+                                {"itemName": "胜/平/负", "itemValue": "1/0/1"},
+                            ],
+                            [
+                                {"itemName": "排名", "itemValue": 4},
+                                {
+                                    "itemName": "战队",
+                                    "itemValue": {"collegeName": "Key Damage University", "teamName": "KeyDamage"},
+                                },
+                                {"itemName": "胜/平/负", "itemValue": "1/0/0"},
+                            ],
+                            [
+                                {"itemName": "排名", "itemValue": 5},
+                                {
+                                    "itemName": "战队",
+                                    "itemValue": {
+                                        "collegeName": "Key Damage High University",
+                                        "teamName": "KeyDamageHigh",
+                                    },
+                                },
+                                {"itemName": "胜/平/负", "itemValue": "1/0/0"},
+                            ],
+                            [
+                                {"itemName": "排名", "itemValue": 6},
+                                {
+                                    "itemName": "战队",
+                                    "itemValue": {"collegeName": "Snipe University", "teamName": "Snipe"},
+                                },
+                                {"itemName": "胜/平/负", "itemValue": "1/0/0"},
+                            ],
+                        ],
+                    },
+                ],
+            }
+        ]
+    }
+    robot_payload = {
+        "zones": [
+            {
+                "zoneName": "南部赛区",
+                "teams": [
+                    {
+                        "collegeName": "Fixed Dart University",
+                        "name": "Fixed",
+                        "robots": [
+                            {"type": "Dart", "etDartRDFixCnt": 1.0},
+                            {"type": "Infantry", "gkDamage": 1650.0},
+                        ],
+                    },
+                    {
+                        "collegeName": "Base Dart University",
+                        "name": "BaseDart",
+                        "robots": [{"type": "Dart", "etDartRDMoveCnt": 1.0}],
+                    },
+                    {
+                        "collegeName": "Reduced Dart University",
+                        "name": "ReducedDart",
+                        "robots": [{"type": "Dart", "etDartRDFixCnt": 1.2}],
+                    },
+                    {
+                        "collegeName": "Key Damage University",
+                        "name": "KeyDamage",
+                        "robots": [{"type": "Infantry", "gkDamage": 1650.0}],
+                    },
+                    {
+                        "collegeName": "Key Damage High University",
+                        "name": "KeyDamageHigh",
+                        "robots": [{"type": "Infantry", "gkDamage": 1650.1}],
+                    },
+                    {
+                        "collegeName": "Snipe University",
+                        "name": "Snipe",
+                        "robots": [{"type": "Hero", "eaSnipeCnt": 0.5}],
+                    },
+                ],
+            }
+        ]
+    }
+
+    group_metrics = extract_group_rank_form_metrics(group_payload)
+    robot_metrics = extract_robot_form_metrics(robot_payload)
+    combined = build_live_form_observation_frame(group_metrics, robot_metrics_frame=robot_metrics).set_index("school_name")
+
+    assert combined.loc["Fixed Dart University", "robot_base_dart_average"] == 150.0
+    assert combined.loc["Fixed Dart University", "robot_base_capability_signal"] == 0.0
+    assert combined.loc["Base Dart University", "robot_base_dart_average"] == 312.5
+    assert combined.loc["Base Dart University", "robot_base_capability_signal"] == 1.0
+    assert combined.loc["Reduced Dart University", "robot_base_dart_average"] == 180.0
+    assert combined.loc["Reduced Dart University", "robot_base_capability_signal"] == 1.0
+    assert combined.loc["Key Damage University", "robot_base_capability_signal"] == 0.0
+    assert combined.loc["Key Damage High University", "robot_base_capability_signal"] == 1.0
+    assert combined.loc["Snipe University", "robot_base_capability_signal"] == 1.0
 
 
 def test_cli_build_form_observations_writes_csv(tmp_path: Path) -> None:

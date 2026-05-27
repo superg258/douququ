@@ -178,14 +178,113 @@ def _regional_pre_config(config: dict[str, Any] | None) -> RegionalPreModelConfi
         prediction_head_season_delta_weight=float(payload.get("prediction_head_season_delta_weight", 1.00)),
         prediction_head_momentum_weight=float(payload.get("prediction_head_momentum_weight", 0.00)),
         prediction_head_temperature=float(payload.get("prediction_head_temperature", 1.00)),
+        prediction_head_opening_group_temperature=float(
+            payload.get("prediction_head_opening_group_temperature", 2.50)
+        ),
+        prediction_head_non_opening_temperature=float(payload.get("prediction_head_non_opening_temperature", 0.70)),
+        prediction_head_post_group_temperature=float(payload.get("prediction_head_post_group_temperature", 0.75)),
         prediction_head_early_group_min_matches=float(payload.get("prediction_head_early_group_min_matches", 1.0)),
         prediction_head_early_group_max_matches=float(payload.get("prediction_head_early_group_max_matches", 1.0)),
-        prediction_head_process_residual_weight=float(payload.get("prediction_head_process_residual_weight", 0.35)),
+        prediction_head_component_blend_max_weight=float(
+            payload.get("prediction_head_component_blend_max_weight", 0.90)
+        ),
+        prediction_head_component_blend_min_matches=float(
+            payload.get("prediction_head_component_blend_min_matches", 1.0)
+        ),
+        prediction_head_component_blend_max_matches=float(
+            payload.get("prediction_head_component_blend_max_matches", 1.0)
+        ),
+        prediction_head_process_residual_weight=float(payload.get("prediction_head_process_residual_weight", 0.00)),
         prediction_head_process_residual_cap=float(payload.get("prediction_head_process_residual_cap", 0.40)),
+        prediction_head_group_form_residual_weight=float(
+            payload.get("prediction_head_group_form_residual_weight", 0.05)
+        ),
+        prediction_head_group_form_residual_cap=float(payload.get("prediction_head_group_form_residual_cap", 0.20)),
+        prediction_head_group_form_residual_min_matches=float(
+            payload.get("prediction_head_group_form_residual_min_matches", 2.0)
+        ),
+        prediction_head_group_form_residual_max_matches=float(
+            payload.get("prediction_head_group_form_residual_max_matches", 99.0)
+        ),
         prediction_head_robot_form_agreement_weight=float(
             payload.get("prediction_head_robot_form_agreement_weight", 0.15)
         ),
         prediction_head_robot_form_agreement_cap=float(payload.get("prediction_head_robot_form_agreement_cap", 0.30)),
+        prediction_head_robot_output_residual_weight=float(
+            payload.get("prediction_head_robot_output_residual_weight", 0.10)
+        ),
+        prediction_head_robot_output_residual_cap=float(
+            payload.get("prediction_head_robot_output_residual_cap", 0.18)
+        ),
+        prediction_head_robot_output_residual_min_matches=float(
+            payload.get("prediction_head_robot_output_residual_min_matches", 1.0)
+        ),
+        prediction_head_robot_output_residual_max_matches=float(
+            payload.get("prediction_head_robot_output_residual_max_matches", 99.0)
+        ),
+        prediction_head_robot_base_capability_residual_weight=float(
+            payload.get("prediction_head_robot_base_capability_residual_weight", 0.08)
+        ),
+        prediction_head_robot_base_capability_residual_cap=float(
+            payload.get("prediction_head_robot_base_capability_residual_cap", 0.08)
+        ),
+        prediction_head_robot_base_capability_residual_min_matches=float(
+            payload.get("prediction_head_robot_base_capability_residual_min_matches", 1.0)
+        ),
+        prediction_head_robot_base_capability_residual_max_matches=float(
+            payload.get("prediction_head_robot_base_capability_residual_max_matches", 99.0)
+        ),
+        prediction_head_robot_conflict_blend_weight=float(
+            payload.get("prediction_head_robot_conflict_blend_weight", 0.35)
+        ),
+        prediction_head_robot_conflict_min_matches=float(
+            payload.get("prediction_head_robot_conflict_min_matches", 1.0)
+        ),
+        prediction_head_robot_conflict_max_matches=float(
+            payload.get("prediction_head_robot_conflict_max_matches", 1.0)
+        ),
+        prediction_head_robot_conflict_signal_scale=float(
+            payload.get("prediction_head_robot_conflict_signal_scale", 0.60)
+        ),
+        prediction_head_robot_conflict_model_delta_cap=float(
+            payload.get("prediction_head_robot_conflict_model_delta_cap", 0.45)
+        ),
+        prediction_head_group_objective_conflict_blend_weight=float(
+            payload.get("prediction_head_group_objective_conflict_blend_weight", 0.55)
+        ),
+        prediction_head_group_objective_conflict_min_matches=float(
+            payload.get("prediction_head_group_objective_conflict_min_matches", 2.0)
+        ),
+        prediction_head_group_objective_conflict_max_matches=float(
+            payload.get("prediction_head_group_objective_conflict_max_matches", 99.0)
+        ),
+        prediction_head_group_objective_conflict_signal_scale=float(
+            payload.get("prediction_head_group_objective_conflict_signal_scale", 0.70)
+        ),
+        prediction_head_group_objective_conflict_signal_threshold=float(
+            payload.get("prediction_head_group_objective_conflict_signal_threshold", 0.50)
+        ),
+        prediction_head_group_objective_conflict_model_delta_cap=float(
+            payload.get("prediction_head_group_objective_conflict_model_delta_cap", 0.45)
+        ),
+        prediction_head_post_conflict_temperature_weight=float(
+            payload.get("prediction_head_post_conflict_temperature_weight", 0.35)
+        ),
+        prediction_head_post_conflict_temperature_cap=float(
+            payload.get("prediction_head_post_conflict_temperature_cap", 0.55)
+        ),
+        prediction_head_post_conflict_min_signals=float(
+            payload.get("prediction_head_post_conflict_min_signals", 2.0)
+        ),
+        prediction_head_post_conflict_model_delta_min=float(
+            payload.get("prediction_head_post_conflict_model_delta_min", 0.35)
+        ),
+        prediction_head_post_conflict_live_signal_threshold=float(
+            payload.get("prediction_head_post_conflict_live_signal_threshold", 0.30)
+        ),
+        prediction_head_post_conflict_robot_signal_threshold=float(
+            payload.get("prediction_head_post_conflict_robot_signal_threshold", 0.80)
+        ),
     )
 
 
@@ -1042,6 +1141,11 @@ def build_published_live_state_updates(
                 "form_snapshot_age_minutes",
                 "form_robot_snapshot_name",
                 "form_robot_family_signal",
+                "form_robot_objective_signal",
+                "form_robot_base_dart_average",
+                "form_robot_base_capability_signal",
+                "form_robot_gate_weight",
+                "form_robot_form_reliability",
                 "form_robot_signal_alignment",
                 "form_robot_signal_conflict",
                 "confirmed_prior_theta_before_match",
@@ -1190,6 +1294,11 @@ def build_published_live_state_updates(
         form_expected_group_count_map = {red_school_key: None, blue_school_key: None}
         form_robot_snapshot_map = {red_school_key: "", blue_school_key: ""}
         form_robot_signal_map = {red_school_key: 0.0, blue_school_key: 0.0}
+        form_robot_objective_signal_map = {red_school_key: 0.0, blue_school_key: 0.0}
+        form_robot_base_dart_average_map = {red_school_key: 0.0, blue_school_key: 0.0}
+        form_robot_base_capability_signal_map = {red_school_key: 0.0, blue_school_key: 0.0}
+        form_robot_gate_weight_map = {red_school_key: 0.0, blue_school_key: 0.0}
+        form_robot_reliability_map = {red_school_key: 0.0, blue_school_key: 0.0}
         form_robot_alignment_map = {red_school_key: "", blue_school_key: ""}
         form_robot_conflict_map = {red_school_key: False, blue_school_key: False}
         before_momentum_map = {
@@ -1233,6 +1342,34 @@ def build_published_live_state_updates(
                     form_robot_signal_map[school] = float(form_row.get("robot_family_signal", 0.0) or 0.0)
                 except (TypeError, ValueError):
                     form_robot_signal_map[school] = 0.0
+                try:
+                    form_robot_objective_signal_map[school] = float(
+                        form_row.get("robot_objective_signal", 0.0) or 0.0
+                    )
+                except (TypeError, ValueError):
+                    form_robot_objective_signal_map[school] = 0.0
+                try:
+                    form_robot_base_dart_average_map[school] = float(
+                        form_row.get("robot_base_dart_average", 0.0) or 0.0
+                    )
+                except (TypeError, ValueError):
+                    form_robot_base_dart_average_map[school] = 0.0
+                try:
+                    form_robot_base_capability_signal_map[school] = float(
+                        form_row.get("robot_base_capability_signal", 0.0) or 0.0
+                    )
+                except (TypeError, ValueError):
+                    form_robot_base_capability_signal_map[school] = 0.0
+                try:
+                    form_robot_gate_weight_map[school] = float(form_row.get("robot_gate_weight", 0.0) or 0.0)
+                except (TypeError, ValueError):
+                    form_robot_gate_weight_map[school] = 0.0
+                try:
+                    form_robot_reliability_map[school] = float(
+                        form_row.get("robot_form_reliability", 0.0) or 0.0
+                    )
+                except (TypeError, ValueError):
+                    form_robot_reliability_map[school] = 0.0
                 form_robot_alignment_map[school] = str(form_row.get("robot_signal_alignment") or "")
                 form_robot_conflict_map[school] = bool(form_row.get("robot_signal_conflict", False))
                 if snapshot_key in applied_form_snapshots[school]:
@@ -1605,6 +1742,13 @@ def build_published_live_state_updates(
                     "form_expected_group_matches_before": form_expected_group_count_map.get(school_key),
                     "form_robot_snapshot_name": form_robot_snapshot_map.get(school_key, ""),
                     "form_robot_family_signal": float(form_robot_signal_map.get(school_key, 0.0)),
+                    "form_robot_objective_signal": float(form_robot_objective_signal_map.get(school_key, 0.0)),
+                    "form_robot_base_dart_average": float(form_robot_base_dart_average_map.get(school_key, 0.0)),
+                    "form_robot_base_capability_signal": float(
+                        form_robot_base_capability_signal_map.get(school_key, 0.0)
+                    ),
+                    "form_robot_gate_weight": float(form_robot_gate_weight_map.get(school_key, 0.0)),
+                    "form_robot_form_reliability": float(form_robot_reliability_map.get(school_key, 0.0)),
                     "form_robot_signal_alignment": form_robot_alignment_map.get(school_key, ""),
                     "form_robot_signal_conflict": bool(form_robot_conflict_map.get(school_key, False)),
                     "confirmed_prior_theta_before_match": before_confirmed,

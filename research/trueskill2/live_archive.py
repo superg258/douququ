@@ -21,6 +21,9 @@ from .season_delta import (
 
 
 SNAPSHOT_RE = re.compile(r"^(schedule|group_rank_info|robot_data)\.(\d{8}T\d{6}Z)\.json$")
+BASE_DART_CAPABILITY_THRESHOLD = 175.0
+TEAM_OBJECTIVE_DAMAGE_CAPABILITY_THRESHOLD = 1650.0
+HERO_SNIPE_CAPABILITY_THRESHOLD = 0.5
 FORM_OBSERVATION_COLUMNS = [
     "school_key",
     "school_name",
@@ -46,6 +49,9 @@ FORM_OBSERVATION_COLUMNS = [
     "robot_snapshot_name",
     "robot_snapshot_age_minutes",
     "robot_family_signal",
+    "robot_objective_signal",
+    "robot_base_dart_average",
+    "robot_base_capability_signal",
     "robot_obs_mu",
     "robot_obs_sigma",
     "robot_form_reliability",
@@ -65,6 +71,9 @@ ROBOT_FORM_METRIC_COLUMNS = [
     "robot_output_kills",
     "robot_output_kda",
     "robot_objective_damage",
+    "robot_base_dart_value",
+    "robot_hero_snipe_count",
+    "robot_base_capability_signal",
 ]
 
 
@@ -307,33 +316,65 @@ def extract_robot_form_metrics(payload: dict[str, Any] | None) -> Any:
             robots = team.get("robots", [])
             if not isinstance(robots, list):
                 robots = []
+            robot_dicts = [robot for robot in robots if isinstance(robot, dict)]
+            objective_damage = sum(
+                value
+                for value in (_optional_float(robot.get("gkDamage")) for robot in robot_dicts)
+                if value is not None
+            )
+            base_dart_value = sum(
+                value
+                for value in (
+                    (200.0 * (_optional_float(robot.get("etDartFixedCnt")) or 0.0))
+                    + (300.0 * (_optional_float(robot.get("etDartRDFixCnt")) or 0.0))
+                    + (625.0 * (_optional_float(robot.get("etDartRDMoveCnt")) or 0.0))
+                    + (1000.0 * (_optional_float(robot.get("etDartEndMoveCnt")) or 0.0))
+                    for robot in robot_dicts
+                    if str(robot.get("type") or "") == "Dart"
+                )
+                if value is not None
+            )
+            hero_snipe_count = sum(
+                value
+                for value in (
+                    _optional_float(robot.get("eaSnipeCnt"))
+                    for robot in robot_dicts
+                    if str(robot.get("type") or "") == "Hero"
+                )
+                if value is not None
+            )
+            base_capability_signal = (
+                1.0
+                if objective_damage > TEAM_OBJECTIVE_DAMAGE_CAPABILITY_THRESHOLD
+                or hero_snipe_count >= HERO_SNIPE_CAPABILITY_THRESHOLD
+                else 0.0
+            )
             rows.append(
                 {
                     "school_key": school_key(school_name),
                     "school_name": school_name,
                     "team_name": str(team.get("name") or team.get("teamName") or "").strip(),
                     "region_name": region_name,
-                    "robot_count": len(robots),
+                    "robot_count": len(robot_dicts),
                     "robot_output_hurt": sum(
                         value
-                        for value in (_optional_float(robot.get("eagHurt")) for robot in robots if isinstance(robot, dict))
+                        for value in (_optional_float(robot.get("eagHurt")) for robot in robot_dicts)
                         if value is not None
                     ),
                     "robot_output_kills": sum(
                         value
-                        for value in (_optional_float(robot.get("gKillCount")) for robot in robots if isinstance(robot, dict))
+                        for value in (_optional_float(robot.get("gKillCount")) for robot in robot_dicts)
                         if value is not None
                     ),
                     "robot_output_kda": sum(
                         value
-                        for value in (_optional_float(robot.get("eagKdaScore")) for robot in robots if isinstance(robot, dict))
+                        for value in (_optional_float(robot.get("eagKdaScore")) for robot in robot_dicts)
                         if value is not None
                     ),
-                    "robot_objective_damage": sum(
-                        value
-                        for value in (_optional_float(robot.get("gkDamage")) for robot in robots if isinstance(robot, dict))
-                        if value is not None
-                    ),
+                    "robot_objective_damage": objective_damage,
+                    "robot_base_dart_value": base_dart_value,
+                    "robot_hero_snipe_count": hero_snipe_count,
+                    "robot_base_capability_signal": base_capability_signal,
                 }
             )
     frame = pd.DataFrame(rows, columns=ROBOT_FORM_METRIC_COLUMNS)
@@ -446,6 +487,9 @@ def build_live_form_observation_frame(
     frame["robot_snapshot_name"] = robot_snapshot_name
     frame["robot_snapshot_age_minutes"] = robot_snapshot_age_minutes
     frame["robot_family_signal"] = 0.0
+    frame["robot_objective_signal"] = 0.0
+    frame["robot_base_dart_average"] = 0.0
+    frame["robot_base_capability_signal"] = 0.0
     frame["robot_obs_mu"] = 0.0
     frame["robot_obs_sigma"] = None
     frame["robot_form_reliability"] = 0.0
@@ -456,27 +500,62 @@ def build_live_form_observation_frame(
 
     if robot_metrics_frame is not None and not getattr(robot_metrics_frame, "empty", True):
         robot = robot_metrics_frame.copy()
-        for column in ("robot_output_hurt", "robot_output_kills", "robot_output_kda", "robot_objective_damage"):
+        for column in (
+            "robot_output_hurt",
+            "robot_output_kills",
+            "robot_output_kda",
+            "robot_objective_damage",
+            "robot_base_dart_value",
+            "robot_hero_snipe_count",
+            "robot_base_capability_signal",
+        ):
             robot[column] = pd.to_numeric(robot.get(column), errors="coerce")
         _assign_region_zscores(robot, value_col="robot_output_hurt", out_col="z_robot_output_hurt")
         _assign_region_zscores(robot, value_col="robot_output_kills", out_col="z_robot_output_kills")
         _assign_region_zscores(robot, value_col="robot_output_kda", out_col="z_robot_output_kda")
         _assign_region_zscores(robot, value_col="robot_objective_damage", out_col="z_robot_objective_damage")
         robot["robot_family_signal"] = (
-            (0.45 * robot["z_robot_output_kda"].astype(float))
-            + (0.30 * robot["z_robot_output_hurt"].astype(float))
+            (0.50 * robot["z_robot_output_kda"].astype(float))
+            + (0.35 * robot["z_robot_output_hurt"].astype(float))
             + (0.15 * robot["z_robot_output_kills"].astype(float))
-            + (0.10 * robot["z_robot_objective_damage"].astype(float))
         )
+        robot["robot_objective_signal"] = robot["z_robot_objective_damage"].astype(float)
         robot_columns = [
             "school_key",
             "robot_family_signal",
+            "robot_objective_signal",
+            "robot_base_capability_signal",
             "robot_output_hurt",
             "robot_output_kills",
             "robot_output_kda",
             "robot_objective_damage",
+            "robot_base_dart_value",
+            "robot_hero_snipe_count",
         ]
         frame = frame.merge(robot[robot_columns], on="school_key", how="left")
+        played_denominator = pd.to_numeric(frame.get("group_matches_played"), errors="coerce").fillna(0.0)
+        played_denominator = played_denominator.mask(played_denominator < 1.0, 1.0)
+        base_dart_column = "robot_base_dart_value_y" if "robot_base_dart_value_y" in frame else "robot_base_dart_value"
+        objective_damage_column = (
+            "robot_objective_damage_y" if "robot_objective_damage_y" in frame else "robot_objective_damage"
+        )
+        hero_snipe_column = (
+            "robot_hero_snipe_count_y" if "robot_hero_snipe_count_y" in frame else "robot_hero_snipe_count"
+        )
+        robot_base_dart_average = (
+            pd.to_numeric(frame.get(base_dart_column), errors="coerce").fillna(0.0) / played_denominator
+        )
+        robot_base_capability_signal = (
+            (robot_base_dart_average > BASE_DART_CAPABILITY_THRESHOLD)
+            | (
+                pd.to_numeric(frame.get(objective_damage_column), errors="coerce").fillna(0.0)
+                > TEAM_OBJECTIVE_DAMAGE_CAPABILITY_THRESHOLD
+            )
+            | (
+                pd.to_numeric(frame.get(hero_snipe_column), errors="coerce").fillna(0.0)
+                >= HERO_SNIPE_CAPABILITY_THRESHOLD
+            )
+        ).astype(float)
         blended_obs_mu: list[float] = []
         blended_form_signal: list[float] = []
         robot_obs_mu_values: list[float] = []
@@ -529,6 +608,9 @@ def build_live_form_observation_frame(
         frame["obs_mu"] = blended_obs_mu
         frame["form_signal"] = blended_form_signal
         frame["robot_family_signal"] = frame["robot_family_signal_y"].fillna(0.0)
+        frame["robot_objective_signal"] = frame["robot_objective_signal_y"].fillna(0.0)
+        frame["robot_base_dart_average"] = robot_base_dart_average
+        frame["robot_base_capability_signal"] = robot_base_capability_signal
         frame["robot_obs_mu"] = robot_obs_mu_values
         frame["robot_obs_sigma"] = robot_obs_sigma_values
         frame["robot_form_reliability"] = robot_reliability_values
@@ -545,6 +627,9 @@ def build_live_form_observation_frame(
             f"|damage={float(row.get('avg_team_damage') or 0.0):.6f}"
             f"|base={float(row.get('avg_base_hp_diff') or 0.0):.6f}"
             f"|robot={float(row.get('robot_family_signal') or 0.0):.6f}"
+            f"|robot_obj={float(row.get('robot_objective_signal') or 0.0):.6f}"
+            f"|robot_base_dart_avg={float(row.get('robot_base_dart_average') or 0.0):.6f}"
+            f"|robot_base_cap={float(row.get('robot_base_capability_signal') or 0.0):.6f}"
         )
         for row in frame.to_dict(orient="records")
     ]

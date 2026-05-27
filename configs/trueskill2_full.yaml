@@ -103,12 +103,47 @@ regional_pre_model:
   prediction_head_season_delta_weight: 1.00
   prediction_head_momentum_weight: 0.00
   prediction_head_temperature: 1.00
+  prediction_head_opening_group_temperature: 2.50
+  prediction_head_non_opening_temperature: 0.70
+  prediction_head_post_group_temperature: 0.75
   prediction_head_early_group_min_matches: 1.0
   prediction_head_early_group_max_matches: 1.0
-  prediction_head_process_residual_weight: 0.35
+  prediction_head_component_blend_max_weight: 0.90
+  prediction_head_component_blend_min_matches: 1.0
+  prediction_head_component_blend_max_matches: 1.0
+  prediction_head_process_residual_weight: 0.00
   prediction_head_process_residual_cap: 0.40
+  prediction_head_group_form_residual_weight: 0.05
+  prediction_head_group_form_residual_cap: 0.20
+  prediction_head_group_form_residual_min_matches: 2.0
+  prediction_head_group_form_residual_max_matches: 99.0
   prediction_head_robot_form_agreement_weight: 0.15
   prediction_head_robot_form_agreement_cap: 0.30
+  prediction_head_robot_output_residual_weight: 0.10
+  prediction_head_robot_output_residual_cap: 0.18
+  prediction_head_robot_output_residual_min_matches: 1.0
+  prediction_head_robot_output_residual_max_matches: 99.0
+  prediction_head_robot_base_capability_residual_weight: 0.08
+  prediction_head_robot_base_capability_residual_cap: 0.08
+  prediction_head_robot_base_capability_residual_min_matches: 1.0
+  prediction_head_robot_base_capability_residual_max_matches: 99.0
+  prediction_head_robot_conflict_blend_weight: 0.35
+  prediction_head_robot_conflict_min_matches: 1.0
+  prediction_head_robot_conflict_max_matches: 1.0
+  prediction_head_robot_conflict_signal_scale: 0.60
+  prediction_head_robot_conflict_model_delta_cap: 0.45
+  prediction_head_group_objective_conflict_blend_weight: 0.55
+  prediction_head_group_objective_conflict_min_matches: 2.0
+  prediction_head_group_objective_conflict_max_matches: 99.0
+  prediction_head_group_objective_conflict_signal_scale: 0.70
+  prediction_head_group_objective_conflict_signal_threshold: 0.50
+  prediction_head_group_objective_conflict_model_delta_cap: 0.45
+  prediction_head_post_conflict_temperature_weight: 0.35
+  prediction_head_post_conflict_temperature_cap: 0.55
+  prediction_head_post_conflict_min_signals: 2.0
+  prediction_head_post_conflict_model_delta_min: 0.35
+  prediction_head_post_conflict_live_signal_threshold: 0.30
+  prediction_head_post_conflict_robot_signal_threshold: 0.80
   same_year_shape_weight: 0.40
   same_year_rmul_weight: 0.95
   same_year_consistency_weight: 0.55

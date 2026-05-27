@@ -121,6 +121,7 @@ def _load_current_rating_index_cached(
                 ("rmuc_program_base_theta", "programBaseTheta"),
                 ("season_delta_mu", "seasonDeltaMu"),
                 ("rmuc_momentum_theta", "momentumTheta"),
+                ("rmuc_live_state_theta", "liveStateTheta"),
                 ("season_delta_sigma_theta", "seasonDeltaSigmaTheta"),
                 ("regional_group_matches_played", "regionalGroupMatchesPlayed"),
             ):
@@ -171,10 +172,47 @@ LIVE_PREDICTION_HEAD_MOMENTUM_WEIGHT = 0.00
 LIVE_PREDICTION_HEAD_TEMPERATURE = 1.00
 LIVE_PREDICTION_HEAD_EARLY_GROUP_MIN_MATCHES = 1.0
 LIVE_PREDICTION_HEAD_EARLY_GROUP_MAX_MATCHES = 1.0
-LIVE_PREDICTION_HEAD_PROCESS_RESIDUAL_WEIGHT = 0.35
+LIVE_PREDICTION_HEAD_COMPONENT_BLEND_MAX_WEIGHT = 0.90
+LIVE_PREDICTION_HEAD_COMPONENT_BLEND_MIN_MATCHES = 1.0
+LIVE_PREDICTION_HEAD_COMPONENT_BLEND_MAX_MATCHES = 1.0
+LIVE_PREDICTION_HEAD_OPENING_GROUP_TEMPERATURE = 2.50
+LIVE_PREDICTION_HEAD_NON_OPENING_TEMPERATURE = 0.70
+LIVE_PREDICTION_HEAD_POST_GROUP_TEMPERATURE = 0.75
+LIVE_PREDICTION_HEAD_PROCESS_RESIDUAL_WEIGHT = 0.00
 LIVE_PREDICTION_HEAD_PROCESS_RESIDUAL_CAP = 0.40
+LIVE_PREDICTION_HEAD_GROUP_FORM_RESIDUAL_WEIGHT = 0.05
+LIVE_PREDICTION_HEAD_GROUP_FORM_RESIDUAL_CAP = 0.20
+LIVE_PREDICTION_HEAD_GROUP_FORM_RESIDUAL_MIN_MATCHES = 2.0
+LIVE_PREDICTION_HEAD_GROUP_FORM_RESIDUAL_MAX_MATCHES = 99.0
 LIVE_PREDICTION_HEAD_ROBOT_FORM_AGREEMENT_WEIGHT = 0.15
 LIVE_PREDICTION_HEAD_ROBOT_FORM_AGREEMENT_CAP = 0.30
+LIVE_PREDICTION_HEAD_ROBOT_OUTPUT_RESIDUAL_WEIGHT = 0.10
+LIVE_PREDICTION_HEAD_ROBOT_OUTPUT_RESIDUAL_CAP = 0.18
+LIVE_PREDICTION_HEAD_ROBOT_OUTPUT_RESIDUAL_MIN_MATCHES = 1.0
+LIVE_PREDICTION_HEAD_ROBOT_OUTPUT_RESIDUAL_MAX_MATCHES = 99.0
+LIVE_PREDICTION_HEAD_ROBOT_BASE_CAPABILITY_RESIDUAL_WEIGHT = 0.08
+LIVE_PREDICTION_HEAD_ROBOT_BASE_CAPABILITY_RESIDUAL_CAP = 0.08
+LIVE_PREDICTION_HEAD_ROBOT_BASE_CAPABILITY_RESIDUAL_MIN_MATCHES = 1.0
+LIVE_PREDICTION_HEAD_ROBOT_BASE_CAPABILITY_RESIDUAL_MAX_MATCHES = 99.0
+LIVE_PREDICTION_HEAD_ROBOT_CONFLICT_BLEND_WEIGHT = 0.35
+LIVE_PREDICTION_HEAD_ROBOT_CONFLICT_MIN_MATCHES = 1.0
+LIVE_PREDICTION_HEAD_ROBOT_CONFLICT_MAX_MATCHES = 1.0
+LIVE_PREDICTION_HEAD_ROBOT_CONFLICT_SIGNAL_SCALE = 0.60
+LIVE_PREDICTION_HEAD_ROBOT_CONFLICT_MODEL_DELTA_CAP = 0.45
+LIVE_PREDICTION_HEAD_GROUP_OBJECTIVE_CONFLICT_BLEND_WEIGHT = 0.55
+LIVE_PREDICTION_HEAD_GROUP_OBJECTIVE_CONFLICT_MIN_MATCHES = 2.0
+LIVE_PREDICTION_HEAD_GROUP_OBJECTIVE_CONFLICT_MAX_MATCHES = 99.0
+LIVE_PREDICTION_HEAD_GROUP_OBJECTIVE_CONFLICT_SIGNAL_SCALE = 0.70
+LIVE_PREDICTION_HEAD_GROUP_OBJECTIVE_CONFLICT_SIGNAL_THRESHOLD = 0.50
+LIVE_PREDICTION_HEAD_GROUP_OBJECTIVE_CONFLICT_MODEL_DELTA_CAP = 0.45
+LIVE_PREDICTION_HEAD_POST_CONFLICT_TEMPERATURE_WEIGHT = 0.35
+LIVE_PREDICTION_HEAD_POST_CONFLICT_TEMPERATURE_CAP = 0.55
+LIVE_PREDICTION_HEAD_POST_CONFLICT_MIN_SIGNALS = 2.0
+LIVE_PREDICTION_HEAD_POST_CONFLICT_MODEL_DELTA_MIN = 0.35
+LIVE_PREDICTION_HEAD_POST_CONFLICT_LIVE_SIGNAL_THRESHOLD = 0.30
+LIVE_PREDICTION_HEAD_POST_CONFLICT_ROBOT_SIGNAL_THRESHOLD = 0.80
+LIVE_ROBOT_FORM_SCALE = 1.25
+LIVE_ROBOT_FORM_TEMPERATURE = 1.20
 DEFAULT_PUBLISHED_RATING_SCALE = 135.0
 
 
@@ -1442,6 +1480,11 @@ def _prediction_form_component_fields(row: dict[str, Any] | None) -> dict[str, A
         ("form_freshness_weight", "formFreshnessWeight"),
         ("form_event_freshness_weight", "formEventFreshnessWeight"),
         ("form_robot_family_signal", "formRobotFamilySignal"),
+        ("form_robot_objective_signal", "formRobotObjectiveSignal"),
+        ("form_robot_base_dart_average", "formRobotBaseDartAverage"),
+        ("form_robot_base_capability_signal", "formRobotBaseCapabilitySignal"),
+        ("form_robot_gate_weight", "formRobotGateWeight"),
+        ("form_robot_form_reliability", "formRobotFormReliability"),
     ):
         value = _float_from_row(row, source_key)
         if value is not None:
@@ -1573,12 +1616,85 @@ def _live_prediction_head_config() -> dict[str, float]:
             "prediction_head_early_group_max_matches",
             LIVE_PREDICTION_HEAD_EARLY_GROUP_MAX_MATCHES,
         ),
+        "component_blend_max_weight": max(
+            0.0,
+            min(
+                1.0,
+                _config_float(
+                    "prediction_head_component_blend_max_weight",
+                    LIVE_PREDICTION_HEAD_COMPONENT_BLEND_MAX_WEIGHT,
+                ),
+            ),
+        ),
+        "component_blend_min_matches": max(
+            0.0,
+            _config_float(
+                "prediction_head_component_blend_min_matches",
+                LIVE_PREDICTION_HEAD_COMPONENT_BLEND_MIN_MATCHES,
+            ),
+        ),
+        "component_blend_max_matches": max(
+            0.0,
+            _config_float(
+                "prediction_head_component_blend_max_matches",
+                LIVE_PREDICTION_HEAD_COMPONENT_BLEND_MAX_MATCHES,
+            ),
+        ),
+        "opening_group_temperature": max(
+            _config_float(
+                "prediction_head_opening_group_temperature",
+                LIVE_PREDICTION_HEAD_OPENING_GROUP_TEMPERATURE,
+            ),
+            1e-6,
+        ),
+        "non_opening_temperature": max(
+            _config_float(
+                "prediction_head_non_opening_temperature",
+                LIVE_PREDICTION_HEAD_NON_OPENING_TEMPERATURE,
+            ),
+            1e-6,
+        ),
+        "post_group_temperature": max(
+            _config_float(
+                "prediction_head_post_group_temperature",
+                LIVE_PREDICTION_HEAD_POST_GROUP_TEMPERATURE,
+            ),
+            1e-6,
+        ),
         "process_residual_weight": _config_float(
             "prediction_head_process_residual_weight",
             LIVE_PREDICTION_HEAD_PROCESS_RESIDUAL_WEIGHT,
         ),
         "process_residual_cap": max(
             _config_float("prediction_head_process_residual_cap", LIVE_PREDICTION_HEAD_PROCESS_RESIDUAL_CAP),
+            0.0,
+        ),
+        "group_form_residual_weight": max(
+            _config_float(
+                "prediction_head_group_form_residual_weight",
+                LIVE_PREDICTION_HEAD_GROUP_FORM_RESIDUAL_WEIGHT,
+            ),
+            0.0,
+        ),
+        "group_form_residual_cap": max(
+            _config_float(
+                "prediction_head_group_form_residual_cap",
+                LIVE_PREDICTION_HEAD_GROUP_FORM_RESIDUAL_CAP,
+            ),
+            0.0,
+        ),
+        "group_form_residual_min_matches": max(
+            _config_float(
+                "prediction_head_group_form_residual_min_matches",
+                LIVE_PREDICTION_HEAD_GROUP_FORM_RESIDUAL_MIN_MATCHES,
+            ),
+            0.0,
+        ),
+        "group_form_residual_max_matches": max(
+            _config_float(
+                "prediction_head_group_form_residual_max_matches",
+                LIVE_PREDICTION_HEAD_GROUP_FORM_RESIDUAL_MAX_MATCHES,
+            ),
             0.0,
         ),
         "robot_form_agreement_weight": _config_float(
@@ -1592,6 +1708,189 @@ def _live_prediction_head_config() -> dict[str, float]:
             ),
             0.0,
         ),
+        "robot_output_residual_weight": max(
+            _config_float(
+                "prediction_head_robot_output_residual_weight",
+                LIVE_PREDICTION_HEAD_ROBOT_OUTPUT_RESIDUAL_WEIGHT,
+            ),
+            0.0,
+        ),
+        "robot_output_residual_cap": max(
+            _config_float(
+                "prediction_head_robot_output_residual_cap",
+                LIVE_PREDICTION_HEAD_ROBOT_OUTPUT_RESIDUAL_CAP,
+            ),
+            0.0,
+        ),
+        "robot_output_residual_min_matches": max(
+            _config_float(
+                "prediction_head_robot_output_residual_min_matches",
+                LIVE_PREDICTION_HEAD_ROBOT_OUTPUT_RESIDUAL_MIN_MATCHES,
+            ),
+            0.0,
+        ),
+        "robot_output_residual_max_matches": max(
+            _config_float(
+                "prediction_head_robot_output_residual_max_matches",
+                LIVE_PREDICTION_HEAD_ROBOT_OUTPUT_RESIDUAL_MAX_MATCHES,
+            ),
+            0.0,
+        ),
+        "robot_base_capability_residual_weight": max(
+            _config_float(
+                "prediction_head_robot_base_capability_residual_weight",
+                LIVE_PREDICTION_HEAD_ROBOT_BASE_CAPABILITY_RESIDUAL_WEIGHT,
+            ),
+            0.0,
+        ),
+        "robot_base_capability_residual_cap": max(
+            _config_float(
+                "prediction_head_robot_base_capability_residual_cap",
+                LIVE_PREDICTION_HEAD_ROBOT_BASE_CAPABILITY_RESIDUAL_CAP,
+            ),
+            0.0,
+        ),
+        "robot_base_capability_residual_min_matches": max(
+            _config_float(
+                "prediction_head_robot_base_capability_residual_min_matches",
+                LIVE_PREDICTION_HEAD_ROBOT_BASE_CAPABILITY_RESIDUAL_MIN_MATCHES,
+            ),
+            0.0,
+        ),
+        "robot_base_capability_residual_max_matches": max(
+            _config_float(
+                "prediction_head_robot_base_capability_residual_max_matches",
+                LIVE_PREDICTION_HEAD_ROBOT_BASE_CAPABILITY_RESIDUAL_MAX_MATCHES,
+            ),
+            0.0,
+        ),
+        "robot_conflict_blend_weight": max(
+            min(
+                _config_float(
+                    "prediction_head_robot_conflict_blend_weight",
+                    LIVE_PREDICTION_HEAD_ROBOT_CONFLICT_BLEND_WEIGHT,
+                ),
+                1.0,
+            ),
+            0.0,
+        ),
+        "robot_conflict_min_matches": max(
+            _config_float(
+                "prediction_head_robot_conflict_min_matches",
+                LIVE_PREDICTION_HEAD_ROBOT_CONFLICT_MIN_MATCHES,
+            ),
+            0.0,
+        ),
+        "robot_conflict_max_matches": max(
+            _config_float(
+                "prediction_head_robot_conflict_max_matches",
+                LIVE_PREDICTION_HEAD_ROBOT_CONFLICT_MAX_MATCHES,
+            ),
+            0.0,
+        ),
+        "robot_conflict_signal_scale": max(
+            _config_float(
+                "prediction_head_robot_conflict_signal_scale",
+                LIVE_PREDICTION_HEAD_ROBOT_CONFLICT_SIGNAL_SCALE,
+            ),
+            0.0,
+        ),
+        "robot_conflict_model_delta_cap": max(
+            _config_float(
+                "prediction_head_robot_conflict_model_delta_cap",
+                LIVE_PREDICTION_HEAD_ROBOT_CONFLICT_MODEL_DELTA_CAP,
+            ),
+            0.0,
+        ),
+        "group_objective_conflict_blend_weight": max(
+            min(
+                _config_float(
+                    "prediction_head_group_objective_conflict_blend_weight",
+                    LIVE_PREDICTION_HEAD_GROUP_OBJECTIVE_CONFLICT_BLEND_WEIGHT,
+                ),
+                1.0,
+            ),
+            0.0,
+        ),
+        "group_objective_conflict_min_matches": max(
+            _config_float(
+                "prediction_head_group_objective_conflict_min_matches",
+                LIVE_PREDICTION_HEAD_GROUP_OBJECTIVE_CONFLICT_MIN_MATCHES,
+            ),
+            0.0,
+        ),
+        "group_objective_conflict_max_matches": max(
+            _config_float(
+                "prediction_head_group_objective_conflict_max_matches",
+                LIVE_PREDICTION_HEAD_GROUP_OBJECTIVE_CONFLICT_MAX_MATCHES,
+            ),
+            0.0,
+        ),
+        "group_objective_conflict_signal_scale": max(
+            _config_float(
+                "prediction_head_group_objective_conflict_signal_scale",
+                LIVE_PREDICTION_HEAD_GROUP_OBJECTIVE_CONFLICT_SIGNAL_SCALE,
+            ),
+            0.0,
+        ),
+        "group_objective_conflict_signal_threshold": max(
+            _config_float(
+                "prediction_head_group_objective_conflict_signal_threshold",
+                LIVE_PREDICTION_HEAD_GROUP_OBJECTIVE_CONFLICT_SIGNAL_THRESHOLD,
+            ),
+            0.0,
+        ),
+        "group_objective_conflict_model_delta_cap": max(
+            _config_float(
+                "prediction_head_group_objective_conflict_model_delta_cap",
+                LIVE_PREDICTION_HEAD_GROUP_OBJECTIVE_CONFLICT_MODEL_DELTA_CAP,
+            ),
+            0.0,
+        ),
+        "post_conflict_temperature_weight": max(
+            _config_float(
+                "prediction_head_post_conflict_temperature_weight",
+                LIVE_PREDICTION_HEAD_POST_CONFLICT_TEMPERATURE_WEIGHT,
+            ),
+            0.0,
+        ),
+        "post_conflict_temperature_cap": max(
+            _config_float(
+                "prediction_head_post_conflict_temperature_cap",
+                LIVE_PREDICTION_HEAD_POST_CONFLICT_TEMPERATURE_CAP,
+            ),
+            0.0,
+        ),
+        "post_conflict_min_signals": max(
+            _config_float(
+                "prediction_head_post_conflict_min_signals",
+                LIVE_PREDICTION_HEAD_POST_CONFLICT_MIN_SIGNALS,
+            ),
+            0.0,
+        ),
+        "post_conflict_model_delta_min": max(
+            _config_float(
+                "prediction_head_post_conflict_model_delta_min",
+                LIVE_PREDICTION_HEAD_POST_CONFLICT_MODEL_DELTA_MIN,
+            ),
+            0.0,
+        ),
+        "post_conflict_live_signal_threshold": max(
+            _config_float(
+                "prediction_head_post_conflict_live_signal_threshold",
+                LIVE_PREDICTION_HEAD_POST_CONFLICT_LIVE_SIGNAL_THRESHOLD,
+            ),
+            0.0,
+        ),
+        "post_conflict_robot_signal_threshold": max(
+            _config_float(
+                "prediction_head_post_conflict_robot_signal_threshold",
+                LIVE_PREDICTION_HEAD_POST_CONFLICT_ROBOT_SIGNAL_THRESHOLD,
+            ),
+            0.0,
+        ),
+        "robot_form_scale": max(_config_float("robot_form_scale", LIVE_ROBOT_FORM_SCALE), 0.0),
+        "robot_form_temperature": max(_config_float("robot_form_temperature", LIVE_ROBOT_FORM_TEMPERATURE), 1e-6),
         "rating_scale": max(_config_float("rating_scale", DEFAULT_PUBLISHED_RATING_SCALE), 1e-6),
     }
 
@@ -1605,6 +1904,51 @@ def _optional_float_value(value: Any) -> float | None:
         return None
 
 
+def _live_rating_stage_family(rating: dict[str, Any]) -> str:
+    return str(rating.get("stageFamily") or rating.get("currentStageFamily") or "")
+
+
+def _live_group_matches_before(rating: dict[str, Any]) -> float | None:
+    return _optional_float_value(
+        rating.get("regionalGroupMatchesPlayedBefore", rating.get("regionalGroupMatchesPlayed"))
+    )
+
+
+def _live_freshness_weight(rating: dict[str, Any]) -> float:
+    freshness = _optional_float_value(rating.get("formEventFreshnessWeight"))
+    if freshness is None:
+        freshness = _optional_float_value(rating.get("formFreshnessWeight"))
+    if freshness is None:
+        return 1.0
+    return min(max(float(freshness), 0.0), 1.0)
+
+
+def _within_match_window(value: float | None, *, minimum: float, maximum: float) -> bool:
+    if value is None or maximum < minimum:
+        return False
+    return minimum <= float(value) <= maximum
+
+
+def _live_component_head_blend_weight(group_matches_before: float | None, config: dict[str, float]) -> float:
+    if group_matches_before is None:
+        return 0.0
+    if "component_blend_max_weight" in config:
+        max_weight = max(0.0, min(1.0, float(config.get("component_blend_max_weight", 0.0))))
+        min_matches = max(0.0, float(config.get("component_blend_min_matches", 1.0)))
+        max_matches = max(0.0, float(config.get("component_blend_max_matches", min_matches)))
+    else:
+        max_weight = 1.0
+        min_matches = max(0.0, float(config.get("early_group_min_matches", 1.0)))
+        max_matches = max(0.0, float(config.get("early_group_max_matches", min_matches)))
+    if max_weight <= 0.0 or max_matches < min_matches:
+        return 0.0
+    played = float(group_matches_before)
+    if played < min_matches or played > max_matches:
+        return 0.0
+    elapsed = max(played - min_matches + 1.0, 1.0)
+    return max_weight / elapsed
+
+
 def _prediction_elo_for_team(team: Any, current_rating_index: dict[str, dict[str, Any]]) -> float:
     rating = current_rating_index.get(str(team.team_key))
     if rating is not None and rating.get("currentElo") is not None:
@@ -1613,22 +1957,84 @@ def _prediction_elo_for_team(team: Any, current_rating_index: dict[str, dict[str
 
 
 def _live_process_residual_theta(rating: dict[str, Any], *, prediction_head_config: dict[str, float]) -> float:
-    weight = max(float(prediction_head_config.get("process_residual_weight", 0.0)), 0.0)
-    cap = max(float(prediction_head_config.get("process_residual_cap", 0.0)), 0.0)
+    weight = max(float(prediction_head_config.get("group_form_residual_weight", 0.0)), 0.0)
+    cap = max(float(prediction_head_config.get("group_form_residual_cap", 0.0)), 0.0)
     if weight <= 0.0 or cap <= 0.0:
         return 0.0
-    adjusted_form = _optional_float_value(rating.get("formOpponentAdjustedObsMu"))
+    if _live_rating_stage_family(rating) != "regional_group":
+        return 0.0
+    group_matches_before = _live_group_matches_before(rating)
+    if not _within_match_window(
+        group_matches_before,
+        minimum=max(float(prediction_head_config.get("group_form_residual_min_matches", 2.0)), 0.0),
+        maximum=max(float(prediction_head_config.get("group_form_residual_max_matches", 99.0)), 0.0),
+    ):
+        return 0.0
+    form_mu = _optional_float_value(rating.get("formObsMu"))
     season_delta_mu = _optional_float_value(rating.get("seasonDeltaMu"))
     form_gain = _optional_float_value(rating.get("formObsGain"))
-    if adjusted_form is None or season_delta_mu is None or form_gain is None or form_gain <= 0.0:
+    if form_mu is None or season_delta_mu is None or form_gain is None or form_gain <= 0.0:
         return 0.0
-    freshness = _optional_float_value(rating.get("formEventFreshnessWeight"))
-    if freshness is None:
-        freshness = _optional_float_value(rating.get("formFreshnessWeight"))
-    if freshness is None or freshness <= 0.0:
+    freshness = _live_freshness_weight(rating)
+    if freshness <= 0.0:
         return 0.0
-    residual = max(min(float(adjusted_form) - float(season_delta_mu), cap), -cap)
-    return weight * min(max(float(freshness), 0.0), 1.0) * residual
+    residual = max(min(float(form_mu) - float(season_delta_mu), cap), -cap)
+    return weight * freshness * residual
+
+
+def _live_robot_output_residual_theta(rating: dict[str, Any], *, prediction_head_config: dict[str, float]) -> float:
+    weight = max(float(prediction_head_config.get("robot_output_residual_weight", 0.0)), 0.0)
+    cap = max(float(prediction_head_config.get("robot_output_residual_cap", 0.0)), 0.0)
+    if weight <= 0.0 or cap <= 0.0:
+        return 0.0
+    if _live_rating_stage_family(rating) != "regional_group":
+        return 0.0
+    group_matches_before = _live_group_matches_before(rating)
+    if not _within_match_window(
+        group_matches_before,
+        minimum=max(float(prediction_head_config.get("robot_output_residual_min_matches", 1.0)), 0.0),
+        maximum=max(float(prediction_head_config.get("robot_output_residual_max_matches", 99.0)), 0.0),
+    ):
+        return 0.0
+    robot_signal = _optional_float_value(rating.get("formRobotFamilySignal"))
+    if robot_signal is None or abs(float(robot_signal)) <= 1e-9:
+        return 0.0
+    freshness = _live_freshness_weight(rating)
+    if freshness <= 0.0:
+        return 0.0
+    scale = max(float(prediction_head_config.get("robot_form_scale", LIVE_ROBOT_FORM_SCALE)), 0.0)
+    temperature = max(float(prediction_head_config.get("robot_form_temperature", LIVE_ROBOT_FORM_TEMPERATURE)), 1e-6)
+    robot_theta = scale * math.tanh(float(robot_signal) / temperature)
+    residual = weight * freshness * robot_theta
+    return max(min(residual, cap), -cap)
+
+
+def _live_robot_base_capability_residual_theta(
+    rating: dict[str, Any],
+    *,
+    prediction_head_config: dict[str, float],
+) -> float:
+    weight = max(float(prediction_head_config.get("robot_base_capability_residual_weight", 0.0)), 0.0)
+    cap = max(float(prediction_head_config.get("robot_base_capability_residual_cap", 0.0)), 0.0)
+    if weight <= 0.0 or cap <= 0.0:
+        return 0.0
+    if _live_rating_stage_family(rating) != "regional_group":
+        return 0.0
+    group_matches_before = _live_group_matches_before(rating)
+    if not _within_match_window(
+        group_matches_before,
+        minimum=max(float(prediction_head_config.get("robot_base_capability_residual_min_matches", 1.0)), 0.0),
+        maximum=max(float(prediction_head_config.get("robot_base_capability_residual_max_matches", 99.0)), 0.0),
+    ):
+        return 0.0
+    capability_signal = _optional_float_value(rating.get("formRobotBaseCapabilitySignal"))
+    if capability_signal is None or capability_signal <= 0.0:
+        return 0.0
+    freshness = _live_freshness_weight(rating)
+    if freshness <= 0.0:
+        return 0.0
+    residual = weight * freshness * min(float(capability_signal), 1.0)
+    return max(min(residual, cap), -cap)
 
 
 def _live_robot_form_agreement_theta(rating: dict[str, Any], *, prediction_head_config: dict[str, float]) -> float:
@@ -1664,41 +2070,269 @@ def _prediction_theta_for_team(
 ) -> float:
     rating = current_rating_index.get(str(team.team_key), {})
     current_elo = _prediction_elo_for_team(team, current_rating_index)
-    stage_family = str(rating.get("stageFamily") or rating.get("currentStageFamily") or "")
-    group_matches_before = _optional_float_value(
-        rating.get("regionalGroupMatchesPlayedBefore", rating.get("regionalGroupMatchesPlayed"))
-    )
-    uses_component_head = (
+    stage_family = _live_rating_stage_family(rating)
+    group_matches_before = _live_group_matches_before(rating)
+    can_blend_component_head = (
         allow_component_head
         and stage_family == "regional_group"
         and group_matches_before is not None
-        and float(prediction_head_config["early_group_min_matches"])
-        <= group_matches_before
-        <= float(prediction_head_config["early_group_max_matches"])
     )
     robot_form_agreement_theta = _live_robot_form_agreement_theta(
         rating,
         prediction_head_config=prediction_head_config,
     )
-    if not uses_component_head:
-        theta = (current_elo - 1500.0) / float(prediction_head_config["rating_scale"])
-        if stage_family == "regional_group":
-            theta += robot_form_agreement_theta
-        return theta
+    robot_base_capability_theta = _live_robot_base_capability_residual_theta(
+        rating,
+        prediction_head_config=prediction_head_config,
+    )
+    current_theta = (current_elo - 1500.0) / float(prediction_head_config["rating_scale"])
+    if stage_family == "regional_group":
+        current_theta += robot_form_agreement_theta
+        current_theta += robot_base_capability_theta
+        current_theta += _live_robot_output_residual_theta(
+            rating,
+            prediction_head_config=prediction_head_config,
+        )
+    component_weight = (
+        _live_component_head_blend_weight(group_matches_before, prediction_head_config)
+        if can_blend_component_head
+        else 0.0
+    )
+    if component_weight <= 0.0:
+        return current_theta
 
     base_theta = _optional_float_value(rating.get("programBaseTheta"))
     season_delta_mu = _optional_float_value(rating.get("seasonDeltaMu"))
     momentum_theta = _optional_float_value(rating.get("momentumTheta")) or 0.0
     if base_theta is not None and season_delta_mu is not None:
         process_residual_theta = _live_process_residual_theta(rating, prediction_head_config=prediction_head_config)
-        return (
+        component_theta = (
             (float(prediction_head_config["base_weight"]) * base_theta)
             + (float(prediction_head_config["season_delta_weight"]) * season_delta_mu)
             + (float(prediction_head_config["momentum_weight"]) * momentum_theta)
             + process_residual_theta
             + robot_form_agreement_theta
+            + robot_base_capability_theta
         )
-    return (current_elo - 1500.0) / float(prediction_head_config["rating_scale"])
+        return ((1.0 - component_weight) * current_theta) + (component_weight * component_theta)
+    return current_theta
+
+
+def _live_prediction_temperature_for_match(
+    red_rating: dict[str, Any],
+    blue_rating: dict[str, Any],
+    *,
+    prediction_head_config: dict[str, float],
+    theta_delta: float | None = None,
+) -> float:
+    base_temperature = max(float(prediction_head_config.get("temperature", 1.0)), 1e-6)
+    red_stage = _live_rating_stage_family(red_rating)
+    blue_stage = _live_rating_stage_family(blue_rating)
+    if red_stage == "regional_group" and blue_stage == "regional_group":
+        red_played = _live_group_matches_before(red_rating)
+        blue_played = _live_group_matches_before(blue_rating)
+        if red_played is not None and blue_played is not None and max(float(red_played), float(blue_played)) < 1.0:
+            return max(float(prediction_head_config.get("opening_group_temperature", base_temperature)), 1e-6)
+        return max(float(prediction_head_config.get("non_opening_temperature", base_temperature)), 1e-6)
+    if red_stage or blue_stage:
+        post_temperature = prediction_head_config.get(
+            "post_group_temperature",
+            prediction_head_config.get("non_opening_temperature", base_temperature),
+        )
+        temperature = max(float(post_temperature), 1e-6)
+        if theta_delta is not None:
+            temperature *= _live_post_conflict_temperature_multiplier(
+                float(theta_delta),
+                red_rating,
+                blue_rating,
+                prediction_head_config=prediction_head_config,
+            )
+        return max(temperature, 1e-6)
+    return base_temperature
+
+
+def _live_robot_conflict_adjusted_theta_delta(
+    theta_delta: float,
+    red_rating: dict[str, Any],
+    blue_rating: dict[str, Any],
+    *,
+    prediction_head_config: dict[str, float],
+) -> float:
+    blend_weight = max(min(float(prediction_head_config.get("robot_conflict_blend_weight", 0.0)), 1.0), 0.0)
+    if blend_weight <= 0.0:
+        return float(theta_delta)
+    if _live_rating_stage_family(red_rating) != "regional_group" or _live_rating_stage_family(blue_rating) != "regional_group":
+        return float(theta_delta)
+    red_played = _live_group_matches_before(red_rating)
+    blue_played = _live_group_matches_before(blue_rating)
+    if red_played is None or blue_played is None:
+        return float(theta_delta)
+    played = min(float(red_played), float(blue_played))
+    if not _within_match_window(
+        played,
+        minimum=max(float(prediction_head_config.get("robot_conflict_min_matches", 1.0)), 0.0),
+        maximum=max(float(prediction_head_config.get("robot_conflict_max_matches", 1.0)), 0.0),
+    ):
+        return float(theta_delta)
+    model_delta_cap = max(float(prediction_head_config.get("robot_conflict_model_delta_cap", 0.0)), 0.0)
+    if model_delta_cap > 0.0 and abs(float(theta_delta)) > model_delta_cap:
+        return float(theta_delta)
+    red_signal = _optional_float_value(red_rating.get("formRobotFamilySignal"))
+    blue_signal = _optional_float_value(blue_rating.get("formRobotFamilySignal"))
+    if red_signal is None or blue_signal is None:
+        return float(theta_delta)
+    signal_delta = float(red_signal) - float(blue_signal)
+    if abs(signal_delta) <= 1e-9:
+        return float(theta_delta)
+    scale = max(float(prediction_head_config.get("robot_conflict_signal_scale", 0.0)), 0.0)
+    if scale <= 0.0:
+        return float(theta_delta)
+    temperature = max(float(prediction_head_config.get("robot_form_temperature", LIVE_ROBOT_FORM_TEMPERATURE)), 1e-6)
+    robot_delta = scale * math.tanh(signal_delta / temperature)
+    if abs(robot_delta) <= 1e-9 or (float(theta_delta) * robot_delta) >= 0.0:
+        return float(theta_delta)
+    freshness = min(_live_freshness_weight(red_rating), _live_freshness_weight(blue_rating))
+    if freshness <= 0.0:
+        return float(theta_delta)
+    effective_blend = blend_weight * freshness
+    return float(theta_delta) + (effective_blend * (robot_delta - float(theta_delta)))
+
+
+def _signed_signal_side(value: float, *, threshold: float) -> int:
+    threshold = max(float(threshold), 0.0)
+    if abs(float(value)) < threshold:
+        return 0
+    return 1 if float(value) > 0.0 else -1
+
+
+def _signal_strength(value: float, *, threshold: float) -> float:
+    threshold = max(float(threshold), 1e-6)
+    return min(abs(float(value)) / (2.0 * threshold), 1.0)
+
+
+def _live_group_objective_conflict_adjusted_theta_delta(
+    theta_delta: float,
+    red_rating: dict[str, Any],
+    blue_rating: dict[str, Any],
+    *,
+    prediction_head_config: dict[str, float],
+) -> float:
+    blend_weight = max(
+        min(float(prediction_head_config.get("group_objective_conflict_blend_weight", 0.0)), 1.0),
+        0.0,
+    )
+    if blend_weight <= 0.0:
+        return float(theta_delta)
+    if _live_rating_stage_family(red_rating) != "regional_group" or _live_rating_stage_family(blue_rating) != "regional_group":
+        return float(theta_delta)
+    red_played = _live_group_matches_before(red_rating)
+    blue_played = _live_group_matches_before(blue_rating)
+    if red_played is None or blue_played is None:
+        return float(theta_delta)
+    played = min(float(red_played), float(blue_played))
+    if not _within_match_window(
+        played,
+        minimum=max(float(prediction_head_config.get("group_objective_conflict_min_matches", 2.0)), 0.0),
+        maximum=max(float(prediction_head_config.get("group_objective_conflict_max_matches", 99.0)), 0.0),
+    ):
+        return float(theta_delta)
+    model_delta_cap = max(float(prediction_head_config.get("group_objective_conflict_model_delta_cap", 0.0)), 0.0)
+    if model_delta_cap > 0.0 and abs(float(theta_delta)) > model_delta_cap:
+        return float(theta_delta)
+    red_objective = _optional_float_value(red_rating.get("formRobotObjectiveSignal"))
+    blue_objective = _optional_float_value(blue_rating.get("formRobotObjectiveSignal"))
+    if red_objective is None or blue_objective is None:
+        return float(theta_delta)
+    objective_delta = float(red_objective) - float(blue_objective)
+    signal_threshold = max(float(prediction_head_config.get("group_objective_conflict_signal_threshold", 0.0)), 0.0)
+    if _signed_signal_side(objective_delta, threshold=signal_threshold) == 0:
+        return float(theta_delta)
+    scale = max(float(prediction_head_config.get("group_objective_conflict_signal_scale", 0.0)), 0.0)
+    if scale <= 0.0:
+        return float(theta_delta)
+    temperature = max(float(prediction_head_config.get("robot_form_temperature", LIVE_ROBOT_FORM_TEMPERATURE)), 1e-6)
+    objective_theta = scale * math.tanh(objective_delta / temperature)
+    if abs(objective_theta) <= 1e-9:
+        return float(theta_delta)
+    if abs(float(theta_delta)) > 1e-9 and (float(theta_delta) * objective_theta) >= 0.0:
+        return float(theta_delta)
+    freshness = min(_live_freshness_weight(red_rating), _live_freshness_weight(blue_rating))
+    if freshness <= 0.0:
+        return float(theta_delta)
+    effective_blend = blend_weight * freshness
+    return float(theta_delta) + (effective_blend * (objective_theta - float(theta_delta)))
+
+
+def _live_base_capability_side(red_rating: dict[str, Any], blue_rating: dict[str, Any]) -> int:
+    red_capability = _optional_float_value(red_rating.get("formRobotBaseCapabilitySignal")) or 0.0
+    blue_capability = _optional_float_value(blue_rating.get("formRobotBaseCapabilitySignal")) or 0.0
+    if red_capability > 0.0 and blue_capability <= 0.0:
+        return 1
+    if blue_capability > 0.0 and red_capability <= 0.0:
+        return -1
+    return 0
+
+
+def _live_post_conflict_temperature_multiplier(
+    theta_delta: float,
+    red_rating: dict[str, Any],
+    blue_rating: dict[str, Any],
+    *,
+    prediction_head_config: dict[str, float],
+) -> float:
+    weight = max(float(prediction_head_config.get("post_conflict_temperature_weight", 0.0)), 0.0)
+    cap = max(float(prediction_head_config.get("post_conflict_temperature_cap", 0.0)), 0.0)
+    if weight <= 0.0 or cap <= 0.0:
+        return 1.0
+    red_stage = _live_rating_stage_family(red_rating)
+    blue_stage = _live_rating_stage_family(blue_rating)
+    if red_stage == "regional_group" and blue_stage == "regional_group":
+        return 1.0
+    if not red_stage and not blue_stage:
+        return 1.0
+    model_delta_min = max(float(prediction_head_config.get("post_conflict_model_delta_min", 0.0)), 0.0)
+    model_side = _signed_signal_side(float(theta_delta), threshold=model_delta_min)
+    if model_side == 0:
+        return 1.0
+
+    live_threshold = max(float(prediction_head_config.get("post_conflict_live_signal_threshold", 0.30)), 0.0)
+    robot_threshold = max(float(prediction_head_config.get("post_conflict_robot_signal_threshold", 0.80)), 0.0)
+    signal_sides: list[tuple[int, float]] = []
+    live_red = _optional_float_value(red_rating.get("liveStateTheta"))
+    live_blue = _optional_float_value(blue_rating.get("liveStateTheta"))
+    if live_red is not None and live_blue is not None:
+        live_delta = float(live_red) - float(live_blue)
+        signal_sides.append(
+            (
+                _signed_signal_side(live_delta, threshold=live_threshold),
+                _signal_strength(live_delta, threshold=live_threshold),
+            )
+        )
+    for key in ("formRobotFamilySignal", "formRobotObjectiveSignal"):
+        red_signal = _optional_float_value(red_rating.get(key))
+        blue_signal = _optional_float_value(blue_rating.get(key))
+        if red_signal is None or blue_signal is None:
+            continue
+        signal_delta = float(red_signal) - float(blue_signal)
+        signal_sides.append(
+            (
+                _signed_signal_side(signal_delta, threshold=robot_threshold),
+                _signal_strength(signal_delta, threshold=robot_threshold),
+            )
+        )
+    base_side = _live_base_capability_side(red_rating, blue_rating)
+    if base_side:
+        signal_sides.append((base_side, 1.0))
+
+    opposing_strengths = [strength for side, strength in signal_sides if side and side != model_side]
+    minimum_signals = max(float(prediction_head_config.get("post_conflict_min_signals", 2.0)), 0.0)
+    if len(opposing_strengths) < minimum_signals:
+        return 1.0
+    freshness = min(_live_freshness_weight(red_rating), _live_freshness_weight(blue_rating))
+    if freshness <= 0.0:
+        return 1.0
+    normalized_strength = min(sum(opposing_strengths) / max(minimum_signals, 1.0), 1.0)
+    return 1.0 + min(cap, weight * freshness * normalized_strength)
 
 
 def _deterministic_live_prediction_payload(
@@ -1714,6 +2348,8 @@ def _deterministic_live_prediction_payload(
     prediction_head_config = prediction_head_config or _live_prediction_head_config()
     red_elo = _prediction_elo_for_team(red_team, current_rating_index)
     blue_elo = _prediction_elo_for_team(blue_team, current_rating_index)
+    red_rating = current_rating_index.get(str(red_team.team_key), {})
+    blue_rating = current_rating_index.get(str(blue_team.team_key), {})
     beta_perf = (float(getattr(red_team, "beta_perf", 0.0)) + float(getattr(blue_team, "beta_perf", 0.0))) / 2.0
     red_theta = _prediction_theta_for_team(
         red_team,
@@ -1727,8 +2363,26 @@ def _deterministic_live_prediction_payload(
         prediction_head_config=prediction_head_config,
         allow_component_head=allow_component_head,
     )
-    beta_eff = max(beta_perf * float(prediction_head_config["temperature"]), 1e-6)
-    p_game_base_red = 1.0 / (1.0 + math.exp(-((red_theta - blue_theta) / beta_eff)))
+    theta_delta = _live_robot_conflict_adjusted_theta_delta(
+        red_theta - blue_theta,
+        red_rating,
+        blue_rating,
+        prediction_head_config=prediction_head_config,
+    )
+    theta_delta = _live_group_objective_conflict_adjusted_theta_delta(
+        theta_delta,
+        red_rating,
+        blue_rating,
+        prediction_head_config=prediction_head_config,
+    )
+    prediction_temperature = _live_prediction_temperature_for_match(
+        red_rating,
+        blue_rating,
+        prediction_head_config=prediction_head_config,
+        theta_delta=theta_delta,
+    )
+    beta_eff = max(beta_perf * prediction_temperature, 1e-6)
+    p_game_base_red = 1.0 / (1.0 + math.exp(-(theta_delta / beta_eff)))
     p_game_base_red = region_sim.legacy_elo.clip(p_game_base_red, 0.05, 0.95)
     head_to_head_summary = region_sim.h2h.summarize_head_to_head(
         red_team.college_name,
@@ -1804,6 +2458,9 @@ def _live_prediction_rating_index_for_match(
                 "predictionHeadSource": "ledger_before_match_components",
             }
         )
+        live_state_theta = _float_from_row(row, "live_state_theta_before_match")
+        if live_state_theta is not None:
+            out["liveStateTheta"] = live_state_theta
         if row is not None:
             out["stageFamily"] = str(row.get("stage_family") or "")
         group_matches_after = _float_from_row(row, "regional_group_matches_played")
@@ -3208,7 +3865,7 @@ def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", sam
         )
         live_status["slotAssignmentReason"] = live_slot_assignment_reason
         live_status["predictionBasis"] = (
-            "current_ts2_component_head_h2h"
+            "current_ts2_stage_aware_live_signals_h2h"
             if context.source_status == "active" and slot_assignments is not None
             else "official_placeholder"
             if context.source_status == "active"

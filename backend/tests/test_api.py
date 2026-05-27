@@ -923,8 +923,8 @@ def test_active_live_prediction_payload_is_seed_independent_with_official_slots(
     first = service.build_simulation_payload("south_region", 20260414, mode="live", samples=1)
     second = service.build_simulation_payload("south_region", 20261111, mode="live", samples=1)
 
-    assert first["meta"]["liveStatus"]["predictionBasis"] == "current_ts2_component_head_h2h"
-    assert second["meta"]["liveStatus"]["predictionBasis"] == "current_ts2_component_head_h2h"
+    assert first["meta"]["liveStatus"]["predictionBasis"] == "current_ts2_stage_aware_live_signals_h2h"
+    assert second["meta"]["liveStatus"]["predictionBasis"] == "current_ts2_stage_aware_live_signals_h2h"
     assert _without_volatile_simulation_fields(first) == _without_volatile_simulation_fields(second)
 
 
@@ -1120,7 +1120,543 @@ def test_live_builder_uses_ledger_before_ratings_for_completed_match_probability
     assert payload["p_series_red"] < 0.01
 
 
-def test_live_builder_prediction_head_shrinks_long_term_base_component() -> None:
+def test_live_prediction_component_blend_weight_starts_after_opening_group_match() -> None:
+    config = {
+        "component_blend_max_weight": 0.9,
+        "component_blend_min_matches": 1.0,
+        "component_blend_max_matches": 1.0,
+    }
+
+    assert service._live_component_head_blend_weight(0.0, config) == 0.0
+    assert service._live_component_head_blend_weight(1.0, config) == 0.9
+    assert service._live_component_head_blend_weight(2.0, config) == 0.0
+
+
+def test_live_prediction_head_config_limits_component_blend_to_second_group_match() -> None:
+    config = service._live_prediction_head_config()
+
+    assert config["component_blend_max_weight"] == 0.9
+    assert config["component_blend_min_matches"] == 1.0
+    assert config["component_blend_max_matches"] == 1.0
+    assert config["opening_group_temperature"] == 2.5
+    assert config["non_opening_temperature"] == 0.7
+    assert config["post_group_temperature"] == 0.75
+    assert config["robot_output_residual_weight"] == 0.1
+    assert config["robot_base_capability_residual_weight"] == 0.08
+    assert config["robot_base_capability_residual_min_matches"] == 1.0
+    assert config["robot_conflict_blend_weight"] == 0.35
+    assert config["group_objective_conflict_blend_weight"] == 0.55
+    assert config["group_objective_conflict_min_matches"] == 2.0
+    assert config["post_conflict_temperature_weight"] == 0.35
+    assert config["post_conflict_min_signals"] == 2.0
+    assert config["group_form_residual_weight"] == 0.05
+    assert config["group_form_residual_min_matches"] == 2.0
+
+
+def test_live_prediction_head_softens_opening_round_confidence() -> None:
+    red_team = SimpleNamespace(
+        team_key="red-school::main",
+        college_name="红方大学",
+        team_name="Main",
+        mu0=1500.0,
+        sigma0=40.0,
+        beta_perf=1.0,
+    )
+    blue_team = SimpleNamespace(
+        team_key="blue-school::main",
+        college_name="蓝方大学",
+        team_name="Main",
+        mu0=1500.0,
+        sigma0=40.0,
+        beta_perf=1.0,
+    )
+    payload = service._deterministic_live_prediction_payload(
+        red_team,
+        blue_team,
+        best_of=3,
+        head_to_head_index={},
+        current_rating_index={
+            "red-school::main": {
+                "currentElo": 1620.0,
+                "stageFamily": "regional_group",
+                "regionalGroupMatchesPlayedBefore": 0.0,
+            },
+            "blue-school::main": {
+                "currentElo": 1500.0,
+                "stageFamily": "regional_group",
+                "regionalGroupMatchesPlayedBefore": 0.0,
+            },
+        },
+        prediction_head_config={
+            "base_weight": 0.0,
+            "season_delta_weight": 0.0,
+            "momentum_weight": 0.0,
+            "temperature": 1.0,
+            "opening_group_temperature": 2.5,
+            "non_opening_temperature": 0.8,
+            "component_blend_max_weight": 0.0,
+            "component_blend_min_matches": 1.0,
+            "component_blend_max_matches": 1.0,
+            "rating_scale": 120.0,
+            "group_form_residual_weight": 0.0,
+            "group_form_residual_cap": 0.20,
+            "group_form_residual_min_matches": 2.0,
+            "robot_output_residual_weight": 0.0,
+            "robot_output_residual_cap": 0.18,
+            "robot_conflict_blend_weight": 0.0,
+            "robot_conflict_signal_scale": 0.60,
+            "robot_conflict_model_delta_cap": 0.45,
+        },
+    )
+
+    assert 0.58 < payload["p_game_base_red"] < 0.62
+
+
+def test_live_prediction_head_uses_robot_output_as_bounded_group_residual() -> None:
+    red_team = SimpleNamespace(
+        team_key="red-school::main",
+        college_name="红方大学",
+        team_name="Main",
+        mu0=1500.0,
+        sigma0=40.0,
+        beta_perf=1.0,
+    )
+    blue_team = SimpleNamespace(
+        team_key="blue-school::main",
+        college_name="蓝方大学",
+        team_name="Main",
+        mu0=1500.0,
+        sigma0=40.0,
+        beta_perf=1.0,
+    )
+    payload = service._deterministic_live_prediction_payload(
+        red_team,
+        blue_team,
+        best_of=3,
+        head_to_head_index={},
+        current_rating_index={
+            "red-school::main": {
+                "currentElo": 1500.0,
+                "stageFamily": "regional_group",
+                "regionalGroupMatchesPlayedBefore": 1.0,
+                "formRobotFamilySignal": 0.80,
+                "formEventFreshnessWeight": 1.0,
+            },
+            "blue-school::main": {
+                "currentElo": 1500.0,
+                "stageFamily": "regional_group",
+                "regionalGroupMatchesPlayedBefore": 1.0,
+                "formRobotFamilySignal": -0.80,
+                "formEventFreshnessWeight": 1.0,
+            },
+        },
+        prediction_head_config={
+            "base_weight": 0.0,
+            "season_delta_weight": 0.0,
+            "momentum_weight": 0.0,
+            "temperature": 1.0,
+            "opening_group_temperature": 2.5,
+            "non_opening_temperature": 0.8,
+            "component_blend_max_weight": 0.0,
+            "component_blend_min_matches": 1.0,
+            "component_blend_max_matches": 1.0,
+            "rating_scale": 120.0,
+            "group_form_residual_weight": 0.0,
+            "group_form_residual_cap": 0.20,
+            "group_form_residual_min_matches": 2.0,
+            "robot_output_residual_weight": 0.10,
+            "robot_output_residual_cap": 0.18,
+            "robot_form_scale": 1.25,
+            "robot_form_temperature": 1.20,
+            "robot_conflict_blend_weight": 0.0,
+            "robot_conflict_signal_scale": 0.60,
+            "robot_conflict_model_delta_cap": 0.45,
+        },
+    )
+
+    assert payload["p_game_base_red"] > 0.54
+
+
+def test_live_prediction_head_uses_base_capability_gate_after_opening_match() -> None:
+    red_team = SimpleNamespace(
+        team_key="red-school::main",
+        college_name="红方大学",
+        team_name="Main",
+        mu0=1500.0,
+        sigma0=40.0,
+        beta_perf=1.0,
+    )
+    blue_team = SimpleNamespace(
+        team_key="blue-school::main",
+        college_name="蓝方大学",
+        team_name="Main",
+        mu0=1500.0,
+        sigma0=40.0,
+        beta_perf=1.0,
+    )
+    base_config = {
+        "base_weight": 0.0,
+        "season_delta_weight": 0.0,
+        "momentum_weight": 0.0,
+        "temperature": 1.0,
+        "opening_group_temperature": 2.5,
+        "non_opening_temperature": 0.8,
+        "component_blend_max_weight": 0.0,
+        "component_blend_min_matches": 1.0,
+        "component_blend_max_matches": 1.0,
+        "rating_scale": 120.0,
+        "group_form_residual_weight": 0.0,
+        "group_form_residual_cap": 0.20,
+        "group_form_residual_min_matches": 2.0,
+        "robot_output_residual_weight": 0.0,
+        "robot_output_residual_cap": 0.18,
+        "robot_base_capability_residual_weight": 0.08,
+        "robot_base_capability_residual_cap": 0.08,
+        "robot_base_capability_residual_min_matches": 1.0,
+        "robot_base_capability_residual_max_matches": 99.0,
+        "robot_conflict_blend_weight": 0.0,
+        "robot_conflict_signal_scale": 0.60,
+        "robot_conflict_model_delta_cap": 0.45,
+    }
+    opening = service._deterministic_live_prediction_payload(
+        red_team,
+        blue_team,
+        best_of=3,
+        head_to_head_index={},
+        current_rating_index={
+            "red-school::main": {
+                "currentElo": 1500.0,
+                "stageFamily": "regional_group",
+                "regionalGroupMatchesPlayedBefore": 0.0,
+                "formRobotBaseCapabilitySignal": 1.0,
+                "formEventFreshnessWeight": 1.0,
+            },
+            "blue-school::main": {
+                "currentElo": 1500.0,
+                "stageFamily": "regional_group",
+                "regionalGroupMatchesPlayedBefore": 0.0,
+                "formRobotBaseCapabilitySignal": 0.0,
+                "formEventFreshnessWeight": 1.0,
+            },
+        },
+        prediction_head_config=base_config,
+    )
+    after_opening = service._deterministic_live_prediction_payload(
+        red_team,
+        blue_team,
+        best_of=3,
+        head_to_head_index={},
+        current_rating_index={
+            "red-school::main": {
+                "currentElo": 1500.0,
+                "stageFamily": "regional_group",
+                "regionalGroupMatchesPlayedBefore": 1.0,
+                "formRobotBaseCapabilitySignal": 1.0,
+                "formEventFreshnessWeight": 1.0,
+            },
+            "blue-school::main": {
+                "currentElo": 1500.0,
+                "stageFamily": "regional_group",
+                "regionalGroupMatchesPlayedBefore": 1.0,
+                "formRobotBaseCapabilitySignal": 0.0,
+                "formEventFreshnessWeight": 1.0,
+            },
+        },
+        prediction_head_config=base_config,
+    )
+
+    assert abs(opening["p_game_base_red"] - 0.5) < 1e-12
+    assert after_opening["p_game_base_red"] > 0.52
+
+
+def test_live_prediction_head_softly_corrects_only_small_r2_robot_conflicts() -> None:
+    red_team = SimpleNamespace(
+        team_key="red-school::main",
+        college_name="红方大学",
+        team_name="Main",
+        mu0=1500.0,
+        sigma0=40.0,
+        beta_perf=1.0,
+    )
+    blue_team = SimpleNamespace(
+        team_key="blue-school::main",
+        college_name="蓝方大学",
+        team_name="Main",
+        mu0=1500.0,
+        sigma0=40.0,
+        beta_perf=1.0,
+    )
+    base_config = {
+        "base_weight": 0.0,
+        "season_delta_weight": 0.0,
+        "momentum_weight": 0.0,
+        "temperature": 1.0,
+        "opening_group_temperature": 2.5,
+        "non_opening_temperature": 0.8,
+        "component_blend_max_weight": 0.0,
+        "component_blend_min_matches": 1.0,
+        "component_blend_max_matches": 1.0,
+        "rating_scale": 120.0,
+        "group_form_residual_weight": 0.0,
+        "group_form_residual_cap": 0.20,
+        "group_form_residual_min_matches": 2.0,
+        "robot_output_residual_weight": 0.10,
+        "robot_output_residual_cap": 0.18,
+        "robot_form_scale": 1.25,
+        "robot_form_temperature": 1.20,
+        "robot_conflict_blend_weight": 0.45,
+        "robot_conflict_min_matches": 1.0,
+        "robot_conflict_max_matches": 1.0,
+        "robot_conflict_signal_scale": 0.60,
+        "robot_conflict_model_delta_cap": 0.45,
+    }
+    small_conflict = service._deterministic_live_prediction_payload(
+        red_team,
+        blue_team,
+        best_of=3,
+        head_to_head_index={},
+        current_rating_index={
+            "red-school::main": {
+                "currentElo": 1476.0,
+                "stageFamily": "regional_group",
+                "regionalGroupMatchesPlayedBefore": 1.0,
+                "formRobotFamilySignal": 0.90,
+                "formEventFreshnessWeight": 1.0,
+            },
+            "blue-school::main": {
+                "currentElo": 1500.0,
+                "stageFamily": "regional_group",
+                "regionalGroupMatchesPlayedBefore": 1.0,
+                "formRobotFamilySignal": -0.90,
+                "formEventFreshnessWeight": 1.0,
+            },
+        },
+        prediction_head_config=base_config,
+    )
+    large_conflict = service._deterministic_live_prediction_payload(
+        red_team,
+        blue_team,
+        best_of=3,
+        head_to_head_index={},
+        current_rating_index={
+            "red-school::main": {
+                "currentElo": 1380.0,
+                "stageFamily": "regional_group",
+                "regionalGroupMatchesPlayedBefore": 1.0,
+                "formRobotFamilySignal": 0.90,
+                "formEventFreshnessWeight": 1.0,
+            },
+            "blue-school::main": {
+                "currentElo": 1500.0,
+                "stageFamily": "regional_group",
+                "regionalGroupMatchesPlayedBefore": 1.0,
+                "formRobotFamilySignal": -0.90,
+                "formEventFreshnessWeight": 1.0,
+            },
+        },
+        prediction_head_config=base_config,
+    )
+
+    assert small_conflict["p_game_base_red"] > 0.5
+    assert large_conflict["p_game_base_red"] < 0.5
+
+
+def test_live_prediction_head_blends_later_group_objective_conflicts() -> None:
+    red_team = SimpleNamespace(
+        team_key="red-school::main",
+        college_name="红方大学",
+        team_name="Main",
+        mu0=1500.0,
+        sigma0=40.0,
+        beta_perf=1.0,
+    )
+    blue_team = SimpleNamespace(
+        team_key="blue-school::main",
+        college_name="蓝方大学",
+        team_name="Main",
+        mu0=1500.0,
+        sigma0=40.0,
+        beta_perf=1.0,
+    )
+    base_config = {
+        "base_weight": 0.0,
+        "season_delta_weight": 0.0,
+        "momentum_weight": 0.0,
+        "temperature": 1.0,
+        "opening_group_temperature": 2.5,
+        "non_opening_temperature": 0.8,
+        "component_blend_max_weight": 0.0,
+        "component_blend_min_matches": 1.0,
+        "component_blend_max_matches": 1.0,
+        "rating_scale": 120.0,
+        "group_form_residual_weight": 0.0,
+        "group_form_residual_cap": 0.20,
+        "group_form_residual_min_matches": 2.0,
+        "robot_output_residual_weight": 0.0,
+        "robot_output_residual_cap": 0.18,
+        "robot_form_scale": 1.25,
+        "robot_form_temperature": 1.20,
+        "robot_conflict_blend_weight": 0.0,
+        "robot_conflict_signal_scale": 0.60,
+        "robot_conflict_model_delta_cap": 0.45,
+        "group_objective_conflict_blend_weight": 0.55,
+        "group_objective_conflict_min_matches": 2.0,
+        "group_objective_conflict_max_matches": 99.0,
+        "group_objective_conflict_signal_scale": 0.70,
+        "group_objective_conflict_signal_threshold": 0.50,
+        "group_objective_conflict_model_delta_cap": 0.45,
+    }
+    objective_conflict = service._deterministic_live_prediction_payload(
+        red_team,
+        blue_team,
+        best_of=3,
+        head_to_head_index={},
+        current_rating_index={
+            "red-school::main": {
+                "currentElo": 1482.0,
+                "stageFamily": "regional_group",
+                "regionalGroupMatchesPlayedBefore": 2.0,
+                "formRobotObjectiveSignal": 1.10,
+                "formEventFreshnessWeight": 1.0,
+            },
+            "blue-school::main": {
+                "currentElo": 1500.0,
+                "stageFamily": "regional_group",
+                "regionalGroupMatchesPlayedBefore": 2.0,
+                "formRobotObjectiveSignal": -0.20,
+                "formEventFreshnessWeight": 1.0,
+            },
+        },
+        prediction_head_config=base_config,
+    )
+    strong_rating_conflict = service._deterministic_live_prediction_payload(
+        red_team,
+        blue_team,
+        best_of=3,
+        head_to_head_index={},
+        current_rating_index={
+            "red-school::main": {
+                "currentElo": 1410.0,
+                "stageFamily": "regional_group",
+                "regionalGroupMatchesPlayedBefore": 2.0,
+                "formRobotObjectiveSignal": 1.10,
+                "formEventFreshnessWeight": 1.0,
+            },
+            "blue-school::main": {
+                "currentElo": 1500.0,
+                "stageFamily": "regional_group",
+                "regionalGroupMatchesPlayedBefore": 2.0,
+                "formRobotObjectiveSignal": -0.20,
+                "formEventFreshnessWeight": 1.0,
+            },
+        },
+        prediction_head_config=base_config,
+    )
+
+    assert objective_conflict["p_game_base_red"] > 0.5
+    assert objective_conflict["p_series_red"] > 0.5
+    assert strong_rating_conflict["p_game_base_red"] < 0.5
+    assert strong_rating_conflict["p_series_red"] < 0.5
+
+
+def test_live_prediction_head_softens_post_confidence_when_short_signals_conflict() -> None:
+    red_team = SimpleNamespace(
+        team_key="red-school::main",
+        college_name="红方大学",
+        team_name="Main",
+        mu0=1500.0,
+        sigma0=40.0,
+        beta_perf=1.0,
+    )
+    blue_team = SimpleNamespace(
+        team_key="blue-school::main",
+        college_name="蓝方大学",
+        team_name="Main",
+        mu0=1500.0,
+        sigma0=40.0,
+        beta_perf=1.0,
+    )
+    base_config = {
+        "base_weight": 0.0,
+        "season_delta_weight": 0.0,
+        "momentum_weight": 0.0,
+        "temperature": 1.0,
+        "opening_group_temperature": 2.5,
+        "non_opening_temperature": 0.8,
+        "post_group_temperature": 0.75,
+        "component_blend_max_weight": 0.0,
+        "component_blend_min_matches": 1.0,
+        "component_blend_max_matches": 1.0,
+        "rating_scale": 120.0,
+        "group_form_residual_weight": 0.0,
+        "group_form_residual_cap": 0.20,
+        "group_form_residual_min_matches": 2.0,
+        "robot_output_residual_weight": 0.0,
+        "robot_output_residual_cap": 0.18,
+        "robot_form_scale": 1.25,
+        "robot_form_temperature": 1.20,
+        "robot_conflict_blend_weight": 0.0,
+        "robot_conflict_signal_scale": 0.60,
+        "robot_conflict_model_delta_cap": 0.45,
+        "post_conflict_temperature_weight": 0.35,
+        "post_conflict_temperature_cap": 0.55,
+        "post_conflict_min_signals": 2.0,
+        "post_conflict_model_delta_min": 0.35,
+        "post_conflict_live_signal_threshold": 0.30,
+        "post_conflict_robot_signal_threshold": 0.80,
+    }
+    neutral = service._deterministic_live_prediction_payload(
+        red_team,
+        blue_team,
+        best_of=3,
+        head_to_head_index={},
+        current_rating_index={
+            "red-school::main": {
+                "currentElo": 1380.0,
+                "stageFamily": "post_group",
+                "liveStateTheta": -0.80,
+            },
+            "blue-school::main": {
+                "currentElo": 1500.0,
+                "stageFamily": "post_group",
+                "liveStateTheta": 0.80,
+            },
+        },
+        prediction_head_config=base_config,
+    )
+    conflict = service._deterministic_live_prediction_payload(
+        red_team,
+        blue_team,
+        best_of=3,
+        head_to_head_index={},
+        current_rating_index={
+            "red-school::main": {
+                "currentElo": 1380.0,
+                "stageFamily": "post_group",
+                "liveStateTheta": 0.90,
+                "formRobotFamilySignal": 1.20,
+                "formRobotObjectiveSignal": 1.30,
+                "formRobotBaseCapabilitySignal": 1.0,
+                "formEventFreshnessWeight": 1.0,
+            },
+            "blue-school::main": {
+                "currentElo": 1500.0,
+                "stageFamily": "post_group",
+                "liveStateTheta": -0.20,
+                "formRobotFamilySignal": -0.20,
+                "formRobotObjectiveSignal": -0.10,
+                "formRobotBaseCapabilitySignal": 0.0,
+                "formEventFreshnessWeight": 1.0,
+            },
+        },
+        prediction_head_config=base_config,
+    )
+
+    assert neutral["p_game_base_red"] < conflict["p_game_base_red"] < 0.5
+    assert neutral["p_series_red"] < conflict["p_series_red"] < 0.5
+
+
+def test_live_builder_prediction_head_softens_component_rating_after_opening_group_match() -> None:
     red_team = SimpleNamespace(
         team_key="red-school::main",
         college_name="红方大学",
@@ -1195,7 +1731,7 @@ def test_live_builder_prediction_head_shrinks_long_term_base_component() -> None
     )
 
     assert payload["fixed_scoreline"] == "0:2"
-    assert payload["p_game_base_red"] < 0.5
+    assert 0.40 < payload["p_game_base_red"] < 0.5
     assert payload["p_series_red"] < 0.5
 
 
@@ -1362,7 +1898,7 @@ def test_live_builder_prediction_head_keeps_later_group_raw_rating() -> None:
     assert payload["p_series_red"] > 0.5
 
 
-def test_live_builder_prediction_head_uses_fresh_process_residual(monkeypatch) -> None:
+def test_live_builder_prediction_head_uses_later_group_form_residual(monkeypatch) -> None:
     red_team = SimpleNamespace(
         team_key="red-school::main",
         college_name="红方大学",
@@ -1388,10 +1924,12 @@ def test_live_builder_prediction_head_uses_fresh_process_residual(monkeypatch) -
             "momentum_weight": 0.0,
             "temperature": 1.0,
             "early_group_min_matches": 1.0,
-            "early_group_max_matches": 2.0,
+            "early_group_max_matches": 3.0,
             "rating_scale": 120.0,
-            "process_residual_weight": 0.25,
-            "process_residual_cap": 0.40,
+            "group_form_residual_weight": 0.25,
+            "group_form_residual_cap": 0.40,
+            "group_form_residual_min_matches": 2.0,
+            "group_form_residual_max_matches": 99.0,
         },
     )
     context = service.rmuc_live.LiveRuntimeContext(
@@ -1400,9 +1938,9 @@ def test_live_builder_prediction_head_uses_fresh_process_residual(monkeypatch) -
         reason=None,
         matches_by_pair={},
         matches_by_pair_round={
-            ("red-school::main", "blue-school::main", "swiss", 2): {
-                "matchId": "2026RMUC:OFFICIAL-2",
-                "officialMatchId": "OFFICIAL-2",
+            ("red-school::main", "blue-school::main", "swiss", 3): {
+                "matchId": "2026RMUC:OFFICIAL-3",
+                "officialMatchId": "OFFICIAL-3",
                 "officialStatus": "DONE",
                 "plannedStartAt": "2026-05-02T12:00:00+00:00",
                 "scoreline": "2:0",
@@ -1419,24 +1957,26 @@ def test_live_builder_prediction_head_uses_fresh_process_residual(monkeypatch) -
     builder = service.live_payload_builder_factory(
         context,
         {
-            ("2026RMUC:OFFICIAL-2", "red-school"): {
+            ("2026RMUC:OFFICIAL-3", "red-school"): {
                 "published_rating_before_match": 1476.0,
                 "published_rating_after_match": 1500.0,
                 "stage_family": "regional_group",
-                "regional_group_matches_played": 2,
+                "regional_group_matches_played": 3,
                 "season_delta_mu_before_match": -0.20,
                 "momentum_theta_before_match": 0.0,
-                "form_opponent_adjusted_obs_mu": 0.30,
+                "form_obs_mu": 0.30,
+                "form_opponent_adjusted_obs_mu": -0.30,
                 "form_obs_gain": 0.20,
                 "form_event_freshness_weight": 1.0,
             },
-            ("2026RMUC:OFFICIAL-2", "blue-school"): {
+            ("2026RMUC:OFFICIAL-3", "blue-school"): {
                 "published_rating_before_match": 1476.0,
                 "published_rating_after_match": 1452.0,
                 "stage_family": "regional_group",
-                "regional_group_matches_played": 2,
+                "regional_group_matches_played": 3,
                 "season_delta_mu_before_match": -0.20,
                 "momentum_theta_before_match": 0.0,
+                "form_obs_mu": -0.20,
                 "form_opponent_adjusted_obs_mu": -0.20,
                 "form_obs_gain": 0.20,
                 "form_event_freshness_weight": 1.0,
@@ -1453,12 +1993,36 @@ def test_live_builder_prediction_head_uses_fresh_process_residual(monkeypatch) -
         match_seed=111,
         head_to_head_index={},
         stage="swiss",
-        round_number=2,
-        match_label="A-SWISS-2-1",
+        round_number=3,
+        match_label="A-SWISS-3-1",
     )
 
     assert payload["p_game_base_red"] > 0.5
     assert payload["p_series_red"] > 0.5
+
+
+def test_live_group_form_residual_waits_for_later_group_evidence() -> None:
+    config = {
+        "group_form_residual_weight": 0.05,
+        "group_form_residual_cap": 0.20,
+        "group_form_residual_min_matches": 2.0,
+    }
+    early_rating = {
+        "stageFamily": "regional_group",
+        "regionalGroupMatchesPlayedBefore": 1.0,
+        "seasonDeltaMu": 0.0,
+        "formObsMu": 0.50,
+        "formOpponentAdjustedObsMu": 0.70,
+        "formObsGain": 1.0,
+        "formEventFreshnessWeight": 1.0,
+    }
+    later_rating = {
+        **early_rating,
+        "regionalGroupMatchesPlayedBefore": 2.0,
+    }
+
+    assert service._live_process_residual_theta(early_rating, prediction_head_config=config) == 0.0
+    assert abs(service._live_process_residual_theta(later_rating, prediction_head_config=config) - 0.01) < 1e-12
 
 
 def test_live_builder_prediction_head_uses_fresh_robot_form_agreement(monkeypatch) -> None:

@@ -412,6 +412,11 @@ def build_runtime_prediction_form_observations(
             out["form_obs_gain"] = float(out.get("form_reliability") or 0.0)
             out["form_opponent_adjusted_obs_mu"] = float(out.get("obs_mu") or 0.0)
             out["form_robot_family_signal"] = float(out.get("robot_family_signal") or 0.0)
+            out["form_robot_objective_signal"] = float(out.get("robot_objective_signal") or 0.0)
+            out["form_robot_base_dart_average"] = float(out.get("robot_base_dart_average") or 0.0)
+            out["form_robot_base_capability_signal"] = float(out.get("robot_base_capability_signal") or 0.0)
+            out["form_robot_gate_weight"] = float(out.get("robot_gate_weight") or 0.0)
+            out["form_robot_form_reliability"] = float(out.get("robot_form_reliability") or 0.0)
             out["form_robot_signal_alignment"] = out.get("robot_signal_alignment")
             out["form_robot_signal_conflict"] = bool(out.get("robot_signal_conflict", False))
             rows.append(out)
@@ -740,15 +745,102 @@ def runtime_model_config_signature(regional_cfg: RegionalPreModelConfig) -> dict
         "prediction_head_season_delta_weight": float(regional_cfg.prediction_head_season_delta_weight),
         "prediction_head_momentum_weight": float(regional_cfg.prediction_head_momentum_weight),
         "prediction_head_temperature": float(regional_cfg.prediction_head_temperature),
+        "prediction_head_opening_group_temperature": float(regional_cfg.prediction_head_opening_group_temperature),
+        "prediction_head_non_opening_temperature": float(regional_cfg.prediction_head_non_opening_temperature),
+        "prediction_head_post_group_temperature": float(regional_cfg.prediction_head_post_group_temperature),
         "prediction_head_early_group_min_matches": float(regional_cfg.prediction_head_early_group_min_matches),
         "prediction_head_early_group_max_matches": float(regional_cfg.prediction_head_early_group_max_matches),
+        "prediction_head_component_blend_max_weight": float(
+            regional_cfg.prediction_head_component_blend_max_weight
+        ),
+        "prediction_head_component_blend_min_matches": float(
+            regional_cfg.prediction_head_component_blend_min_matches
+        ),
+        "prediction_head_component_blend_max_matches": float(
+            regional_cfg.prediction_head_component_blend_max_matches
+        ),
         "prediction_head_process_residual_weight": float(regional_cfg.prediction_head_process_residual_weight),
         "prediction_head_process_residual_cap": float(regional_cfg.prediction_head_process_residual_cap),
+        "prediction_head_group_form_residual_weight": float(regional_cfg.prediction_head_group_form_residual_weight),
+        "prediction_head_group_form_residual_cap": float(regional_cfg.prediction_head_group_form_residual_cap),
+        "prediction_head_group_form_residual_min_matches": float(
+            regional_cfg.prediction_head_group_form_residual_min_matches
+        ),
+        "prediction_head_group_form_residual_max_matches": float(
+            regional_cfg.prediction_head_group_form_residual_max_matches
+        ),
         "prediction_head_robot_form_agreement_weight": float(
             regional_cfg.prediction_head_robot_form_agreement_weight
         ),
         "prediction_head_robot_form_agreement_cap": float(
             regional_cfg.prediction_head_robot_form_agreement_cap
+        ),
+        "prediction_head_robot_output_residual_weight": float(
+            regional_cfg.prediction_head_robot_output_residual_weight
+        ),
+        "prediction_head_robot_output_residual_cap": float(regional_cfg.prediction_head_robot_output_residual_cap),
+        "prediction_head_robot_output_residual_min_matches": float(
+            regional_cfg.prediction_head_robot_output_residual_min_matches
+        ),
+        "prediction_head_robot_output_residual_max_matches": float(
+            regional_cfg.prediction_head_robot_output_residual_max_matches
+        ),
+        "prediction_head_robot_base_capability_residual_weight": float(
+            regional_cfg.prediction_head_robot_base_capability_residual_weight
+        ),
+        "prediction_head_robot_base_capability_residual_cap": float(
+            regional_cfg.prediction_head_robot_base_capability_residual_cap
+        ),
+        "prediction_head_robot_base_capability_residual_min_matches": float(
+            regional_cfg.prediction_head_robot_base_capability_residual_min_matches
+        ),
+        "prediction_head_robot_base_capability_residual_max_matches": float(
+            regional_cfg.prediction_head_robot_base_capability_residual_max_matches
+        ),
+        "prediction_head_robot_conflict_blend_weight": float(
+            regional_cfg.prediction_head_robot_conflict_blend_weight
+        ),
+        "prediction_head_robot_conflict_min_matches": float(regional_cfg.prediction_head_robot_conflict_min_matches),
+        "prediction_head_robot_conflict_max_matches": float(regional_cfg.prediction_head_robot_conflict_max_matches),
+        "prediction_head_robot_conflict_signal_scale": float(
+            regional_cfg.prediction_head_robot_conflict_signal_scale
+        ),
+        "prediction_head_robot_conflict_model_delta_cap": float(
+            regional_cfg.prediction_head_robot_conflict_model_delta_cap
+        ),
+        "prediction_head_group_objective_conflict_blend_weight": float(
+            regional_cfg.prediction_head_group_objective_conflict_blend_weight
+        ),
+        "prediction_head_group_objective_conflict_min_matches": float(
+            regional_cfg.prediction_head_group_objective_conflict_min_matches
+        ),
+        "prediction_head_group_objective_conflict_max_matches": float(
+            regional_cfg.prediction_head_group_objective_conflict_max_matches
+        ),
+        "prediction_head_group_objective_conflict_signal_scale": float(
+            regional_cfg.prediction_head_group_objective_conflict_signal_scale
+        ),
+        "prediction_head_group_objective_conflict_signal_threshold": float(
+            regional_cfg.prediction_head_group_objective_conflict_signal_threshold
+        ),
+        "prediction_head_group_objective_conflict_model_delta_cap": float(
+            regional_cfg.prediction_head_group_objective_conflict_model_delta_cap
+        ),
+        "prediction_head_post_conflict_temperature_weight": float(
+            regional_cfg.prediction_head_post_conflict_temperature_weight
+        ),
+        "prediction_head_post_conflict_temperature_cap": float(
+            regional_cfg.prediction_head_post_conflict_temperature_cap
+        ),
+        "prediction_head_post_conflict_min_signals": float(regional_cfg.prediction_head_post_conflict_min_signals),
+        "prediction_head_post_conflict_model_delta_min": float(
+            regional_cfg.prediction_head_post_conflict_model_delta_min
+        ),
+        "prediction_head_post_conflict_live_signal_threshold": float(
+            regional_cfg.prediction_head_post_conflict_live_signal_threshold
+        ),
+        "prediction_head_post_conflict_robot_signal_threshold": float(
+            regional_cfg.prediction_head_post_conflict_robot_signal_threshold
         ),
     }
 
@@ -923,15 +1015,112 @@ def publish_runtime_artifacts(
             "prediction_head_season_delta_weight": float(regional_cfg.prediction_head_season_delta_weight),
             "prediction_head_momentum_weight": float(regional_cfg.prediction_head_momentum_weight),
             "prediction_head_temperature": float(regional_cfg.prediction_head_temperature),
+            "prediction_head_opening_group_temperature": float(regional_cfg.prediction_head_opening_group_temperature),
+            "prediction_head_non_opening_temperature": float(regional_cfg.prediction_head_non_opening_temperature),
+            "prediction_head_post_group_temperature": float(regional_cfg.prediction_head_post_group_temperature),
             "prediction_head_early_group_min_matches": float(regional_cfg.prediction_head_early_group_min_matches),
             "prediction_head_early_group_max_matches": float(regional_cfg.prediction_head_early_group_max_matches),
+            "prediction_head_component_blend_max_weight": float(
+                regional_cfg.prediction_head_component_blend_max_weight
+            ),
+            "prediction_head_component_blend_min_matches": float(
+                regional_cfg.prediction_head_component_blend_min_matches
+            ),
+            "prediction_head_component_blend_max_matches": float(
+                regional_cfg.prediction_head_component_blend_max_matches
+            ),
             "prediction_head_process_residual_weight": float(regional_cfg.prediction_head_process_residual_weight),
             "prediction_head_process_residual_cap": float(regional_cfg.prediction_head_process_residual_cap),
+            "prediction_head_group_form_residual_weight": float(
+                regional_cfg.prediction_head_group_form_residual_weight
+            ),
+            "prediction_head_group_form_residual_cap": float(regional_cfg.prediction_head_group_form_residual_cap),
+            "prediction_head_group_form_residual_min_matches": float(
+                regional_cfg.prediction_head_group_form_residual_min_matches
+            ),
+            "prediction_head_group_form_residual_max_matches": float(
+                regional_cfg.prediction_head_group_form_residual_max_matches
+            ),
             "prediction_head_robot_form_agreement_weight": float(
                 regional_cfg.prediction_head_robot_form_agreement_weight
             ),
             "prediction_head_robot_form_agreement_cap": float(
                 regional_cfg.prediction_head_robot_form_agreement_cap
+            ),
+            "prediction_head_robot_output_residual_weight": float(
+                regional_cfg.prediction_head_robot_output_residual_weight
+            ),
+            "prediction_head_robot_output_residual_cap": float(
+                regional_cfg.prediction_head_robot_output_residual_cap
+            ),
+            "prediction_head_robot_output_residual_min_matches": float(
+                regional_cfg.prediction_head_robot_output_residual_min_matches
+            ),
+            "prediction_head_robot_output_residual_max_matches": float(
+                regional_cfg.prediction_head_robot_output_residual_max_matches
+            ),
+            "prediction_head_robot_base_capability_residual_weight": float(
+                regional_cfg.prediction_head_robot_base_capability_residual_weight
+            ),
+            "prediction_head_robot_base_capability_residual_cap": float(
+                regional_cfg.prediction_head_robot_base_capability_residual_cap
+            ),
+            "prediction_head_robot_base_capability_residual_min_matches": float(
+                regional_cfg.prediction_head_robot_base_capability_residual_min_matches
+            ),
+            "prediction_head_robot_base_capability_residual_max_matches": float(
+                regional_cfg.prediction_head_robot_base_capability_residual_max_matches
+            ),
+            "prediction_head_robot_conflict_blend_weight": float(
+                regional_cfg.prediction_head_robot_conflict_blend_weight
+            ),
+            "prediction_head_robot_conflict_min_matches": float(
+                regional_cfg.prediction_head_robot_conflict_min_matches
+            ),
+            "prediction_head_robot_conflict_max_matches": float(
+                regional_cfg.prediction_head_robot_conflict_max_matches
+            ),
+            "prediction_head_robot_conflict_signal_scale": float(
+                regional_cfg.prediction_head_robot_conflict_signal_scale
+            ),
+            "prediction_head_robot_conflict_model_delta_cap": float(
+                regional_cfg.prediction_head_robot_conflict_model_delta_cap
+            ),
+            "prediction_head_group_objective_conflict_blend_weight": float(
+                regional_cfg.prediction_head_group_objective_conflict_blend_weight
+            ),
+            "prediction_head_group_objective_conflict_min_matches": float(
+                regional_cfg.prediction_head_group_objective_conflict_min_matches
+            ),
+            "prediction_head_group_objective_conflict_max_matches": float(
+                regional_cfg.prediction_head_group_objective_conflict_max_matches
+            ),
+            "prediction_head_group_objective_conflict_signal_scale": float(
+                regional_cfg.prediction_head_group_objective_conflict_signal_scale
+            ),
+            "prediction_head_group_objective_conflict_signal_threshold": float(
+                regional_cfg.prediction_head_group_objective_conflict_signal_threshold
+            ),
+            "prediction_head_group_objective_conflict_model_delta_cap": float(
+                regional_cfg.prediction_head_group_objective_conflict_model_delta_cap
+            ),
+            "prediction_head_post_conflict_temperature_weight": float(
+                regional_cfg.prediction_head_post_conflict_temperature_weight
+            ),
+            "prediction_head_post_conflict_temperature_cap": float(
+                regional_cfg.prediction_head_post_conflict_temperature_cap
+            ),
+            "prediction_head_post_conflict_min_signals": float(
+                regional_cfg.prediction_head_post_conflict_min_signals
+            ),
+            "prediction_head_post_conflict_model_delta_min": float(
+                regional_cfg.prediction_head_post_conflict_model_delta_min
+            ),
+            "prediction_head_post_conflict_live_signal_threshold": float(
+                regional_cfg.prediction_head_post_conflict_live_signal_threshold
+            ),
+            "prediction_head_post_conflict_robot_signal_threshold": float(
+                regional_cfg.prediction_head_post_conflict_robot_signal_threshold
             ),
             "generated_at": datetime.now(tz=UTC).isoformat(),
             "source_status": normalized.get("sourceStatus"),
