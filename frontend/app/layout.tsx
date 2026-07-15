@@ -11,8 +11,8 @@ const quantico = Quantico({
 });
 
 export const metadata: Metadata = {
-  title: "RoboMaster 赛事总控台 | 区域赛胜率侦测仪",
-  description: "RoboMaster 机甲大师赛区胜率预测与赛程推演中控台",
+  title: "RoboMaster 赛事总控台 | RMUC 2026 赛程与胜率预测",
+  description: "RoboMaster 机甲大师 RMUC 2026 区域赛预测、复活赛与全国赛官方赛程总控台",
   icons: {
     icon: "/icon.svg",
     shortcut: "/icon.svg",

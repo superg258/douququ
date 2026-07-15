@@ -13,7 +13,7 @@ describe("realtime polling", () => {
 
   it("loads immediately and repeats until stopped", () => {
     const load = vi.fn();
-    const setInterval = vi.fn(() => 101);
+    const setInterval = vi.fn<(callback: () => void, timeout: number) => number>(() => 101);
     const clearInterval = vi.fn();
     vi.stubGlobal("window", { setInterval, clearInterval });
 

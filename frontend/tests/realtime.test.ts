@@ -11,6 +11,7 @@ describe("realtime helpers", () => {
   it("describes active schedule shells separately from completed live results", () => {
     const liveState: LiveStateResponse = {
       available: true,
+      reason: null,
       sourceStatus: "active",
       sourceReason: null,
       regionSlug: "south_region",
@@ -57,6 +58,7 @@ describe("realtime helpers", () => {
   it("reports a Chinese inactive reason when the official source is not RMUC", () => {
     const liveState: LiveStateResponse = {
       available: false,
+      reason: "当前官方 live_json 不是 RMUC 超级对抗赛",
       sourceStatus: "inactive",
       sourceReason: "当前官方 live_json 不是 RMUC 超级对抗赛",
       regionSlug: "south_region",
@@ -101,6 +103,7 @@ describe("realtime helpers", () => {
   it("changes the live simulation refresh key when runtime artifacts change without count changes", () => {
     const liveState: LiveStateResponse = {
       available: true,
+      reason: null,
       sourceStatus: "active",
       sourceReason: null,
       regionSlug: "south_region",

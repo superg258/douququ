@@ -22,12 +22,10 @@ const GOLDEN_RAIN_PARTICLES = Array.from({ length: 50 }, (_, index) => {
 
 export function OverviewHero({
   serviceGeneratedLabel,
-  modelGeneratedLabel,
   nextMatchHref,
-  ctaLabel = "进入赛程沙盘",
+  ctaLabel = "查看赛事赛程",
 }: {
   serviceGeneratedLabel: string;
-  modelGeneratedLabel: string;
   nextMatchHref: string | null;
   ctaLabel?: string;
 }) {
@@ -169,10 +167,10 @@ export function OverviewHero({
               {/* Intro text */}
               <div className="space-y-2">
                 <p className="font-mono text-[11px] sm:text-xs text-rm-metal-textMuted leading-relaxed tracking-[0.08em]">
-                  覆盖南部 · 东部 · 北部三赛区
+                  聚焦复活赛 · 全国赛
                 </p>
                 <p className="font-mono text-[11px] sm:text-xs text-rm-metal-textFaint leading-relaxed tracking-[0.08em]">
-                  基于 Elo 评分与蒙特卡洛模拟，实时推演各赛区从抽签、瑞士轮、资格赛、淘汰赛到最终排名的完整晋级形势。
+                  仅展示官方名单、正式赛程、逐场场序与北京时间。
                 </p>
               </div>
 
@@ -184,12 +182,11 @@ export function OverviewHero({
                 </span>
                 <span className="flex flex-col gap-1 font-mono text-[9px] leading-tight text-rm-metal-textFaint/60 tracking-[0.18em]">
                   <span>系统运行正常 &nbsp;|&nbsp; 服务响应 {serviceGeneratedLabel}</span>
-                  <span>模型产物 {modelGeneratedLabel}</span>
                 </span>
               </div>
 
               <Link
-                href={nextMatchHref ?? "/regions/south_region"}
+                href={nextMatchHref ?? "/forecast-center?event=repechage&view=matches"}
                 className="inline-flex w-full items-center justify-center border border-rm-red/60 bg-rm-red/15 px-4 py-2.5 font-mono text-sm font-bold tracking-wider text-rm-red shadow-[0_0_10px_rgba(232,48,42,0.2)] transition-all hover:bg-rm-red hover:text-white hover:shadow-[0_0_20px_rgba(232,48,42,0.4)] active:scale-[0.98]"
               >
                 {ctaLabel}

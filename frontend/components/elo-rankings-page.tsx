@@ -1,44 +1,63 @@
 // frontend/components/elo-rankings-page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { getOverview } from "@/lib/api";
-import { buildEloRankingsDashboard } from "@/lib/overview-builders";
-import type { OverviewResponse } from "@/lib/types";
+import { useEffect, useState } from "react";
 
+import { FinalsEloRankings } from "@/components/finals-elo-rankings";
 import { RankingsHero } from "@/components/rankings-hero";
-import { RankingsColumns } from "@/components/rankings-columns";
+import { getFinalEvent, getOverview } from "@/lib/api";
+import { formatShortDateTimeLabel } from "@/lib/time-format";
+import type { FinalEventResponse, OverviewResponse } from "@/lib/types";
+
+interface EloPageData {
+  overview: OverviewResponse;
+  repechage: FinalEventResponse;
+  nationals: FinalEventResponse;
+}
 
 export function EloRankingsPage() {
-  const [data, setData] = useState<OverviewResponse | null>(null);
+  const [data, setData] = useState<EloPageData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getOverview()
-      .then((payload) => {
-        setData(payload);
+    let canceled = false;
+
+    Promise.all([
+      getOverview(),
+      getFinalEvent("repechage"),
+      getFinalEvent("nationals"),
+    ])
+      .then(([overview, repechage, nationals]) => {
+        if (canceled) return;
+        setData({ overview, repechage, nationals });
         setError(null);
       })
-      .catch((err: Error) => {
-        setError(err.message);
+      .catch((reason: unknown) => {
+        if (canceled) return;
+        setError(reason instanceof Error ? reason.message : String(reason));
       });
-  }, []);
 
-  const dashboard = useMemo(
-    () => (data ? buildEloRankingsDashboard(data) : null),
-    [data],
-  );
+    return () => {
+      canceled = true;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen">
-      <RankingsHero generatedLabel={dashboard?.generatedLabel ?? "同步中..."} />
+      <RankingsHero
+        generatedLabel={
+          data
+            ? formatShortDateTimeLabel(data.overview.generatedAt)
+            : "同步中..."
+        }
+      />
 
       <main className="relative z-10 max-w-[1600px] mx-auto px-4 py-8">
         {error ? (
           <div className="p-4 bg-rm-red/5 border border-rm-red/30 text-rm-red font-mono text-sm mb-8">
             数据加载失败：{error}
           </div>
-        ) : !dashboard ? (
+        ) : !data ? (
           <div className="flex flex-col items-center justify-center py-20 text-rm-metal-textMuted">
             <div className="w-8 h-8 border-4 border-rm-blue/30 border-t-rm-blue rounded-full animate-spin mb-4" />
             <span className="font-machine tracking-widest uppercase text-xs">
@@ -46,7 +65,11 @@ export function EloRankingsPage() {
             </span>
           </div>
         ) : (
-          <RankingsColumns sections={dashboard.sections} />
+          <FinalsEloRankings
+            overview={data.overview}
+            repechage={data.repechage}
+            nationals={data.nationals}
+          />
         )}
       </main>
     </div>

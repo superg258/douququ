@@ -1,0 +1,2573 @@
+{
+  "schemaVersion": 1,
+  "season": 2026,
+  "timezone": "Asia/Shanghai",
+  "timezoneLabel": "北京时间",
+  "scheduleStatus": "official_schedule_draw_pending",
+  "verifiedAt": "2026-07-14",
+  "sources": [
+    {
+      "kind": "handbook",
+      "title": "RoboMaster 2026 机甲大师超级对抗赛·全国总决赛参赛手册",
+      "version": "V2.0.0",
+      "releasedAt": "2026-07-13",
+      "sha256": "8c050178b94193bbf912f2a42011f772b6f51fb7243345fa983e56433f9669e6",
+      "coverage": "参赛名单、抽签方式、赛制、阶段日程与北京时间说明"
+    },
+    {
+      "kind": "workbook",
+      "title": "RMUC 2026 全国总决赛赛程表总览版",
+      "version": "总览版（文件未标版本号）",
+      "retrievedAt": "2026-07-14",
+      "sha256": "21325beff5892d511df4fc48febba5b9f93e3dd2087bdf8f54d0ecfd667cb19d",
+      "coverage": "逐场场序、时间、官方槽位、晋级去向及赛前预约时段"
+    }
+  ],
+  "events": {
+    "repechage": {
+      "slug": "repechage",
+      "name": "RMUC 2026 复活赛",
+      "shortName": "复活赛",
+      "eyebrow": "16 支队伍 · 4 张全国赛门票",
+      "statusLabel": "名单已确认 · 抽签落位待定",
+      "dateRange": {
+        "start": "2026-07-29",
+        "end": "2026-08-02"
+      },
+      "competitionRange": {
+        "start": "2026-07-31",
+        "end": "2026-08-02"
+      },
+      "participantCount": 16,
+      "confirmedParticipantCount": 16,
+      "advancementSlots": 4,
+      "formalMatchCount": 32,
+      "groups": [
+        {
+          "name": "A 组",
+          "teamCount": 8,
+          "swissRounds": 3
+        },
+        {
+          "name": "B 组",
+          "teamCount": 8,
+          "swissRounds": 3
+        }
+      ],
+      "participants": [
+        {
+          "order": 1,
+          "collegeName": "广东工业大学",
+          "teamName": "DynamicX",
+          "drawTier": "第一梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 2,
+          "collegeName": "桂林电子科技大学",
+          "teamName": "Evolution",
+          "drawTier": "第二梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 3,
+          "collegeName": "华中科技大学",
+          "teamName": "狼牙",
+          "drawTier": "第二梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 4,
+          "collegeName": "江南大学霞客湾校区",
+          "teamName": "SHARK",
+          "drawTier": "第二梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 5,
+          "collegeName": "南方科技大学",
+          "teamName": "ARTINX",
+          "drawTier": "第一梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 6,
+          "collegeName": "南华大学",
+          "teamName": "MA",
+          "drawTier": "第一梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 7,
+          "collegeName": "南京航空航天大学金城学院",
+          "teamName": "Born of Fire",
+          "drawTier": "第一梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 8,
+          "collegeName": "厦门大学嘉庚学院",
+          "teamName": "TCR",
+          "drawTier": "第二梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 9,
+          "collegeName": "山东理工大学",
+          "teamName": "齐奇",
+          "drawTier": "第一梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 10,
+          "collegeName": "深圳技术大学",
+          "teamName": "悍匠",
+          "drawTier": "第二梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 11,
+          "collegeName": "沈阳理工大学",
+          "teamName": "Ambition",
+          "drawTier": "第二梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 12,
+          "collegeName": "太原科技大学",
+          "teamName": "NewMaker",
+          "drawTier": "第二梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 13,
+          "collegeName": "西安电子科技大学",
+          "teamName": "IRobot",
+          "drawTier": "第一梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 14,
+          "collegeName": "应急管理大学",
+          "teamName": "风暴",
+          "drawTier": "第二梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 15,
+          "collegeName": "中国科学技术大学",
+          "teamName": "RoboWalker",
+          "drawTier": "第一梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 16,
+          "collegeName": "中国矿业大学",
+          "teamName": "CUBOT",
+          "drawTier": "第一梯队",
+          "status": "confirmed"
+        }
+      ],
+      "drawRules": [
+        "第一梯队 8 队依次抽入 A1、B1、A2、B2、A3、B3、A4、B4。",
+        "第二梯队 8 队依次抽入 A5、B5、A6、B6、A7、B7、A8、B8。"
+      ],
+      "format": [
+        {
+          "title": "场地道具训练",
+          "detail": "每队 2 次，每次 30 分钟；第二次需预约。"
+        },
+        {
+          "title": "小组赛（瑞士轮）",
+          "detail": "A、B 两组各 8 队、各打 3 轮，全部 BO3；累计 2 败淘汰。"
+        },
+        {
+          "title": "全国赛名额争夺战",
+          "detail": "采用双败制，最终 4 支队伍晋级全国赛。"
+        }
+      ],
+      "preEventSchedule": [
+        {
+          "activity": "参赛队报到",
+          "slots": [
+            "7 月 29 日 12:00-19:00",
+            "7 月 30 日 09:00-12:00"
+          ]
+        },
+        {
+          "activity": "预检录",
+          "slots": [
+            "7 月 29 日 14:00-18:00",
+            "7 月 30 日 10:00-16:00"
+          ]
+        },
+        {
+          "activity": "定妆照预约",
+          "slots": [
+            "7 月 29 日 15:30-18:30",
+            "7 月 30 日 10:30-16:30"
+          ]
+        },
+        {
+          "activity": "第二检录区",
+          "slots": [
+            "7 月 30 日 14:00-20:30",
+            "8 月 1 日 19:30-21:00",
+            "8 月 2 日 09:00-12:00"
+          ]
+        },
+        {
+          "activity": "场地道具训练",
+          "slots": [
+            "7 月 30 日 15:00-22:00",
+            "7 月 31 日 10:00-21:00",
+            "8 月 1 日 09:00-12:00"
+          ]
+        },
+        {
+          "activity": "领队会议 & 抽签仪式",
+          "slots": [
+            "7 月 30 日 17:00-18:00"
+          ]
+        }
+      ],
+      "dayNotes": [
+        {
+          "date": "2026-07-31",
+          "label": "A 组瑞士轮第一轮",
+          "checkin": [
+            "上午检录 08:00 开始",
+            "下午检录 12:00 开始",
+            "傍晚检录 18:00 开始"
+          ]
+        },
+        {
+          "date": "2026-08-01",
+          "label": "A/B 组瑞士轮",
+          "checkin": [
+            "上午检录 08:00 开始",
+            "下午检录 12:00 开始",
+            "傍晚检录 17:10 开始"
+          ]
+        },
+        {
+          "date": "2026-08-02",
+          "label": "全国赛晋级名额争夺战",
+          "checkin": [
+            "上午检录 08:00 开始",
+            "下午检录 13:00 开始",
+            "傍晚检录 18:00 开始"
+          ]
+        }
+      ],
+      "matches": [
+        {
+          "number": 1,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-A1",
+          "blueSlot": "Ⅰ-A5",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "19:00",
+          "endTime": "19:35",
+          "startsAt": "2026-07-31T19:00:00+08:00",
+          "endsAt": "2026-07-31T19:35:00+08:00"
+        },
+        {
+          "number": 2,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-A2",
+          "blueSlot": "Ⅰ-A6",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "19:35",
+          "endTime": "20:10",
+          "startsAt": "2026-07-31T19:35:00+08:00",
+          "endsAt": "2026-07-31T20:10:00+08:00"
+        },
+        {
+          "number": 3,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-A7",
+          "blueSlot": "Ⅰ-A3",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "20:10",
+          "endTime": "20:45",
+          "startsAt": "2026-07-31T20:10:00+08:00",
+          "endsAt": "2026-07-31T20:45:00+08:00"
+        },
+        {
+          "number": 4,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-A8",
+          "blueSlot": "Ⅰ-A4",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "20:45",
+          "endTime": "21:20",
+          "startsAt": "2026-07-31T20:45:00+08:00",
+          "endsAt": "2026-07-31T21:20:00+08:00"
+        },
+        {
+          "number": 5,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-B1",
+          "blueSlot": "Ⅰ-B5",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "09:00",
+          "endTime": "09:35",
+          "startsAt": "2026-08-01T09:00:00+08:00",
+          "endsAt": "2026-08-01T09:35:00+08:00"
+        },
+        {
+          "number": 6,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-B2",
+          "blueSlot": "Ⅰ-B6",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "09:35",
+          "endTime": "10:10",
+          "startsAt": "2026-08-01T09:35:00+08:00",
+          "endsAt": "2026-08-01T10:10:00+08:00"
+        },
+        {
+          "number": 7,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-B7",
+          "blueSlot": "Ⅰ-B3",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "10:10",
+          "endTime": "10:45",
+          "startsAt": "2026-08-01T10:10:00+08:00",
+          "endsAt": "2026-08-01T10:45:00+08:00"
+        },
+        {
+          "number": 8,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-B8",
+          "blueSlot": "Ⅰ-B4",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "10:45",
+          "endTime": "11:20",
+          "startsAt": "2026-08-01T10:45:00+08:00",
+          "endsAt": "2026-08-01T11:20:00+08:00"
+        },
+        {
+          "number": 9,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-A1",
+          "blueSlot": "Ⅱ-A2",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "11:20",
+          "endTime": "11:55",
+          "startsAt": "2026-08-01T11:20:00+08:00",
+          "endsAt": "2026-08-01T11:55:00+08:00"
+        },
+        {
+          "number": 10,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-A3",
+          "blueSlot": "Ⅱ-A4",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "13:00",
+          "endTime": "13:35",
+          "startsAt": "2026-08-01T13:00:00+08:00",
+          "endsAt": "2026-08-01T13:35:00+08:00"
+        },
+        {
+          "number": 11,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-A6",
+          "blueSlot": "Ⅱ-A5",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "13:35",
+          "endTime": "14:10",
+          "startsAt": "2026-08-01T13:35:00+08:00",
+          "endsAt": "2026-08-01T14:10:00+08:00"
+        },
+        {
+          "number": 12,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-A8",
+          "blueSlot": "Ⅱ-A7",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "14:10",
+          "endTime": "14:45",
+          "startsAt": "2026-08-01T14:10:00+08:00",
+          "endsAt": "2026-08-01T14:45:00+08:00"
+        },
+        {
+          "number": 13,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-B2",
+          "blueSlot": "Ⅱ-B1",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "14:45",
+          "endTime": "15:20",
+          "startsAt": "2026-08-01T14:45:00+08:00",
+          "endsAt": "2026-08-01T15:20:00+08:00"
+        },
+        {
+          "number": 14,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-B4",
+          "blueSlot": "Ⅱ-B3",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "15:20",
+          "endTime": "15:55",
+          "startsAt": "2026-08-01T15:20:00+08:00",
+          "endsAt": "2026-08-01T15:55:00+08:00"
+        },
+        {
+          "number": 15,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-B5",
+          "blueSlot": "Ⅱ-B6",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "15:55",
+          "endTime": "16:30",
+          "startsAt": "2026-08-01T15:55:00+08:00",
+          "endsAt": "2026-08-01T16:30:00+08:00"
+        },
+        {
+          "number": 16,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-B7",
+          "blueSlot": "Ⅱ-B8",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "16:30",
+          "endTime": "17:05",
+          "startsAt": "2026-08-01T16:30:00+08:00",
+          "endsAt": "2026-08-01T17:05:00+08:00"
+        },
+        {
+          "number": 17,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第三轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅲ-A1",
+          "blueSlot": "Ⅲ-A2",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "18:10",
+          "endTime": "18:45",
+          "startsAt": "2026-08-01T18:10:00+08:00",
+          "endsAt": "2026-08-01T18:45:00+08:00"
+        },
+        {
+          "number": 18,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第三轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅲ-A3",
+          "blueSlot": "Ⅲ-A6",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "18:45",
+          "endTime": "19:20",
+          "startsAt": "2026-08-01T18:45:00+08:00",
+          "endsAt": "2026-08-01T19:20:00+08:00"
+        },
+        {
+          "number": 19,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第三轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅲ-A4",
+          "blueSlot": "Ⅲ-A5",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "19:20",
+          "endTime": "19:55",
+          "startsAt": "2026-08-01T19:20:00+08:00",
+          "endsAt": "2026-08-01T19:55:00+08:00"
+        },
+        {
+          "number": 20,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第三轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅲ-B2",
+          "blueSlot": "Ⅲ-B1",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "19:55",
+          "endTime": "20:30",
+          "startsAt": "2026-08-01T19:55:00+08:00",
+          "endsAt": "2026-08-01T20:30:00+08:00"
+        },
+        {
+          "number": 21,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第三轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅲ-B6",
+          "blueSlot": "Ⅲ-B3",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "20:30",
+          "endTime": "21:05",
+          "startsAt": "2026-08-01T20:30:00+08:00",
+          "endsAt": "2026-08-01T21:05:00+08:00"
+        },
+        {
+          "number": 22,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第三轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅲ-B5",
+          "blueSlot": "Ⅲ-B4",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "21:05",
+          "endTime": "21:40",
+          "startsAt": "2026-08-01T21:05:00+08:00",
+          "endsAt": "2026-08-01T21:40:00+08:00"
+        },
+        {
+          "number": 23,
+          "kind": "formal",
+          "stageKey": "repechage_qualification",
+          "stage": "晋级名额争夺战（BO3）",
+          "bestOf": 3,
+          "redSlot": "B-1",
+          "blueSlot": "A-4",
+          "winnerTo": "胜者①",
+          "loserTo": "败者①",
+          "startTime": "09:00",
+          "endTime": "09:35",
+          "startsAt": "2026-08-02T09:00:00+08:00",
+          "endsAt": "2026-08-02T09:35:00+08:00"
+        },
+        {
+          "number": 24,
+          "kind": "formal",
+          "stageKey": "repechage_qualification",
+          "stage": "晋级名额争夺战（BO3）",
+          "bestOf": 3,
+          "redSlot": "A-2",
+          "blueSlot": "B-3",
+          "winnerTo": "胜者②",
+          "loserTo": "败者②",
+          "startTime": "09:35",
+          "endTime": "10:10",
+          "startsAt": "2026-08-02T09:35:00+08:00",
+          "endsAt": "2026-08-02T10:10:00+08:00"
+        },
+        {
+          "number": 25,
+          "kind": "formal",
+          "stageKey": "repechage_qualification",
+          "stage": "晋级名额争夺战（BO3）",
+          "bestOf": 3,
+          "redSlot": "A-3",
+          "blueSlot": "B-2",
+          "winnerTo": "胜者③",
+          "loserTo": "败者③",
+          "startTime": "10:10",
+          "endTime": "10:45",
+          "startsAt": "2026-08-02T10:10:00+08:00",
+          "endsAt": "2026-08-02T10:45:00+08:00"
+        },
+        {
+          "number": 26,
+          "kind": "formal",
+          "stageKey": "repechage_qualification",
+          "stage": "晋级名额争夺战（BO3）",
+          "bestOf": 3,
+          "redSlot": "B-4",
+          "blueSlot": "A-1",
+          "winnerTo": "胜者④",
+          "loserTo": "败者④",
+          "startTime": "10:45",
+          "endTime": "11:20",
+          "startsAt": "2026-08-02T10:45:00+08:00",
+          "endsAt": "2026-08-02T11:20:00+08:00"
+        },
+        {
+          "number": 27,
+          "kind": "formal",
+          "stageKey": "repechage_qualification",
+          "stage": "晋级名额争夺战败者组第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "败者①",
+          "blueSlot": "败者②",
+          "winnerTo": "胜者1",
+          "loserTo": "淘汰",
+          "startTime": "14:00",
+          "endTime": "14:35",
+          "startsAt": "2026-08-02T14:00:00+08:00",
+          "endsAt": "2026-08-02T14:35:00+08:00"
+        },
+        {
+          "number": 28,
+          "kind": "formal",
+          "stageKey": "repechage_qualification",
+          "stage": "晋级名额争夺战败者组第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "败者④",
+          "blueSlot": "败者③",
+          "winnerTo": "胜者2",
+          "loserTo": "淘汰",
+          "startTime": "14:35",
+          "endTime": "15:10",
+          "startsAt": "2026-08-02T14:35:00+08:00",
+          "endsAt": "2026-08-02T15:10:00+08:00"
+        },
+        {
+          "number": 29,
+          "kind": "formal",
+          "stageKey": "repechage_qualification",
+          "stage": "晋级名额争夺战胜者组（BO3）",
+          "bestOf": 3,
+          "redSlot": "胜者①",
+          "blueSlot": "胜者②",
+          "winnerTo": "全国赛",
+          "loserTo": "败者I",
+          "startTime": "15:10",
+          "endTime": "15:45",
+          "startsAt": "2026-08-02T15:10:00+08:00",
+          "endsAt": "2026-08-02T15:45:00+08:00"
+        },
+        {
+          "number": 30,
+          "kind": "formal",
+          "stageKey": "repechage_qualification",
+          "stage": "晋级名额争夺战胜者组（BO3）",
+          "bestOf": 3,
+          "redSlot": "胜者④",
+          "blueSlot": "胜者③",
+          "winnerTo": "全国赛",
+          "loserTo": "败者II",
+          "startTime": "15:45",
+          "endTime": "16:20",
+          "startsAt": "2026-08-02T15:45:00+08:00",
+          "endsAt": "2026-08-02T16:20:00+08:00"
+        },
+        {
+          "number": 31,
+          "kind": "formal",
+          "stageKey": "repechage_qualification",
+          "stage": "晋级名额争夺战败者组第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "败者I",
+          "blueSlot": "胜者2",
+          "winnerTo": "全国赛",
+          "loserTo": "淘汰",
+          "startTime": "19:00",
+          "endTime": "19:35",
+          "startsAt": "2026-08-02T19:00:00+08:00",
+          "endsAt": "2026-08-02T19:35:00+08:00"
+        },
+        {
+          "number": 32,
+          "kind": "formal",
+          "stageKey": "repechage_qualification",
+          "stage": "晋级名额争夺战败者组第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "胜者1",
+          "blueSlot": "败者II",
+          "winnerTo": "全国赛",
+          "loserTo": "淘汰",
+          "startTime": "19:35",
+          "endTime": "20:10",
+          "startsAt": "2026-08-02T19:35:00+08:00",
+          "endsAt": "2026-08-02T20:10:00+08:00"
+        }
+      ],
+      "notices": [
+        "当前公布的是官方槽位赛程；抽签完成前，Ⅰ-A1、B-1、胜者①等均不是具体队名。",
+        "复活赛 4 支晋级队将补入全国赛参赛名单第 29-32 席。",
+        "具体执行时间以现场通知为准。"
+      ]
+    },
+    "nationals": {
+      "slug": "nationals",
+      "name": "RMUC 2026 全国赛",
+      "shortName": "全国赛",
+      "eyebrow": "28 支队伍 · 96 场正式比赛",
+      "statusLabel": "28 队名单已确认 · 抽签待定",
+      "dateRange": {
+        "start": "2026-07-31",
+        "end": "2026-08-10"
+      },
+      "competitionRange": {
+        "start": "2026-08-04",
+        "end": "2026-08-09"
+      },
+      "participantCount": 28,
+      "confirmedParticipantCount": 28,
+      "advancementSlots": null,
+      "formalMatchCount": 96,
+      "groups": [
+        {
+          "name": "A 组",
+          "teamCount": 16,
+          "swissRounds": 5
+        },
+        {
+          "name": "B 组",
+          "teamCount": 16,
+          "swissRounds": 5
+        }
+      ],
+      "participants": [
+        {
+          "order": 1,
+          "collegeName": "北京理工大学",
+          "teamName": "追梦",
+          "drawTier": "非种子抽签池",
+          "status": "confirmed"
+        },
+        {
+          "order": 2,
+          "collegeName": "北京理工大学（珠海）",
+          "teamName": "毅恒",
+          "drawTier": "非种子抽签池",
+          "status": "confirmed"
+        },
+        {
+          "order": 3,
+          "collegeName": "大连理工大学",
+          "teamName": "凌 BUG",
+          "drawTier": "非种子抽签池",
+          "status": "confirmed"
+        },
+        {
+          "order": 4,
+          "collegeName": "电子科技大学中山学院",
+          "teamName": "RoboBraver",
+          "drawTier": "第五梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 5,
+          "collegeName": "东北大学",
+          "teamName": "TDT",
+          "drawTier": "第一梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 6,
+          "collegeName": "东莞理工学院",
+          "teamName": "ACE",
+          "drawTier": "第四梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 7,
+          "collegeName": "复旦大学",
+          "teamName": "星云 EGA",
+          "drawTier": "非种子抽签池",
+          "status": "confirmed"
+        },
+        {
+          "order": 8,
+          "collegeName": "广州城市理工学院",
+          "teamName": "野狼",
+          "drawTier": "第三梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 9,
+          "collegeName": "哈尔滨工业大学",
+          "teamName": "I Hiter",
+          "drawTier": "第二梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 10,
+          "collegeName": "哈尔滨工业大学（深圳）",
+          "teamName": "南工骁鹰",
+          "drawTier": "非种子抽签池",
+          "status": "confirmed"
+        },
+        {
+          "order": 11,
+          "collegeName": "哈尔滨工业大学（威海）",
+          "teamName": "HERO",
+          "drawTier": "第三梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 12,
+          "collegeName": "合肥工业大学（宣城校区）",
+          "teamName": "WDR",
+          "drawTier": "第三梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 13,
+          "collegeName": "华东理工大学",
+          "teamName": "起源",
+          "drawTier": "非种子抽签池",
+          "status": "confirmed"
+        },
+        {
+          "order": 14,
+          "collegeName": "华南理工大学",
+          "teamName": "华南虎",
+          "drawTier": "第五梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 15,
+          "collegeName": "华南农业大学",
+          "teamName": "Taurus",
+          "drawTier": "第一梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 16,
+          "collegeName": "南京理工大学",
+          "teamName": "Alliance",
+          "drawTier": "非种子抽签池",
+          "status": "confirmed"
+        },
+        {
+          "order": 17,
+          "collegeName": "山东科技大学",
+          "teamName": "SmartRobot",
+          "drawTier": "第二梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 18,
+          "collegeName": "上海交通大学",
+          "teamName": "交龙",
+          "drawTier": "第五梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 19,
+          "collegeName": "深圳大学",
+          "teamName": "RobotPilots",
+          "drawTier": "非种子抽签池",
+          "status": "confirmed"
+        },
+        {
+          "order": 20,
+          "collegeName": "同济大学",
+          "teamName": "SuperPower",
+          "drawTier": "非种子抽签池",
+          "status": "confirmed"
+        },
+        {
+          "order": 21,
+          "collegeName": "五邑大学",
+          "teamName": "IMCA",
+          "drawTier": "第二梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 22,
+          "collegeName": "武汉工程大学",
+          "teamName": "Nautilus",
+          "drawTier": "非种子抽签池",
+          "status": "confirmed"
+        },
+        {
+          "order": 23,
+          "collegeName": "西安交通大学",
+          "teamName": "笃行",
+          "drawTier": "第五梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 24,
+          "collegeName": "西北工业大学",
+          "teamName": "WMJ",
+          "drawTier": "第四梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 25,
+          "collegeName": "长安大学",
+          "teamName": "VGD",
+          "drawTier": "非种子抽签池",
+          "status": "confirmed"
+        },
+        {
+          "order": 26,
+          "collegeName": "浙江大学",
+          "teamName": "Hello World",
+          "drawTier": "第四梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 27,
+          "collegeName": "中国石油大学（华东）",
+          "teamName": "RPS",
+          "drawTier": "第一梯队",
+          "status": "confirmed"
+        },
+        {
+          "order": 28,
+          "collegeName": "仲恺农业工程学院",
+          "teamName": "奇点",
+          "drawTier": "非种子抽签池",
+          "status": "confirmed"
+        }
+      ],
+      "drawRules": [
+        "第一梯队抽入 A1、A2、B1；第二梯队抽入 A3、B2、B3。",
+        "第三梯队抽入 A4、A5、B4；第四梯队抽入 A6、B5、B6。",
+        "第五梯队抽入 A7、A8、B7、B8；其余 16 队随机抽入 A9-A16、B9-B16。"
+      ],
+      "format": [
+        {
+          "title": "场地道具训练",
+          "detail": "区域赛直通全国赛队伍 2 次，每次 30 分钟；第二次需预约。"
+        },
+        {
+          "title": "小组赛（瑞士轮）",
+          "detail": "A、B 两组各 16 队、各打 5 轮，全部 BO3；累计 3 胜晋级，累计 3 败淘汰。"
+        },
+        {
+          "title": "16 进 8 淘汰赛",
+          "detail": "BO3 双败制，从 16 强筛出 8 强。"
+        },
+        {
+          "title": "8 进 4 淘汰赛",
+          "detail": "BO3 双败制，从 8 强筛出 4 强。"
+        },
+        {
+          "title": "半决赛",
+          "detail": "BO3 单败制。"
+        },
+        {
+          "title": "季军战 / 冠军战",
+          "detail": "BO5 单败制，决出冠、亚、季、殿军。"
+        }
+      ],
+      "preEventSchedule": [
+        {
+          "activity": "参赛队报到",
+          "slots": [
+            "7 月 31 日 12:00-22:00",
+            "8 月 1 日 08:00-18:00"
+          ]
+        },
+        {
+          "activity": "预检录",
+          "slots": [
+            "7 月 31 日 14:00-21:00",
+            "8 月 1 日 08:00-18:00"
+          ]
+        },
+        {
+          "activity": "定妆照预约",
+          "slots": [
+            "7 月 31 日 15:30-19:30",
+            "8 月 1 日 08:30-18:30"
+          ]
+        },
+        {
+          "activity": "第二检录区",
+          "slots": [
+            "8 月 2 日 14:00-22:00",
+            "8 月 3-6 日 08:00-21:00",
+            "8 月 7 日 08:00-17:00"
+          ]
+        },
+        {
+          "activity": "场地道具训练",
+          "slots": [
+            "8 月 1 日 14:00-22:00",
+            "8 月 2-3 日 09:00-22:00",
+            "8 月 4 日 09:00-15:00"
+          ]
+        },
+        {
+          "activity": "领队会议 & 抽签仪式",
+          "slots": [
+            "8 月 2 日 17:00-18:00"
+          ]
+        }
+      ],
+      "dayNotes": [
+        {
+          "date": "2026-08-04",
+          "label": "小组赛第 1 日",
+          "checkin": [
+            "上午检录 08:00 开始",
+            "下午检录 12:00 开始",
+            "傍晚检录 18:15 开始"
+          ]
+        },
+        {
+          "date": "2026-08-05",
+          "label": "小组赛第 2 日",
+          "checkin": [
+            "上午检录 08:00 开始",
+            "下午检录 12:00 开始",
+            "傍晚检录 17:40 开始"
+          ]
+        },
+        {
+          "date": "2026-08-06",
+          "label": "小组赛第 3 日",
+          "checkin": [
+            "上午检录 08:00 开始",
+            "下午检录 12:00 开始",
+            "傍晚检录 18:15 开始"
+          ]
+        },
+        {
+          "date": "2026-08-07",
+          "label": "小组赛第 4 日 + 16 进 8",
+          "checkin": [
+            "上午检录 08:00 开始",
+            "下午检录 12:30 开始",
+            "傍晚检录 16:30 开始"
+          ]
+        },
+        {
+          "date": "2026-08-08",
+          "label": "16 进 8 + 8 进 4",
+          "checkin": [
+            "上午检录 08:00 开始",
+            "下午检录 11:20 开始",
+            "傍晚检录 17:50 开始"
+          ]
+        },
+        {
+          "date": "2026-08-09",
+          "label": "四强与总决赛日",
+          "checkin": [
+            "上午检录 07:00 开始",
+            "半决赛检录 09:40 开始",
+            "决赛检录 13:10 开始"
+          ]
+        }
+      ],
+      "matches": [
+        {
+          "number": 1,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-A1",
+          "blueSlot": "Ⅰ-A9",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "09:00",
+          "endTime": "09:35",
+          "startsAt": "2026-08-04T09:00:00+08:00",
+          "endsAt": "2026-08-04T09:35:00+08:00"
+        },
+        {
+          "number": 2,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-A2",
+          "blueSlot": "Ⅰ-A10",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "09:35",
+          "endTime": "10:10",
+          "startsAt": "2026-08-04T09:35:00+08:00",
+          "endsAt": "2026-08-04T10:10:00+08:00"
+        },
+        {
+          "number": 3,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-A11",
+          "blueSlot": "Ⅰ-A3",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "10:10",
+          "endTime": "10:45",
+          "startsAt": "2026-08-04T10:10:00+08:00",
+          "endsAt": "2026-08-04T10:45:00+08:00"
+        },
+        {
+          "number": 4,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-A12",
+          "blueSlot": "Ⅰ-A4",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "10:45",
+          "endTime": "11:20",
+          "startsAt": "2026-08-04T10:45:00+08:00",
+          "endsAt": "2026-08-04T11:20:00+08:00"
+        },
+        {
+          "number": 5,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-A5",
+          "blueSlot": "Ⅰ-A13",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "11:20",
+          "endTime": "11:55",
+          "startsAt": "2026-08-04T11:20:00+08:00",
+          "endsAt": "2026-08-04T11:55:00+08:00"
+        },
+        {
+          "number": 6,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-A6",
+          "blueSlot": "Ⅰ-A14",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "13:00",
+          "endTime": "13:35",
+          "startsAt": "2026-08-04T13:00:00+08:00",
+          "endsAt": "2026-08-04T13:35:00+08:00"
+        },
+        {
+          "number": 7,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-A15",
+          "blueSlot": "Ⅰ-A7",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "13:35",
+          "endTime": "14:10",
+          "startsAt": "2026-08-04T13:35:00+08:00",
+          "endsAt": "2026-08-04T14:10:00+08:00"
+        },
+        {
+          "number": 8,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-A16",
+          "blueSlot": "Ⅰ-A8",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "14:10",
+          "endTime": "14:45",
+          "startsAt": "2026-08-04T14:10:00+08:00",
+          "endsAt": "2026-08-04T14:45:00+08:00"
+        },
+        {
+          "number": 9,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-B9",
+          "blueSlot": "Ⅰ-B1",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "14:45",
+          "endTime": "15:20",
+          "startsAt": "2026-08-04T14:45:00+08:00",
+          "endsAt": "2026-08-04T15:20:00+08:00"
+        },
+        {
+          "number": 10,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-B10",
+          "blueSlot": "Ⅰ-B2",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "15:20",
+          "endTime": "15:55",
+          "startsAt": "2026-08-04T15:20:00+08:00",
+          "endsAt": "2026-08-04T15:55:00+08:00"
+        },
+        {
+          "number": 11,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-B3",
+          "blueSlot": "Ⅰ-B11",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "15:55",
+          "endTime": "16:30",
+          "startsAt": "2026-08-04T15:55:00+08:00",
+          "endsAt": "2026-08-04T16:30:00+08:00"
+        },
+        {
+          "number": 12,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-B4",
+          "blueSlot": "Ⅰ-B12",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "16:30",
+          "endTime": "17:05",
+          "startsAt": "2026-08-04T16:30:00+08:00",
+          "endsAt": "2026-08-04T17:05:00+08:00"
+        },
+        {
+          "number": 13,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-B13",
+          "blueSlot": "Ⅰ-B5",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "17:05",
+          "endTime": "17:40",
+          "startsAt": "2026-08-04T17:05:00+08:00",
+          "endsAt": "2026-08-04T17:40:00+08:00"
+        },
+        {
+          "number": 14,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-B14",
+          "blueSlot": "Ⅰ-B6",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "17:40",
+          "endTime": "18:15",
+          "startsAt": "2026-08-04T17:40:00+08:00",
+          "endsAt": "2026-08-04T18:15:00+08:00"
+        },
+        {
+          "number": 15,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-B7",
+          "blueSlot": "Ⅰ-B15",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "19:15",
+          "endTime": "19:50",
+          "startsAt": "2026-08-04T19:15:00+08:00",
+          "endsAt": "2026-08-04T19:50:00+08:00"
+        },
+        {
+          "number": 16,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅰ-B8",
+          "blueSlot": "Ⅰ-B16",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "19:50",
+          "endTime": "20:25",
+          "startsAt": "2026-08-04T19:50:00+08:00",
+          "endsAt": "2026-08-04T20:25:00+08:00"
+        },
+        {
+          "number": 17,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-A1",
+          "blueSlot": "Ⅱ-A2",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "20:25",
+          "endTime": "21:00",
+          "startsAt": "2026-08-04T20:25:00+08:00",
+          "endsAt": "2026-08-04T21:00:00+08:00"
+        },
+        {
+          "number": 18,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-A3",
+          "blueSlot": "Ⅱ-A4",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "21:00",
+          "endTime": "21:35",
+          "startsAt": "2026-08-04T21:00:00+08:00",
+          "endsAt": "2026-08-04T21:35:00+08:00"
+        },
+        {
+          "number": 19,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-A6",
+          "blueSlot": "Ⅱ-A5",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "21:35",
+          "endTime": "22:10",
+          "startsAt": "2026-08-04T21:35:00+08:00",
+          "endsAt": "2026-08-04T22:10:00+08:00"
+        },
+        {
+          "number": 20,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-A8",
+          "blueSlot": "Ⅱ-A7",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "09:00",
+          "endTime": "09:35",
+          "startsAt": "2026-08-05T09:00:00+08:00",
+          "endsAt": "2026-08-05T09:35:00+08:00"
+        },
+        {
+          "number": 21,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-A9",
+          "blueSlot": "Ⅱ-A10",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "09:35",
+          "endTime": "10:10",
+          "startsAt": "2026-08-05T09:35:00+08:00",
+          "endsAt": "2026-08-05T10:10:00+08:00"
+        },
+        {
+          "number": 22,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-A11",
+          "blueSlot": "Ⅱ-A12",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "10:10",
+          "endTime": "10:45",
+          "startsAt": "2026-08-05T10:10:00+08:00",
+          "endsAt": "2026-08-05T10:45:00+08:00"
+        },
+        {
+          "number": 23,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-A14",
+          "blueSlot": "Ⅱ-A13",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "10:45",
+          "endTime": "11:20",
+          "startsAt": "2026-08-05T10:45:00+08:00",
+          "endsAt": "2026-08-05T11:20:00+08:00"
+        },
+        {
+          "number": 24,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-A16",
+          "blueSlot": "Ⅱ-A15",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "11:20",
+          "endTime": "11:55",
+          "startsAt": "2026-08-05T11:20:00+08:00",
+          "endsAt": "2026-08-05T11:55:00+08:00"
+        },
+        {
+          "number": 25,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-B2",
+          "blueSlot": "Ⅱ-B1",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "13:00",
+          "endTime": "13:35",
+          "startsAt": "2026-08-05T13:00:00+08:00",
+          "endsAt": "2026-08-05T13:35:00+08:00"
+        },
+        {
+          "number": 26,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-B4",
+          "blueSlot": "Ⅱ-B3",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "13:35",
+          "endTime": "14:10",
+          "startsAt": "2026-08-05T13:35:00+08:00",
+          "endsAt": "2026-08-05T14:10:00+08:00"
+        },
+        {
+          "number": 27,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-B5",
+          "blueSlot": "Ⅱ-B6",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "14:10",
+          "endTime": "14:45",
+          "startsAt": "2026-08-05T14:10:00+08:00",
+          "endsAt": "2026-08-05T14:45:00+08:00"
+        },
+        {
+          "number": 28,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-B7",
+          "blueSlot": "Ⅱ-B8",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "14:45",
+          "endTime": "15:20",
+          "startsAt": "2026-08-05T14:45:00+08:00",
+          "endsAt": "2026-08-05T15:20:00+08:00"
+        },
+        {
+          "number": 29,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-B10",
+          "blueSlot": "Ⅱ-B9",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "15:20",
+          "endTime": "15:55",
+          "startsAt": "2026-08-05T15:20:00+08:00",
+          "endsAt": "2026-08-05T15:55:00+08:00"
+        },
+        {
+          "number": 30,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-B12",
+          "blueSlot": "Ⅱ-B11",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "15:55",
+          "endTime": "16:30",
+          "startsAt": "2026-08-05T15:55:00+08:00",
+          "endsAt": "2026-08-05T16:30:00+08:00"
+        },
+        {
+          "number": 31,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-B13",
+          "blueSlot": "Ⅱ-B14",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "16:30",
+          "endTime": "17:05",
+          "startsAt": "2026-08-05T16:30:00+08:00",
+          "endsAt": "2026-08-05T17:05:00+08:00"
+        },
+        {
+          "number": 32,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅱ-B15",
+          "blueSlot": "Ⅱ-B16",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "17:05",
+          "endTime": "17:40",
+          "startsAt": "2026-08-05T17:05:00+08:00",
+          "endsAt": "2026-08-05T17:40:00+08:00"
+        },
+        {
+          "number": 33,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第三轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅲ-A1",
+          "blueSlot": "Ⅲ-A2",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "18:40",
+          "endTime": "19:15",
+          "startsAt": "2026-08-05T18:40:00+08:00",
+          "endsAt": "2026-08-05T19:15:00+08:00"
+        },
+        {
+          "number": 34,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第三轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅲ-A3",
+          "blueSlot": "Ⅲ-A4",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "19:15",
+          "endTime": "19:50",
+          "startsAt": "2026-08-05T19:15:00+08:00",
+          "endsAt": "2026-08-05T19:50:00+08:00"
+        },
+        {
+          "number": 35,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第三轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅲ-A6",
+          "blueSlot": "Ⅲ-A5",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "19:50",
+          "endTime": "20:25",
+          "startsAt": "2026-08-05T19:50:00+08:00",
+          "endsAt": "2026-08-05T20:25:00+08:00"
+        },
+        {
+          "number": 36,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第三轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅲ-A8",
+          "blueSlot": "Ⅲ-A7",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "20:25",
+          "endTime": "21:00",
+          "startsAt": "2026-08-05T20:25:00+08:00",
+          "endsAt": "2026-08-05T21:00:00+08:00"
+        },
+        {
+          "number": 37,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第三轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅲ-A9",
+          "blueSlot": "Ⅲ-A10",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "21:00",
+          "endTime": "21:35",
+          "startsAt": "2026-08-05T21:00:00+08:00",
+          "endsAt": "2026-08-05T21:35:00+08:00"
+        },
+        {
+          "number": 38,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第三轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅲ-A11",
+          "blueSlot": "Ⅲ-A12",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "21:35",
+          "endTime": "22:10",
+          "startsAt": "2026-08-05T21:35:00+08:00",
+          "endsAt": "2026-08-05T22:10:00+08:00"
+        },
+        {
+          "number": 39,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第三轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅲ-A14",
+          "blueSlot": "Ⅲ-A13",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "09:00",
+          "endTime": "09:35",
+          "startsAt": "2026-08-06T09:00:00+08:00",
+          "endsAt": "2026-08-06T09:35:00+08:00"
+        },
+        {
+          "number": 40,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第三轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅲ-A16",
+          "blueSlot": "Ⅲ-A15",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "09:35",
+          "endTime": "10:10",
+          "startsAt": "2026-08-06T09:35:00+08:00",
+          "endsAt": "2026-08-06T10:10:00+08:00"
+        },
+        {
+          "number": 41,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第三轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅲ-B2",
+          "blueSlot": "Ⅲ-B1",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "10:10",
+          "endTime": "10:45",
+          "startsAt": "2026-08-06T10:10:00+08:00",
+          "endsAt": "2026-08-06T10:45:00+08:00"
+        },
+        {
+          "number": 42,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第三轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅲ-B4",
+          "blueSlot": "Ⅲ-B3",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "10:45",
+          "endTime": "11:20",
+          "startsAt": "2026-08-06T10:45:00+08:00",
+          "endsAt": "2026-08-06T11:20:00+08:00"
+        },
+        {
+          "number": 43,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第三轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅲ-B5",
+          "blueSlot": "Ⅲ-B6",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "11:20",
+          "endTime": "11:55",
+          "startsAt": "2026-08-06T11:20:00+08:00",
+          "endsAt": "2026-08-06T11:55:00+08:00"
+        },
+        {
+          "number": 44,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第三轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅲ-B7",
+          "blueSlot": "Ⅲ-B8",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "13:00",
+          "endTime": "13:35",
+          "startsAt": "2026-08-06T13:00:00+08:00",
+          "endsAt": "2026-08-06T13:35:00+08:00"
+        },
+        {
+          "number": 45,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第三轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅲ-B10",
+          "blueSlot": "Ⅲ-B9",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "13:35",
+          "endTime": "14:10",
+          "startsAt": "2026-08-06T13:35:00+08:00",
+          "endsAt": "2026-08-06T14:10:00+08:00"
+        },
+        {
+          "number": 46,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第三轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅲ-B12",
+          "blueSlot": "Ⅲ-B11",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "14:10",
+          "endTime": "14:45",
+          "startsAt": "2026-08-06T14:10:00+08:00",
+          "endsAt": "2026-08-06T14:45:00+08:00"
+        },
+        {
+          "number": 47,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第三轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅲ-B13",
+          "blueSlot": "Ⅲ-B14",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "14:45",
+          "endTime": "15:20",
+          "startsAt": "2026-08-06T14:45:00+08:00",
+          "endsAt": "2026-08-06T15:20:00+08:00"
+        },
+        {
+          "number": 48,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第三轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅲ-B15",
+          "blueSlot": "Ⅲ-B16",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "15:20",
+          "endTime": "15:55",
+          "startsAt": "2026-08-06T15:20:00+08:00",
+          "endsAt": "2026-08-06T15:55:00+08:00"
+        },
+        {
+          "number": 49,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第四轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅳ-A3",
+          "blueSlot": "Ⅳ-A4",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "15:55",
+          "endTime": "16:30",
+          "startsAt": "2026-08-06T15:55:00+08:00",
+          "endsAt": "2026-08-06T16:30:00+08:00"
+        },
+        {
+          "number": 50,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第四轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅳ-A6",
+          "blueSlot": "Ⅳ-A5",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "16:30",
+          "endTime": "17:05",
+          "startsAt": "2026-08-06T16:30:00+08:00",
+          "endsAt": "2026-08-06T17:05:00+08:00"
+        },
+        {
+          "number": 51,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第四轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅳ-A8",
+          "blueSlot": "Ⅳ-A7",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "17:05",
+          "endTime": "17:40",
+          "startsAt": "2026-08-06T17:05:00+08:00",
+          "endsAt": "2026-08-06T17:40:00+08:00"
+        },
+        {
+          "number": 52,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第四轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅳ-A9",
+          "blueSlot": "Ⅳ-A10",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "17:40",
+          "endTime": "18:15",
+          "startsAt": "2026-08-06T17:40:00+08:00",
+          "endsAt": "2026-08-06T18:15:00+08:00"
+        },
+        {
+          "number": 53,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第四轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅳ-A11",
+          "blueSlot": "Ⅳ-A12",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "19:15",
+          "endTime": "19:50",
+          "startsAt": "2026-08-06T19:15:00+08:00",
+          "endsAt": "2026-08-06T19:50:00+08:00"
+        },
+        {
+          "number": 54,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第四轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅳ-A14",
+          "blueSlot": "Ⅳ-A13",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "19:50",
+          "endTime": "20:25",
+          "startsAt": "2026-08-06T19:50:00+08:00",
+          "endsAt": "2026-08-06T20:25:00+08:00"
+        },
+        {
+          "number": 55,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第四轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅳ-B4",
+          "blueSlot": "Ⅳ-B3",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "20:25",
+          "endTime": "21:00",
+          "startsAt": "2026-08-06T20:25:00+08:00",
+          "endsAt": "2026-08-06T21:00:00+08:00"
+        },
+        {
+          "number": 56,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第四轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅳ-B5",
+          "blueSlot": "Ⅳ-B6",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "21:00",
+          "endTime": "21:35",
+          "startsAt": "2026-08-06T21:00:00+08:00",
+          "endsAt": "2026-08-06T21:35:00+08:00"
+        },
+        {
+          "number": 57,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第四轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅳ-B7",
+          "blueSlot": "Ⅳ-B8",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "21:35",
+          "endTime": "22:10",
+          "startsAt": "2026-08-06T21:35:00+08:00",
+          "endsAt": "2026-08-06T22:10:00+08:00"
+        },
+        {
+          "number": 58,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第四轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅳ-B10",
+          "blueSlot": "Ⅳ-B9",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "09:00",
+          "endTime": "09:35",
+          "startsAt": "2026-08-07T09:00:00+08:00",
+          "endsAt": "2026-08-07T09:35:00+08:00"
+        },
+        {
+          "number": 59,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第四轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅳ-B12",
+          "blueSlot": "Ⅳ-B11",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "09:35",
+          "endTime": "10:10",
+          "startsAt": "2026-08-07T09:35:00+08:00",
+          "endsAt": "2026-08-07T10:10:00+08:00"
+        },
+        {
+          "number": 60,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第四轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅳ-B13",
+          "blueSlot": "Ⅳ-B14",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "10:10",
+          "endTime": "10:45",
+          "startsAt": "2026-08-07T10:10:00+08:00",
+          "endsAt": "2026-08-07T10:45:00+08:00"
+        },
+        {
+          "number": 61,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第五轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅴ-A6",
+          "blueSlot": "Ⅴ-A11",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "10:45",
+          "endTime": "11:20",
+          "startsAt": "2026-08-07T10:45:00+08:00",
+          "endsAt": "2026-08-07T11:20:00+08:00"
+        },
+        {
+          "number": 62,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第五轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅴ-A10",
+          "blueSlot": "Ⅴ-A7",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "11:20",
+          "endTime": "11:55",
+          "startsAt": "2026-08-07T11:20:00+08:00",
+          "endsAt": "2026-08-07T11:55:00+08:00"
+        },
+        {
+          "number": 63,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "A组瑞士轮第五轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅴ-A8",
+          "blueSlot": "Ⅴ-A9",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "11:55",
+          "endTime": "12:30",
+          "startsAt": "2026-08-07T11:55:00+08:00",
+          "endsAt": "2026-08-07T12:30:00+08:00"
+        },
+        {
+          "number": 64,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第五轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅴ-B11",
+          "blueSlot": "Ⅴ-B6",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "13:30",
+          "endTime": "14:05",
+          "startsAt": "2026-08-07T13:30:00+08:00",
+          "endsAt": "2026-08-07T14:05:00+08:00"
+        },
+        {
+          "number": 65,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第五轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅴ-B7",
+          "blueSlot": "Ⅴ-B10",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "14:05",
+          "endTime": "14:40",
+          "startsAt": "2026-08-07T14:05:00+08:00",
+          "endsAt": "2026-08-07T14:40:00+08:00"
+        },
+        {
+          "number": 66,
+          "kind": "formal",
+          "stageKey": "swiss",
+          "stage": "B组瑞士轮第五轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "Ⅴ-B9",
+          "blueSlot": "Ⅴ-B8",
+          "winnerTo": null,
+          "loserTo": null,
+          "startTime": "14:40",
+          "endTime": "15:15",
+          "startsAt": "2026-08-07T14:40:00+08:00",
+          "endsAt": "2026-08-07T15:15:00+08:00"
+        },
+        {
+          "number": 67,
+          "kind": "formal",
+          "stageKey": "round_of_16",
+          "stage": "16进8淘汰赛（BO3）",
+          "bestOf": 3,
+          "redSlot": "B-1",
+          "blueSlot": "A-8",
+          "winnerTo": "胜者①",
+          "loserTo": "败者①",
+          "startTime": "17:30",
+          "endTime": "18:05",
+          "startsAt": "2026-08-07T17:30:00+08:00",
+          "endsAt": "2026-08-07T18:05:00+08:00"
+        },
+        {
+          "number": 68,
+          "kind": "formal",
+          "stageKey": "round_of_16",
+          "stage": "16进8淘汰赛（BO3）",
+          "bestOf": 3,
+          "redSlot": "B-5",
+          "blueSlot": "A-4",
+          "winnerTo": "胜者②",
+          "loserTo": "败者②",
+          "startTime": "18:05",
+          "endTime": "18:40",
+          "startsAt": "2026-08-07T18:05:00+08:00",
+          "endsAt": "2026-08-07T18:40:00+08:00"
+        },
+        {
+          "number": 69,
+          "kind": "formal",
+          "stageKey": "round_of_16",
+          "stage": "16进8淘汰赛（BO3）",
+          "bestOf": 3,
+          "redSlot": "A-7",
+          "blueSlot": "B-2",
+          "winnerTo": "胜者③",
+          "loserTo": "败者③",
+          "startTime": "18:40",
+          "endTime": "19:15",
+          "startsAt": "2026-08-07T18:40:00+08:00",
+          "endsAt": "2026-08-07T19:15:00+08:00"
+        },
+        {
+          "number": 70,
+          "kind": "formal",
+          "stageKey": "round_of_16",
+          "stage": "16进8淘汰赛（BO3）",
+          "bestOf": 3,
+          "redSlot": "A-3",
+          "blueSlot": "B-6",
+          "winnerTo": "胜者④",
+          "loserTo": "败者④",
+          "startTime": "19:15",
+          "endTime": "19:50",
+          "startsAt": "2026-08-07T19:15:00+08:00",
+          "endsAt": "2026-08-07T19:50:00+08:00"
+        },
+        {
+          "number": 71,
+          "kind": "formal",
+          "stageKey": "round_of_16",
+          "stage": "16进8淘汰赛（BO3）",
+          "bestOf": 3,
+          "redSlot": "A-6",
+          "blueSlot": "B-3",
+          "winnerTo": "胜者⑤",
+          "loserTo": "败者⑤",
+          "startTime": "19:50",
+          "endTime": "20:25",
+          "startsAt": "2026-08-07T19:50:00+08:00",
+          "endsAt": "2026-08-07T20:25:00+08:00"
+        },
+        {
+          "number": 72,
+          "kind": "formal",
+          "stageKey": "round_of_16",
+          "stage": "16进8淘汰赛（BO3）",
+          "bestOf": 3,
+          "redSlot": "A-2",
+          "blueSlot": "B-7",
+          "winnerTo": "胜者⑥",
+          "loserTo": "败者⑥",
+          "startTime": "20:25",
+          "endTime": "21:00",
+          "startsAt": "2026-08-07T20:25:00+08:00",
+          "endsAt": "2026-08-07T21:00:00+08:00"
+        },
+        {
+          "number": 73,
+          "kind": "formal",
+          "stageKey": "round_of_16",
+          "stage": "16进8淘汰赛（BO3）",
+          "bestOf": 3,
+          "redSlot": "B-4",
+          "blueSlot": "A-5",
+          "winnerTo": "胜者⑦",
+          "loserTo": "败者⑦",
+          "startTime": "21:00",
+          "endTime": "21:35",
+          "startsAt": "2026-08-07T21:00:00+08:00",
+          "endsAt": "2026-08-07T21:35:00+08:00"
+        },
+        {
+          "number": 74,
+          "kind": "formal",
+          "stageKey": "round_of_16",
+          "stage": "16进8淘汰赛（BO3）",
+          "bestOf": 3,
+          "redSlot": "B-8",
+          "blueSlot": "A-1",
+          "winnerTo": "胜者⑧",
+          "loserTo": "败者⑧",
+          "startTime": "21:35",
+          "endTime": "22:10",
+          "startsAt": "2026-08-07T21:35:00+08:00",
+          "endsAt": "2026-08-07T22:10:00+08:00"
+        },
+        {
+          "number": 75,
+          "kind": "formal",
+          "stageKey": "round_of_16",
+          "stage": "16进8败者组第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "败者①",
+          "blueSlot": "败者②",
+          "winnerTo": "胜者1",
+          "loserTo": "淘汰",
+          "startTime": "09:00",
+          "endTime": "09:35",
+          "startsAt": "2026-08-08T09:00:00+08:00",
+          "endsAt": "2026-08-08T09:35:00+08:00"
+        },
+        {
+          "number": 76,
+          "kind": "formal",
+          "stageKey": "round_of_16",
+          "stage": "16进8败者组第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "败者④",
+          "blueSlot": "败者③",
+          "winnerTo": "胜者2",
+          "loserTo": "淘汰",
+          "startTime": "09:35",
+          "endTime": "10:10",
+          "startsAt": "2026-08-08T09:35:00+08:00",
+          "endsAt": "2026-08-08T10:10:00+08:00"
+        },
+        {
+          "number": 77,
+          "kind": "formal",
+          "stageKey": "round_of_16",
+          "stage": "16进8败者组第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "败者⑤",
+          "blueSlot": "败者⑥",
+          "winnerTo": "胜者3",
+          "loserTo": "淘汰",
+          "startTime": "10:10",
+          "endTime": "10:45",
+          "startsAt": "2026-08-08T10:10:00+08:00",
+          "endsAt": "2026-08-08T10:45:00+08:00"
+        },
+        {
+          "number": 78,
+          "kind": "formal",
+          "stageKey": "round_of_16",
+          "stage": "16进8败者组第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "败者⑧",
+          "blueSlot": "败者⑦",
+          "winnerTo": "胜者4",
+          "loserTo": "淘汰",
+          "startTime": "10:45",
+          "endTime": "11:20",
+          "startsAt": "2026-08-08T10:45:00+08:00",
+          "endsAt": "2026-08-08T11:20:00+08:00"
+        },
+        {
+          "number": 79,
+          "kind": "formal",
+          "stageKey": "round_of_16",
+          "stage": "16进8胜者组（BO3）",
+          "bestOf": 3,
+          "redSlot": "胜者①",
+          "blueSlot": "胜者②",
+          "winnerTo": "胜者I（八强）",
+          "loserTo": "败者I",
+          "startTime": "12:20",
+          "endTime": "12:55",
+          "startsAt": "2026-08-08T12:20:00+08:00",
+          "endsAt": "2026-08-08T12:55:00+08:00"
+        },
+        {
+          "number": 80,
+          "kind": "formal",
+          "stageKey": "round_of_16",
+          "stage": "16进8胜者组（BO3）",
+          "bestOf": 3,
+          "redSlot": "胜者④",
+          "blueSlot": "胜者③",
+          "winnerTo": "胜者II（八强）",
+          "loserTo": "败者II",
+          "startTime": "12:55",
+          "endTime": "13:30",
+          "startsAt": "2026-08-08T12:55:00+08:00",
+          "endsAt": "2026-08-08T13:30:00+08:00"
+        },
+        {
+          "number": 81,
+          "kind": "formal",
+          "stageKey": "round_of_16",
+          "stage": "16进8胜者组（BO3）",
+          "bestOf": 3,
+          "redSlot": "胜者⑤",
+          "blueSlot": "胜者⑥",
+          "winnerTo": "胜者III（八强）",
+          "loserTo": "败者III",
+          "startTime": "13:30",
+          "endTime": "14:05",
+          "startsAt": "2026-08-08T13:30:00+08:00",
+          "endsAt": "2026-08-08T14:05:00+08:00"
+        },
+        {
+          "number": 82,
+          "kind": "formal",
+          "stageKey": "round_of_16",
+          "stage": "16进8胜者组（BO3）",
+          "bestOf": 3,
+          "redSlot": "胜者⑧",
+          "blueSlot": "胜者⑦",
+          "winnerTo": "胜者IV（八强）",
+          "loserTo": "败者IV",
+          "startTime": "14:05",
+          "endTime": "14:40",
+          "startsAt": "2026-08-08T14:05:00+08:00",
+          "endsAt": "2026-08-08T14:40:00+08:00"
+        },
+        {
+          "number": 83,
+          "kind": "formal",
+          "stageKey": "round_of_16",
+          "stage": "16进8败者组第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "胜者4",
+          "blueSlot": "败者I",
+          "winnerTo": "胜者A（八强）",
+          "loserTo": "淘汰",
+          "startTime": "15:25",
+          "endTime": "16:00",
+          "startsAt": "2026-08-08T15:25:00+08:00",
+          "endsAt": "2026-08-08T16:00:00+08:00"
+        },
+        {
+          "number": 84,
+          "kind": "formal",
+          "stageKey": "round_of_16",
+          "stage": "16进8败者组第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "胜者3",
+          "blueSlot": "败者II",
+          "winnerTo": "胜者B（八强）",
+          "loserTo": "淘汰",
+          "startTime": "16:00",
+          "endTime": "16:35",
+          "startsAt": "2026-08-08T16:00:00+08:00",
+          "endsAt": "2026-08-08T16:35:00+08:00"
+        },
+        {
+          "number": 85,
+          "kind": "formal",
+          "stageKey": "round_of_16",
+          "stage": "16进8败者组第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "败者III",
+          "blueSlot": "胜者2",
+          "winnerTo": "胜者C（八强）",
+          "loserTo": "淘汰",
+          "startTime": "16:35",
+          "endTime": "17:10",
+          "startsAt": "2026-08-08T16:35:00+08:00",
+          "endsAt": "2026-08-08T17:10:00+08:00"
+        },
+        {
+          "number": 86,
+          "kind": "formal",
+          "stageKey": "round_of_16",
+          "stage": "16进8败者组第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "败者IV",
+          "blueSlot": "胜者1",
+          "winnerTo": "胜者D（八强）",
+          "loserTo": "淘汰",
+          "startTime": "17:10",
+          "endTime": "17:45",
+          "startsAt": "2026-08-08T17:10:00+08:00",
+          "endsAt": "2026-08-08T17:45:00+08:00"
+        },
+        {
+          "number": 87,
+          "kind": "formal",
+          "stageKey": "quarterfinal",
+          "stage": "8进4胜者组（BO3）",
+          "bestOf": 3,
+          "redSlot": "胜者I（八强）",
+          "blueSlot": "胜者III（八强）",
+          "winnerTo": "胜者一（四强）",
+          "loserTo": "败者一",
+          "startTime": "18:50",
+          "endTime": "19:25",
+          "startsAt": "2026-08-08T18:50:00+08:00",
+          "endsAt": "2026-08-08T19:25:00+08:00"
+        },
+        {
+          "number": 88,
+          "kind": "formal",
+          "stageKey": "quarterfinal",
+          "stage": "8进4胜者组（BO3）",
+          "bestOf": 3,
+          "redSlot": "胜者II（八强）",
+          "blueSlot": "胜者IV（八强）",
+          "winnerTo": "胜者二（四强）",
+          "loserTo": "败者二",
+          "startTime": "19:25",
+          "endTime": "20:00",
+          "startsAt": "2026-08-08T19:25:00+08:00",
+          "endsAt": "2026-08-08T20:00:00+08:00"
+        },
+        {
+          "number": 89,
+          "kind": "formal",
+          "stageKey": "quarterfinal",
+          "stage": "8进4败者组第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "胜者A",
+          "blueSlot": "胜者C",
+          "winnerTo": "胜者三",
+          "loserTo": "淘汰",
+          "startTime": "20:00",
+          "endTime": "20:35",
+          "startsAt": "2026-08-08T20:00:00+08:00",
+          "endsAt": "2026-08-08T20:35:00+08:00"
+        },
+        {
+          "number": 90,
+          "kind": "formal",
+          "stageKey": "quarterfinal",
+          "stage": "8进4败者组第一轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "胜者B",
+          "blueSlot": "胜者D",
+          "winnerTo": "胜者四",
+          "loserTo": "淘汰",
+          "startTime": "20:35",
+          "endTime": "21:10",
+          "startsAt": "2026-08-08T20:35:00+08:00",
+          "endsAt": "2026-08-08T21:10:00+08:00"
+        },
+        {
+          "number": 91,
+          "kind": "formal",
+          "stageKey": "quarterfinal",
+          "stage": "8进4败者组第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "败者二",
+          "blueSlot": "胜者三",
+          "winnerTo": "胜者壹（四强）",
+          "loserTo": "淘汰",
+          "startTime": "08:00",
+          "endTime": "08:35",
+          "startsAt": "2026-08-09T08:00:00+08:00",
+          "endsAt": "2026-08-09T08:35:00+08:00"
+        },
+        {
+          "number": 92,
+          "kind": "formal",
+          "stageKey": "quarterfinal",
+          "stage": "8进4败者组第二轮（BO3）",
+          "bestOf": 3,
+          "redSlot": "败者一",
+          "blueSlot": "胜者四",
+          "winnerTo": "胜者贰（四强）",
+          "loserTo": "淘汰",
+          "startTime": "08:35",
+          "endTime": "09:10",
+          "startsAt": "2026-08-09T08:35:00+08:00",
+          "endsAt": "2026-08-09T09:10:00+08:00"
+        },
+        {
+          "number": 93,
+          "kind": "formal",
+          "stageKey": "semifinal",
+          "stage": "半决赛（BO3）",
+          "bestOf": 3,
+          "redSlot": "胜者壹",
+          "blueSlot": "胜者一",
+          "winnerTo": "决赛1",
+          "loserTo": "半决赛1",
+          "startTime": "10:40",
+          "endTime": "11:15",
+          "startsAt": "2026-08-09T10:40:00+08:00",
+          "endsAt": "2026-08-09T11:15:00+08:00"
+        },
+        {
+          "number": 94,
+          "kind": "formal",
+          "stageKey": "semifinal",
+          "stage": "半决赛（BO3）",
+          "bestOf": 3,
+          "redSlot": "胜者二",
+          "blueSlot": "胜者贰",
+          "winnerTo": "决赛2",
+          "loserTo": "半决赛2",
+          "startTime": "11:15",
+          "endTime": "11:50",
+          "startsAt": "2026-08-09T11:15:00+08:00",
+          "endsAt": "2026-08-09T11:50:00+08:00"
+        },
+        {
+          "number": 95,
+          "kind": "formal",
+          "stageKey": "third_place",
+          "stage": "季军争夺战 （BO5）",
+          "bestOf": 5,
+          "redSlot": "半决赛1",
+          "blueSlot": "半决赛2",
+          "winnerTo": "季军",
+          "loserTo": "殿军",
+          "startTime": "14:10",
+          "endTime": "15:10",
+          "startsAt": "2026-08-09T14:10:00+08:00",
+          "endsAt": "2026-08-09T15:10:00+08:00"
+        },
+        {
+          "number": 96,
+          "kind": "formal",
+          "stageKey": "final",
+          "stage": "冠军争夺战（BO5）",
+          "bestOf": 5,
+          "redSlot": "决赛1",
+          "blueSlot": "决赛2",
+          "winnerTo": "冠军",
+          "loserTo": "亚军",
+          "startTime": "15:10",
+          "endTime": "16:10",
+          "startsAt": "2026-08-09T15:10:00+08:00",
+          "endsAt": "2026-08-09T16:10:00+08:00"
+        }
+      ],
+      "ceremonySchedule": [
+        {
+          "activity": "全明星赛",
+          "time": "8 月 9 日 16:10-17:00"
+        },
+        {
+          "activity": "颁奖仪式",
+          "time": "8 月 9 日 17:00-17:40"
+        },
+        {
+          "activity": "青年工程师大会",
+          "time": "8 月 10 日"
+        }
+      ],
+      "notices": [
+        "抽签完成前，Ⅰ-A1、B-1、胜者①等均为官方槽位，不代表具体队名。",
+        "具体执行时间以现场通知为准。"
+      ]
+    }
+  }
+}

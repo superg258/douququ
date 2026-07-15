@@ -1,5 +1,7 @@
 import type {
   CommandCenterResponse,
+  FinalEventResponse,
+  FinalEventSlug,
   LiveStateResponse,
   OverviewResponse,
   PredictionRecapResponse,
@@ -23,6 +25,10 @@ async function requestJson<T>(path: string): Promise<T> {
 
 export function getOverview(): Promise<OverviewResponse> {
   return requestJson<OverviewResponse>("/api/overview");
+}
+
+export function getFinalEvent(eventSlug: FinalEventSlug): Promise<FinalEventResponse> {
+  return requestJson<FinalEventResponse>(`/api/finals/${eventSlug}`);
 }
 
 export function getSimulation(regionSlug: RegionSlug, seed: number, mode: "sim" | "live" = "sim"): Promise<SimulationResponse> {

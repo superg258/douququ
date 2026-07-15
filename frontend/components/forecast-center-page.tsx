@@ -1,306 +1,368 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { getCommandCenter, getPredictionRecap } from "@/lib/api";
-import { formatMatchLabel } from "@/lib/display";
-import { buildLiveCommandCenter } from "@/lib/live-command-center";
-import { startRealtimePolling } from "@/lib/realtime-polling";
-import type { CommandCenterResponse, PredictionRecapResponse, RegionSlug } from "@/lib/types";
-import { LiveCommandCenterPanel } from "@/components/live-command-center-panel";
-import { ModelRecapPanel } from "@/components/model-recap-panel";
-import { SourceFreshnessStrip } from "@/components/source-freshness-strip";
+import { useEffect, useMemo, useState } from "react";
 
-const REGIONS: Array<{ id: RegionSlug | "all"; label: string }> = [
-  { id: "all", label: "全部赛区" },
-  { id: "south_region", label: "南部" },
-  { id: "east_region", label: "东部" },
-  { id: "north_region", label: "北部" },
+import { WorkspaceStageView } from "@/components/workspace-stage";
+import { getFinalEvent } from "@/lib/api";
+import { buildFinalsWorkspaceStage } from "@/lib/finals-canvas";
+import {
+  FINAL_STAGE_OPTIONS,
+  buildFinalEventDays,
+  formatFinalsDate,
+  formatFinalsDateRange,
+  matchesForFinalStage,
+} from "@/lib/finals-schedule";
+import type {
+  FinalEventMatch,
+  FinalEventResponse,
+  FinalEventSlug,
+  FinalEventStageFilter,
+} from "@/lib/types";
+import { cn } from "@/lib/utils";
+
+type ForecastView = "bracket" | "matches";
+
+const EVENT_OPTIONS: Array<{ id: FinalEventSlug; label: string; code: string }> = [
+  { id: "repechage", label: "复活赛", code: "REP" },
+  { id: "nationals", label: "全国赛", code: "NAT" },
 ];
 
-const BUCKETS = [
-  { id: "all", label: "全部状态" },
-  { id: "live-now", label: "正在进行" },
-  { id: "up-next", label: "即将开赛" },
-  { id: "today-pending", label: "尚未开赛" },
-  { id: "overdue-unresolved", label: "过期未同步" },
+const VIEW_OPTIONS: Array<{ id: ForecastView; label: string; description: string }> = [
+  { id: "bracket", label: "对阵图", description: "查看槽位与胜败流向" },
+  { id: "matches", label: "赛局", description: "按日期查看正式比赛" },
 ];
 
-const REGION_COLORS: Record<string, { border: string; bg: string; text: string; shadow: string }> = {
-  all: {
-    border: "border-rm-metal-textMuted/50",
-    bg: "bg-rm-metal-textMuted/10",
-    text: "text-rm-metal-textLight",
-    shadow: "shadow-[0_0_10px_rgba(255,255,255,0.04)]",
-  },
-  south_region: {
-    border: "border-rm-red/70",
-    bg: "bg-rm-red/15",
-    text: "text-white",
-    shadow: "shadow-[0_0_10px_rgba(232,48,42,0.08)]",
-  },
-  east_region: {
-    border: "border-rm-blue/70",
-    bg: "bg-rm-blue/15",
-    text: "text-white",
-    shadow: "shadow-[0_0_10px_rgba(42,159,255,0.08)]",
-  },
-  north_region: {
-    border: "border-rm-violet/70",
-    bg: "bg-rm-violet/15",
-    text: "text-white",
-    shadow: "shadow-[0_0_10px_rgba(139,92,246,0.08)]",
-  },
-};
+function defaultStage(eventSlug: FinalEventSlug) {
+  return FINAL_STAGE_OPTIONS[eventSlug][0].id;
+}
 
-const BUCKET_COLORS: Record<string, { border: string; bg: string; text: string; shadow: string }> = {
-  all: {
-    border: "border-rm-metal-textMuted/50",
-    bg: "bg-rm-metal-textMuted/10",
-    text: "text-rm-metal-textLight",
-    shadow: "shadow-[0_0_10px_rgba(255,255,255,0.04)]",
-  },
-  "live-now": {
-    border: "border-rm-status-safe/70",
-    bg: "bg-rm-status-safe/10",
-    text: "text-white",
-    shadow: "shadow-[0_0_10px_rgba(0,232,120,0.06)]",
-  },
-  "up-next": {
-    border: "border-rm-status-warn/70",
-    bg: "bg-rm-status-warn/10",
-    text: "text-white",
-    shadow: "shadow-[0_0_10px_rgba(255,176,0,0.06)]",
-  },
-  "today-pending": {
-    border: "border-rm-blue/70",
-    bg: "bg-rm-blue/15",
-    text: "text-white",
-    shadow: "shadow-[0_0_10px_rgba(42,159,255,0.08)]",
-  },
-  "overdue-unresolved": {
-    border: "border-rm-status-upset/70",
-    bg: "bg-rm-status-upset/10",
-    text: "text-white",
-    shadow: "shadow-[0_0_10px_rgba(255,80,80,0.06)]",
-  },
-};
+function isFinalEventSlug(value: string | null): value is FinalEventSlug {
+  return value === "repechage" || value === "nationals";
+}
+
+function isForecastView(value: string | null): value is ForecastView {
+  return value === "bracket" || value === "matches";
+}
+
+function updateDeepLink(eventSlug: FinalEventSlug, view: ForecastView, stage: FinalEventStageFilter) {
+  if (typeof window === "undefined") return;
+  const params = new URLSearchParams({ event: eventSlug, view, stage });
+  window.history.replaceState(null, "", `/forecast-center?${params.toString()}`);
+}
+
+function MatchRoute({ match }: { match: FinalEventMatch }) {
+  if (!match.winnerTo && !match.loserTo) {
+    return <span className="text-rm-metal-textFaint">瑞士轮排名决定后续落位</span>;
+  }
+  return (
+    <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      {match.winnerTo ? <span className="text-rm-status-safe">胜 → {match.winnerTo}</span> : null}
+      {match.loserTo ? <span className="text-rm-metal-textMuted">负 → {match.loserTo}</span> : null}
+    </span>
+  );
+}
+
+function ScheduledMatchCard({ match, selected, onSelect }: {
+  match: FinalEventMatch;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        "group relative w-full overflow-hidden border bg-black/55 text-left clip-chamfer transition-all hover:border-rm-blue/50 hover:bg-black/75",
+        selected ? "border-rm-blue shadow-[0_0_18px_rgba(42,159,255,0.16)]" : "border-rm-metal-border",
+      )}
+    >
+      <div className="flex items-center justify-between gap-3 border-b border-white/[0.06] bg-white/[0.025] px-3 py-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="shrink-0 border border-rm-status-scheduled/40 bg-rm-status-scheduled/10 px-1.5 py-0.5 font-mono text-[9px] font-bold text-rm-status-scheduled">
+            官方排期
+          </span>
+          <span className="truncate font-machine text-[11px] font-bold tracking-widest text-white">第 {match.number} 场</span>
+        </div>
+        <span className="shrink-0 font-mono text-[10px] text-rm-metal-textMuted">{match.startTime} · BO{match.bestOf}</span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2">
+        <div className="flex min-w-0 items-center gap-3 border-b border-white/[0.05] bg-[linear-gradient(90deg,rgba(232,48,42,0.12),transparent)] px-4 py-3 sm:border-b-0 sm:border-r">
+          <span className="h-8 w-1 shrink-0 bg-rm-red/80 shadow-[0_0_8px_rgba(232,48,42,0.3)]" />
+          <div className="min-w-0">
+            <div className="font-mono text-[9px] tracking-widest text-rm-red/70">红方槽位</div>
+            <div className="mt-1 truncate font-mono text-sm font-bold text-white" title={match.redSlot}>{match.redSlot}</div>
+          </div>
+        </div>
+        <div className="flex min-w-0 items-center gap-3 bg-[linear-gradient(90deg,rgba(42,159,255,0.12),transparent)] px-4 py-3">
+          <span className="h-8 w-1 shrink-0 bg-rm-blue/80 shadow-[0_0_8px_rgba(42,159,255,0.3)]" />
+          <div className="min-w-0">
+            <div className="font-mono text-[9px] tracking-widest text-rm-blue/70">蓝方槽位</div>
+            <div className="mt-1 truncate font-mono text-sm font-bold text-white" title={match.blueSlot}>{match.blueSlot}</div>
+          </div>
+        </div>
+      </div>
+      <div className="border-t border-white/[0.06] px-3 py-2 font-mono text-[9px]">
+        <MatchRoute match={match} />
+      </div>
+    </button>
+  );
+}
+
+function MatchesView({ event, stage, selectedMatchKey, onSelect }: {
+  event: FinalEventResponse["event"];
+  stage: FinalEventStageFilter;
+  selectedMatchKey: string | null;
+  onSelect: (matchKey: string) => void;
+}) {
+  const days = buildFinalEventDays(event, stage);
+  return (
+    <div className="space-y-7">
+      {days.map((day) => (
+        <section key={day.date} className="border border-rm-metal-border bg-rm-metal-panel/65">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rm-metal-border bg-black/35 px-4 py-3">
+            <div>
+              <div className="font-machine text-sm font-bold tracking-widest text-white">{formatFinalsDate(day.date)}</div>
+              <div className="mt-1 font-mono text-[9px] tracking-[0.18em] text-rm-metal-textFaint">OFFICIAL MATCH DAY</div>
+            </div>
+            <span className="border border-rm-blue/30 bg-rm-blue/10 px-2 py-1 font-mono text-[10px] text-rm-blue">{day.matchCount} 场正式比赛</span>
+          </div>
+          <div className="space-y-5 p-4">
+            {day.stages.map((stageGroup) => (
+              <div key={stageGroup.stage}>
+                <div className="mb-3 flex items-center gap-3">
+                  <span className="h-px flex-1 bg-rm-metal-border" />
+                  <span className="font-mono text-[10px] font-bold tracking-wider text-rm-metal-textMuted">{stageGroup.stage}</span>
+                  <span className="h-px flex-1 bg-rm-metal-border" />
+                </div>
+                <div className="grid gap-3 xl:grid-cols-2">
+                  {stageGroup.matches.map((match) => {
+                    const matchKey = `${event.slug}:${match.number}`;
+                    return (
+                      <ScheduledMatchCard
+                        key={matchKey}
+                        match={match}
+                        selected={selectedMatchKey === matchKey}
+                        onSelect={() => onSelect(matchKey)}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function SelectedMatchStrip({ match }: { match: FinalEventMatch | null }) {
+  if (!match) return null;
+  return (
+    <div className="grid gap-3 border-x border-b border-rm-metal-border bg-black/70 px-4 py-3 font-mono text-[10px] md:grid-cols-[auto_1fr_auto] md:items-center">
+      <span className="font-bold text-white">已选第 {match.number} 场 · {match.stage}</span>
+      <MatchRoute match={match} />
+      <span className="text-rm-status-scheduled">{match.startsAt.slice(0, 10)} {match.startTime} · BO{match.bestOf}</span>
+    </div>
+  );
+}
 
 export function ForecastCenterPage() {
-  const [region, setRegion] = useState<RegionSlug | "all">("all");
-  const [bucket, setBucket] = useState("all");
-  const [command, setCommand] = useState<CommandCenterResponse | null>(null);
-  const [recap, setRecap] = useState<PredictionRecapResponse | null>(null);
+  const [eventSlug, setEventSlug] = useState<FinalEventSlug>("repechage");
+  const [view, setView] = useState<ForecastView>("bracket");
+  const [stage, setStage] = useState<FinalEventStageFilter>(defaultStage("repechage"));
+  const [events, setEvents] = useState<Record<FinalEventSlug, FinalEventResponse> | null>(null);
+  const [selectedMatchKey, setSelectedMatchKey] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const initializedRegionRef = useRef(false);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedEvent = params.get("event");
+    const requestedView = params.get("view");
+    const nextEvent = isFinalEventSlug(requestedEvent) ? requestedEvent : "repechage";
+    const nextView = isForecastView(requestedView) ? requestedView : "bracket";
+    const allowedStages = FINAL_STAGE_OPTIONS[nextEvent].map((item) => item.id);
+    const requestedStage = params.get("stage") as FinalEventStageFilter | null;
+    const nextStage = requestedStage && allowedStages.includes(requestedStage) ? requestedStage : defaultStage(nextEvent);
+    setEventSlug(nextEvent);
+    setView(nextView);
+    setStage(nextStage);
+
     let canceled = false;
-    const loadForecastCenter = () => {
-      setError("");
-      Promise.all([getCommandCenter(20260414, "live"), getPredictionRecap(20260414, "live")])
-        .then(([commandPayload, recapPayload]) => {
-          if (!canceled) {
-            setCommand(commandPayload);
-            setRecap(recapPayload);
-            if (!initializedRegionRef.current) {
-              const liveRegionSlugs = commandPayload.timelineBuckets.liveNow
-                .map((m) => m.regionSlug)
-                .filter((slug, i, arr) => arr.indexOf(slug) === i);
-              setRegion(liveRegionSlugs.length > 0 ? liveRegionSlugs[0] : "all");
-              initializedRegionRef.current = true;
-            }
-          }
-        })
-        .catch((err) => {
-          if (!canceled) setError(err instanceof Error ? err.message : String(err));
-        });
-    };
-    const stopPolling = startRealtimePolling(loadForecastCenter);
+    Promise.all([getFinalEvent("repechage"), getFinalEvent("nationals")])
+      .then(([repechage, nationals]) => {
+        if (!canceled) setEvents({ repechage, nationals });
+      })
+      .catch((reason) => {
+        if (!canceled) setError(reason instanceof Error ? reason.message : String(reason));
+      });
     return () => {
       canceled = true;
-      stopPolling();
     };
   }, []);
 
-  if (error) {
-    return (
-      <div className="mx-auto max-w-screen-2xl px-4 py-8">
-        <div className="border border-rm-red/30 bg-rm-red/5 p-4 font-mono text-sm text-rm-red">
-          实时预测中心加载失败：{error}
-        </div>
-      </div>
-    );
-  }
+  const current = events?.[eventSlug] ?? null;
+  const workspace = useMemo(
+    () => current ? buildFinalsWorkspaceStage(current.event, stage) : null,
+    [current, stage],
+  );
+  const selectedMatch = useMemo(() => {
+    if (!current || !selectedMatchKey) return null;
+    return current.event.matches.find((match) => `${current.event.slug}:${match.number}` === selectedMatchKey) ?? null;
+  }, [current, selectedMatchKey]);
 
-  if (!command || !recap) {
+  const chooseEvent = (nextEvent: FinalEventSlug) => {
+    const nextStage = defaultStage(nextEvent);
+    setEventSlug(nextEvent);
+    setStage(nextStage);
+    setSelectedMatchKey(null);
+    updateDeepLink(nextEvent, view, nextStage);
+  };
+  const chooseView = (nextView: ForecastView) => {
+    setView(nextView);
+    updateDeepLink(eventSlug, nextView, stage);
+  };
+  const chooseStage = (nextStage: FinalEventStageFilter) => {
+    setStage(nextStage);
+    setSelectedMatchKey(null);
+    updateDeepLink(eventSlug, view, nextStage);
+  };
+
+  if (error) {
+    return <div className="border border-rm-red/30 bg-rm-red/5 p-4 font-mono text-sm text-rm-red">实时预测中心加载失败：{error}</div>;
+  }
+  if (!current || !workspace) {
     return (
       <div className="flex min-h-[55vh] flex-col items-center justify-center animate-pulse">
-        <div className="mb-4 h-8 w-8 rounded-full border-4 border-rm-blue/30 border-t-rm-blue animate-spin" />
-        <span className="font-mono text-xs tracking-widest text-rm-blue">加载实时预测中心...</span>
+        <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-rm-blue/30 border-t-rm-blue" />
+        <span className="font-mono text-xs tracking-widest text-rm-blue">加载正式赛程...</span>
       </div>
     );
   }
 
-  const liveCenter = buildLiveCommandCenter(command);
+  const visibleMatches = matchesForFinalStage(current.event, stage);
 
   return (
     <div className="min-h-screen">
-      <div className="mx-auto max-w-screen-2xl space-y-8 px-4 py-8">
-
-        {/* ══════════════════════════════════════
-            HEADER — decorative panel
-            ══════════════════════════════════════ */}
-        <div className="relative">
-          {/* Top glow bar */}
-          <div className="h-0.5 bg-gradient-to-r from-rm-blue/90 via-rm-blue/30 to-rm-red/30 via-rm-red/90
-                          shadow-[0_0_12px_rgba(42,159,255,0.3),0_0_12px_rgba(232,48,42,0.3)]" />
-
-          <div className="relative bg-rm-metal-panel border-x border-b border-rm-metal-border
-                          clip-chamfer-tr-bl overflow-hidden"
-               style={{
-                 boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03), inset 0 -1px 0 rgba(0,0,0,0.3)',
-               }}>
-
-            {/* Scanline overlay */}
-            <div className="absolute inset-0 pointer-events-none z-10 opacity-[0.03]"
-                 style={{
-                   backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.8) 2px, rgba(255,255,255,0.8) 3px)',
-                   backgroundSize: '100% 4px',
-                 }} />
-
-            {/* Atmospheric blobs */}
-            <div className="absolute top-0 right-0 w-48 h-48 bg-rm-blue/5 rounded-full blur-3xl -translate-y-1/3 translate-x-1/4 pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-56 h-56 bg-rm-red/4 rounded-full blur-3xl translate-y-1/3 -translate-x-1/4 pointer-events-none" />
-
-            {/* Corner rivets */}
-            <div className="absolute top-4 left-4 w-2 h-2 rounded-full bg-rm-metal-textMuted/30 shadow-[0_0_3px_rgba(255,255,255,0.1)]" />
-            <div className="absolute top-4 left-9 w-2 h-2 rounded-full bg-rm-metal-textMuted/30 shadow-[0_0_3px_rgba(255,255,255,0.1)]" />
-            <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-rm-metal-textMuted/30 shadow-[0_0_3px_rgba(255,255,255,0.1)]" />
-            <div className="absolute top-4 right-9 w-2 h-2 rounded-full bg-rm-metal-textMuted/30 shadow-[0_0_3px_rgba(255,255,255,0.1)]" />
-            <div className="absolute bottom-4 left-4 w-2 h-2 rounded-full bg-rm-metal-textMuted/30 shadow-[0_0_3px_rgba(255,255,255,0.1)]" />
-            <div className="absolute bottom-4 left-9 w-2 h-2 rounded-full bg-rm-metal-textMuted/30 shadow-[0_0_3px_rgba(255,255,255,0.1)]" />
-            <div className="absolute bottom-4 right-4 w-2 h-2 rounded-full bg-rm-metal-textMuted/30 shadow-[0_0_3px_rgba(255,255,255,0.1)]" />
-            <div className="absolute bottom-4 right-9 w-2 h-2 rounded-full bg-rm-metal-textMuted/30 shadow-[0_0_3px_rgba(255,255,255,0.1)]" />
-
-            {/* L-brackets */}
-            <div className="absolute top-3 left-3 w-5 h-5 border-t-2 border-l-2 border-rm-metal-textMuted/25 pointer-events-none" />
-            <div className="absolute top-3 right-3 w-5 h-5 border-t-2 border-r-2 border-rm-metal-textMuted/25 pointer-events-none" />
-            <div className="absolute bottom-3 left-3 w-5 h-5 border-b-2 border-l-2 border-rm-metal-textMuted/25 pointer-events-none" />
-            <div className="absolute bottom-3 right-3 w-5 h-5 border-b-2 border-r-2 border-rm-metal-textMuted/25 pointer-events-none" />
-
-            {/* Top edge markings */}
-            <div className="absolute top-0 left-1/3 w-px h-2 bg-rm-metal-textMuted/20 pointer-events-none" />
-            <div className="absolute top-0 left-1/2 w-px h-2 bg-rm-metal-textMuted/25 pointer-events-none" />
-            <div className="absolute top-0 right-1/3 w-px h-2 bg-rm-metal-textMuted/20 pointer-events-none" />
-
-            {/* Content */}
-            <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between px-6 sm:px-8 py-6">
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="h-px w-6 bg-rm-blue/30" />
-                  <span className="font-mono text-[10px] text-rm-metal-textFaint/60 tracking-[0.3em] uppercase">
-                    预测指挥台
-                  </span>
-                </div>
-                <h1 className="font-['Quantico'] font-black text-2xl tracking-[0.08em] text-rm-metal-textLight">
-                  实时预测中心
-                </h1>
-                <p className="mt-2 max-w-3xl font-mono text-xs leading-relaxed text-rm-metal-textMuted">
-                  按赛区与比赛状态筛选，集中查看赛前预测、数据源状态及模型复盘。
-                </p>
+      <div className="space-y-6">
+        <header className="relative overflow-hidden border border-rm-metal-border bg-rm-metal-panel clip-chamfer-tr-bl">
+          <div className="h-0.5 bg-gradient-to-r from-rm-blue via-rm-blue/20 to-rm-red" />
+          <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_15%_0%,rgba(42,159,255,0.10),transparent_38%),radial-gradient(circle_at_85%_100%,rgba(232,48,42,0.08),transparent_40%)]" />
+          <div className="relative flex flex-col gap-5 px-5 py-6 sm:px-8 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="mb-2 flex items-center gap-2 font-mono text-[9px] tracking-[0.3em] text-rm-blue">
+                <span className="h-px w-7 bg-rm-blue" /> LIVE FORECAST CONSOLE
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="flex h-2 w-2 relative">
-                  <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-rm-status-warn opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-rm-status-warn shadow-[0_0_6px_rgba(255,176,0,0.7)]" />
-                </span>
-                <span className="font-mono text-[11px] text-rm-metal-textMuted">
-                  下一行动：{command.nextActionMatch ? `${command.nextActionMatch.regionName} · ${formatMatchLabel(command.nextActionMatch.matchLabel)}` : "暂无"}
-                </span>
-              </div>
+              <h1 className="font-machine text-2xl font-black tracking-[0.08em] text-white sm:text-3xl">实时预测中心</h1>
+              <p className="mt-3 max-w-3xl font-mono text-xs leading-relaxed text-rm-metal-textMuted">
+                复活赛与全国赛共用一份正式赛程；在对阵图中追踪胜败流向，在赛局模式按日期查看每一场比赛。
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-px border border-rm-metal-border bg-rm-metal-border text-center font-mono">
+              <div className="bg-black/70 px-4 py-2.5"><div className="text-lg font-bold text-white">{current.event.participantCount}</div><div className="text-[8px] tracking-wider text-rm-metal-textFaint">当前队伍</div></div>
+              <div className="bg-black/70 px-4 py-2.5"><div className="text-lg font-bold text-rm-blue">{current.event.formalMatchCount}</div><div className="text-[8px] tracking-wider text-rm-metal-textFaint">正式赛局</div></div>
+              <div className="bg-black/70 px-4 py-2.5"><div className="text-sm font-bold text-rm-status-scheduled">{formatFinalsDateRange(current.event.competitionRange.start, current.event.competitionRange.end)}</div><div className="text-[8px] tracking-wider text-rm-metal-textFaint">比赛区间</div></div>
             </div>
           </div>
+        </header>
 
-          {/* Bottom edge decoration */}
-          <div className="flex items-center gap-0 -mt-px">
-            <div className="h-0.5 flex-1 bg-rm-blue/30" />
-            <div className="h-0.5 w-12 bg-rm-blue/60" />
-            <div className="h-0.5 w-8 bg-[#F0972C]/50" />
-            <div className="h-0.5 w-6 bg-rm-metal-textMuted/20" />
-            <div className="h-0.5 w-12 bg-rm-red/60" />
-            <div className="h-0.5 flex-1 bg-rm-red/30" />
+        <section className="border border-rm-status-scheduled/25 bg-rm-status-scheduled/[0.04] px-4 py-3">
+          <div className="flex flex-col gap-2 font-mono text-[10px] leading-relaxed sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-rm-status-scheduled">抽签待公布 · 当前展示官方场序与来源槽位</span>
+            <span className="text-rm-metal-textMuted">双方实际落位后才启用 Elo 胜率，不使用虚构对阵或默认 50/50</span>
           </div>
-        </div>
+        </section>
 
-        <SourceFreshnessStrip freshness={command.sourceFreshness} />
-
-        {/* ══════════════════════════════════════
-            FILTERS BAR
-            ══════════════════════════════════════ */}
-        <div className="relative bg-rm-metal-panel border border-rm-metal-border overflow-hidden"
-             style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.02), inset 0 -1px 0 rgba(0,0,0,0.2)' }}>
-          {/* Left accent */}
-          <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-rm-blue/40 via-rm-blue/10 to-rm-red/10 via-rm-red/40" />
-          <div className="relative px-4 py-3">
-            <div className="flex flex-wrap gap-2">
-              {REGIONS.map((item) => {
-                const c = REGION_COLORS[item.id];
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setRegion(item.id)}
-                    className={`border px-3 py-2 font-mono text-[11px] transition-all ${
-                      region === item.id
-                        ? `${c.border} ${c.bg} ${c.text} ${c.shadow}`
-                        : "border-rm-metal-border bg-transparent text-rm-metal-textMuted hover:border-rm-metal-textMuted/40 hover:text-rm-metal-textLight"
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                );
-              })}
+        <section className="border border-rm-metal-border bg-rm-metal-panel/85">
+          <div className="grid border-b border-rm-metal-border lg:grid-cols-[1fr_auto]">
+            <div className="flex flex-wrap gap-2 p-3">
+              {EVENT_OPTIONS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => chooseEvent(item.id)}
+                  className={cn(
+                    "flex items-center gap-2 border px-4 py-2 font-mono text-[11px] font-bold transition-colors",
+                    eventSlug === item.id
+                      ? "border-rm-blue bg-rm-blue/15 text-white shadow-[0_0_12px_rgba(42,159,255,0.12)]"
+                      : "border-rm-metal-border bg-black/20 text-rm-metal-textMuted hover:text-white",
+                  )}
+                >
+                  <span className="text-[8px] text-rm-blue/70">{item.code}</span>{item.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex border-t border-rm-metal-border lg:border-l lg:border-t-0">
+              {VIEW_OPTIONS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => chooseView(item.id)}
+                  className={cn(
+                    "min-w-28 flex-1 px-4 py-2 text-left transition-colors lg:flex-none",
+                    view === item.id ? "bg-rm-blue/12 text-white" : "bg-black/20 text-rm-metal-textMuted hover:text-white",
+                  )}
+                >
+                  <div className="font-machine text-xs font-bold tracking-wider">{item.label}</div>
+                  <div className="mt-1 font-mono text-[8px] text-rm-metal-textFaint">{item.description}</div>
+                </button>
+              ))}
             </div>
           </div>
-        </div>
-
-        {/* Bucket tabs */}
-        <div className="flex flex-wrap gap-2">
-          {BUCKETS.map((item) => {
-            const c = BUCKET_COLORS[item.id];
-            return (
+          <div className="flex flex-wrap gap-2 p-3">
+            {FINAL_STAGE_OPTIONS[eventSlug].map((item) => (
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setBucket(item.id)}
-                className={`border px-3 py-1.5 font-mono text-[11px] transition-all ${
-                  bucket === item.id
-                    ? `${c.border} ${c.bg} ${c.text} ${c.shadow}`
-                    : "border-rm-metal-border bg-rm-metal-panel text-rm-metal-textMuted hover:border-rm-metal-textMuted/40 hover:text-rm-metal-textLight"
-                }`}
+                onClick={() => chooseStage(item.id)}
+                className={cn(
+                  "border px-3 py-1.5 font-mono text-[10px] transition-colors",
+                  stage === item.id
+                    ? "border-rm-result-winner/60 bg-rm-result-winner/10 text-rm-result-winner"
+                    : "border-rm-metal-border bg-black/20 text-rm-metal-textMuted hover:border-rm-metal-textMuted hover:text-white",
+                )}
               >
                 {item.label}
               </button>
-            );
-          })}
-        </div>
+            ))}
+            <span className="ml-auto self-center font-mono text-[9px] text-rm-metal-textFaint">当前视图 {visibleMatches.length} 场</span>
+          </div>
+        </section>
 
-        <LiveCommandCenterPanel
-          command={command}
-          regionFilter={region}
-          bucketFilter={bucket}
-        />
+        {view === "bracket" ? (
+          <section>
+            <div className="flex flex-wrap items-center gap-4 border-x border-t border-rm-metal-border bg-black/55 px-4 py-2 font-mono text-[9px] text-rm-metal-textMuted">
+              <span className="font-bold text-white">路线图例</span>
+              <span className="flex items-center gap-1.5"><span className="h-0.5 w-7 bg-rm-status-safe" />胜者路线</span>
+              <span className="flex items-center gap-1.5"><span className="h-0.5 w-7 bg-white/20" />败者路线</span>
+              <span className="ml-auto text-rm-metal-textFaint">支持拖拽、缩放与全屏</span>
+            </div>
+            <div className="h-[68vh] min-h-[560px] max-h-[880px] border-x border-rm-metal-border">
+              <WorkspaceStageView
+                stage={workspace}
+                mode="live"
+                selectedTeamKey={null}
+                highlightedTeamKey={null}
+                selectedMatchLabel={selectedMatchKey}
+                onTeamSelect={() => undefined}
+                onMatchSelect={setSelectedMatchKey}
+              />
+            </div>
+            <SelectedMatchStrip match={selectedMatch} />
+          </section>
+        ) : (
+          <MatchesView
+            event={current.event}
+            stage={stage}
+            selectedMatchKey={selectedMatchKey}
+            onSelect={setSelectedMatchKey}
+          />
+        )}
 
-        <ModelRecapPanel recap={recap} showPendingMetric={liveCenter.hasOfficialSchedule} />
-
-        {/* Bottom decoration */}
-        <div className="flex items-center gap-0 pt-2">
-          <div className="h-0.5 flex-1 bg-rm-blue/20" />
-          <div className="h-0.5 w-8 bg-rm-blue/40" />
-          <div className="h-0.5 w-4 bg-[#F0972C]/30" />
-          <div className="h-0.5 w-8 bg-rm-red/40" />
-          <div className="h-0.5 flex-1 bg-rm-red/20" />
-        </div>
+        <footer className="flex flex-col gap-2 border-t border-rm-metal-border py-4 font-mono text-[9px] text-rm-metal-textFaint sm:flex-row sm:items-center sm:justify-between">
+          <span>资料核对：{current.verifiedAt.slice(0, 10)} · Asia/Shanghai</span>
+          <span>正式赛程状态：{current.event.statusLabel}</span>
+        </footer>
       </div>
     </div>
   );

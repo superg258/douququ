@@ -1,6 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
+
+import { cn } from "@/lib/utils";
+
+const NAV_ITEMS = [
+  { href: "/", label: "全景战略板" },
+  { href: "/forecast-center", label: "实时预测中心" },
+  { href: "/elo-rankings", label: "Elo 战力榜" },
+];
 
 export function RootNav() {
   const pathname = usePathname();
@@ -24,10 +33,22 @@ export function RootNav() {
             </span>
           </h1>
         </div>
-        <nav className="flex space-x-4 md:space-x-8">
-          <a href="/" className="text-[11px] md:text-sm font-bold uppercase tracking-widest text-rm-metal-text hover:text-white transition-colors">全景战略板</a>
-          <a href="/forecast-center" className="text-[11px] md:text-sm font-bold uppercase tracking-widest text-rm-metal-text hover:text-white transition-colors">实时预测中心</a>
-          <a href="/elo-rankings" className="text-[11px] md:text-sm font-bold uppercase tracking-widest text-rm-metal-text hover:text-white transition-colors">Elo 战力榜</a>
+        <nav className="flex flex-wrap justify-end gap-x-4 gap-y-2 md:gap-x-6">
+          {NAV_ITEMS.map((item) => {
+            const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "text-[11px] font-bold uppercase tracking-widest transition-colors md:text-sm",
+                  active ? "text-rm-blue" : "text-rm-metal-text hover:text-white",
+                )}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
       </div>
       <div className="absolute bottom-0 left-0 h-[1px] w-full bg-gradient-to-r from-transparent via-rm-blue to-transparent opacity-50" />

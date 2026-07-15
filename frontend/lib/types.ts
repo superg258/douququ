@@ -1,5 +1,7 @@
 export type RegionSlug = "east_region" | "south_region" | "north_region";
+export type FinalEventSlug = "repechage" | "nationals";
 export type WorkspaceView = "slots" | "swiss-a" | "swiss-b" | "qualification" | "playoff" | "final-rankings";
+export type FinalEventStageFilter = "swiss-a" | "swiss-b" | "qualification" | "round-of-16" | "quarterfinal" | "final-four";
 export type CanvasTone = "cyan" | "amber" | "steel" | "emerald";
 export type LiveSourceStatus = "active" | "inactive" | "missing" | "error";
 export type LiveDataLevel =
@@ -468,7 +470,14 @@ export interface TeamCanvasCard extends CanvasCardBase {
   isSimulated?: boolean;
 }
 
-export type CanvasCard = MatchCanvasCard | TeamCanvasCard;
+export interface ScheduleCanvasCard extends CanvasCardBase {
+  kind: "schedule";
+  eventSlug: FinalEventSlug;
+  match: FinalEventMatch;
+  displayLabel: string;
+}
+
+export type CanvasCard = MatchCanvasCard | TeamCanvasCard | ScheduleCanvasCard;
 
 export interface CanvasConnector {
   teamKey?: string;
@@ -488,7 +497,7 @@ export interface CanvasConnector {
 
 export interface WorkspaceStage {
   showProbability?: boolean;
-  id: WorkspaceView;
+  id: WorkspaceView | FinalEventStageFilter;
   label: string;
   title: string;
   description: string;
@@ -770,4 +779,69 @@ export interface TeamProfileResponse {
     highlightTeamKey: string;
   };
   sourceFreshness: SourceFreshness;
+}
+
+export interface FinalsScheduleSource {
+  kind: "handbook" | "workbook";
+  title: string;
+  version: string;
+  releasedAt?: string;
+  retrievedAt?: string;
+  sha256: string;
+  coverage: string;
+}
+
+export interface FinalEventParticipant {
+  order: number;
+  schoolKey: string;
+  teamKey: string;
+  collegeName: string;
+  teamName: string;
+  drawTier: string;
+  status: "confirmed";
+}
+
+export interface FinalEventMatch {
+  number: number;
+  stageKey: "swiss" | "repechage_qualification" | "round_of_16" | "quarterfinal" | "semifinal" | "third_place" | "final";
+  stage: string;
+  bestOf: 2 | 3 | 5;
+  redSlot: string;
+  blueSlot: string;
+  winnerTo: string | null;
+  loserTo: string | null;
+  startTime: string;
+  endTime: string;
+  startsAt: string;
+  endsAt: string;
+}
+
+export interface FinalEventSchedule {
+  slug: FinalEventSlug;
+  name: string;
+  shortName: string;
+  eyebrow: string;
+  statusLabel: string;
+  dateRange: { start: string; end: string };
+  competitionRange: { start: string; end: string };
+  participantCount: number;
+  confirmedParticipantCount: number;
+  advancementSlots: number | null;
+  formalMatchCount: number;
+  groups: Array<{ name: string; teamCount: number; swissRounds: number }>;
+  participants: FinalEventParticipant[];
+  drawRules: string[];
+  matches: FinalEventMatch[];
+  ceremonySchedule?: Array<{ activity: string; time: string }>;
+}
+
+export interface FinalEventResponse {
+  schemaVersion: number;
+  season: number;
+  timezone: "Asia/Shanghai";
+  timezoneLabel: string;
+  scheduleStatus: string;
+  verifiedAt: string;
+  sources: FinalsScheduleSource[];
+  event: FinalEventSchedule;
 }

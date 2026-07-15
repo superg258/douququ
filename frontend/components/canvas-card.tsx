@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 
-import type { CanvasCard, MatchCanvasCard, MatchRow, TeamCanvasCard } from "@/lib/types";
+import type { CanvasCard, MatchCanvasCard, MatchRow, ScheduleCanvasCard, TeamCanvasCard } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { getPredictedAdvantageLabel } from "@/lib/prediction-display";
 import { predictDisplayScoreline } from "@/lib/scoreline";
@@ -850,6 +850,72 @@ function MatchCanvasCardComponent({
     </div>
   );
 }
+
+function ScheduleCanvasCardComponent({
+  card,
+  selectedMatchLabel,
+  onMatchSelect,
+}: {
+  card: ScheduleCanvasCard;
+  selectedMatchLabel: string | null;
+  onMatchSelect: (matchLabel: string) => void;
+}) {
+  const matchKey = `${card.eventSlug}:${card.match.number}`;
+  const isSelected = selectedMatchLabel === matchKey;
+  const winnerRoute = card.match.winnerTo ? `胜 → ${card.match.winnerTo}` : "胜方去向待后续场序确认";
+  const loserRoute = card.match.loserTo ? `负 → ${card.match.loserTo}` : "";
+
+  return (
+    <button
+      type="button"
+      data-canvas-pan-exempt
+      className={cn(
+        "absolute z-10 flex touch-none flex-col overflow-hidden border bg-black/90 text-left clip-chamfer transition-all hover:brightness-110",
+        card.match.stageKey === "final"
+          ? "border-rm-result-winner/75 shadow-[0_0_20px_rgba(240,151,44,0.15)]"
+          : "border-rm-metal-border hover:border-rm-blue/60",
+        isSelected && "z-30 border-rm-blue ring-1 ring-rm-blue shadow-[0_0_18px_rgba(42,159,255,0.3)]",
+      )}
+      style={{
+        transform: `translate3d(${card.x}px, ${card.y}px, 0)`,
+        width: card.width,
+        height: card.height,
+      }}
+      onClick={() => onMatchSelect(matchKey)}
+    >
+      <div className="flex h-8 shrink-0 items-center justify-between border-b border-white/[0.07] bg-white/[0.025] px-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="border border-rm-status-scheduled/45 bg-rm-status-scheduled/10 px-1.5 py-0.5 font-mono text-[9px] font-bold text-rm-status-scheduled">
+            官方排期
+          </span>
+          <span className="truncate font-machine text-[11px] font-bold tracking-widest text-white">{card.displayLabel}</span>
+        </div>
+        <span className="shrink-0 font-mono text-[10px] text-rm-metal-textMuted">BO{card.match.bestOf}</span>
+      </div>
+
+      <div className="grid flex-1 grid-rows-2">
+        <div className="grid grid-cols-[6px_minmax(0,1fr)_64px] items-center border-b border-white/[0.06] bg-[linear-gradient(90deg,rgba(232,48,42,0.10),transparent_70%)]">
+          <span className="h-full bg-rm-red/65" />
+          <span className="truncate px-3 font-mono text-[13px] font-bold text-white/90" title={card.match.redSlot}>{card.match.redSlot}</span>
+          <span className="border-l border-white/[0.06] px-2 text-center font-mono text-[9px] text-rm-metal-textFaint">红方槽位</span>
+        </div>
+        <div className="grid grid-cols-[6px_minmax(0,1fr)_64px] items-center bg-[linear-gradient(90deg,rgba(42,159,255,0.10),transparent_70%)]">
+          <span className="h-full bg-rm-blue/65" />
+          <span className="truncate px-3 font-mono text-[13px] font-bold text-white/90" title={card.match.blueSlot}>{card.match.blueSlot}</span>
+          <span className="border-l border-white/[0.06] px-2 text-center font-mono text-[9px] text-rm-metal-textFaint">蓝方槽位</span>
+        </div>
+      </div>
+
+      <div className="flex h-8 shrink-0 items-center justify-between gap-3 border-t border-white/[0.07] bg-black/70 px-3 font-mono text-[9px]">
+        <span className="shrink-0 tabular-nums text-rm-status-scheduled">{card.match.startsAt.slice(5, 10).replace("-", "/")} {card.match.startTime}</span>
+        <span className="min-w-0 truncate text-rm-status-safe/80" title={[winnerRoute, loserRoute].filter(Boolean).join("；")}>
+          {winnerRoute}{loserRoute ? ` · ${loserRoute}` : ""}
+        </span>
+      </div>
+    </button>
+  );
+}
+
 export function CanvasCardView({
   card,
   mode,
@@ -879,6 +945,16 @@ export function CanvasCardView({
         hasActiveHighlight={hasActiveHighlight}
         selectedMatchLabel={selectedMatchLabel}
         onTeamSelect={onTeamSelect}
+        onMatchSelect={onMatchSelect}
+      />
+    );
+  }
+
+  if (card.kind === "schedule") {
+    return (
+      <ScheduleCanvasCardComponent
+        card={card}
+        selectedMatchLabel={selectedMatchLabel}
         onMatchSelect={onMatchSelect}
       />
     );

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from copy import deepcopy
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -10,7 +11,7 @@ from urllib.parse import quote
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
-from backend.app import service
+from backend.app import finals_schedule, service
 
 
 client = TestClient(app)
@@ -63,6 +64,78 @@ def test_health() -> None:
     response = client.get("/api/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_repechage_schedule_matches_official_contract() -> None:
+    response = client.get("/api/finals/repechage")
+    assert response.status_code == 200
+    payload = response.json()
+    event = payload["event"]
+
+    assert payload["timezone"] == "Asia/Shanghai"
+    assert event["participantCount"] == 16
+    assert event["confirmedParticipantCount"] == 16
+    assert event["formalMatchCount"] == 32
+    assert len(event["participants"]) == 16
+    assert all(participant["status"] == "confirmed" for participant in event["participants"])
+    assert all(participant["schoolKey"] for participant in event["participants"])
+    assert all(participant["teamKey"] for participant in event["participants"])
+    assert all(match["kind"] == "formal" for match in event["matches"])
+    assert [match["number"] for match in event["matches"]] == list(range(1, 33))
+    assert event["matches"][0]["startsAt"] == "2026-07-31T19:00:00+08:00"
+    assert event["matches"][-1]["winnerTo"] == "全国赛"
+
+
+def test_nationals_schedule_returns_only_confirmed_real_participants() -> None:
+    response = client.get("/api/finals/nationals")
+    assert response.status_code == 200
+    event = response.json()["event"]
+
+    assert event["participantCount"] == 28
+    assert event["confirmedParticipantCount"] == 28
+    assert "pendingParticipantCount" not in event
+    assert event["statusLabel"] == "28 队名单已确认 · 抽签待定"
+    assert event["formalMatchCount"] == 96
+    assert len(event["participants"]) == 28
+    assert all(participant["status"] == "confirmed" for participant in event["participants"])
+    assert all(participant["schoolKey"] for participant in event["participants"])
+    assert all(participant["teamKey"] for participant in event["participants"])
+    assert all("待" not in participant["collegeName"] for participant in event["participants"])
+    assert all(match["kind"] == "formal" for match in event["matches"])
+    assert [match["number"] for match in event["matches"]] == list(range(1, 97))
+    assert event["matches"][-1]["stageKey"] == "final"
+    assert event["matches"][-1]["endsAt"] == "2026-08-09T16:10:00+08:00"
+
+
+def test_nationals_schedule_expands_when_repechage_qualifiers_are_confirmed(monkeypatch) -> None:
+    payload = deepcopy(finals_schedule.load_finals_schedule())
+    repechage_qualifiers = payload["events"]["repechage"]["participants"][:4]
+    nationals = payload["events"]["nationals"]
+    for qualifier in repechage_qualifiers:
+        nationals["participants"].append(
+            {
+                **qualifier,
+                "order": len(nationals["participants"]) + 1,
+                "drawTier": "复活赛晋级",
+            }
+        )
+    nationals["participantCount"] = 32
+
+    monkeypatch.setattr(finals_schedule, "load_finals_schedule", lambda: payload)
+    event = finals_schedule.build_final_event_payload("nationals")["event"]
+
+    assert event["participantCount"] == 32
+    assert event["confirmedParticipantCount"] == 32
+    assert "pendingParticipantCount" not in event
+    assert event["statusLabel"] == "32 队名单已确认 · 抽签待定"
+    assert len(event["participants"]) == 32
+    assert all(participant["schoolKey"] for participant in event["participants"])
+    assert all(participant["teamKey"] for participant in event["participants"])
+
+
+def test_unknown_finals_event_returns_404() -> None:
+    response = client.get("/api/finals/not-an-event")
+    assert response.status_code == 404
 
 
 def test_large_api_responses_are_gzipped() -> None:

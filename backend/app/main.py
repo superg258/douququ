@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 
+from .finals_schedule import build_final_event_payload
 from .service import (
     build_command_center_payload,
     build_live_state_payload,
@@ -36,6 +37,14 @@ def health() -> dict[str, str]:
 @app.get("/api/overview")
 def overview() -> dict[str, Any]:
     return build_overview_payload()
+
+
+@app.get("/api/finals/{event_slug}")
+def final_event(event_slug: str) -> dict[str, Any]:
+    try:
+        return build_final_event_payload(event_slug)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"Unknown finals event: {event_slug}") from exc
 
 
 @app.get("/api/prematch-center")
