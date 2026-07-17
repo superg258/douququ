@@ -405,7 +405,7 @@ function cardLeftMid(card: CanvasCard) {
   return { x: card.x - 6, y: card.y + card.height / 2 };
 }
 
-function connectHeaderBands(
+export function connectHeaderBands(
   sourceHeaders: WorkspaceStageHeader[],
   targetHeaders: WorkspaceStageHeader[],
   id: string,
@@ -445,7 +445,7 @@ function connectHeaderBands(
   };
 }
 
-function connectCardGroupToCard(
+export function connectCardGroupToCard(
   sourceCards: Array<CanvasCard | undefined>,
   targetCard: CanvasCard | undefined,
   id: string,
@@ -475,7 +475,7 @@ function connectCardGroupToCard(
   };
 }
 
-function connectCardGroupToCards(
+export function connectCardGroupToCards(
   sourceCards: Array<CanvasCard | undefined>,
   targetCards: Array<CanvasCard | undefined>,
   id: string,

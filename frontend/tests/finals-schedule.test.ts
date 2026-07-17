@@ -219,6 +219,33 @@ describe("finals schedule helpers", () => {
     expect(canvas.cards).toHaveLength(3);
     expect(canvas.cards.every((card) => card.kind === "schedule")).toBe(true);
     expect(canvas.connectors.map((connector) => connector.tone)).toEqual(["steel", "emerald"]);
+    expect(canvas.connectors.every((connector) => connector.kind === "merge")).toBe(true);
+    // Grouped connectors no longer force "subtle" — they inherit default rendering
+    // so appearance is undefined (same visual effect as "default").
+    expect(canvas.connectors.every((connector) => !connector.appearance)).toBe(true);
+    expect(canvas.connectors.every((connector) => (connector.branchY?.length ?? 0) >= 1)).toBe(true);
+    // Winner routes (emerald) upgraded to strong; loser routes (steel) stay normal.
+    expect(canvas.connectors.map((connector) => connector.weight)).toEqual(["normal", "strong"]);
     expect(canvas.showProbability).toBe(false);
+  });
+
+  it("connects Swiss rounds through neutral re-pairing pools without inventing fixed match routes", () => {
+    const payload = event([
+      match(1, "2026-07-31T09:00:00+08:00", "A组瑞士轮第一轮（BO3）"),
+      match(2, "2026-07-31T09:35:00+08:00", "A组瑞士轮第一轮（BO3）"),
+      match(9, "2026-08-01T09:00:00+08:00", "A组瑞士轮第二轮（BO3）"),
+      match(10, "2026-08-01T09:35:00+08:00", "A组瑞士轮第二轮（BO3）"),
+      match(17, "2026-08-02T09:00:00+08:00", "A组瑞士轮第三轮（BO3）"),
+    ]);
+
+    const canvas = buildFinalsWorkspaceStage(payload, "swiss-a");
+    expect(canvas.connectors).toHaveLength(2);
+    expect(canvas.connectors.every((connector) => connector.kind === "merge-split")).toBe(true);
+    expect(canvas.connectors.every((connector) => connector.tone === "cyan")).toBe(true);
+    // connectCardGroupToCards doesn't set appearance — default rendering applies.
+    expect(canvas.connectors.every((connector) => !connector.appearance)).toBe(true);
+    expect(canvas.connectors.map((connector) => connector.branchY?.length)).toEqual([2, 2]);
+    expect(canvas.connectors.map((connector) => connector.targetBranchY?.length)).toEqual([2, 1]);
+    expect(canvas.description).toContain("不预设固定的单场胜败去向");
   });
 });

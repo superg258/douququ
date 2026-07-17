@@ -493,6 +493,7 @@ export interface CanvasConnector {
   branchLabels?: Array<{ y: number; text: string }>;
   tone?: CanvasTone;
   weight?: "normal" | "strong";
+  appearance?: "default" | "subtle";
 }
 
 export interface WorkspaceStage {
