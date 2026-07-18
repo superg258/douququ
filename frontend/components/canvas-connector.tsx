@@ -3,6 +3,19 @@
 import type { CanvasConnector } from "@/lib/types";
 
 function toneClass(connector: CanvasConnector) {
+  if (connector.appearance === "subtle") {
+    switch (connector.tone) {
+      case "amber":
+        return "stroke-rm-result-winner opacity-30";
+      case "emerald":
+        return "stroke-rm-status-safe opacity-25";
+      case "steel":
+        return "stroke-white/25 opacity-20";
+      default:
+        return "stroke-rm-blue opacity-25";
+    }
+  }
+
   const strong = connector.weight === "strong";
   switch (connector.tone) {
     case "amber":
@@ -14,7 +27,9 @@ function toneClass(connector: CanvasConnector) {
         ? "stroke-rm-status-safe opacity-100"
         : "stroke-rm-status-safe opacity-85";
     case "steel":
-      return "stroke-white/15 opacity-25";
+      return strong
+        ? "stroke-rm-metal-text opacity-80"
+        : "stroke-white/15 opacity-25";
     default:
       return strong ? "stroke-rm-blue opacity-100" : "stroke-rm-metal-text opacity-25";
   }
@@ -91,8 +106,8 @@ export function CanvasConnectorView({
   const d = connector.kind !== "bracket" && connector.kind !== "merge" && connector.kind !== "merge-split" ? connectorPath(connector) : bracketPath(connector);
   const isSelected = connector.teamKey && connector.teamKey === selectedTeamKey;
   const isHighlighted = connector.teamKey && connector.teamKey === highlightedTeamKey;
-  const strokeWidth = "stroke-[3px]";
-  const styleAttr = "stroke-linecap: round; stroke-linejoin: round";
+  const strokeWidth = connector.appearance === "subtle" ? "stroke-[2px]" : "stroke-[3px]";
+  const isStrongLoserRoute = connector.tone === "steel" && connector.weight === "strong";
   const labelX = (connector.viaX ?? (connector.fromX + connector.toX) / 2) + 10;
   const labelToneClass =
     connector.tone === "amber"
@@ -114,7 +129,15 @@ export function CanvasConnectorView({
 
   return (
     <g>
-      <path d={d} className={`fill-none transition-all ${strokeWidth} ${toneClass(connector)}`} style={{ strokeLinecap: "round", strokeLinejoin: "round" }} />
+      <path
+        d={d}
+        className={`fill-none transition-all ${strokeWidth} ${toneClass(connector)}`}
+        style={{
+          strokeLinecap: "round",
+          strokeLinejoin: "round",
+          strokeDasharray: isStrongLoserRoute ? "9 7" : undefined,
+        }}
+      />
       {connector.branchLabels?.map((label) => {
         const width = Math.max(80, label.text.length * 12 + 22);
         return (

@@ -862,8 +862,14 @@ function ScheduleCanvasCardComponent({
 }) {
   const matchKey = `${card.eventSlug}:${card.match.number}`;
   const isSelected = selectedMatchLabel === matchKey;
-  const winnerRoute = card.match.winnerTo ? `胜 → ${card.match.winnerTo}` : "胜方去向待后续场序确认";
-  const loserRoute = card.match.loserTo ? `负 → ${card.match.loserTo}` : "";
+  const isSwiss = card.match.stageKey === "swiss";
+  const winnerRoute = card.flowLabel ?? (isSwiss
+    ? "整轮赛果 → 下一轮战绩池"
+    : card.match.winnerTo
+      ? `胜 → ${card.match.winnerTo}`
+      : "胜方去向待后续场序确认");
+  const loserRoute = card.loserFlowLabel
+    ?? (card.flowLabel ? "" : isSwiss ? "" : card.match.loserTo ? `负 → ${card.match.loserTo}` : "");
 
   return (
     <button
@@ -872,7 +878,7 @@ function ScheduleCanvasCardComponent({
       className={cn(
         "absolute z-10 flex touch-none flex-col overflow-hidden border bg-black/90 text-left clip-chamfer transition-all hover:brightness-110",
         card.match.stageKey === "final"
-          ? "border-rm-result-winner/75 shadow-[0_0_20px_rgba(240,151,44,0.15)]"
+          ? "border-2 border-rm-result-winner shadow-[0_0_24px_rgba(240,151,44,0.28)]"
           : "border-rm-metal-border hover:border-rm-blue/60",
         isSelected && "z-30 border-rm-blue ring-1 ring-rm-blue shadow-[0_0_18px_rgba(42,159,255,0.3)]",
       )}
@@ -908,8 +914,12 @@ function ScheduleCanvasCardComponent({
 
       <div className="flex h-8 shrink-0 items-center justify-between gap-3 border-t border-white/[0.07] bg-black/70 px-3 font-mono text-[9px]">
         <span className="shrink-0 tabular-nums text-rm-status-scheduled">{card.match.startsAt.slice(5, 10).replace("-", "/")} {card.match.startTime}</span>
-        <span className="min-w-0 truncate text-rm-status-safe/80" title={[winnerRoute, loserRoute].filter(Boolean).join("；")}>
-          {winnerRoute}{loserRoute ? ` · ${loserRoute}` : ""}
+        <span
+          className="flex min-w-0 items-center justify-end gap-1"
+          title={card.flowTitle ?? [winnerRoute, loserRoute].filter(Boolean).join("；")}
+        >
+          <span className="min-w-0 truncate text-rm-status-safe/80">{winnerRoute}</span>
+          {loserRoute ? <span className="max-w-[46%] shrink-0 truncate text-rm-metal-text">· {loserRoute}</span> : null}
         </span>
       </div>
     </button>

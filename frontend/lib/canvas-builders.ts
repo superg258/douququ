@@ -23,7 +23,7 @@ import {
   translateStageLabel,
 } from "@/lib/display";
 
-type SwissBucketKey = `${number}-${number}`;
+export type SwissBucketKey = `${number}-${number}`;
 
 interface SwissReplayArtifacts {
   matchBuckets: Record<string, string[]>;
@@ -47,7 +47,7 @@ const PLAYOFF_MATCH_CARD_HEIGHT = 188;
 const PLAYOFF_MATCH_STEP = 215;
 const HEADER_CONNECTOR_ANCHOR_Y = 24;
 
-type SwissSummaryId =
+export type SwissSummaryId =
   | "qualified-3-0"
   | "qualified-3-1"
   | "qualified-3-2"
@@ -55,9 +55,9 @@ type SwissSummaryId =
   | "eliminated-1-3"
   | "eliminated-2-3";
 
-type SwissStageColumnId = "round1" | "round2" | "round3" | "round4-band" | "round5-band" | "final-band";
+export type SwissStageColumnId = "round1" | "round2" | "round3" | "round4-band" | "round5-band" | "final-band";
 
-type SwissStageSection =
+export type SwissStageSection =
   | {
       kind: "matches";
       id: string;
@@ -76,7 +76,7 @@ type SwissStageSection =
       tone: CanvasTone;
     };
 
-const SWISS_STAGE_COLUMNS: Array<{ id: SwissStageColumnId; x: number; sections: SwissStageSection[] }> = [
+export const SWISS_STAGE_COLUMNS: Array<{ id: SwissStageColumnId; x: number; sections: SwissStageSection[] }> = [
   {
     id: "round1",
     x: 64,
@@ -128,7 +128,7 @@ const SWISS_STAGE_COLUMNS: Array<{ id: SwissStageColumnId; x: number; sections: 
   },
 ];
 
-const SWISS_STAGE_FLOWS: Array<{ sourceId: string; targetIds: string[]; tone: CanvasTone }> = [
+export const SWISS_STAGE_FLOWS: Array<{ sourceId: string; targetIds: string[]; tone: CanvasTone }> = [
   { sourceId: "r1-0-0", targetIds: ["r2-1-0", "r2-0-1"], tone: "cyan" },
   { sourceId: "r2-1-0", targetIds: ["r3-2-0", "r3-1-1"], tone: "cyan" },
   { sourceId: "r2-0-1", targetIds: ["r3-1-1", "r3-0-2"], tone: "cyan" },
@@ -140,7 +140,7 @@ const SWISS_STAGE_FLOWS: Array<{ sourceId: string; targetIds: string[]; tone: Ca
   { sourceId: "r5-2-2", targetIds: ["qualified-3-2", "eliminated-2-3"], tone: "amber" },
 ];
 
-const SWISS_OFFICIAL_PLACEHOLDER_BUCKETS: Record<number, SwissBucketKey[]> = {
+export const SWISS_OFFICIAL_PLACEHOLDER_BUCKETS: Record<number, SwissBucketKey[]> = {
   1: ["0-0", "0-0", "0-0", "0-0", "0-0", "0-0", "0-0", "0-0"],
   2: ["1-0", "1-0", "1-0", "1-0", "0-1", "0-1", "0-1", "0-1"],
   3: ["2-0", "2-0", "1-1", "1-1", "1-1", "1-1", "0-2", "0-2"],
@@ -148,7 +148,7 @@ const SWISS_OFFICIAL_PLACEHOLDER_BUCKETS: Record<number, SwissBucketKey[]> = {
   5: ["2-2", "2-2", "2-2"],
 };
 
-const SWISS_OFFICIAL_PLACEHOLDER_SUMMARY_COUNTS: Record<SwissSummaryId, number> = {
+export const SWISS_OFFICIAL_PLACEHOLDER_SUMMARY_COUNTS: Record<SwissSummaryId, number> = {
   "qualified-3-0": 2,
   "qualified-3-1": 3,
   "qualified-3-2": 3,
@@ -516,7 +516,7 @@ function isOfficialPlaceholderSwissMatch(match: MatchRow) {
   return match.stage === "swiss" && isOfficialPlaceholderMatch(match);
 }
 
-function officialPlaceholderSwissBucket(roundNumber: number, indexInRound: number) {
+export function officialPlaceholderSwissBucket(roundNumber: number, indexInRound: number) {
   return SWISS_OFFICIAL_PLACEHOLDER_BUCKETS[roundNumber]?.[indexInRound] ?? null;
 }
 

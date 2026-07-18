@@ -475,6 +475,9 @@ export interface ScheduleCanvasCard extends CanvasCardBase {
   eventSlug: FinalEventSlug;
   match: FinalEventMatch;
   displayLabel: string;
+  flowLabel?: string;
+  loserFlowLabel?: string;
+  flowTitle?: string;
 }
 
 export type CanvasCard = MatchCanvasCard | TeamCanvasCard | ScheduleCanvasCard;
