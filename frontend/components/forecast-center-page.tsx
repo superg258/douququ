@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 type ForecastView = "bracket" | "matches";
 
 const VIEW_OPTIONS: Array<{ id: ForecastView; label: string; description: string }> = [
-  { id: "bracket", label: "对阵图", description: "查看槽位与胜败流向" },
+  { id: "bracket", label: "对阵图", description: "逐场查看晋级对阵与胜负去向" },
   { id: "matches", label: "赛局", description: "按日期查看正式比赛" },
 ];
 
@@ -323,8 +323,10 @@ export function ForecastCenterPage() {
         <div className="absolute left-0 right-0 top-[74px] z-40 glass-sheet border-y border-rm-metal-border px-3 py-3 md:left-auto md:right-4 md:top-20 md:w-72 md:border">
           <div className="flex items-center justify-between"><span className="text-[10px] font-bold uppercase tracking-widest text-rm-metal-text">路线图例</span><button type="button" onClick={() => setLegendOpen(false)} className="font-mono text-[10px] text-rm-metal-text hover:text-white">收起</button></div>
           <div className="mt-3 space-y-2 font-mono text-[10px] text-rm-metal-textMuted">
-            <span className="flex items-center gap-2"><span className="h-0.5 w-8 bg-rm-status-safe" />胜者路线</span>
-            <span className="flex items-center gap-2"><span className="w-8 border-t-2 border-dashed border-rm-metal-text/80" />败者下沉路线</span>
+            <span className="flex items-center gap-2"><span className="h-0.5 w-8 bg-rm-status-safe" />胜者晋级</span>
+            <span className="flex items-center gap-2"><span className="h-0.5 w-8 bg-rm-result-winner" />席位与名次落位</span>
+            <span className="flex items-center gap-2"><span className="h-0.5 w-8 bg-rm-metal-text/60" />负者转战或淘汰</span>
+            <span className="flex items-center gap-2"><span className="h-0.5 w-8 bg-rm-blue" />瑞士轮按战绩配对</span>
             <div className="border-t border-rm-metal-border pt-2 text-rm-metal-textFaint">画布支持拖拽、滚轮缩放、归位与全屏</div>
           </div>
         </div>

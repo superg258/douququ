@@ -128,72 +128,9 @@ function cardForMatch(event: FinalEventSchedule, match: FinalEventMatch, x: numb
   };
 }
 
-function buildEliminationConnectors(
-  matches: FinalEventMatch[],
-  cardByMatch: Map<number, ScheduleCanvasCard>,
-) {
-  // Group incoming relations by target match number so multiple parent→child
-  // routes merge into a single connector, matching the regional playoff canvas.
-  const incomingByTarget = new Map<
-    number,
-    Array<{ sourceCard: ScheduleCanvasCard; outcome: "winner" | "loser" }>
-  >();
-
-  for (const match of matches) {
-    const target = cardByMatch.get(match.number);
-    if (!target) continue;
-    const relations = [
-      relationForSlot(matches, match, match.redSlot),
-      relationForSlot(matches, match, match.blueSlot),
-    ].filter((relation): relation is MatchRelation => relation !== null);
-
-    for (const relation of relations) {
-      const source = cardByMatch.get(relation.parent.number);
-      if (!source) continue;
-      const sources = incomingByTarget.get(match.number) ?? [];
-      sources.push({ sourceCard: source, outcome: relation.outcome });
-      incomingByTarget.set(match.number, sources);
-    }
-  }
-
-  const connectors: CanvasConnector[] = [];
-  for (const [targetNumber, sources] of incomingByTarget) {
-    const target = cardByMatch.get(targetNumber);
-    if (!target) continue;
-
-    const sourceCards = sources.map((entry) => entry.sourceCard);
-    const allWinners = sources.every((entry) => entry.outcome === "winner");
-    const allLosers = sources.every((entry) => entry.outcome === "loser");
-    const tone: CanvasConnector["tone"] = allWinners
-      ? "emerald"
-      : allLosers
-        ? "steel"
-        : "cyan";
-    const parentNumbers = sources
-      .map((entry) => entry.sourceCard.match.number)
-      .join("+");
-
-    const connector = connectCardGroupToCard(
-      sourceCards,
-      target,
-      `${parentNumbers}:${targetNumber}`,
-      tone,
-    );
-    if (connector) {
-      connectors.push({
-        ...connector,
-        weight: tone === "emerald" ? "strong" : connector.weight,
-      });
-    }
-  }
-
-  return connectors;
-}
-
 function buildOutcomeAwareEliminationConnectors(
   matches: FinalEventMatch[],
   cardByMatch: Map<number, ScheduleCanvasCard>,
-  emphasizeLoserRoutes = false,
 ) {
   const connectors: CanvasConnector[] = [];
 
@@ -227,9 +164,10 @@ function buildOutcomeAwareEliminationConnectors(
         // When one match receives both a winner and a loser, offset the
         // loser trunk so the two route meanings stay visibly distinct.
         viaX: (connector.viaX ?? connector.fromX) + (outcome === "loser" ? 18 : 0),
-        // Nationwide double-elimination loser drops are intentionally
-        // strong: the dashed steel renderer separates them from solid green.
-        weight: outcome === "winner" || emphasizeLoserRoutes ? "strong" : "normal",
+        // Regional canvas language keeps every route solid: winner routes
+        // stay emerald/strong, loser drops stay steel/normal — the same
+        // style as the elimination-terminal connectors.
+        weight: outcome === "winner" ? "strong" : "normal",
       });
     }
   }
@@ -240,6 +178,19 @@ function buildOutcomeAwareEliminationConnectors(
 function destinationOrderLabel(destination: string, fallback: number) {
   const normalized = destination.replace(/（[^）]+）$/g, "").replace(/^胜者/, "").trim();
   return normalized && normalized !== destination ? normalized : `${fallback}`;
+}
+
+// Resolve a winnerTo/loserTo destination into the regional canvas route
+// language: the number of the on-canvas match it feeds, or the semantic
+// terminal （席位 / 淘汰） when the route leaves this stage.
+function routeDestinationLabel(destination: string, matches: FinalEventMatch[]) {
+  const target = matches.find(
+    (match) => match.redSlot === destination || match.blueSlot === destination,
+  );
+  if (target) return `第 ${target.number} 场`;
+  if (destination.includes("八强")) return "八强席位";
+  if (destination.includes("四强")) return "四强席位";
+  return destination;
 }
 
 function buildRepechageQualificationStage(
@@ -408,16 +359,16 @@ function buildRepechageQualificationStage(
     "round1",
     columnX(0),
     topHeaderY,
-    "起始对阵 · 8 队进入门票漏斗",
+    "首轮对阵 · 8 队争 4 席",
     firstRoundMatches,
-    "首轮后：胜方上行，负方下沉",
+    "胜者进入直通战，负者掉入生死战",
     "cyan",
   );
   const thirdRound = addMatchSection(
     "round3",
     columnX(1),
     topHeaderY,
-    "胜者路径 · 直接晋级战",
+    "直通战 · 赢球进全国赛",
     thirdRoundMatches,
     "2 场 · 胜者锁定全国赛席位",
     "emerald",
@@ -426,12 +377,12 @@ function buildRepechageQualificationStage(
     id: "round3-national",
     x: columnX(2),
     y: topHeaderY,
-    title: "胜者路径国赛席位",
+    title: "全国赛席位 · 直通 2 席",
     subtitle: "第 29–30 场胜者",
     sourceMatches: thirdRoundMatches,
     sourceOutcome: "winner",
     destination: "全国赛",
-    statLine: "胜者组胜者 · 晋级全国赛",
+    statLine: "直通战胜者 · 晋级全国赛",
     tone: "amber",
   });
 
@@ -443,30 +394,30 @@ function buildRepechageQualificationStage(
     "round2",
     columnX(1),
     lowerLaneY,
-    "败者生存路径 · 第一轮",
+    "生死战 · 第一轮",
     secondRoundMatches,
-    "2 场 · 胜者保留最后机会，负者淘汰",
+    "2 场 · 胜者续命，负者淘汰",
     "steel",
   );
   const fourthRound = addMatchSection(
     "round4",
     columnX(2),
     lowerLaneY,
-    "最后机会 · 败者组第二轮",
+    "生死战 · 最后一轮",
     fourthRoundMatches,
-    "2 场 · 胜者拿到末班门票，负者淘汰",
+    "2 场 · 胜者拿到最后 2 席，负者出局",
     "emerald",
   );
   const fourthRoundNational = addOutcomeSection({
     id: "round4-national",
     x: columnX(3),
     y: lowerLaneY,
-    title: "最后机会国赛席位",
+    title: "全国赛席位 · 最后 2 席",
     subtitle: "第 31–32 场胜者",
     sourceMatches: fourthRoundMatches,
     sourceOutcome: "winner",
     destination: "全国赛",
-    statLine: "败者组第二轮胜者 · 晋级全国赛",
+    statLine: "生死战胜者 · 晋级全国赛",
     tone: "amber",
   });
   const lowerDecisionY = Math.max(secondRound.bottom, fourthRound.bottom) + FLOW_SECTION_GAP;
@@ -474,12 +425,12 @@ function buildRepechageQualificationStage(
     id: "round2-eliminated",
     x: columnX(2),
     y: lowerDecisionY,
-    title: "败者线第一批淘汰",
+    title: "生死战第一轮出局",
     subtitle: "第 27–28 场负者",
     sourceMatches: secondRoundMatches,
     sourceOutcome: "loser",
     destination: "淘汰",
-    statLine: "败者组第一轮负者 · 学校队伍待确认",
+    statLine: "第 27–28 场负者 · 两败止步",
     tone: "steel",
   });
   addOutcomeSection({
@@ -488,12 +439,12 @@ function buildRepechageQualificationStage(
     y: fourthRoundNational.cards.length
       ? fourthRoundNational.bottom + FLOW_SECTION_GAP
       : lowerLaneY,
-    title: "最后机会后淘汰",
+    title: "最后一战出局",
     subtitle: "第 31–32 场负者",
     sourceMatches: fourthRoundMatches,
     sourceOutcome: "loser",
     destination: "淘汰",
-    statLine: "败者组第二轮负者 · 学校队伍待确认",
+    statLine: "第 31–32 场负者 · 距门票一步之遥",
     tone: "steel",
   });
 
@@ -506,8 +457,8 @@ function buildRepechageQualificationStage(
   return {
     id: stage,
     label: `${event.shortName}赛程`,
-    title: `${event.name} · 全国赛门票漏斗`,
-    description: "坐标按胜败路径而非开赛时间排列：上方胜者路径两场直通，下方败者路径争夺最后两席；比赛时间仅保留在卡片中。",
+    title: `${event.name} · 晋级名额去向`,
+    description: "8 支队争夺最后 4 张全国赛门票：两连胜直通，两连败出局；谁拿门票、谁止步，逐场看清。",
     width: START_X * 2 + 4 * CARD_WIDTH + 3 * COLUMN_GAP,
     height: contentBottom + 80,
     viewport: { align: "left", minScale: 0.52, paddingX: 48, paddingY: 36 },
@@ -569,7 +520,7 @@ function buildNationalsSwissStage(
         y: sectionY,
         width: CARD_WIDTH,
         title: section.title,
-        subtitle: section.kind === "summary" ? "真实队伍待确认" : "按战绩池重配对",
+        subtitle: section.kind === "summary" ? "真实队伍待确认" : "",
         tone: section.tone,
       };
 
@@ -613,9 +564,9 @@ function buildNationalsSwissStage(
           height: FLOW_TEAM_CARD_HEIGHT,
           tone: section.tone,
           orderLabel: `${index + 1}`,
-          subtitle: qualified ? "晋级全国赛 16 强" : "全国赛瑞士轮淘汰",
+          subtitle: qualified ? "晋级 16 强" : "止步瑞士轮",
           statLine: `${record} 战绩 · ${qualified ? "晋级" : "淘汰"}`,
-          meta: ["瑞士轮按战绩池重配对；赛果确认后显示学校队伍"],
+          meta: ["瑞士轮按战绩重新配对；赛果确认后显示学校队伍"],
           isSimulated: true,
         };
         cards.push(destinationCard);
@@ -648,8 +599,8 @@ function buildNationalsSwissStage(
   return {
     id: stage,
     label: `${groupName} 组瑞士轮`,
-    title: `${event.name} · ${groupName} 组瑞士轮战绩漏斗`,
-    description: "完整展示五轮比赛、三类晋级与三类淘汰；连线表示战绩池重配对，不预设固定单场胜败去向。",
+    title: `${event.name} · ${groupName} 组瑞士轮`,
+    description: "五轮按战绩配对：3 胜晋级 16 强，3 败提前出局；逐轮看清每支队距离出线还有多远。",
     width: 2740,
     height: Math.max(1600, maxBottom + 124),
     viewport: { align: "left", minScale: 0.52, paddingX: 48, paddingY: 48 },
@@ -767,7 +718,7 @@ function buildNationalsDoubleEliminationStage(
         variant: "summary",
         teamKey: "",
         collegeName: "待确认",
-        teamName: `${seatName}学校队伍待确认`,
+        teamName: "学校队伍待确认",
         x,
         y: y + FLOW_HEADER_TO_CARD_OFFSET + index * FLOW_TEAM_STEP,
         width: CARD_WIDTH,
@@ -840,8 +791,8 @@ function buildNationalsDoubleEliminationStage(
         width: CARD_WIDTH,
         height: FLOW_TEAM_CARD_HEIGHT,
         tone: "steel",
-        orderLabel: `OUT ${index + 1}`,
-        subtitle: "淘汰终点",
+        orderLabel: `${index + 1}`,
+        subtitle: "两败出局",
         statLine: `第 ${match.number} 场负者 · ${exitLabel}`,
         meta: ["赛果确认后显示学校队伍"],
         isSimulated: true,
@@ -869,8 +820,8 @@ function buildNationalsDoubleEliminationStage(
       id: "opening",
       x: columnX(0),
       y: topHeaderY,
-      title: "起始对阵 · 16 强",
-      subtitle: "8 场 · 胜方上行，负方下沉",
+      title: "首轮对阵 · 16 强",
+      subtitle: "8 场 · 胜者进入直通战，负者掉入生死战",
       tone: "cyan",
       sectionMatches: openingMatches,
     });
@@ -878,8 +829,8 @@ function buildNationalsDoubleEliminationStage(
       id: "upper",
       x: columnX(1),
       y: topHeaderY,
-      title: "胜者路径 · 八强直通战",
-      subtitle: "第 79–82 场 · 胜者直接进入八强",
+      title: "直通战 · 赢球进八强",
+      subtitle: "第 79–82 场 · 胜者直接晋级八强",
       tone: "emerald",
       sectionMatches: upperMatches,
     });
@@ -887,8 +838,8 @@ function buildNationalsDoubleEliminationStage(
       id: "upper-seats",
       x: columnX(2),
       y: topHeaderY,
-      title: "八强席位 · I–IV",
-      subtitle: "胜者路径 4 席",
+      title: "八强席位 · 直通 4 席",
+      subtitle: "第 79–82 场胜者落位 · 4 席",
       seatName: "八强席位",
       sourceMatches: upperMatches,
     });
@@ -897,7 +848,7 @@ function buildNationalsDoubleEliminationStage(
       id: "lower-first",
       x: columnX(1),
       y: lowerLaneY,
-      title: "败者生存路径 · 第一轮",
+      title: "生死战 · 第一轮",
       subtitle: "第 75–78 场 · 胜者续命，负者淘汰",
       tone: "steel",
       sectionMatches: lowerFirstMatches,
@@ -906,8 +857,8 @@ function buildNationalsDoubleEliminationStage(
       id: "lower-final",
       x: columnX(2),
       y: lowerLaneY,
-      title: "最后机会 · 败者组第二轮",
-      subtitle: "第 83–86 场 · 胜者组负者在此下沉会合",
+      title: "生死战 · 最后一轮",
+      subtitle: "第 83–86 场 · 胜者拿最后 4 席，负者出局",
       tone: "emerald",
       sectionMatches: lowerFinalMatches,
     });
@@ -915,8 +866,8 @@ function buildNationalsDoubleEliminationStage(
       id: "lower-seats",
       x: columnX(3),
       y: lowerLaneY,
-      title: "八强席位 · A–D",
-      subtitle: "败者路径 4 席",
+      title: "八强席位 · 最后 4 席",
+      subtitle: "第 83–86 场胜者落位 · 4 席",
       seatName: "八强席位",
       sourceMatches: lowerFinalMatches,
     });
@@ -924,8 +875,8 @@ function buildNationalsDoubleEliminationStage(
       id: "lower-first-eliminated",
       x: columnX(2),
       y: Math.max(lowerFirst.bottom, lowerFinal.bottom) + FLOW_SECTION_GAP,
-      title: "第一批淘汰 · 第 75–78 场负者",
-      subtitle: "败者组第一轮止步",
+      title: "两败出局 · 第 75–78 场负者",
+      subtitle: "生死战第一轮止步",
       sourceMatches: lowerFirstMatches,
       exitLabel: "止步 16 强阶段",
     });
@@ -933,8 +884,8 @@ function buildNationalsDoubleEliminationStage(
       id: "lower-final-eliminated",
       x: columnX(3),
       y: lowerSeats.bottom + FLOW_SECTION_GAP,
-      title: "最终淘汰 · 第 83–86 场负者",
-      subtitle: "最后机会后止步",
+      title: "两败出局 · 第 83–86 场负者",
+      subtitle: "距八强一步之遥",
       sourceMatches: lowerFinalMatches,
       exitLabel: "止步 16 强阶段",
     });
@@ -944,8 +895,8 @@ function buildNationalsDoubleEliminationStage(
       id: "upper",
       x: columnX(0),
       y: topHeaderY,
-      title: "胜者路径 · 四强直通战",
-      subtitle: "第 87–88 场 · 胜者直接进入四强",
+      title: "直通战 · 赢球进四强",
+      subtitle: "第 87–88 场 · 胜者直接晋级四强",
       tone: "emerald",
       sectionMatches: upperMatches,
     });
@@ -953,8 +904,8 @@ function buildNationalsDoubleEliminationStage(
       id: "upper-seats",
       x: columnX(1),
       y: topHeaderY,
-      title: "四强席位 · 一 / 二",
-      subtitle: "胜者路径 2 席",
+      title: "四强席位 · 直通 2 席",
+      subtitle: "第 87–88 场胜者落位 · 2 席",
       seatName: "四强席位",
       sourceMatches: upperMatches,
     });
@@ -963,7 +914,7 @@ function buildNationalsDoubleEliminationStage(
       id: "lower-first",
       x: columnX(0),
       y: lowerLaneY,
-      title: "败者生存路径 · 第一轮",
+      title: "生死战 · 第一轮",
       subtitle: "第 89–90 场 · 胜者续命，负者淘汰",
       tone: "steel",
       sectionMatches: lowerFirstMatches,
@@ -972,8 +923,8 @@ function buildNationalsDoubleEliminationStage(
       id: "lower-final",
       x: columnX(1),
       y: lowerLaneY,
-      title: "最后机会 · 败者组第二轮",
-      subtitle: "第 91–92 场 · 胜者组负者在此下沉会合",
+      title: "生死战 · 最后一轮",
+      subtitle: "第 91–92 场 · 胜者拿最后 2 席，负者出局",
       tone: "emerald",
       sectionMatches: lowerFinalMatches,
     });
@@ -981,8 +932,8 @@ function buildNationalsDoubleEliminationStage(
       id: "lower-seats",
       x: columnX(2),
       y: lowerLaneY,
-      title: "四强席位 · 壹 / 贰",
-      subtitle: "败者路径 2 席",
+      title: "四强席位 · 最后 2 席",
+      subtitle: "第 91–92 场胜者落位 · 2 席",
       seatName: "四强席位",
       sourceMatches: lowerFinalMatches,
     });
@@ -990,8 +941,8 @@ function buildNationalsDoubleEliminationStage(
       id: "lower-first-eliminated",
       x: columnX(1),
       y: Math.max(lowerFirst.bottom, lowerFinal.bottom) + FLOW_SECTION_GAP,
-      title: "第一批淘汰 · 第 89–90 场负者",
-      subtitle: "败者组第一轮止步",
+      title: "两败出局 · 第 89–90 场负者",
+      subtitle: "生死战第一轮止步",
       sourceMatches: lowerFirstMatches,
       exitLabel: "止步 8 强阶段",
     });
@@ -999,25 +950,24 @@ function buildNationalsDoubleEliminationStage(
       id: "lower-final-eliminated",
       x: columnX(2),
       y: lowerSeats.bottom + FLOW_SECTION_GAP,
-      title: "最终淘汰 · 第 91–92 场负者",
-      subtitle: "最后机会后止步",
+      title: "两败出局 · 第 91–92 场负者",
+      subtitle: "距四强一步之遥",
       sourceMatches: lowerFinalMatches,
       exitLabel: "止步 8 强阶段",
     });
   }
 
-  for (const upperMatch of upperMatches) {
-    const loserTarget = lowerFinalMatches.find((candidate) => (
-      candidate.redSlot === upperMatch.loserTo || candidate.blueSlot === upperMatch.loserTo
-    ));
-    const upperCard = cardByMatch.get(upperMatch.number);
-    if (!loserTarget || !upperCard) continue;
-    upperCard.flowLabel = `胜 → ${upperMatch.winnerTo ?? "晋级"}`;
-    upperCard.loserFlowLabel = `负 ↓ 第 ${loserTarget.number} 场`;
-    upperCard.flowTitle = `第 ${upperMatch.number} 场胜者晋级；负者下沉至第 ${loserTarget.number} 场`;
+  // Give every schedule card the same route-label language as the regional
+  // canvas: always "胜 → / 负 →" plus the destination match number or the
+  // terminal seat, instead of mixing slot names, arrows and match numbers.
+  for (const match of orderedMatches) {
+    const card = cardByMatch.get(match.number);
+    if (!card) continue;
+    if (match.winnerTo) card.flowLabel = `胜 → ${routeDestinationLabel(match.winnerTo, orderedMatches)}`;
+    if (match.loserTo) card.loserFlowLabel = `负 → ${routeDestinationLabel(match.loserTo, orderedMatches)}`;
   }
 
-  connectors.unshift(...buildOutcomeAwareEliminationConnectors(orderedMatches, cardByMatch, true));
+  connectors.unshift(...buildOutcomeAwareEliminationConnectors(orderedMatches, cardByMatch));
   const contentBottom = cards.reduce(
     (bottom, card) => Math.max(bottom, card.y + card.height),
     START_Y,
@@ -1027,8 +977,8 @@ function buildNationalsDoubleEliminationStage(
   return {
     id: stage,
     label: `${event.shortName}赛程`,
-    title: `${event.name} · ${stage === "round-of-16" ? "16进8" : "8进4"}双败晋级图`,
-    description: `上下双泳道同屏展示完整双败路径：绿色实线为胜者推进，灰色虚线为败者下沉；画布同时列出 ${seatCount} 个晋级席位与全部淘汰终点，时间仅作为卡片内辅助信息。`,
+    title: `${event.name} · ${stage === "round-of-16" ? "16 进 8" : "8 进 4"} 晋级图`,
+    description: `每队都有两条命：直通战赢球直接锁定${stage === "round-of-16" ? "八强" : "四强"}，生死战告负即出局；${seatCount} 个席位归属与每次止步一目了然。`,
     width: START_X * 2 + contentColumnCount * CARD_WIDTH + (contentColumnCount - 1) * COLUMN_GAP,
     height: contentBottom + 80,
     viewport: { align: "left", minScale: stage === "round-of-16" ? 0.46 : 0.52, paddingX: 48, paddingY: 36 },
@@ -1493,7 +1443,7 @@ export function buildFinalsWorkspaceStage(event: FinalEventSchedule, stage: Fina
       width: CARD_WIDTH,
       title: label,
       subtitle: stage === "final-four" && column === 1
-        ? "第 96 场冠军赛在上 · 第 95 场季军赛在下"
+        ? "第 96 场冠军赛 · 第 95 场季军赛"
         : repechageSwissFlow?.roundSubtitles[column + 1]
           ?? `${matchesByColumn.get(column)?.length ?? 0} 场正式比赛`,
       tone: column === labels.length - 1 && stage === "final-four" ? "amber" : "cyan",
@@ -1508,7 +1458,7 @@ export function buildFinalsWorkspaceStage(event: FinalEventSchedule, stage: Fina
       y: Math.max(32, (outcomeCard?.y ?? START_Y) - 48 - HEADER_TO_CARD_GAP),
       width: CARD_WIDTH,
       title: stage === "final-four" ? "最终名次 · 1–4" : "最终去向",
-      subtitle: stage === "final-four" ? "冠亚季殿全部金色落位" : `${terminalGroups.size} 个去向`,
+      subtitle: stage === "final-four" ? "四场过后全部名次揭晓" : `${terminalGroups.size} 个去向`,
       tone: "amber",
     });
   }
@@ -1557,12 +1507,14 @@ export function buildFinalsWorkspaceStage(event: FinalEventSchedule, stage: Fina
   return {
     id: stage,
     label: `${event.shortName}赛程`,
-    title: `${event.name} · ${labels.join(" / ")}`,
+    title: isSwissStage
+      ? `${event.name} · ${stage === "swiss-a" ? "A" : "B"} 组瑞士轮`
+      : `${event.name} · ${labels.join(" / ")}`,
     description: isSwissStage
-      ? "瑞士轮战绩池重配对流程；连线表示整轮赛果进入下一轮配对池，不预设固定的单场胜败去向。"
+      ? "先输两场提前出局，第三轮打完决出名额战名单；逐轮看清各队战绩与去向。"
       : stage === "final-four"
-        ? "冠军赛置于奖牌争夺区上方并使用强化金框；冠亚季殿按最终第 1–4 名统一以金色落位。"
-      : "官方场序画布；抽签完成前以槽位与胜败来源展示，不生成虚构对阵或预测概率。",
+        ? "半决赛胜者进冠军赛、负者进季军赛；四场过后，冠亚季殿全部落位。"
+      : "按官方场序逐轮查看对阵与去向；抽签完成后，这里会显示真实队伍。",
     width:
       START_X * 2 +
       totalColumns * CARD_WIDTH +

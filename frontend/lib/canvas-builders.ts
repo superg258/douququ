@@ -995,7 +995,7 @@ function buildSwissStage(groupName: "A" | "B", regionSlug: RegionSlug, simulatio
               id: `${groupName}-${section.id}-placeholder-${index + 1}`,
               teamKey: "",
               collegeName: "待确认",
-              teamName: "官方排期占位",
+              teamName: "官方排期待确认",
               x: column.x,
               y: sectionY + STAGE_HEADER_TO_CARD_OFFSET + index * SUMMARY_TEAM_STEP,
               orderLabel: `${index + 1}`,

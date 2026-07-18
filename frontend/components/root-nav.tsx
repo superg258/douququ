@@ -14,8 +14,8 @@ const NAV_ITEMS = [
 export function RootNav() {
   const pathname = usePathname();
 
-  // On fullscreen region pages, do not render the root header at all
-  if (pathname.startsWith("/regions/")) {
+  // Canvas workspaces own their compact navigation and need the full viewport.
+  if (pathname.startsWith("/regions/") || pathname.startsWith("/forecast-center")) {
     return null;
   }
 

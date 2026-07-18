@@ -8,6 +8,7 @@ import { createPortal } from "react-dom";
 import { PredictionSignalsPanel } from "@/components/prediction-signals";
 import { PredictionExplanationCard } from "@/components/prediction-explanation-card";
 import { WorkspaceStageView } from "@/components/workspace-stage";
+import { CompetitionSelector, isRegionCompetition } from "@/components/competition-selector";
 import { getLiveState, getOverview, getSimulation } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { buildWorkspaceStage } from "@/lib/canvas-builders";
@@ -920,20 +921,16 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   );
 
   const renderRegionSelector = () => (
-    <select
+    <CompetitionSelector
       value={regionSlug}
-      onChange={(e) => {
-        const nextRegion = e.target.value;
-        if (validRegion(nextRegion)) {
-          onRegionChange(nextRegion);
+      onChange={(nextCompetition) => {
+        if (isRegionCompetition(nextCompetition)) {
+          onRegionChange(nextCompetition);
+          return;
         }
+        router.push(`/forecast-center?event=${nextCompetition}&view=bracket`);
       }}
-      className="shrink-0 border border-white/10 bg-rm-metal-dark/80 px-2.5 py-1.5 text-xs text-white focus:border-rm-blue focus:outline-none"
-    >
-      {overview?.regions.map((region) => (
-        <option key={region.regionSlug} value={region.regionSlug}>{region.regionName}</option>
-      ))}
-    </select>
+    />
   );
 
   const renderModeToggle = () => (

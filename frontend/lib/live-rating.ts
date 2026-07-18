@@ -41,7 +41,7 @@ export function deriveMatchRatingBreakdown(match: MatchRow, side: MatchRatingSid
 
   const liveDelta = isRed ? match.redLiveDelta : match.blueLiveDelta;
   const priorDelta = isRed ? match.redPriorDelta : match.bluePriorDelta;
-  const priorLabel = (isRed ? match.redPriorAdjustmentLabel : match.bluePriorAdjustmentLabel) || "前三轮先验修正";
+  const priorLabel = (isRed ? match.redPriorAdjustmentLabel : match.bluePriorAdjustmentLabel) || "前三轮预估修正";
   const hasSplitAdjustment = isNumber(liveDelta) && isNumber(priorDelta);
 
   return {

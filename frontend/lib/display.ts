@@ -21,9 +21,11 @@ const FINAL_BUCKET_LABELS: Record<string, string> = {
   quarterfinalist: "八强",
   national_via_qualifier: "资格赛晋级国赛",
   repechage_from_national_playoff_loss: "国赛资格战负者转入复活赛",
+  repechage_via_playoff: "资格赛晋级复活赛",
   repechage_direct: "直通复活赛",
   swiss_out: "瑞士轮淘汰",
   swiss_eliminated: "瑞士轮淘汰",
+  eliminated_in_qualification: "资格赛止步",
   group_eliminated: "小组赛淘汰",
 };
 

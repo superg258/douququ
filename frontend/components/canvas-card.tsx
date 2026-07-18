@@ -864,7 +864,7 @@ function ScheduleCanvasCardComponent({
   const isSelected = selectedMatchLabel === matchKey;
   const isSwiss = card.match.stageKey === "swiss";
   const winnerRoute = card.flowLabel ?? (isSwiss
-    ? "整轮赛果 → 下一轮战绩池"
+    ? "整轮赛果决定下一轮配对"
     : card.match.winnerTo
       ? `胜 → ${card.match.winnerTo}`
       : "胜方去向待后续场序确认");
@@ -896,7 +896,9 @@ function ScheduleCanvasCardComponent({
           </span>
           <span className="truncate font-machine text-[11px] font-bold tracking-widest text-white">{card.displayLabel}</span>
         </div>
-        <span className="shrink-0 font-mono text-[10px] text-rm-metal-textMuted">BO{card.match.bestOf}</span>
+        <span className="shrink-0 border border-rm-status-scheduled/25 bg-rm-status-scheduled/8 px-1.5 py-0.5 font-mono text-[9px] text-rm-status-scheduled tabular-nums">
+          {formatMatchCardScheduleTime(card.match.startsAt)}
+        </span>
       </div>
 
       <div className="grid flex-1 grid-rows-2">
@@ -912,8 +914,7 @@ function ScheduleCanvasCardComponent({
         </div>
       </div>
 
-      <div className="flex h-8 shrink-0 items-center justify-between gap-3 border-t border-white/[0.07] bg-black/70 px-3 font-mono text-[9px]">
-        <span className="shrink-0 tabular-nums text-rm-status-scheduled">{card.match.startsAt.slice(5, 10).replace("-", "/")} {card.match.startTime}</span>
+      <div className="flex h-8 shrink-0 items-center justify-end gap-3 border-t border-white/[0.07] bg-black/70 px-3 font-mono text-[9px]">
         <span
           className="flex min-w-0 items-center justify-end gap-1"
           title={card.flowTitle ?? [winnerRoute, loserRoute].filter(Boolean).join("；")}

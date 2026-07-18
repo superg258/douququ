@@ -107,7 +107,6 @@ export function CanvasConnectorView({
   const isSelected = connector.teamKey && connector.teamKey === selectedTeamKey;
   const isHighlighted = connector.teamKey && connector.teamKey === highlightedTeamKey;
   const strokeWidth = connector.appearance === "subtle" ? "stroke-[2px]" : "stroke-[3px]";
-  const isStrongLoserRoute = connector.tone === "steel" && connector.weight === "strong";
   const labelX = (connector.viaX ?? (connector.fromX + connector.toX) / 2) + 10;
   const labelToneClass =
     connector.tone === "amber"
@@ -135,7 +134,6 @@ export function CanvasConnectorView({
         style={{
           strokeLinecap: "round",
           strokeLinejoin: "round",
-          strokeDasharray: isStrongLoserRoute ? "9 7" : undefined,
         }}
       />
       {connector.branchLabels?.map((label) => {
