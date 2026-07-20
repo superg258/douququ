@@ -65,6 +65,7 @@ ROBOT_FORM_METRIC_COLUMNS = [
     "robot_output_kills",
     "robot_output_kda",
     "robot_objective_damage",
+    "robot_sapper_econ",
 ]
 
 
@@ -334,6 +335,15 @@ def extract_robot_form_metrics(payload: dict[str, Any] | None) -> Any:
                         for value in (_optional_float(robot.get("gkDamage")) for robot in robots if isinstance(robot, dict))
                         if value is not None
                     ),
+                    "robot_sapper_econ": sum(
+                        value
+                        for value in (
+                            _optional_float(robot.get("avgAssembleDiff"))
+                            for robot in robots
+                            if isinstance(robot, dict) and str(robot.get("type") or "") == "Sapper"
+                        )
+                        if value is not None
+                    ),
                 }
             )
     frame = pd.DataFrame(rows, columns=ROBOT_FORM_METRIC_COLUMNS)
@@ -456,17 +466,19 @@ def build_live_form_observation_frame(
 
     if robot_metrics_frame is not None and not getattr(robot_metrics_frame, "empty", True):
         robot = robot_metrics_frame.copy()
-        for column in ("robot_output_hurt", "robot_output_kills", "robot_output_kda", "robot_objective_damage"):
+        for column in ("robot_output_hurt", "robot_output_kills", "robot_output_kda", "robot_objective_damage", "robot_sapper_econ"):
             robot[column] = pd.to_numeric(robot.get(column), errors="coerce")
         _assign_region_zscores(robot, value_col="robot_output_hurt", out_col="z_robot_output_hurt")
         _assign_region_zscores(robot, value_col="robot_output_kills", out_col="z_robot_output_kills")
         _assign_region_zscores(robot, value_col="robot_output_kda", out_col="z_robot_output_kda")
         _assign_region_zscores(robot, value_col="robot_objective_damage", out_col="z_robot_objective_damage")
+        _assign_region_zscores(robot, value_col="robot_sapper_econ", out_col="z_robot_sapper_econ")
         robot["robot_family_signal"] = (
             (0.45 * robot["z_robot_output_kda"].astype(float))
             + (0.30 * robot["z_robot_output_hurt"].astype(float))
             + (0.15 * robot["z_robot_output_kills"].astype(float))
             + (0.10 * robot["z_robot_objective_damage"].astype(float))
+            + (float(cfg.robot_sapper_econ_weight) * robot["z_robot_sapper_econ"].astype(float))
         )
         robot_columns = [
             "school_key",
@@ -475,6 +487,7 @@ def build_live_form_observation_frame(
             "robot_output_kills",
             "robot_output_kda",
             "robot_objective_damage",
+            "robot_sapper_econ",
         ]
         frame = frame.merge(robot[robot_columns], on="school_key", how="left")
         blended_obs_mu: list[float] = []

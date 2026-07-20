@@ -94,6 +94,7 @@ class RegionalPreModelConfig:
     robot_gate_conflict_weight: float = 0.05
     robot_gate_robot_only_weight: float = 0.50
     robot_gate_neutral_weight: float = 0.25
+    robot_sapper_econ_weight: float = 0.25
     prediction_head_base_weight: float = 0.25
     prediction_head_season_delta_weight: float = 1.00
     prediction_head_momentum_weight: float = 0.00

@@ -45,6 +45,7 @@ class SeasonDeltaConfig:
     robot_gate_conflict_weight: float = 0.05
     robot_gate_robot_only_weight: float = 0.50
     robot_gate_neutral_weight: float = 0.25
+    robot_sapper_econ_weight: float = 0.25
 
 
 @dataclass(frozen=True)

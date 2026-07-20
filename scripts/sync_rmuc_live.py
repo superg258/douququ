@@ -736,6 +736,7 @@ def runtime_model_config_signature(regional_cfg: RegionalPreModelConfig) -> dict
         "robot_gate_conflict_weight": float(regional_cfg.robot_gate_conflict_weight),
         "robot_gate_robot_only_weight": float(regional_cfg.robot_gate_robot_only_weight),
         "robot_gate_neutral_weight": float(regional_cfg.robot_gate_neutral_weight),
+        "robot_sapper_econ_weight": float(regional_cfg.robot_sapper_econ_weight),
         "prediction_head_base_weight": float(regional_cfg.prediction_head_base_weight),
         "prediction_head_season_delta_weight": float(regional_cfg.prediction_head_season_delta_weight),
         "prediction_head_momentum_weight": float(regional_cfg.prediction_head_momentum_weight),

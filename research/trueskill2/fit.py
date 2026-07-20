@@ -174,6 +174,7 @@ def _regional_pre_config(config: dict[str, Any] | None) -> RegionalPreModelConfi
         robot_gate_conflict_weight=float(payload.get("robot_gate_conflict_weight", 0.05)),
         robot_gate_robot_only_weight=float(payload.get("robot_gate_robot_only_weight", 0.50)),
         robot_gate_neutral_weight=float(payload.get("robot_gate_neutral_weight", 0.25)),
+        robot_sapper_econ_weight=float(payload.get("robot_sapper_econ_weight", 0.25)),
         prediction_head_base_weight=float(payload.get("prediction_head_base_weight", 0.25)),
         prediction_head_season_delta_weight=float(payload.get("prediction_head_season_delta_weight", 1.00)),
         prediction_head_momentum_weight=float(payload.get("prediction_head_momentum_weight", 0.00)),
@@ -232,6 +233,7 @@ def _season_delta_config(config: RegionalPreModelConfig | None = None) -> Season
         robot_gate_conflict_weight=float(cfg.robot_gate_conflict_weight),
         robot_gate_robot_only_weight=float(cfg.robot_gate_robot_only_weight),
         robot_gate_neutral_weight=float(cfg.robot_gate_neutral_weight),
+        robot_sapper_econ_weight=float(cfg.robot_sapper_econ_weight),
     )
 
 

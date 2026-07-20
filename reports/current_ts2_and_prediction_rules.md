@@ -320,7 +320,10 @@ robot_family_signal =
 + 0.30 * z_robot_output_hurt
 + 0.15 * z_robot_output_kills
 + 0.10 * z_robot_objective_damage
++ robot_sapper_econ_weight * z_robot_sapper_econ
 ```
+
+其中 `z_robot_sapper_econ` 是工程机器人（Sapper）`avgAssembleDiff` 的赛区内 z-score。该字段在分机型全小分检索（140 个机型×字段组合）中方向准确率 66.8%，仅次于步兵 KDA，且不依赖战斗机器人表现（经济兑现能力），与战斗四项互补。
 
 机器人观测：
 
@@ -339,6 +342,7 @@ robot_form_reliability_floor: 0.35
 robot_gate_conflict_weight: 0.05
 robot_gate_robot_only_weight: 0.50
 robot_gate_neutral_weight: 0.25
+robot_sapper_econ_weight: 0.25
 ```
 
 机器人 gate：
@@ -952,6 +956,7 @@ robot_form_obs_sigma_base: 1.15
 robot_gate_conflict_weight: 0.05
 robot_gate_robot_only_weight: 0.50
 robot_gate_neutral_weight: 0.25
+robot_sapper_econ_weight: 0.25
 
 prediction_head_base_weight: 0.25
 prediction_head_season_delta_weight: 1.00
