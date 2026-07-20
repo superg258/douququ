@@ -44,8 +44,8 @@ const EVENT_META: Record<
     tone: "amber" | "blue";
   }
 > = {
-  repechage: { label: "复活赛", tone: "amber" },
-  nationals: { label: "全国赛", tone: "blue" },
+  repechage: { label: "复活赛", tone: "blue" },
+  nationals: { label: "全国赛", tone: "amber" },
 };
 
 const TONE_STYLES = {
@@ -332,7 +332,7 @@ function RankingSectionCard({
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 font-mono text-[8px] text-rm-metal-textFaint">
           <span>{section.statusLabel}</span>
-          <span>名单核对 {formatVerifiedAt(section.verifiedAt)}</span>
+          <span>数据更新 {formatVerifiedAt(section.verifiedAt)}</span>
         </div>
       </header>
 
@@ -350,8 +350,8 @@ function RankingSectionCard({
         </div>
       ) : (
         <div className={cn("m-3 border bg-black/20 p-5 text-center", styles.softBorder)}>
-          <p className="font-machine text-sm text-rm-metal-textLight">等待名单与 Elo 数据完成关联</p>
-          <p className="mt-2 text-xs text-rm-metal-textMuted">仅接受 teamKey 精确身份关联。</p>
+          <p className="font-machine text-sm text-rm-metal-textLight">等待参赛名单与战力数据完成同步</p>
+          <p className="mt-2 text-xs text-rm-metal-textMuted">数据关联完成后自动更新。</p>
         </div>
       )}
     </section>
@@ -382,7 +382,7 @@ export function FinalsEloRankings({
     <div className="space-y-4">
       {totalUnmatched > 0 ? (
         <div className="border border-rm-status-warn/45 bg-rm-status-warn/5 px-4 py-3 text-xs text-rm-status-warn">
-          有 {totalUnmatched} 支已确认队伍尚未通过 teamKey 关联到当前 Elo 数据；页面未使用显示名回退。
+          有 {totalUnmatched} 支参赛队伍数据同步中，暂无 Elo 评分。
         </div>
       ) : null}
 

@@ -26,7 +26,7 @@ export function buildLiveCommandCenter(command: CommandCenterResponse): LiveComm
   const coverageLabel = command.sourceFreshness.coverageLabel;
   const hasOfficialSchedule = command.source.effectiveMode === "live";
   const unavailableReason =
-    hasOfficialSchedule ? "" : coverageLabel.split("，")[0] || "官方赛程尚未接入";
+    hasOfficialSchedule ? "" : coverageLabel.split("，")[0] || "赛程尚未同步";
   const sections: LiveCommandCenterBucket[] = [
     {
       id: "live-now",
@@ -73,7 +73,7 @@ export function buildLiveCommandCenter(command: CommandCenterResponse): LiveComm
   const officialPlaceholderMatchCount = Number(command.officialPlaceholderMatchCount ?? 0);
   const statusNotice =
     hasOfficialSchedule && visibleMatchCount === 0 && officialPlaceholderMatchCount > 0
-      ? `官方排期已同步，但暂无可行动对阵；当前 ${officialPlaceholderMatchCount} 场官方排期仍为对阵待确认。`
+      ? `赛程已同步，等待对阵落位；当前 ${officialPlaceholderMatchCount} 场已排期对阵待确认。`
       : "";
 
   return {

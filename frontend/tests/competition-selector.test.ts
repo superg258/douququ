@@ -18,7 +18,7 @@ describe("CompetitionSelector", () => {
     expect(markup).toContain("东部赛区");
     expect(markup).toContain("北部赛区");
     expect(markup).toContain("复活赛");
-    expect(markup).toContain("全国赛");
+    expect(markup).toContain("全国总决赛");
   });
 
   it("distinguishes regional workspaces from later events", () => {

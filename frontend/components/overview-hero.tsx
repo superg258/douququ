@@ -167,10 +167,10 @@ export function OverviewHero({
               {/* Intro text */}
               <div className="space-y-2">
                 <p className="font-mono text-[11px] sm:text-xs text-rm-metal-textMuted leading-relaxed tracking-[0.08em]">
-                  聚焦复活赛 · 全国赛
+                  复活赛 · 全国赛 赛程与预测
                 </p>
                 <p className="font-mono text-[11px] sm:text-xs text-rm-metal-textFaint leading-relaxed tracking-[0.08em]">
-                  仅展示官方名单、正式赛程、逐场场序与北京时间。
+                  参赛名单、实时对阵、胜负推演一站呈现。
                 </p>
               </div>
 
@@ -186,7 +186,7 @@ export function OverviewHero({
               </div>
 
               <Link
-                href={nextMatchHref ?? "/forecast-center?event=repechage&view=matches"}
+                href={nextMatchHref ?? "/forecast-center?event=repechage&mode=live"}
                 className="inline-flex w-full items-center justify-center border border-rm-red/60 bg-rm-red/15 px-4 py-2.5 font-mono text-sm font-bold tracking-wider text-rm-red shadow-[0_0_10px_rgba(232,48,42,0.2)] transition-all hover:bg-rm-red hover:text-white hover:shadow-[0_0_20px_rgba(232,48,42,0.4)] active:scale-[0.98]"
               >
                 {ctaLabel}

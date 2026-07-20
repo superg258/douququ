@@ -542,13 +542,17 @@ export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) 
             </div>
           </MechCard>
 
-          <MechCard variant="safe" label="国赛概率">
-            <div className="font-machine text-2xl font-bold text-rm-status-safe tracking-wide">
+          <MechCard
+            variant="default"
+            label="国赛概率"
+            className="!border-rm-status-warn/60 !bg-[rgba(255,176,0,0.13)] shadow-[0_0_15px_rgba(255,176,0,0.15)]"
+          >
+            <div className="font-machine text-2xl font-bold text-rm-status-warn tracking-wide">
               {pct(profile.team.probabilities.national)}
             </div>
             <div className="mt-2 h-1.5 bg-rm-metal-dark rounded-full overflow-hidden">
               <div
-                className="h-full bg-rm-status-safe/50 rounded-full"
+                className="h-full bg-rm-status-warn/50 rounded-full"
                 style={{ width: `${(profile.team.probabilities.national ?? 0) * 100}%` }}
               />
             </div>
@@ -557,14 +561,14 @@ export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) 
           <MechCard
             variant="default"
             label="复活赛概率"
-            className="!border-rm-status-warn/60 !bg-[rgba(255,176,0,0.13)] shadow-[0_0_15px_rgba(255,176,0,0.15)]"
+            className="!border-rm-blue/60 !bg-[rgba(42,159,255,0.13)] shadow-[0_0_15px_rgba(42,159,255,0.15)]"
           >
-            <div className="font-machine text-2xl font-bold text-rm-status-warn tracking-wide">
+            <div className="font-machine text-2xl font-bold text-rm-blue tracking-wide">
               {pct(profile.team.probabilities.repechage)}
             </div>
             <div className="mt-2 h-1.5 bg-rm-metal-dark rounded-full overflow-hidden">
               <div
-                className="h-full bg-rm-status-warn/50 rounded-full"
+                className="h-full bg-rm-blue/50 rounded-full"
                 style={{ width: `${(profile.team.probabilities.repechage ?? 0) * 100}%` }}
               />
             </div>

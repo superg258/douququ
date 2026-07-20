@@ -49,27 +49,27 @@ export function deriveRealtimeAvailability(regionSlug: RegionSlug, state: Realti
       return {
         enabled: true,
         badge: "官方赛果",
-        hint: state.liveDataLabel || "官方赛果已接入",
+        hint: state.liveDataLabel || "赛果已同步",
       };
     }
     if (level === "confirmed_matchups" || confirmed > 0) {
       return {
         enabled: true,
         badge: "官方对阵",
-        hint: state.liveDataLabel || "官方对阵已确认，赛果待同步",
+        hint: state.liveDataLabel || "对阵已确认，赛果待同步",
       };
     }
     if (level === "schedule_shell" || officialSchedule > 0 || officialPlaceholders > 0) {
       return {
         enabled: true,
         badge: "官方排期",
-        hint: state.liveDataLabel || "官方排期已接入，对阵待确认",
+        hint: state.liveDataLabel || "赛程已排期，对阵待确认",
       };
     }
     return {
       enabled: false,
       badge: "暂无实时",
-      hint: state.liveDataLabel || "官方实时源已连接，赛程待同步",
+      hint: state.liveDataLabel || "实时数据已连接，赛程待同步",
     };
   }
 

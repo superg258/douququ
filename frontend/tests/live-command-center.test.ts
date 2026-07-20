@@ -204,6 +204,6 @@ describe("live command center", () => {
     );
 
     expect(command.hasOfficialSchedule).toBe(true);
-    expect(command.statusNotice).toBe("官方排期已同步，但暂无可行动对阵；当前 266 场官方排期仍为对阵待确认。");
+    expect(command.statusNotice).toBe("赛程已同步，等待对阵落位；当前 266 场已排期对阵待确认。");
   });
 });

@@ -45,12 +45,12 @@ const REGION_ACCENT: Record<string, { bar: string; glow: string; link: string; b
 /* ─── 稳进国赛标签 ─── */
 function LockedTeamBadge({ team }: { team: OverviewTeam }) {
   return (
-    <Link href={buildTeamHref(team.teamKey)} className="inline-flex items-center gap-1.5 px-2 py-1 border border-rm-status-safe/30
-                     bg-rm-status-safe/10 text-rm-status-safe text-xs font-bold rounded-sm
-                     shadow-[0_0_5px_rgba(0,255,157,0.1)]
-                     hover:border-rm-status-safe/50 hover:bg-rm-status-safe/15 transition-all duration-200">
+    <Link href={buildTeamHref(team.teamKey)} className="inline-flex items-center gap-1.5 px-2 py-1 border border-rm-status-warn/30
+                     bg-rm-status-warn/10 text-rm-status-warn text-xs font-bold rounded-sm
+                     shadow-[0_0_5px_rgba(255,176,0,0.1)]
+                     hover:border-rm-status-warn/50 hover:bg-rm-status-warn/15 transition-all duration-200">
       {team.collegeName}
-      <span className="font-mono text-[10px] text-rm-status-confirmed font-semibold">
+      <span className="font-mono text-[10px] text-rm-status-warn font-semibold">
         {pct(team.probabilities.national)}
       </span>
     </Link>
@@ -229,27 +229,27 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
       ? {
           mode: "实时模式",
           title: "官方排期",
-          body: "官方排期已接入，对阵和赛果待同步。",
+          body: "赛程已排期，等待对阵公布与赛果同步。",
           cta: "查看官方排期 →",
         }
       : realtimeAvailability.badge === "官方对阵"
         ? {
             mode: "实时模式",
             title: "官方对阵",
-            body: "官方对阵已确认，赛果和 Elo 更新待同步。",
+            body: "对阵已确认，等待赛果与战力更新。",
             cta: "查看官方对阵 →",
           }
         : realtimeEnabled
           ? {
               mode: "实时模式",
               title: "实时赛程",
-              body: "官方赛果已接入，Elo 战力预测与观众投票并列展示。",
+              body: "实时赛果已接入，战力预测与观众投票同步展示。",
               cta: "进入实时赛程 →",
             }
           : {
               mode: "模拟沙盘",
               title: "赛程沙盘",
-              body: "官方赛程尚未接入，当前入口为模拟赛程。",
+              body: "赛程尚未公布，当前展示模拟推演。",
               cta: "进入赛程沙盘 →",
             };
 
@@ -388,9 +388,9 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
 
       {/* ═══ 5. 稳进国赛阵容 ═══ */}
       {region.nationalLocks.length > 0 ? (
-        <div className="border-b-2 border-rm-metal-border px-4 py-3 border-l-2 border-l-rm-status-confirmed/50 bg-rm-metal-dark/50">
-          <h4 className="text-[9px] font-bold text-rm-status-confirmed tracking-widest uppercase mb-2 flex items-center gap-2">
-            <span className="w-1 h-3 bg-rm-status-confirmed/60 shadow-[0_0_6px_rgba(0,232,120,0.25)]" />
+        <div className="border-b-2 border-rm-metal-border px-4 py-3 border-l-2 border-l-rm-status-warn/50 bg-rm-metal-dark/50">
+          <h4 className="text-[9px] font-bold text-rm-status-warn tracking-widest uppercase mb-2 flex items-center gap-2">
+            <span className="w-1 h-3 bg-rm-status-warn/60 shadow-[0_0_6px_rgba(255,176,0,0.25)]" />
             稳进国赛阵容
           </h4>
           <div className="flex flex-wrap gap-2">
@@ -403,9 +403,9 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
 
       {/* ═══ 6. 国赛卡位战圈 ═══ */}
       {region.nationalRace.cutoffTeam ? (
-        <div className="border-b-2 border-rm-metal-border px-4 py-3 border-l-2 border-l-rm-red/40 bg-rm-metal-dark/50">
-          <h4 className="text-[9px] font-bold text-rm-red tracking-widest uppercase mb-2 flex items-center gap-2">
-            <span className="w-1 h-3 bg-rm-red/60 shadow-[0_0_4px_rgba(232,48,42,0.2)]" />
+        <div className="border-b-2 border-rm-metal-border px-4 py-3 border-l-2 border-l-rm-status-warn/50 bg-rm-metal-dark/50">
+          <h4 className="text-[9px] font-bold text-rm-status-warn tracking-widest uppercase mb-2 flex items-center gap-2">
+            <span className="w-1 h-3 bg-rm-status-warn/60 shadow-[0_0_4px_rgba(255,176,0,0.2)]" />
             国赛卡位战圈 · 最后 {region.nationalSlots - region.nationalRace.locksCount} 席
           </h4>
           <RaceBattle
@@ -415,11 +415,11 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
             cutoffProbability={region.nationalRace.cutoffProbability}
             getProb={(t) => t.probabilities.national}
             colorClass={{
-              border: "border-rm-red/30 hover:border-rm-red/50",
-              bg: "bg-[rgba(232,48,42,0.06)]",
-              text: "text-rm-red/80",
-              badge: "border-rm-red/40 bg-[rgba(232,48,42,0.08)] text-rm-red/90",
-              line: "border-rm-red/30",
+              border: "border-rm-status-warn/30 hover:border-rm-status-warn/50",
+              bg: "bg-[rgba(255,176,0,0.06)]",
+              text: "text-rm-status-warn/80",
+              badge: "border-rm-status-warn/40 bg-[rgba(255,176,0,0.08)] text-rm-status-warn/90",
+              line: "border-rm-status-warn/30",
             }}
           />
         </div>
@@ -427,9 +427,9 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
 
       {/* ═══ 7. 复活赛卡位战圈 ═══ */}
       {region.repechageRace.cutoffTeam ? (
-        <div className="border-b-2 border-rm-metal-border px-4 py-3 border-l-2 border-l-rm-status-pending/50 bg-rm-metal-dark/50">
-          <h4 className="text-[9px] font-bold text-rm-status-pending tracking-widest uppercase mb-2 flex items-center gap-2">
-            <span className="w-1 h-3 bg-rm-status-pending/60 shadow-[0_0_6px_rgba(255,176,0,0.25)]" />
+        <div className="border-b-2 border-rm-metal-border px-4 py-3 border-l-2 border-l-rm-blue/50 bg-rm-metal-dark/50">
+          <h4 className="text-[9px] font-bold text-rm-blue tracking-widest uppercase mb-2 flex items-center gap-2">
+            <span className="w-1 h-3 bg-rm-blue/60 shadow-[0_0_6px_rgba(42,159,255,0.25)]" />
             复活赛卡位战圈
           </h4>
           <RaceBattle
@@ -439,11 +439,11 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
             cutoffProbability={region.repechageRace.cutoffProbability}
             getProb={getRepechageRaceProbability}
             colorClass={{
-              border: "border-rm-status-pending/30 hover:border-rm-status-pending/50",
-              bg: "bg-[rgba(255,176,0,0.06)]",
-              text: "text-rm-status-pending/80",
-              badge: "border-rm-status-pending/40 bg-[rgba(255,176,0,0.08)] text-rm-status-pending/90",
-              line: "border-rm-status-pending/30",
+              border: "border-rm-blue/30 hover:border-rm-blue/50",
+              bg: "bg-[rgba(42,159,255,0.06)]",
+              text: "text-rm-blue/80",
+              badge: "border-rm-blue/40 bg-[rgba(42,159,255,0.08)] text-rm-blue/90",
+              line: "border-rm-blue/30",
             }}
           />
         </div>

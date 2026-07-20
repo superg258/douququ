@@ -227,6 +227,7 @@ export interface RepechageStageProbability {
 
 export interface NationalsStageProbability {
   groupAdvancementRate: number;
+  topEightRate: number;
   topFourRate: number;
   championRate: number;
 }
@@ -240,7 +241,7 @@ export interface FinalsStageProbabilityProjection {
 const ELO_GUMBEL_SCALE = 400 / Math.log(10);
 const DEFAULT_FINALS_PROJECTION_ITERATIONS = 10_000;
 
-function createSeededRandom(seed: number) {
+export function createSeededRandom(seed: number) {
   let state = seed >>> 0;
   return () => {
     state += 0x6d2b79f5;
@@ -303,6 +304,7 @@ export function projectFinalsStageProbabilities(
     .filter((participant) => participant.currentElo !== null);
   const advancementCounts = new Map<string, number>();
   const groupAdvancementCounts = new Map<string, number>();
+  const topEightCounts = new Map<string, number>();
   const topFourCounts = new Map<string, number>();
   const championCounts = new Map<string, number>();
   const random = createSeededRandom(20260714);
@@ -330,11 +332,15 @@ export function projectFinalsStageProbabilities(
       .sort((left, right) => right.performance - left.performance);
 
     const groupAdvancers = projectedNationalsField.slice(0, Math.min(16, projectedNationalsField.length));
+    const topEight = projectedNationalsField.slice(0, Math.min(8, projectedNationalsField.length));
     const topFour = projectedNationalsField.slice(0, Math.min(4, projectedNationalsField.length));
     const champion = projectedNationalsField[0];
 
     for (const { participant } of groupAdvancers) {
       incrementCounter(groupAdvancementCounts, participant.teamKey);
+    }
+    for (const { participant } of topEight) {
+      incrementCounter(topEightCounts, participant.teamKey);
     }
     for (const { participant } of topFour) {
       incrementCounter(topFourCounts, participant.teamKey);
@@ -353,6 +359,7 @@ export function projectFinalsStageProbabilities(
         participant.teamKey,
         {
           groupAdvancementRate: (groupAdvancementCounts.get(participant.teamKey) ?? 0) / safeIterations,
+          topEightRate: (topEightCounts.get(participant.teamKey) ?? 0) / safeIterations,
           topFourRate: (topFourCounts.get(participant.teamKey) ?? 0) / safeIterations,
           championRate: (championCounts.get(participant.teamKey) ?? 0) / safeIterations,
         },

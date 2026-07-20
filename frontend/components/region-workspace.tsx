@@ -215,7 +215,7 @@ function SouthSwissReplayList({ view, simulation }: { view: WorkspaceView; simul
                 ? `赛前预测命中，置信等级：${translateConfidenceLabel(row.confidenceLabel)}。`
                 : `赛前预测未命中，实际结果出现逆转，置信等级：${translateConfidenceLabel(row.confidenceLabel)}。`
             )
-            : `本场尚未产生正式赛果，以下为赛前预测走向，置信等级：${translateConfidenceLabel(row.confidenceLabel)}。`;
+            : `本场尚未开赛，以下为赛前预测走向，置信等级：${translateConfidenceLabel(row.confidenceLabel)}。`;
 
           return (
             <article 
@@ -374,8 +374,8 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
             <span className="text-rm-metal-text">{globalRankLabel}</span>
             {probabilities ? (
               <>
-                <span className="col-span-2 text-rm-status-safe">国赛率 {percent(probabilities.national)}</span>
-                <span className="col-span-2 text-rm-status-warn">复活赛 {percent(probabilities.repechage)}</span>
+                <span className="col-span-2 text-rm-status-warn">国赛率 {percent(probabilities.national)}</span>
+                <span className="col-span-2 text-rm-blue">复活赛 {percent(probabilities.repechage)}</span>
                 <span className="col-span-2 text-rm-blue">夺冠率 {percent(probabilities.champion)}</span>
               </>
             ) : (
@@ -388,7 +388,7 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
             <p className="text-[11px] text-rm-metal-text mb-3">
               {selectedRanking
                 ? formatRankingResultLabel(selectedRanking.rank, selectedRanking.finalBucket, selectedRanking.advancement)
-                : "实时最终名次待官方确认；当前仅展示队伍概率与已完赛/已排期赛程。"}
+                : "最终名次随赛程推进持续更新；当前展示概率推演与已确认赛程。"}
             </p>
             <div className="space-y-2">
               {selectedPath.length ? selectedPath.map((match: any) => {
@@ -453,9 +453,9 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
         <div className="space-y-6">
           {isOfficialPlaceholder ? (
             <section className="border border-rm-status-scheduled/35 bg-rm-status-scheduled/8 p-3 clip-chamfer">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-rm-status-scheduled">官方排期占位</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-rm-status-scheduled">对阵待确认</p>
               <p className="mt-2 text-[11px] leading-relaxed text-rm-metal-text">
-                官方排期已接入，真实对阵尚未确认；暂不生成模型推演、胜率条和战力变化。
+                该场次已排期，对阵双方待抽签落位后更新预测数据。
               </p>
             </section>
           ) : (
@@ -475,7 +475,7 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
             </div>
           ) : (
             <div className="text-center font-machine text-sm text-rm-metal-text border border-dashed border-rm-metal-border bg-rm-metal-dark py-4 relative overflow-hidden">
-               尚未产生正式赛果
+               比赛尚未开始
                <div className="absolute bottom-1 right-2 text-[9px] text-rm-metal-text/50 font-sans">BO{selectedMatch.bestOf}</div>
             </div>
           )}
@@ -528,7 +528,7 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
             {!isOfficialPlaceholder && !hasMatchElo(selectedMatch) && (
               <>
                 <span className="col-span-2 text-rm-metal-text">
-                  本场尚未产生实际赛果，暂不更新战力变化，待正式结果公布后同步。
+                  比赛结束后将自动更新战力变化。
                 </span>
                 <div className="col-span-2 border-t border-rm-metal-border my-1"></div>
               </>
@@ -562,9 +562,9 @@ function InspectorPanel({ selection, regionOverview, selectedOverviewTeam, selec
         <span className="text-rm-metal-text">队伍数量</span>
         <span className="text-white font-bold text-right">{regionOverview?.teams.length ?? 0}</span>
         <span className="text-rm-metal-text">国赛席位</span>
-        <span className="text-rm-status-safe font-bold text-right">{regionOverview?.nationalSlots ?? 0}</span>
+        <span className="text-rm-status-warn font-bold text-right">{regionOverview?.nationalSlots ?? 0}</span>
         <span className="text-rm-metal-text">复活赛席位</span>
-        <span className="text-rm-status-warn font-bold text-right">{regionOverview?.repechageSlots ?? 0}</span>
+        <span className="text-rm-blue font-bold text-right">{regionOverview?.repechageSlots ?? 0}</span>
       </div>
       
       <h4 className="text-xs text-white font-bold uppercase tracking-widest mb-3">头部竞争队</h4>
@@ -928,7 +928,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
           onRegionChange(nextCompetition);
           return;
         }
-        router.push(`/forecast-center?event=${nextCompetition}&view=bracket`);
+        router.push(`/forecast-center?event=${nextCompetition}&mode=live`);
       }}
     />
   );
@@ -1072,7 +1072,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
 
       {requestedLiveFallback ? (
         <div className="z-30 border-b border-rm-status-warn/35 bg-rm-status-warn/10 px-3 py-2 font-mono text-[11px] text-rm-status-warn md:px-4">
-          已请求实时赛程；官方赛程尚未接入，当前显示模拟沙盘。点击“模拟”会切换为模拟模式。
+          已请求实时赛程；实时赛程暂未开放，当前展示模拟推演。赛程公布后将自动切换为实时模式。
         </div>
       ) : null}
 
@@ -1188,7 +1188,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
                   </div>
                   <div className="flex items-center justify-between w-full mt-1">
                      <span className="text-xs text-rm-metal-text font-mono">{team.teamName}</span>
-                     <span className="text-[10px] text-rm-status-safe font-bold font-mono">国赛率 {percent(team.probabilities.national)}</span>
+                  <span className="text-[10px] text-rm-status-warn font-bold font-mono">国赛率 {percent(team.probabilities.national)}</span>
                   </div>
                 </button>
                 <Link

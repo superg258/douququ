@@ -995,7 +995,7 @@ function buildSwissStage(groupName: "A" | "B", regionSlug: RegionSlug, simulatio
               id: `${groupName}-${section.id}-placeholder-${index + 1}`,
               teamKey: "",
               collegeName: "待确认",
-              teamName: "官方排期待确认",
+              teamName: "排期待确认",
               x: column.x,
               y: sectionY + STAGE_HEADER_TO_CARD_OFFSET + index * SUMMARY_TEAM_STEP,
               orderLabel: `${index + 1}`,
@@ -1319,7 +1319,7 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
       x.middle,
       198,
       "拿到复活赛席位",
-      "emerald",
+      "cyan",
       q1RepechageRows,
       ""
     );
@@ -1337,7 +1337,7 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
       x.right,
       198,
       "拿到复活赛席位",
-      "emerald",
+      "cyan",
       q2RepechageRows,
       ""
     );
@@ -1400,7 +1400,7 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
       x.right,
       Math.max(518, q2National.bottom + 86),
       "拿到复活赛席位",
-      "emerald",
+      "cyan",
       q2RepechageRows,
       ""
     );
@@ -1410,7 +1410,7 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
       Math.max(514, q2.bottom + 96),
       "复活赛突围战",
       "",
-      "emerald",
+      "cyan",
       qualificationRepechage
     );
     const qualrRepechage = addOutcomeSection(
@@ -1418,7 +1418,7 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
       x.right,
       Math.max(850, q2Repechage.bottom + 86),
       "拿到复活赛席位",
-      "emerald",
+      "cyan",
       qualrRepechageRows,
       ""
     );
@@ -1477,7 +1477,7 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
       x.middle,
       198,
       "拿到复活赛席位",
-      "emerald",
+      "cyan",
       q1RepechageRows,
       ""
     );
@@ -1504,7 +1504,7 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
       x.right,
       Math.max(518, q2National.bottom + 86),
       "拿到复活赛席位",
-      "emerald",
+      "cyan",
       q2RepechageRows,
       ""
     );
@@ -1552,7 +1552,7 @@ function buildFinalRankingsStage(simulation: SimulationResponse): WorkspaceStage
   const headers: WorkspaceStageHeader[] = [
     { id: "final-podium", x: 80, y: 82, width: DETAIL_TEAM_CARD_WIDTH, title: "领奖台", subtitle: "", tone: "amber" },
     { id: "final-national", x: 520, y: 82, width: DETAIL_TEAM_CARD_WIDTH, title: "国赛名单", subtitle: "", tone: "amber" },
-    { id: "final-repechage", x: 960, y: 82, width: DETAIL_TEAM_CARD_WIDTH, title: "复活赛名单", subtitle: "", tone: "emerald" },
+    { id: "final-repechage", x: 960, y: 82, width: DETAIL_TEAM_CARD_WIDTH, title: "复活赛名单", subtitle: "", tone: "cyan" },
     { id: "final-tail", x: 1400, y: 82, width: DETAIL_TEAM_CARD_WIDTH, title: "其余名次", subtitle: "", tone: "steel" },
   ];
 
@@ -1588,7 +1588,7 @@ function buildFinalRankingsStage(simulation: SimulationResponse): WorkspaceStage
 
   pushRows(podiumRows, 80, "amber");
   pushRows(nationalRows, 520, "amber");
-  pushRows(repechageRows, 960, "emerald");
+  pushRows(repechageRows, 960, "cyan");
   pushRows(tailRows, 1400, "steel");
 
   const maxBottom = cards.reduce((max, card) => Math.max(max, card.y + card.height), 0);

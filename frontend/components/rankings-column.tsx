@@ -21,16 +21,16 @@ function signedEloDelta(value: number) {
 /* ─── 概率颜色（按类型区分） ─── */
 
 function repechageColor(value: number) {
-  if (value >= 0.5) return "text-[#FFB000] font-bold drop-shadow-[0_0_4px_rgba(255,176,0,0.5)]";
-  if (value >= 0.2) return "text-[#FFB000]/80 font-semibold";
-  if (value >= 0.05) return "text-[#FFB000]/50";
+  if (value >= 0.5) return "text-rm-blue font-bold drop-shadow-[0_0_4px_rgba(42,159,255,0.5)]";
+  if (value >= 0.2) return "text-rm-blue/80 font-semibold";
+  if (value >= 0.05) return "text-rm-blue/50";
   return "text-rm-metal-textFaint/50";
 }
 
 function nationalColor(value: number) {
-  if (value >= 0.7) return "text-[#00E878] font-bold drop-shadow-[0_0_5px_rgba(0,232,120,0.4)]";
-  if (value >= 0.4) return "text-[#00E878]/85 font-semibold";
-  if (value >= 0.1) return "text-[#00E878]/55";
+  if (value >= 0.7) return "text-rm-status-warn font-bold drop-shadow-[0_0_5px_rgba(255,176,0,0.4)]";
+  if (value >= 0.4) return "text-rm-status-warn/85 font-semibold";
+  if (value >= 0.1) return "text-rm-status-warn/55";
   return "text-rm-metal-textFaint/50";
 }
 

@@ -137,7 +137,7 @@ function EventPanel({
               {event.name}
             </h3>
             <p className="mt-2 font-mono text-[11px] text-rm-metal-textMuted">
-              {formatDateRange(event.competitionRange)} · 北京时间
+              {formatDateRange(event.competitionRange)}
             </p>
           </div>
           <span className={cn("border px-2.5 py-1 font-mono text-[9px]", tone.badge)}>{statusLabel}</span>
@@ -145,8 +145,8 @@ function EventPanel({
 
         <div className="grid grid-cols-3 gap-2 border-b border-rm-metal-border/70 py-4">
           {[
-            { label: "已确认队伍", value: `${confirmedParticipants.length} 支` },
-            { label: "正式赛局", value: `${event.matches.length} 场` },
+            { label: "参赛队伍", value: `${confirmedParticipants.length} 支` },
+            { label: "比赛场次", value: `${event.matches.length} 场` },
             thirdMetric,
           ].map((metric) => (
             <div key={metric.label} className="border border-rm-metal-border bg-black/20 px-3 py-3">
@@ -227,7 +227,7 @@ function EventPanel({
                       {participant.currentElo?.toFixed(1) ?? "待关联"}
                     </td>
                     {eventSlug === "repechage" ? (
-                      <td className="py-1.5 text-right font-semibold tabular-nums text-rm-status-safe">
+                      <td className={cn("py-1.5 text-right font-semibold tabular-nums", tone.accent)}>
                         {formatProbability(probabilities.repechage.get(participant.teamKey)?.advancementRate)}
                       </td>
                     ) : (
@@ -252,16 +252,16 @@ function EventPanel({
 
         <div className="grid grid-cols-2 gap-2 border-t border-rm-metal-border/70 pt-4">
           <Link
-            href={`/forecast-center?event=${eventSlug}&view=bracket`}
+            href={`/forecast-center?event=${eventSlug}&mode=live`}
             className={cn("flex items-center justify-center border px-3 py-2.5 font-mono text-[11px] font-bold transition-all", tone.button)}
           >
-            查看对阵图
+            实时对阵图
           </Link>
           <Link
-            href={`/forecast-center?event=${eventSlug}&view=matches`}
+            href={`/forecast-center?event=${eventSlug}&mode=sim`}
             className="flex items-center justify-center border border-rm-metal-border bg-rm-metal-panel px-3 py-2.5 font-mono text-[11px] font-bold text-rm-metal-textLight transition-all hover:border-white/35 hover:bg-white/5"
           >
-            查看全部赛局
+            模拟沙盘
           </Link>
         </div>
       </div>
@@ -329,7 +329,7 @@ export function FinalsOverviewSection() {
             <h2 id="finals-overview-heading" className="font-sans text-lg font-semibold tracking-wide text-rm-metal-textLight">
               复活赛与全国赛
             </h2>
-            <p className="mt-1 font-mono text-[10px] text-rm-metal-textFaint">官方名单 · 正式场序 · 北京时间</p>
+            <p className="mt-1 font-mono text-[10px] text-rm-metal-textFaint">参赛名单 · 赛程对阵 · 实时胜率预测</p>
           </div>
         </div>
         <span className={cn(
@@ -340,7 +340,7 @@ export function FinalsOverviewSection() {
               ? "border-rm-status-safe/25 bg-rm-status-safe/5 text-rm-status-safe"
               : "border-rm-blue/25 bg-rm-blue/5 text-rm-blue",
         )}>
-          {error ? "数据暂不可用" : events ? "官方赛程已接入" : "官方赛程同步中"}
+          {error ? "数据暂不可用" : events ? "赛程已同步" : "赛程同步中"}
         </span>
       </div>
 

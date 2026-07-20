@@ -190,11 +190,13 @@ describe("finals schedule helpers", () => {
 
     expect(repechageTotal).toBeCloseTo(4, 8);
     expect(nationalsValues.reduce((sum, probability) => sum + probability.groupAdvancementRate, 0)).toBeCloseTo(16, 8);
+    expect(nationalsValues.reduce((sum, probability) => sum + probability.topEightRate, 0)).toBeCloseTo(8, 8);
     expect(nationalsValues.reduce((sum, probability) => sum + probability.topFourRate, 0)).toBeCloseTo(4, 8);
     expect(nationalsValues.reduce((sum, probability) => sum + probability.championRate, 0)).toBeCloseTo(1, 8);
     expect(nationalsValues.every((probability) => (
       probability.championRate <= probability.topFourRate
-      && probability.topFourRate <= probability.groupAdvancementRate
+      && probability.topFourRate <= probability.topEightRate
+      && probability.topEightRate <= probability.groupAdvancementRate
     ))).toBe(true);
   });
 
@@ -221,7 +223,7 @@ describe("finals schedule helpers", () => {
 
     const canvas = buildFinalsWorkspaceStage(payload, "qualification");
     expect(canvas.cards).toHaveLength(3);
-    expect(canvas.cards.every((card) => card.kind === "schedule")).toBe(true);
+    expect(canvas.cards.every((card) => card.kind === "match")).toBe(true);
     expect(canvas.connectors.map((connector) => connector.tone)).toEqual(["steel", "emerald"]);
     expect(canvas.connectors.every((connector) => connector.kind === "merge")).toBe(true);
     // Grouped connectors no longer force "subtle" — they inherit default rendering
@@ -308,7 +310,7 @@ describe("finals schedule helpers", () => {
     ]);
 
     const canvas = buildFinalsWorkspaceStage(payload, "qualification");
-    const scheduleCards = canvas.cards.filter((card) => card.kind === "schedule");
+    const scheduleCards = canvas.cards.filter((card) => card.kind === "match");
     const flowCards = canvas.cards.filter(
       (card): card is TeamCanvasCard => card.kind === "team" && card.id.includes(":qualification-flow:"),
     );
@@ -357,7 +359,7 @@ describe("finals schedule helpers", () => {
       const header = canvas.headers.find((candidate) => candidate.id.endsWith(`:qualification-flow:${spec.id}:header`));
       const connector = canvas.connectors.find((candidate) => candidate.id.endsWith(`:qualification-flow:${spec.id}:connector`));
       const sourceCards = scheduleCards.filter((card) => (
-        spec.sourceNumbers.some((number) => number === card.match.number)
+        spec.sourceNumbers.some((number) => number === card.match.regionalMatchNumber)
       ));
 
       expect(header).toMatchObject({
@@ -411,15 +413,15 @@ describe("finals schedule helpers", () => {
       title: "生死战 · 第一轮",
       tone: "steel",
     });
-    const upperCard = scheduleCards.find((card) => card.match.number === 29);
-    const lowerCard = scheduleCards.find((card) => card.match.number === 27);
+    const upperCard = scheduleCards.find((card) => card.match.regionalMatchNumber === 29);
+    const lowerCard = scheduleCards.find((card) => card.match.regionalMatchNumber === 27);
     expect(upperCard?.y).toBeLessThan(lowerCard?.y ?? 0);
   });
 
   it("lays out nationals 16-to-8 as upper/lower paths with eight explicit seats", () => {
     const payload = officialFinalsSchedule.events.nationals as unknown as FinalEventSchedule;
     const canvas = buildFinalsWorkspaceStage(payload, "round-of-16");
-    const scheduleCards = canvas.cards.filter((card) => card.kind === "schedule");
+    const scheduleCards = canvas.cards.filter((card) => card.kind === "match");
     const seatCards = canvas.cards.filter(
       (card): card is TeamCanvasCard => card.kind === "team" && card.id.includes("-seats:"),
     );
@@ -446,8 +448,8 @@ describe("finals schedule helpers", () => {
       "两败出局",
     ]);
 
-    const upperCard = scheduleCards.find((card) => card.match.number === 79);
-    const lowerFirstCard = scheduleCards.find((card) => card.match.number === 75);
+    const upperCard = scheduleCards.find((card) => card.match.regionalMatchNumber === 79);
+    const lowerFirstCard = scheduleCards.find((card) => card.match.regionalMatchNumber === 75);
     expect(upperCard?.y).toBeLessThan(lowerFirstCard?.y ?? 0);
     expect(canvas.connectors.find((connector) => connector.id.endsWith("78:winner:83"))).toMatchObject({
       tone: "emerald",
@@ -457,7 +459,7 @@ describe("finals schedule helpers", () => {
       tone: "steel",
       weight: "normal",
     });
-    expect(upperCard?.loserFlowLabel).toBe("负 → 第 83 场");
+    expect(upperCard?.match.loserNext).toBe("败者I");
     expect(canvas.connectors.filter((connector) => connector.id.includes("-seats:"))).toHaveLength(8);
     expect(canvas.connectors.filter((connector) => connector.id.includes("-eliminated:connector"))).toHaveLength(2);
     expect(canvas.description).toContain("生死战负者出局");
@@ -466,7 +468,7 @@ describe("finals schedule helpers", () => {
   it("lays out nationals 8-to-4 as two double-elimination lanes with four explicit seats", () => {
     const payload = officialFinalsSchedule.events.nationals as unknown as FinalEventSchedule;
     const canvas = buildFinalsWorkspaceStage(payload, "quarterfinal");
-    const scheduleCards = canvas.cards.filter((card) => card.kind === "schedule");
+    const scheduleCards = canvas.cards.filter((card) => card.kind === "match");
     const seatCards = canvas.cards.filter(
       (card): card is TeamCanvasCard => card.kind === "team" && card.id.includes("-seats:"),
     );
@@ -489,8 +491,8 @@ describe("finals schedule helpers", () => {
       "两败出局",
     ]);
 
-    const upperCard = scheduleCards.find((card) => card.match.number === 87);
-    const lowerFirstCard = scheduleCards.find((card) => card.match.number === 89);
+    const upperCard = scheduleCards.find((card) => card.match.regionalMatchNumber === 87);
+    const lowerFirstCard = scheduleCards.find((card) => card.match.regionalMatchNumber === 89);
     expect(upperCard?.y).toBeLessThan(lowerFirstCard?.y ?? 0);
     expect(canvas.connectors.find((connector) => connector.id.endsWith("89:winner:91"))).toMatchObject({
       tone: "emerald",
@@ -500,7 +502,7 @@ describe("finals schedule helpers", () => {
       tone: "steel",
       weight: "normal",
     });
-    expect(upperCard?.loserFlowLabel).toBe("负 → 第 92 场");
+    expect(upperCard?.match.loserNext).toBe("败者一");
     expect(canvas.connectors.filter((connector) => connector.id.includes("-seats:"))).toHaveLength(4);
     expect(canvas.connectors.filter((connector) => connector.id.includes("-eliminated:connector"))).toHaveLength(2);
   });
@@ -527,7 +529,7 @@ describe("finals schedule helpers", () => {
 
     for (const stage of ["swiss-a", "swiss-b"] as const) {
       const canvas = buildFinalsWorkspaceStage(payload, stage);
-      const scheduleCards = canvas.cards.filter((card) => card.kind === "schedule");
+      const scheduleCards = canvas.cards.filter((card) => card.kind === "match");
       const resultCards = canvas.cards.filter(
         (card): card is TeamCanvasCard => card.kind === "team" && card.id.includes(":swiss-result:"),
       );
@@ -549,9 +551,9 @@ describe("finals schedule helpers", () => {
   it("places the championship above the third-place match and renders all four final ranks in gold", () => {
     const payload = officialFinalsSchedule.events.nationals as unknown as FinalEventSchedule;
     const canvas = buildFinalsWorkspaceStage(payload, "final-four");
-    const scheduleCards = canvas.cards.filter((card) => card.kind === "schedule");
-    const finalCard = scheduleCards.find((card) => card.match.number === 96);
-    const thirdPlaceCard = scheduleCards.find((card) => card.match.number === 95);
+    const scheduleCards = canvas.cards.filter((card) => card.kind === "match");
+    const finalCard = scheduleCards.find((card) => card.match.regionalMatchNumber === 96);
+    const thirdPlaceCard = scheduleCards.find((card) => card.match.regionalMatchNumber === 95);
     const rankingCards = canvas.cards.filter(
       (card): card is TeamCanvasCard => card.kind === "team" && card.id.includes(":outcome:"),
     );
@@ -640,6 +642,8 @@ describe("finals schedule helpers", () => {
       "A-3",
       "A-4",
     ]);
+    expect(flowCards.filter((card) => card.id.includes(":qualified:")).every((card) => card.tone === "amber")).toBe(true);
+    expect(flowCards.filter((card) => card.id.includes(":after-round3-eliminated:")).every((card) => card.tone === "steel")).toBe(true);
     expect(canvas.headers.find((header) => header.id.includes(":before-round3-header"))).toMatchObject({
       title: "前两轮后淘汰",
       subtitle: "2 队 · 0-2 组",
@@ -665,7 +669,7 @@ describe("finals schedule helpers", () => {
       const bottom = Math.max(header.y + 48, ...groupCards.map((card) => card.y + card.height));
       return (top + bottom) / 2;
     };
-    const round3Cards = canvas.cards.filter((card) => card.kind === "schedule" && card.match.stage.includes("第三轮"));
+    const round3Cards = canvas.cards.filter((card) => card.kind === "match" && card.match.stage.includes("第三轮"));
     const qualificationCards = flowCards.filter((card) => card.id.includes(":qualified:"));
     const eliminatedCards = flowCards.filter((card) => card.id.includes(":after-round3-eliminated:"));
     const beforeRound3Cards = flowCards.filter((card) => card.id.includes(":before-round3-eliminated:"));
@@ -713,7 +717,7 @@ describe("finals schedule helpers", () => {
     ));
 
     const canvas = buildFinalsWorkspaceStage(event(matches), "swiss-a");
-    const scheduleCards = canvas.cards.filter((card) => card.kind === "schedule");
+    const scheduleCards = canvas.cards.filter((card) => card.kind === "match");
     const columns = new Map<number, typeof scheduleCards>();
     for (const card of scheduleCards) {
       const rows = columns.get(card.x) ?? [];

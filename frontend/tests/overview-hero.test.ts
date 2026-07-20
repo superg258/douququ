@@ -9,14 +9,14 @@ describe("OverviewHero", () => {
     const html = renderToStaticMarkup(
       createElement(OverviewHero, {
         serviceGeneratedLabel: "官方赛程已接入",
-        nextMatchHref: "/forecast-center?event=repechage&view=matches",
+        nextMatchHref: "/forecast-center?event=repechage&mode=live",
         ctaLabel: "查看复活赛赛程",
       })
     );
 
     expect(html).toContain("系统运行正常");
     expect(html).toContain("服务响应 官方赛程已接入");
-    expect(html).toContain("聚焦复活赛 · 全国赛");
+    expect(html).toContain("复活赛 · 全国赛 赛程与预测");
     expect(html).not.toContain("模型产物");
   });
 });

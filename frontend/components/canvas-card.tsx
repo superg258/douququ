@@ -13,6 +13,8 @@ function toneClass(tone: CanvasCard["tone"]) {
     case "amber":
     case "emerald":
       return "border-rm-result-winner bg-black/80";
+    case "cyan":
+      return "border-rm-blue bg-black/80";
     case "steel":
       return "border-white/10 bg-black/80 opacity-40 grayscale";
     default:
@@ -835,7 +837,7 @@ function MatchCanvasCardComponent({
           })}
           variant="model"
           available={!isOfficialPlaceholder}
-          title={isOfficialPlaceholder ? "官方排期已接入，真实对阵尚未确认" : `战力预测胜率：红 ${formatRate(row.pSeriesRed)}，蓝 ${formatRate(row.pSeriesBlue)}`}
+          title={isOfficialPlaceholder ? "该场次已排期，对阵待确认" : `战力预测胜率：红 ${formatRate(row.pSeriesRed)}，蓝 ${formatRate(row.pSeriesBlue)}`}
         />
         <SignalMicroRow
           label="王牌"
@@ -871,6 +873,47 @@ function ScheduleCanvasCardComponent({
   const loserRoute = card.loserFlowLabel
     ?? (card.flowLabel ? "" : isSwiss ? "" : card.match.loserTo ? `负 → ${card.match.loserTo}` : "");
 
+  const simulation = card.simulation && card.simulation.winnerSide && card.simulation.red && card.simulation.blue
+    ? card.simulation
+    : null;
+
+  const renderSimRow = (side: "red" | "blue") => {
+    if (!simulation) return null;
+    const team = side === "red" ? simulation.red! : simulation.blue!;
+    const slot = side === "red" ? card.match.redSlot : card.match.blueSlot;
+    const score = side === "red" ? simulation.redScore : simulation.blueScore;
+    const isWinner = simulation.winnerSide === side;
+    const isRed = side === "red";
+    return (
+      <div className={cn(
+        "grid grid-cols-[6px_minmax(0,1fr)_64px] items-center",
+        isRed && "border-b border-white/[0.06]",
+        isWinner
+          ? isRed
+            ? "bg-[linear-gradient(90deg,rgba(232,48,42,0.22),transparent_70%)]"
+            : "bg-[linear-gradient(90deg,rgba(42,159,255,0.22),transparent_70%)]"
+          : "bg-black/40",
+      )}>
+        <span className={cn("h-full", isRed ? "bg-rm-red" : "bg-rm-blue", isWinner ? "" : "opacity-30")} />
+        <span className="min-w-0 px-3 py-1">
+          <span
+            className={cn("block truncate font-mono text-[13px] font-bold", isWinner ? "text-white" : "text-white/40")}
+            title={`${team.collegeName} · ${team.teamName}`}
+          >
+            {team.collegeName}
+          </span>
+          <span className="block truncate font-mono text-[8px] text-rm-metal-textFaint">{slot} · {team.teamName}</span>
+        </span>
+        <span className={cn(
+          "border-l border-white/[0.06] px-2 text-center font-machine text-lg font-bold tabular-nums",
+          isWinner ? "text-rm-result-winner" : "text-white/30",
+        )}>
+          {score}
+        </span>
+      </div>
+    );
+  };
+
   return (
     <button
       type="button"
@@ -891,9 +934,15 @@ function ScheduleCanvasCardComponent({
     >
       <div className="flex h-8 shrink-0 items-center justify-between border-b border-white/[0.07] bg-white/[0.025] px-3">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="border border-rm-status-scheduled/45 bg-rm-status-scheduled/10 px-1.5 py-0.5 font-mono text-[9px] font-bold text-rm-status-scheduled">
-            官方排期
-          </span>
+          {simulation ? (
+            <span className="border border-rm-blue/50 bg-rm-blue/10 px-1.5 py-0.5 font-mono text-[9px] font-bold text-rm-blue">
+              模拟战果
+            </span>
+          ) : (
+            <span className="border border-rm-status-scheduled/45 bg-rm-status-scheduled/10 px-1.5 py-0.5 font-mono text-[9px] font-bold text-rm-status-scheduled">
+              已排期
+            </span>
+          )}
           <span className="truncate font-machine text-[11px] font-bold tracking-widest text-white">{card.displayLabel}</span>
         </div>
         <span className="shrink-0 border border-rm-status-scheduled/25 bg-rm-status-scheduled/8 px-1.5 py-0.5 font-mono text-[9px] text-rm-status-scheduled tabular-nums">
@@ -901,18 +950,25 @@ function ScheduleCanvasCardComponent({
         </span>
       </div>
 
-      <div className="grid flex-1 grid-rows-2">
-        <div className="grid grid-cols-[6px_minmax(0,1fr)_64px] items-center border-b border-white/[0.06] bg-[linear-gradient(90deg,rgba(232,48,42,0.10),transparent_70%)]">
-          <span className="h-full bg-rm-red/65" />
-          <span className="truncate px-3 font-mono text-[13px] font-bold text-white/90" title={card.match.redSlot}>{card.match.redSlot}</span>
-          <span className="border-l border-white/[0.06] px-2 text-center font-mono text-[9px] text-rm-metal-textFaint">红方槽位</span>
+      {simulation ? (
+        <div className="grid flex-1 grid-rows-2">
+          {renderSimRow("red")}
+          {renderSimRow("blue")}
         </div>
-        <div className="grid grid-cols-[6px_minmax(0,1fr)_64px] items-center bg-[linear-gradient(90deg,rgba(42,159,255,0.10),transparent_70%)]">
-          <span className="h-full bg-rm-blue/65" />
-          <span className="truncate px-3 font-mono text-[13px] font-bold text-white/90" title={card.match.blueSlot}>{card.match.blueSlot}</span>
-          <span className="border-l border-white/[0.06] px-2 text-center font-mono text-[9px] text-rm-metal-textFaint">蓝方槽位</span>
+      ) : (
+        <div className="grid flex-1 grid-rows-2">
+          <div className="grid grid-cols-[6px_minmax(0,1fr)_64px] items-center border-b border-white/[0.06] bg-[linear-gradient(90deg,rgba(232,48,42,0.10),transparent_70%)]">
+            <span className="h-full bg-rm-red/65" />
+            <span className="truncate px-3 font-mono text-[13px] font-bold text-white/90" title={card.match.redSlot}>{card.match.redSlot}</span>
+            <span className="border-l border-white/[0.06] px-2 text-center font-mono text-[9px] text-rm-metal-textFaint">红方</span>
+          </div>
+          <div className="grid grid-cols-[6px_minmax(0,1fr)_64px] items-center bg-[linear-gradient(90deg,rgba(42,159,255,0.10),transparent_70%)]">
+            <span className="h-full bg-rm-blue/65" />
+            <span className="truncate px-3 font-mono text-[13px] font-bold text-white/90" title={card.match.blueSlot}>{card.match.blueSlot}</span>
+            <span className="border-l border-white/[0.06] px-2 text-center font-mono text-[9px] text-rm-metal-textFaint">蓝方</span>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="flex h-8 shrink-0 items-center justify-end gap-3 border-t border-white/[0.07] bg-black/70 px-3 font-mono text-[9px]">
         <span

@@ -5,9 +5,9 @@ export function OverviewFooter() {
       {/* Gradient separator */}
       <div className="h-px bg-gradient-to-r from-transparent via-rm-metal-border to-transparent" />
       <div className="text-center font-mono text-[9px] text-rm-metal-textFaint/50 pt-5 pb-12 tracking-widest">
-        RoboMaster 2026 机甲大师区域赛战术测算系统
+        RoboMaster 2026 机甲大师赛况追踪
         <br />
-        <span className="text-rm-metal-textFaint/30">基于 Elo 历史战绩评估与蒙特卡洛赛程模拟</span>
+        <span className="text-rm-metal-textFaint/30">Elo 战力评估 · 赛程推演模拟</span>
       </div>
     </footer>
   );

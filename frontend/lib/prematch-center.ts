@@ -121,7 +121,7 @@ export function shouldUseAnimatedPrematchEmptyShell({
 export function getNoScheduledStateCopy(pendingMatchCount: number, officialPlaceholderCount = 0) {
   if (pendingMatchCount === 0) {
     return {
-      title: "官方赛程尚未开始同步",
+      title: "赛程数据尚未同步",
       description:
         "当前还没有接入已排期或已开赛的官方赛程。待官方同步排期后，这里会展示下一场、焦点战和实时预测入口。",
     };
@@ -129,14 +129,14 @@ export function getNoScheduledStateCopy(pendingMatchCount: number, officialPlace
 
   if (officialPlaceholderCount > 0) {
     return {
-      title: "官方排期已同步，对阵待确认",
-      description: `当前 ${officialPlaceholderCount} 场官方排期仍为占位状态，真实对阵确认后会进入实时预测列表。`,
+      title: "赛程已同步，对阵待确认",
+      description: `当前 ${officialPlaceholderCount} 场已排期场次等待对阵落位，确认后将进入实时预测列表。`,
     };
   }
 
   return {
-    title: "暂无可行动官方对阵",
-    description: `当前 ${pendingMatchCount} 场未赛均为模拟推演。待官方确认对阵后，已排期场次将在此展示。`,
+    title: "暂无对阵信息",
+    description: `当前 ${pendingMatchCount} 场未赛均为模拟推演。对阵确认后将在此展示已排期场次。`,
   };
 }
 

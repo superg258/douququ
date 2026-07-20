@@ -468,7 +468,34 @@ export interface TeamCanvasCard extends CanvasCardBase {
   statLine?: string;
   meta?: string[];
   isSimulated?: boolean;
+  simulationKey?: TeamCardSimulationKey;
 }
+
+export interface SimulatedFinalTeam {
+  teamKey: string;
+  collegeName: string;
+  teamName: string;
+}
+
+export interface SimulatedFinalMatch {
+  matchNumber: number;
+  red: SimulatedFinalTeam | null;
+  blue: SimulatedFinalTeam | null;
+  redScore: number;
+  blueScore: number;
+  winnerSide: "red" | "blue" | null;
+  /** 沙盘抽样所用的双方 Elo（无 Elo 数据时为 null），供卡片/情报面板合成胜率 */
+  redElo?: number | null;
+  blueElo?: number | null;
+}
+
+/** 队伍类画布卡片与沙盘模拟结果的关联方式（有模拟数据时据此落位真实队伍） */
+export type TeamCardSimulationKey =
+  | { kind: "slot"; slot: string }
+  | { kind: "matchOutcome"; matchNumber: number; outcome: "winner" | "loser" }
+  | { kind: "destination"; destination: string }
+  | { kind: "swissFlow"; phase: "beforeRound3" | "afterRound3"; index: number }
+  | { kind: "recordBucket"; bucket: string; index: number };
 
 export interface ScheduleCanvasCard extends CanvasCardBase {
   kind: "schedule";
@@ -478,6 +505,7 @@ export interface ScheduleCanvasCard extends CanvasCardBase {
   flowLabel?: string;
   loserFlowLabel?: string;
   flowTitle?: string;
+  simulation?: SimulatedFinalMatch;
 }
 
 export type CanvasCard = MatchCanvasCard | TeamCanvasCard | ScheduleCanvasCard;

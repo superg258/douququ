@@ -163,7 +163,7 @@ describe("RegionCard", () => {
     const markup = renderToStaticMarkup(createElement(RegionCard, { region, entryHref: null }));
 
     expect(markup).toContain("官方排期");
-    expect(markup).toContain("官方排期已接入，对阵和赛果待同步。");
+    expect(markup).toContain("赛程已排期，等待对阵公布与赛果同步。");
     expect(markup).not.toContain("官方赛果已接入，Elo 战力预测与观众投票并列展示。");
   });
 });

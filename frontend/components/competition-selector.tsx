@@ -12,7 +12,7 @@ export const REGION_COMPETITIONS: Array<{ id: RegionSlug; label: string }> = [
 
 export const FINAL_COMPETITIONS: Array<{ id: FinalEventSlug; label: string }> = [
   { id: "repechage", label: "复活赛" },
-  { id: "nationals", label: "全国赛" },
+  { id: "nationals", label: "全国总决赛" },
 ];
 
 export function isRegionCompetition(id: CompetitionId): id is RegionSlug {
@@ -33,12 +33,8 @@ export function CompetitionSelector({
       aria-label="赛事"
       className="shrink-0 border border-white/10 bg-rm-metal-dark/80 px-2.5 py-1.5 text-xs text-white focus:border-rm-blue focus:outline-none"
     >
-      <optgroup label="区域赛">
-        {REGION_COMPETITIONS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-      </optgroup>
-      <optgroup label="后续赛事">
-        {FINAL_COMPETITIONS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-      </optgroup>
+      {REGION_COMPETITIONS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+      {FINAL_COMPETITIONS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
     </select>
   );
 }

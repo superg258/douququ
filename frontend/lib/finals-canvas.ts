@@ -9,17 +9,21 @@ import {
 } from "@/lib/canvas-builders";
 import {
   buildRepechageSwissFlow,
-  getRepechageSwissMatchHint,
   matchesForFinalStage,
 } from "@/lib/finals-schedule";
+import { buildFinalsMatchCard } from "@/lib/finals-match-adapter";
+import type { FinalsEventSimulation } from "@/lib/finals-simulation";
+import { swissFlowPlaceholderTeams, swissRecordBucketTeams } from "@/lib/finals-simulation";
 import type {
   CanvasCard,
   CanvasConnector,
   FinalEventMatch,
   FinalEventSchedule,
   FinalEventStageFilter,
-  ScheduleCanvasCard,
+  MatchCanvasCard,
+  SimulatedFinalTeam,
   TeamCanvasCard,
+  TeamCardSimulationKey,
   WorkspaceStage,
   WorkspaceStageHeader,
 } from "@/lib/types";
@@ -106,31 +110,19 @@ function buildColumnAssignments(matches: FinalEventMatch[], stage: FinalEventSta
   };
 }
 
-function cardForMatch(event: FinalEventSchedule, match: FinalEventMatch, x: number, y: number): ScheduleCanvasCard {
-  const flowHint = event.slug === "repechage" ? getRepechageSwissMatchHint(match) : null;
-  return {
-    id: `${event.slug}:${match.number}`,
-    kind: "schedule",
-    eventSlug: event.slug,
-    match,
-    displayLabel: `第 ${match.number} 场`,
-    x,
-    y,
-    width: CARD_WIDTH,
-    height: CARD_HEIGHT,
-    flowLabel: flowHint?.routeLabel,
-    flowTitle: flowHint?.title,
-    tone: match.stageKey === "final" || match.stageKey === "third_place"
-      ? "amber"
-      : match.stageKey === "swiss"
-        ? "cyan"
-        : "emerald",
-  };
+function cardForMatch(
+  event: FinalEventSchedule,
+  match: FinalEventMatch,
+  x: number,
+  y: number,
+  simulation?: FinalsEventSimulation | null,
+): MatchCanvasCard {
+  return buildFinalsMatchCard(event, match, x, y, simulation?.matchResults.get(match.number) ?? null);
 }
 
 function buildOutcomeAwareEliminationConnectors(
   matches: FinalEventMatch[],
-  cardByMatch: Map<number, ScheduleCanvasCard>,
+  cardByMatch: Map<number, MatchCanvasCard>,
 ) {
   const connectors: CanvasConnector[] = [];
 
@@ -147,14 +139,14 @@ function buildOutcomeAwareEliminationConnectors(
       const sources = relations
         .filter((relation) => relation.outcome === outcome)
         .map((relation) => cardByMatch.get(relation.parent.number))
-        .filter((card): card is ScheduleCanvasCard => Boolean(card));
+        .filter((card): card is MatchCanvasCard => Boolean(card));
       if (!sources.length) continue;
 
       const tone: CanvasConnector["tone"] = outcome === "winner" ? "emerald" : "steel";
       const connector = connectCardGroupToCard(
         sources,
         target,
-        `${sources.map((source) => source.match.number).join("+")}:${outcome}:${match.number}`,
+        `${sources.map((source) => source.match.regionalMatchNumber).join("+")}:${outcome}:${match.number}`,
         tone,
       );
       if (!connector) continue;
@@ -180,29 +172,17 @@ function destinationOrderLabel(destination: string, fallback: number) {
   return normalized && normalized !== destination ? normalized : `${fallback}`;
 }
 
-// Resolve a winnerTo/loserTo destination into the regional canvas route
-// language: the number of the on-canvas match it feeds, or the semantic
-// terminal （席位 / 淘汰） when the route leaves this stage.
-function routeDestinationLabel(destination: string, matches: FinalEventMatch[]) {
-  const target = matches.find(
-    (match) => match.redSlot === destination || match.blueSlot === destination,
-  );
-  if (target) return `第 ${target.number} 场`;
-  if (destination.includes("八强")) return "八强席位";
-  if (destination.includes("四强")) return "四强席位";
-  return destination;
-}
-
 function buildRepechageQualificationStage(
   event: FinalEventSchedule,
   matches: FinalEventMatch[],
   stage: FinalEventStageFilter,
+  simulation?: FinalsEventSimulation | null,
 ): WorkspaceStage {
   const orderedMatches = [...matches].sort((left, right) => left.number - right.number);
   const headers: WorkspaceStageHeader[] = [];
   const cards: CanvasCard[] = [];
   const connectors: CanvasConnector[] = [];
-  const cardByMatch = new Map<number, ScheduleCanvasCard>();
+  const cardByMatch = new Map<number, MatchCanvasCard>();
   const columnStep = CARD_WIDTH + COLUMN_GAP;
   const matchStep = CARD_HEIGHT + ROW_GAP;
   const topHeaderY = Math.max(32, START_Y - HEADER_HEIGHT - HEADER_TO_CARD_GAP);
@@ -248,7 +228,7 @@ function buildRepechageQualificationStage(
     tone: CanvasConnector["tone"],
   ) => {
     const rows = sortByNumber(sectionMatches);
-    if (!rows.length) return { bottom: y, cards: [] as ScheduleCanvasCard[] };
+    if (!rows.length) return { bottom: y, cards: [] as MatchCanvasCard[] };
     addHeader(
       `${event.slug}:${stage}:qualification:${id}:header`,
       x,
@@ -263,6 +243,7 @@ function buildRepechageQualificationStage(
         match,
         x,
         y + HEADER_HEIGHT + HEADER_TO_CARD_GAP + index * matchStep,
+        simulation,
       );
       cards.push(card);
       cardByMatch.set(match.number, card);
@@ -304,7 +285,7 @@ function buildRepechageQualificationStage(
           : match.loserTo === destination
       ))
       .map((match) => cardByMatch.get(match.number))
-      .filter((card): card is ScheduleCanvasCard => Boolean(card));
+      .filter((card): card is MatchCanvasCard => Boolean(card));
     if (!sourceCards.length) return { bottom: y, cards: [] as TeamCanvasCard[] };
 
     addHeader(
@@ -331,8 +312,9 @@ function buildRepechageQualificationStage(
         orderLabel: `${index + 1}`,
         subtitle: title,
         statLine,
-        meta: [`第 ${sourceCard.match.number} 场赛果确认后显示学校队伍`],
+        meta: [`第 ${sourceCard.match.regionalMatchNumber} 场赛果确认后显示学校队伍`],
         isSimulated: true,
+        simulationKey: { kind: "matchOutcome", matchNumber: sourceCard.match.regionalMatchNumber!, outcome: sourceOutcome },
       };
       cards.push(card);
       return card;
@@ -478,6 +460,7 @@ function buildNationalsSwissStage(
   event: FinalEventSchedule,
   matches: FinalEventMatch[],
   stage: "swiss-a" | "swiss-b",
+  simulation?: FinalsEventSimulation | null,
 ): WorkspaceStage {
   const orderedMatches = [...matches].sort((left, right) => left.number - right.number);
   const matchesByBucket = new Map<string, FinalEventMatch[]>();
@@ -535,6 +518,7 @@ function buildNationalsSwissStage(
             match,
             column.x,
             sectionY + FLOW_HEADER_TO_CARD_OFFSET + index * (CARD_HEIGHT + ROW_GAP),
+            simulation,
           ));
         });
         nextSectionBottom =
@@ -568,6 +552,7 @@ function buildNationalsSwissStage(
           statLine: `${record} 战绩 · ${qualified ? "晋级" : "淘汰"}`,
           meta: ["赛果确认后显示学校队伍"],
           isSimulated: true,
+          simulationKey: { kind: "recordBucket", bucket: section.summaryId, index },
         };
         cards.push(destinationCard);
       });
@@ -615,12 +600,13 @@ function buildNationalsDoubleEliminationStage(
   event: FinalEventSchedule,
   matches: FinalEventMatch[],
   stage: "round-of-16" | "quarterfinal",
+  simulation?: FinalsEventSimulation | null,
 ): WorkspaceStage {
   const orderedMatches = [...matches].sort((left, right) => left.number - right.number);
   const headers: WorkspaceStageHeader[] = [];
   const cards: CanvasCard[] = [];
   const connectors: CanvasConnector[] = [];
-  const cardByMatch = new Map<number, ScheduleCanvasCard>();
+  const cardByMatch = new Map<number, MatchCanvasCard>();
   const columnStep = CARD_WIDTH + COLUMN_GAP;
   const matchStep = CARD_HEIGHT + ROW_GAP;
   const topHeaderY = Math.max(32, START_Y - HEADER_HEIGHT - HEADER_TO_CARD_GAP);
@@ -668,7 +654,7 @@ function buildNationalsDoubleEliminationStage(
     sectionMatches: FinalEventMatch[];
   }) => {
     const rows = sortByNumber(sectionMatches);
-    if (!rows.length) return { bottom: y, cards: [] as ScheduleCanvasCard[] };
+    if (!rows.length) return { bottom: y, cards: [] as MatchCanvasCard[] };
     addHeader(`${event.slug}:${stage}:${id}:header`, x, y, title, subtitle, tone);
     const sectionCards = rows.map((match, index) => {
       const card = cardForMatch(
@@ -676,6 +662,7 @@ function buildNationalsDoubleEliminationStage(
         match,
         x,
         y + HEADER_HEIGHT + HEADER_TO_CARD_GAP + index * matchStep,
+        simulation,
       );
       cards.push(card);
       cardByMatch.set(match.number, card);
@@ -706,7 +693,7 @@ function buildNationalsDoubleEliminationStage(
   }) => {
     const sources = sortByNumber(sourceMatches)
       .map((match) => ({ match, card: cardByMatch.get(match.number) }))
-      .filter((entry): entry is { match: FinalEventMatch; card: ScheduleCanvasCard } => Boolean(entry.card));
+      .filter((entry): entry is { match: FinalEventMatch; card: MatchCanvasCard } => Boolean(entry.card));
     if (!sources.length) return { bottom: y, cards: [] as TeamCanvasCard[] };
 
     addHeader(`${event.slug}:${stage}:${id}:header`, x, y, title, subtitle, "amber");
@@ -729,6 +716,7 @@ function buildNationalsDoubleEliminationStage(
         statLine: `第 ${match.number} 场胜者`,
         meta: ["赛果确认后显示学校队伍"],
         isSimulated: true,
+        simulationKey: { kind: "matchOutcome", matchNumber: match.number, outcome: "winner" },
       };
       cards.push(seatCard);
 
@@ -765,7 +753,7 @@ function buildNationalsDoubleEliminationStage(
     const sources = sortByNumber(sourceMatches)
       .filter((match) => match.loserTo === "淘汰")
       .map((match) => ({ match, card: cardByMatch.get(match.number) }))
-      .filter((entry): entry is { match: FinalEventMatch; card: ScheduleCanvasCard } => Boolean(entry.card));
+      .filter((entry): entry is { match: FinalEventMatch; card: MatchCanvasCard } => Boolean(entry.card));
     if (!sources.length) return { bottom: y, cards: [] as TeamCanvasCard[] };
 
     addHeader(
@@ -794,6 +782,7 @@ function buildNationalsDoubleEliminationStage(
         statLine: `第 ${match.number} 场负者`,
         meta: ["赛果确认后显示学校队伍"],
         isSimulated: true,
+        simulationKey: { kind: "matchOutcome", matchNumber: match.number, outcome: "loser" },
       };
       cards.push(eliminatedCard);
       return eliminatedCard;
@@ -820,7 +809,7 @@ function buildNationalsDoubleEliminationStage(
       y: topHeaderY,
       title: "首轮对阵 · 16 强",
       subtitle: "第 67–74 场",
-      tone: "cyan",
+      tone: "amber",
       sectionMatches: openingMatches,
     });
     const upper = addMatchSection({
@@ -951,16 +940,6 @@ function buildNationalsDoubleEliminationStage(
     });
   }
 
-  // Give every schedule card the same route-label language as the regional
-  // canvas: always "胜 → / 负 →" plus the destination match number or the
-  // terminal seat, instead of mixing slot names, arrows and match numbers.
-  for (const match of orderedMatches) {
-    const card = cardByMatch.get(match.number);
-    if (!card) continue;
-    if (match.winnerTo) card.flowLabel = `胜 → ${routeDestinationLabel(match.winnerTo, orderedMatches)}`;
-    if (match.loserTo) card.loserFlowLabel = `负 → ${routeDestinationLabel(match.loserTo, orderedMatches)}`;
-  }
-
   connectors.unshift(...buildOutcomeAwareEliminationConnectors(orderedMatches, cardByMatch));
   const contentBottom = cards.reduce(
     (bottom, card) => Math.max(bottom, card.y + card.height),
@@ -983,16 +962,20 @@ function buildNationalsDoubleEliminationStage(
   };
 }
 
-export function buildFinalsWorkspaceStage(event: FinalEventSchedule, stage: FinalEventStageFilter): WorkspaceStage {
+function buildFinalsWorkspaceStageBase(
+  event: FinalEventSchedule,
+  stage: FinalEventStageFilter,
+  simulation?: FinalsEventSimulation | null,
+): WorkspaceStage {
   const matches = matchesForFinalStage(event, stage);
   if (event.slug === "repechage" && stage === "qualification") {
-    return buildRepechageQualificationStage(event, matches, stage);
+    return buildRepechageQualificationStage(event, matches, stage, simulation);
   }
   if (event.slug === "nationals" && (stage === "swiss-a" || stage === "swiss-b")) {
-    return buildNationalsSwissStage(event, matches, stage);
+    return buildNationalsSwissStage(event, matches, stage, simulation);
   }
   if (event.slug === "nationals" && (stage === "round-of-16" || stage === "quarterfinal")) {
-    return buildNationalsDoubleEliminationStage(event, matches, stage);
+    return buildNationalsDoubleEliminationStage(event, matches, stage, simulation);
   }
   const isSwissStage = stage === "swiss-a" || stage === "swiss-b";
   const repechageSwissFlow = buildRepechageSwissFlow(event, stage);
@@ -1027,7 +1010,7 @@ export function buildFinalsWorkspaceStage(event: FinalEventSchedule, stage: Fina
     );
   }
 
-  const cardByMatch = new Map<number, ScheduleCanvasCard>();
+  const cardByMatch = new Map<number, MatchCanvasCard>();
   const cards: CanvasCard[] = [];
   for (const [column, rows] of [...matchesByColumn.entries()].sort(([left], [right]) => left - right)) {
     const columnTop = columnTopByColumn.get(column) ?? START_Y;
@@ -1037,6 +1020,7 @@ export function buildFinalsWorkspaceStage(event: FinalEventSchedule, stage: Fina
         match,
         START_X + column * (CARD_WIDTH + COLUMN_GAP),
         columnTop + row * (CARD_HEIGHT + ROW_GAP),
+        simulation,
       );
       cards.push(card);
       cardByMatch.set(match.number, card);
@@ -1048,10 +1032,10 @@ export function buildFinalsWorkspaceStage(event: FinalEventSchedule, stage: Fina
     for (let column = 0; column < labels.length - 1; column += 1) {
       const sourceCards = (matchesByColumn.get(column) ?? [])
         .map((match) => cardByMatch.get(match.number))
-        .filter((card): card is ScheduleCanvasCard => Boolean(card));
+        .filter((card): card is MatchCanvasCard => Boolean(card));
       const targetCards = (matchesByColumn.get(column + 1) ?? [])
         .map((match) => cardByMatch.get(match.number))
-        .filter((card): card is ScheduleCanvasCard => Boolean(card));
+        .filter((card): card is MatchCanvasCard => Boolean(card));
       if (!sourceCards.length || !targetCards.length) continue;
 
       const poolConnector = connectCardGroupToCards(
@@ -1070,7 +1054,7 @@ export function buildFinalsWorkspaceStage(event: FinalEventSchedule, stage: Fina
     // the visual style of region workspace playoff brackets.
     const incomingByTarget = new Map<
       number,
-      Array<{ sourceCard: ScheduleCanvasCard; outcome: "winner" | "loser" }>
+      Array<{ sourceCard: MatchCanvasCard; outcome: "winner" | "loser" }>
     >();
 
     for (const match of matches) {
@@ -1103,7 +1087,7 @@ export function buildFinalsWorkspaceStage(event: FinalEventSchedule, stage: Fina
           ? "steel"
           : "cyan";
       const parentNumbers = sources
-        .map((entry) => entry.sourceCard.match.number)
+        .map((entry) => entry.sourceCard.match.regionalMatchNumber)
         .join("+");
 
       const connector = connectCardGroupToCard(
@@ -1152,7 +1136,7 @@ export function buildFinalsWorkspaceStage(event: FinalEventSchedule, stage: Fina
 
   type TerminalGroup = {
     destination: string;
-    sourceCards: ScheduleCanvasCard[];
+    sourceCards: MatchCanvasCard[];
     kind: "winner" | "loser";
   };
   const terminalGroups = new Map<string, TerminalGroup>();
@@ -1244,11 +1228,12 @@ export function buildFinalsWorkspaceStage(event: FinalEventSchedule, stage: Fina
         orderLabel: isFinalRanking ? `${finalRank}` : `${count}`,
         subtitle: isFinalRanking ? `最终第 ${finalRank} 名` : `${count} 支队伍`,
         statLine: isFinalRanking
-          ? `第 ${group.sourceCards[0]?.match.number ?? "-"} 场${group.kind === "winner" ? "胜者" : "负者"}`
+          ? `第 ${group.sourceCards[0]?.match.regionalMatchNumber ?? "-"} 场${group.kind === "winner" ? "胜者" : "负者"}`
           : isAdvancement
             ? `胜者晋级 · ${group.destination}`
             : `败者淘汰 · ${group.destination}`,
         isSimulated: false,
+        simulationKey: { kind: "destination", destination: group.destination },
       };
       cards.push(outcomeCard);
       destinationCards.push(outcomeCard);
@@ -1274,10 +1259,10 @@ export function buildFinalsWorkspaceStage(event: FinalEventSchedule, stage: Fina
     const round3Column = labels.length - 1;
     const round3Sources = (matchesByColumn.get(round3Column) ?? [])
       .map((match) => cardByMatch.get(match.number))
-      .filter((card): card is ScheduleCanvasCard => Boolean(card));
+      .filter((card): card is MatchCanvasCard => Boolean(card));
     const round2Sources = (matchesByColumn.get(Math.max(0, round3Column - 1)) ?? [])
       .map((match) => cardByMatch.get(match.number))
-      .filter((card): card is ScheduleCanvasCard => Boolean(card));
+      .filter((card): card is MatchCanvasCard => Boolean(card));
     const round3Bottom = round3Sources.reduce(
       (bottom, card) => Math.max(bottom, card.y + card.height),
       START_Y,
@@ -1343,35 +1328,44 @@ export function buildFinalsWorkspaceStage(event: FinalEventSchedule, stage: Fina
 
     const preRound3EliminationCards = Array.from(
       { length: repechageSwissFlow.eliminatedBeforeRound3 },
-      (_, index) => makePlaceholderCard({
-        id: `${event.slug}:${stage}:swiss-flow:before-round3-eliminated:${index + 1}`,
-        x: START_X + round3Column * (CARD_WIDTH + COLUMN_GAP),
-        y: preRound3CardY + index * FLOW_TEAM_STEP,
-        orderLabel: `${index + 1}`,
-        subtitle: "第二轮后淘汰",
-        statLine: "0-2 组",
-        tone: "steel",
+      (_, index) => ({
+        ...makePlaceholderCard({
+          id: `${event.slug}:${stage}:swiss-flow:before-round3-eliminated:${index + 1}`,
+          x: START_X + round3Column * (CARD_WIDTH + COLUMN_GAP),
+          y: preRound3CardY + index * FLOW_TEAM_STEP,
+          orderLabel: `${index + 1}`,
+          subtitle: "第二轮后淘汰",
+          statLine: "0-2 组",
+          tone: "steel",
+        }),
+        simulationKey: { kind: "swissFlow", phase: "beforeRound3", index } as TeamCardSimulationKey,
       }),
     );
-    const qualificationCards = repechageSwissFlow.qualificationSlots.map((slot, index) => makePlaceholderCard({
-      id: `${event.slug}:${stage}:swiss-flow:qualified:${slot}`,
-      x: qualificationX,
-      y: qualificationHeaderY + FLOW_HEADER_TO_CARD_OFFSET + index * FLOW_TEAM_STEP,
-      orderLabel: slot,
-      subtitle: `${slot} 名额战`,
-      statLine: "第三轮晋级",
-      tone: "amber",
+    const qualificationCards = repechageSwissFlow.qualificationSlots.map((slot, index) => ({
+      ...makePlaceholderCard({
+        id: `${event.slug}:${stage}:swiss-flow:qualified:${slot}`,
+        x: qualificationX,
+        y: qualificationHeaderY + FLOW_HEADER_TO_CARD_OFFSET + index * FLOW_TEAM_STEP,
+        orderLabel: slot,
+        subtitle: `${slot} 名额战`,
+        statLine: "第三轮晋级",
+        tone: "amber",
+      }),
+      simulationKey: { kind: "slot", slot } as TeamCardSimulationKey,
     }));
     const postRound3EliminationCards = Array.from(
       { length: repechageSwissFlow.eliminatedAfterRound3 },
-      (_, index) => makePlaceholderCard({
-        id: `${event.slug}:${stage}:swiss-flow:after-round3-eliminated:${index + 1}`,
-        x: qualificationX,
-        y: eliminatedHeaderY + FLOW_HEADER_TO_CARD_OFFSET + index * FLOW_TEAM_STEP,
-        orderLabel: `${index + 1}`,
-        subtitle: "第三轮后淘汰",
-        statLine: "1-1 组负者 · 累计 2 败",
-        tone: "steel",
+      (_, index) => ({
+        ...makePlaceholderCard({
+          id: `${event.slug}:${stage}:swiss-flow:after-round3-eliminated:${index + 1}`,
+          x: qualificationX,
+          y: eliminatedHeaderY + FLOW_HEADER_TO_CARD_OFFSET + index * FLOW_TEAM_STEP,
+          orderLabel: `${index + 1}`,
+          subtitle: "第三轮后淘汰",
+          statLine: "1-1 组负者 · 累计 2 败",
+          tone: "steel",
+        }),
+        simulationKey: { kind: "swissFlow", phase: "afterRound3", index } as TeamCardSimulationKey,
       }),
     );
     const flowCards = [
@@ -1475,7 +1469,7 @@ export function buildFinalsWorkspaceStage(event: FinalEventSchedule, stage: Fina
       width: CARD_WIDTH,
       title: "第三轮后晋级",
       subtitle: `${repechageSwissFlow.qualificationEntryCount} 队 · ${repechageSwissFlow.qualificationSlotRange}`,
-      tone: "amber",
+      tone: "cyan",
     });
     headers.push({
       id: `${event.slug}:${stage}:swiss-flow:eliminated-header`,
@@ -1520,4 +1514,56 @@ export function buildFinalsWorkspaceStage(event: FinalEventSchedule, stage: Fina
     connectors,
     showProbability: false,
   };
+}
+
+/**
+ * 在对阵图基础上叠加种子沙盘模拟结果：赛程卡片在构建时即按区域赛
+ * MatchCanvasCard 形式带上模拟对阵双方与比分；此处只需把队伍类卡片
+ * （席位 / 战绩桶 / 流向占位）落位为模拟队伍。
+ */
+export function buildFinalsWorkspaceStage(
+  event: FinalEventSchedule,
+  stage: FinalEventStageFilter,
+  simulation?: FinalsEventSimulation,
+): WorkspaceStage {
+  const workspaceStage = buildFinalsWorkspaceStageBase(event, stage, simulation);
+  if (simulation) {
+    const resolveSimulationKey = (key: TeamCardSimulationKey): SimulatedFinalTeam | null => {
+      if (key.kind === "slot") return simulation.groupQualifiers[key.slot] ?? null;
+      if (key.kind === "destination") {
+        const teams = simulation.terminalOutcomes.get(key.destination) ?? [];
+        return teams.length === 1 ? teams[0] ?? null : null;
+      }
+      if (key.kind === "swissFlow") {
+        const group = stage === "swiss-b" ? "B" : "A";
+        return swissFlowPlaceholderTeams(simulation, group, key.phase)[key.index] ?? null;
+      }
+      if (key.kind === "recordBucket") {
+        const group = stage === "swiss-b" ? "B" : "A";
+        return swissRecordBucketTeams(simulation, group, key.bucket)[key.index] ?? null;
+      }
+      const result = simulation.matchResults.get(key.matchNumber);
+      if (!result || !result.winnerSide) return null;
+      const side = key.outcome === "winner" ? result.winnerSide : result.winnerSide === "red" ? "blue" : "red";
+      return side === "red" ? result.red : result.blue;
+    };
+    for (const card of workspaceStage.cards) {
+      if (card.kind === "team" && card.simulationKey) {
+        const team = resolveSimulationKey(card.simulationKey);
+        if (team) {
+          card.collegeName = team.collegeName;
+          card.teamName = team.teamName;
+          card.teamKey = team.teamKey;
+          card.meta = ["模拟落位"];
+        }
+      }
+    }
+    // 战绩桶卡片区已落位真实队伍，区块头不再提示「待确认」
+    for (const header of workspaceStage.headers) {
+      if (header.id.includes(":swiss-bucket:") && header.subtitle === "真实队伍待确认") {
+        header.subtitle = "模拟落位";
+      }
+    }
+  }
+  return workspaceStage;
 }
