@@ -104,6 +104,8 @@ class RegionalPreModelConfig:
     prediction_head_process_residual_cap: float = 0.40
     prediction_head_robot_form_agreement_weight: float = 0.15
     prediction_head_robot_form_agreement_cap: float = 0.30
+    prediction_head_robot_signal_weight: float = 0.15
+    prediction_head_h2h_max_delta_probability: float = 0.0
 
 
 def _fetch_html(url: str) -> str:

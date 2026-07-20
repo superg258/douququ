@@ -103,12 +103,14 @@ regional_pre_model:
   prediction_head_season_delta_weight: 1.00
   prediction_head_momentum_weight: 0.00
   prediction_head_temperature: 1.00
-  prediction_head_early_group_min_matches: 1.0
+  prediction_head_early_group_min_matches: 0.0
   prediction_head_early_group_max_matches: 1.0
   prediction_head_process_residual_weight: 0.35
   prediction_head_process_residual_cap: 0.40
   prediction_head_robot_form_agreement_weight: 0.15
   prediction_head_robot_form_agreement_cap: 0.30
+  prediction_head_robot_signal_weight: 0.15
+  prediction_head_h2h_max_delta_probability: 0.0
   same_year_shape_weight: 0.40
   same_year_rmul_weight: 0.95
   same_year_consistency_weight: 0.55

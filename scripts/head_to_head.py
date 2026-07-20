@@ -250,6 +250,7 @@ def summarize_head_to_head(
     *,
     p_base: float,
     head_to_head_index: dict[tuple[str, str], dict[str, Any]],
+    max_delta_probability: float | None = None,
 ) -> dict[str, Any]:
     normalized_a = _normalize_school_name(school_a)
     normalized_b = _normalize_school_name(school_b)
@@ -303,7 +304,11 @@ def summarize_head_to_head(
 
     p_base_clipped = _clip_probability(p_base)
     p_shrunk = (score_a + (PRIOR_WEIGHT * p_base_clipped)) / (effective_weight + PRIOR_WEIGHT)
-    delta_logit = elo_model.clip(_logit(p_shrunk) - _logit(p_base_clipped), -MAX_DELTA_LOGIT, MAX_DELTA_LOGIT)
+    max_delta_logit = MAX_DELTA_LOGIT
+    if max_delta_probability is not None:
+        capped_probability = min(max(float(max_delta_probability), 0.0), 0.99)
+        max_delta_logit = 4.0 * math.atanh(capped_probability)
+    delta_logit = elo_model.clip(_logit(p_shrunk) - _logit(p_base_clipped), -max_delta_logit, max_delta_logit)
     p_game_adj = _sigmoid(_logit(p_base_clipped) + delta_logit)
     delta_h2h = p_game_adj - p_base_clipped
     return {

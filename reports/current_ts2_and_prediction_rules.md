@@ -1,6 +1,6 @@
 # 当前 TS2 与胜率预测规则复盘
 
-更新日期：2026-05-18
+更新日期：2026-07-20（prediction head：R1 启用 component head、新增 robot signal 通道、live 路径 H2H 置零）
 适用范围：当前仓库里的 RMUC TS2 研究链路、`rmuc_live` runtime 产物、后端 `mode=live` 胜率预测路径。
 主要入口：
 
@@ -623,7 +623,7 @@ prediction_head_base_weight: 0.25
 prediction_head_season_delta_weight: 1.00
 prediction_head_momentum_weight: 0.00
 prediction_head_temperature: 1.00
-prediction_head_early_group_min_matches: 1.0
+prediction_head_early_group_min_matches: 0.0
 prediction_head_early_group_max_matches: 1.0
 ```
 
@@ -631,10 +631,10 @@ prediction_head_early_group_max_matches: 1.0
 
 ```text
 stageFamily == regional_group
-且 regionalGroupMatchesPlayedBefore 在 [1.0, 1.0] 内
+且 regionalGroupMatchesPlayedBefore 在 [0.0, 1.0] 内
 ```
 
-即当前默认只对每队已有 1 场瑞士轮记录的比赛启用，主要覆盖 R2。
+即当前对每队已有 0 到 1 场瑞士轮记录的比赛启用，覆盖 R1 与 R2。R1 启用后 theta 差被 `0.25*base` 显著压缩，首轮预测置信度随之下降（整赛季 replay：R1 准确率 70.8%→75.0%，平均置信 0.797→0.651）。
 
 component head：
 
@@ -645,12 +645,13 @@ prediction_theta =
 + momentum_weight     * momentumTheta
 + process_residual_theta
 + robot_form_agreement_theta
++ robot_signal_theta
 ```
 
 如果不满足 component head 条件：
 
 ```text
-prediction_theta = (currentElo - 1500) / rating_scale
+prediction_theta = (currentElo - 1500) / rating_scale + robot_signal_theta
 ```
 
 但如果仍处于 `regional_group`，会额外加入 `robot_form_agreement_theta`。
@@ -731,6 +732,39 @@ robot_form_agreement_theta =
 - 非 regional_group：不加入。
 
 这个修正是当前候选版本，目的是只在 form 和机器人数据同向时做小幅置信度校准。
+
+## 20.5 prediction head robot signal 修正
+
+代码入口：`_live_robot_signal_theta`
+
+当前配置：
+
+```yaml
+prediction_head_robot_signal_weight: 0.15
+```
+
+启用条件：
+
+```text
+weight > 0
+formRobotFamilySignal 存在且非 0
+freshness > 0
+```
+
+计算：
+
+```text
+robot_signal_theta =
+  weight * freshness * formRobotFamilySignal
+```
+
+与 §20 的 agreement 修正的区别：
+
+- 不要求与 form 同向、不看 conflict gate——机器人细分数据是独立的当季表现信号（整赛季回测方向准确率约 71%，接近 elo 的 72%），form 噪声不应再给机器人信号当门卫。
+- 覆盖所有赛段（含淘汰赛），不只 regional_group。
+- 不重复经过 form fusion 的 obs_sigma 衰减，直接作用于预测 theta。
+
+2026-07-20 整赛季 replay 验证（h2h cap 0.0、min_matches 0.0 同时启用）：acc 74.44%→75.19%，logloss 0.607→0.577。权重 0.15 来自 0.0~0.4 网格扫描：logloss 随权重单调改善，accuracy 在 0.15 处不降，更大权重开始翻错个别场次。
 
 ## 21. 单局胜率到系列胜率
 
@@ -844,6 +878,14 @@ MAX_DELTA_PROBABILITY = 0.10
 MAX_DELTA_LOGIT = 4 * atanh(0.10)
 ```
 
+live 预测路径额外受 `prediction_head_h2h_max_delta_probability` 约束（经 `_deterministic_live_prediction_payload` 传给 `summarize_head_to_head` 的 `max_delta_probability`）：
+
+```yaml
+prediction_head_h2h_max_delta_probability: 0.0
+```
+
+即 live 页面胜率当前不使用 H2H 修正（delta 恒为 0，`deltaH2H` 展示字段同步为 0）。原因：2026-07-20 回测显示 H2H 覆盖的 31 场方向正确率仅 58%，这些场次使用 H2H 时 acc 64.5%、不用时 67.7%。sim 模式与 `scripts/head_to_head.py` CLI 仍使用模块默认 0.10，不受该配置影响。
+
 ## 23. 页面 live 路径
 
 代码入口：`build_simulation_payload(..., mode="live")`
@@ -915,12 +957,14 @@ prediction_head_base_weight: 0.25
 prediction_head_season_delta_weight: 1.00
 prediction_head_momentum_weight: 0.00
 prediction_head_temperature: 1.00
-prediction_head_early_group_min_matches: 1.0
+prediction_head_early_group_min_matches: 0.0
 prediction_head_early_group_max_matches: 1.0
 prediction_head_process_residual_weight: 0.35
 prediction_head_process_residual_cap: 0.40
 prediction_head_robot_form_agreement_weight: 0.15
 prediction_head_robot_form_agreement_cap: 0.30
+prediction_head_robot_signal_weight: 0.15
+prediction_head_h2h_max_delta_probability: 0.0
 ```
 
 ## 25. 当前评估边界

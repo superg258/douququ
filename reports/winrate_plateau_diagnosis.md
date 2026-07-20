@@ -1,0 +1,196 @@
+# 胜率预测 70%+ 平台期诊断与优化路线
+
+更新日期：2026-07-20
+分析分支：`analysis/winrate-plateau-diagnosis`
+数据基础：`data/runtime/rmuc_live` 全量快照（266 场已完赛、532 条 ledger 流水、2629 个 raw 官方快照）、小程序观众预测 266 场、`data/extracted/2026RMUL`
+方法：用 `backend/app/service.py` 的 live 路径（`mode=live`，已完成比赛严格取 ledger 赛前状态）重建全部 266 场赛前预测；再用 `scripts/sync_rmuc_live.py --skip-fetch` 对 2629 个 raw 快照做整赛季 replay，验证配置级改动。基线 replay 与线上指标逐项一致（acc 74.44% / logloss 0.6066 / brier 0.2035），实验结论可信。
+
+---
+
+## 0. 摘要
+
+当前模型：acc **74.4%**、logloss **0.607**、brier **0.204**（观众预测：71.4% / 0.592 / 0.198）。
+胜率“徘徊在 70 多”与“明显场次失误”不是同一个问题，而是三个互相独立的原因：
+
+1. **R1（首轮，48 场）在用裸历史基座预测，且过度自信。** R1 准确率 70.8%、平均置信 0.797；分差≥400 的 7 场平均置信 0.959、实际只赢 57%。R1 全部高置信失误观众也全错，RMUL 数据同样无预兆——这部分是赛季间突变的不可约误差，**排名救不回来，只能降置信**。
+2. **机器人细分数据（= 观众“能看出来”的那部分信息）被结构闷死。** 把 robot blend/gate 参数全部加倍后整赛季 replay，预测概率最大变化 1.2pp、0 场翻转。但同一信号（robot z-diff）方向准确率 71.1%（R2 75%、R3-5 71.6%），logistic 上给 elo 做增量在三区交叉验证全部为正（+1.2~4.5pp）。信号真实存在，现有管道用不了它。
+3. **H2H 修正是负贡献。** 覆盖的 31 场方向正确率 58%，这些场次用 H2H 后 acc 64.5%、不用 67.7%。
+
+同时**证伪了两个流行假设**：
+
+- “live 修正速度偏慢”——replay 加快修正（result_obs_sigma 0.45→0.30、floor 0.30→0.22 等）反而 -1.1pp；放慢持平。更新速度已在局部最优。
+- “瑞士轮伤害统计（form）该加重”——form obs 方向准确率仅 51.4%，与 elo 冲突时仅 32% 正确；replay 加重 form 后 acc -0.8pp。form 更多是“解释过去”，不是“预测下一场”。
+
+**已验证可直接上线的改进**（整赛季 replay，非 post-hoc）：
+
+| 改动 | acc | logloss | 说明 |
+|---|---:|---:|---|
+| 基线 | 74.44% | 0.6066 | |
+| `prediction_head_early_group_min_matches: 1.0→0.0` | **75.19%** | **0.5907** | R1 启用 component head（0.25×base + 1.0×season_delta）；R1 70.8→75.0%，R1 置信 0.797→0.651，logloss 0.689→0.601 |
+| 上述 + 下线 H2H | 75.19% | **0.587** | 不伤 acc |
+
+中期（需小代码改动）：把 robot 信号作为独立预测特征进 prediction head（不被 form 同向 gate 卡死、覆盖淘汰赛），预期 logloss 再降约 0.02，东部 acc +3pp。
+
+---
+
+## 1. 现状量化
+
+### 1.1 分段表现
+
+| 赛段 | 场次 | 准确率 | logloss | 平均置信 | 错误数 |
+|---|---:|---:|---:|---:|---:|
+| 瑞士轮 R1 | 48 | 70.8% | 0.689 | 0.797 | 14 |
+| 瑞士轮 R2 | 48 | **85.4%** | 0.583 | 0.575 | 7 |
+| 瑞士轮 R3-R5 | 102 | 69.6% | 0.604 | 0.665 | 31 |
+| 区域淘汰赛 | 68 | 76.5% | 0.570 | 0.692 | 16 |
+
+R2 显著好于其他轮次，因为 R2 是当前唯一启用 component prediction head（`0.25*base + 1.0*season_delta_mu`）的阶段——**当季证据权重高于历史基座**。这正是 head_r1 改动在 R1 同样有效的证据。
+
+### 1.2 校准
+
+按赛前 |dElo| 分桶（before-match rating，即 ledger `published_rating_before_match`）：
+
+| dElo 桶 | n | 热门实际胜率 | 模型平均 p |
+|---|---:|---:|---:|
+| 0-50 | 56 | 57.1% | 55.3% |
+| 50-100 | 56 | 71.4% | 60.2% |
+| 100-150 | 43 | 72.1% | 67.0% |
+| 150-200 | 34 | 73.5% | 73.1% |
+| 200-300 | 42 | 78.6% | 78.9% |
+| 300-450 | 30 | 93.3% | 84.7% |
+| ≥450 | 5 | 60.0% | **96.6%** |
+
+中段校准良好；两端有问题：低置信桶（0.5-0.55）实际胜率 71%（模型浪费了可分的信号），≥450 桶过自信（全部是 R1 爆冷）。全局温度缩放几乎无收益（T*=1.16，logloss 0.607→0.605），说明问题不是单一斜率，而是**分段校准**。
+
+### 1.3 与观众对比
+
+模型 acc 高于观众（74.4% vs 71.4%），但 logloss 反而更差（0.607 vs 0.592）——**模型错的时候比观众更自信**。27 场模型置信≥0.70 的失误里，观众只有 1 场站在了正确一方；注意“观众能明显分辨”≠ 小程序投票多数派，而是**看过比赛的人能分辨机器人完成度**——对应到数据里就是 robot 细分信号，见 §3.2。
+
+---
+
+## 2. 分析过程中的一个数据陷阱
+
+live payload 里已完成比赛的 `redCurrentElo/blueCurrentElo` 展示字段取的是**当前快照 rating（含赛后信息）**，不是赛前值；赛前值在 `redMu0/blueMu0`（= ledger `published_rating_before_match`）。用错字段会得到“elo 重拟合 acc 78.9%”的泄漏结论。本报告全部数字均基于赛前值。前端展示侧建议核对这一字段对已完成比赛的语义。
+
+---
+
+## 3. 失误解剖（27 场置信≥0.70 的失误）
+
+### 3.1 类型 A：R1 先验失效（10 场，全部观众同错）
+
+代表：中科大 0.98 输青岛大学 0:2（dElo 574）、华南农大 0.97 输重庆理工、武工程 0.94 输华师佛山。
+
+- 这些队伍的 2026 RMUL 战绩毫无预兆：青岛大学 1 胜/3 场、重庆理工 1 胜/3 场、南华大学 1 胜/3 场。
+- RMUL 机器人细分数据同样无预兆（方向准确率 54%，且大量队伍数据为 0）。
+- 赛前 prior 方向本身就是错的（如华师佛山 prior_delta -0.81，结果 2:0 赢了 prior +0.34 的武工程）。
+
+结论：这是 RoboMaster 赛季间突变（暑期备赛）的**不可约误差**。排名层面没有免费午餐，只有两条路：降置信（head_r1 已把 R1 平均置信从 0.797 压到 0.651）、找新数据源（§5 长期）。
+
+### 3.2 类型 B：当季/机器人信号就在快照里，预测头没用（R3-5 与淘汰赛的高置信失误）
+
+代表：
+
+- 南部 QF-3：广州城市理工 2:0 上海交大。赛前上交 elo 高 222，但对手 form 2.03 vs 0.40、robot +1.19——模型仍给上交 0.80。
+- 北部 R16-8：复旦 2:1 西电。复旦 form 1.65 vs 0.38，模型给西电 0.75。
+- 东部 R16-7：哈工大（威海）2:1 中科大。哈工大 form 1.73 vs 0.32，模型给中科大 0.75。
+
+量化证据：
+
+- robot z-diff 方向准确率 71.1%（n=218），接近 elo 的 72.2%；分轮次 R2 75.0%、R3-5 71.6%。
+- `elo + robot` 的 logistic 留一区交叉验证三区全部提升：南 +1.2pp、东 +4.5pp、北 +4.4pp。
+- 但整赛季 replay 把 `robot_form_blend_weight` 0.35→0.70、gate 权重翻倍、obs_sigma 1.15→0.85 后，**预测概率最大变化 1.2pp、0 场翻转**。
+
+原因在结构：robot 信号进入预测只有一条小路——`prediction_head_robot_form_agreement`（权重 0.15、cap 0.30、且要求与 form **同向**才生效、只覆盖 regional_group）。form 本身是噪声（§3.3），用 form 给 robot 做 gate 等于让噪声给信号当门卫。淘汰赛阶段则完全没有 robot 通道。
+
+### 3.3 form（瑞士轮伤害统计）预测力弱
+
+- form_opponent_adjusted obs 方向准确率 51.4%（n=218）；与 elo 冲突时仅 32% 正确。
+- replay 加重 form（obs_sigma 0.70→0.45、scale 1.6→2.0）：logloss 0.607→0.599 但 acc -0.8pp。
+- 与 elo+robot 相比，elo+form 的 logistic 增量 ≈ 0。
+
+结论：form 适合解释和排序，不适合直接预测下一场。**不建议再加重 form 权重**；robot 信号才是该放出来的那个。
+
+### 3.4 H2H 负贡献
+
+- 覆盖 31 场，方向正确率 58%；这些场次 acc：用 H2H 64.5% vs 不用 67.7%。
+- 全量下线 H2H（post-hoc）：acc 不变、logloss 0.607→0.603。
+
+### 3.5 被证伪的假设：修正速度
+
+整赛季 replay 消融（每次只动一组参数）：
+
+| 变体 | acc | logloss | 结论 |
+|---|---:|---:|---|
+| base | 74.44% | 0.6066 | |
+| faster（obs_sigma 0.30、floor 0.22、early floor 0.34） | 73.31% | 0.6109 | 加快修正**变差**，R3-5 -2.9pp |
+| slower（obs_sigma 0.60） | 74.06% | 0.6059 | 持平 |
+| noexp（关闭预期输球降权） | 74.44% | 0.6072 | 持平 |
+| mom_off（关动量） | 74.06% | 0.6068 | 动量值 +0.4pp，保留 |
+| form_heavy | 73.68% | 0.5994 | acc 变差 |
+| priorcap（cap 上限 1.60） | 74.44% | 0.6066 | 无效——prior 已固化在 `preseason_ratings.csv`，sync 期改 cap 不生效 |
+
+“强校失准修正慢”不是当前失误的主要来源；验收报告 §10 的假设需要按本结论修订。
+
+---
+
+## 4. 优化路线（按 ROI 排序）
+
+### 短期：已验证，可直接上线
+
+1. **R1 启用 component head**：`prediction_head_early_group_min_matches: 1.0 → 0.0`。
+   整赛季 replay：acc 74.44→75.19%、logloss 0.6066→0.5907、brier 0.2035→0.2009；R1 acc 70.8→75.0%，R1 平均置信 0.797→0.651，≥400 分差桶置信 0.959→0.819。收益三区不为负（北 +2 场，南/东不变）。一行配置。
+2. **下线或收缩 H2H**：`MAX_DELTA_PROBABILITY 0.10 → 0.03~0.05`，或直接置零。logloss 再降约 0.004，不伤 acc；同时少一个翻车来源。
+
+### 中期：小代码改动 + replay 验证
+
+3. **robot 信号进 prediction head 作为独立通道**：在 `_prediction_theta_for_team` 增加 `prediction_head_robot_signal_weight`（建议初值 0.2~0.3 theta/z，按 replay 调），不依赖 form 同向 gate，覆盖全部赛段（含淘汰赛）。post-hoc 证据：logloss 再降约 0.02，东部 acc +3.4pp。注意南/北在过大权重下 acc 会抖，权重需按 replay 选并分区验收。
+4. **robot 数据质量治理**：`form_robot_signal_alignment` 大量场次为 missing/neutral（gate=0），870 个 robot_data 快照的覆盖率和字段为 0 的队伍需要先补齐，否则通道开了也没数据。
+5. **概率监控看板**：每周输出“预测 p≥0.9 场次的实际胜率”“观众高共识且与模型分歧的场次清单”，前者盯校准，后者做人工复盘样本（观众预测不进模型，只做监控）。
+
+### 长期：数据与研究
+
+6. **R1 新证据源**：RMUL 战绩与 RMUL 机器人数据均已证无效；可考虑热身赛/交流赛记录、完整形态审核信息、暑期社区公开训练数据。这是 R1 排名层面唯一可能再进一步的方向。
+7. **全国赛阶段**：本分析覆盖区域赛 266 场；全国赛跨区对阵的评级校准（区间强度差）需要单独验证，当前模型在跨区场景没有观测数据支撑。
+8. **观赛端解释**：把“模型置信度 + 主要依据（历史基座/当季偏移/robot 信号）”展示给观众，高置信失误的观众成本远低于沉默的错误。
+
+---
+
+## 5. 复现方法
+
+```bash
+# 1) 重建线上 266 场预测（含小程序观众预测）
+#    backend/app/service.py build_simulation_payload(region, seed=7, mode='live')
+
+# 2) 整赛季 replay（任意配置变体）
+python scripts/sync_rmuc_live.py --skip-fetch --skip-mini-program \
+    --runtime-dir <tmp_runtime> --config <variant.yaml> --snapshot-date 2026-07-01
+#    tmp_runtime 需含 raw/（2629 个官方快照）与 normalized_schedule.json
+#    再将 backend/app/service.py 的 RUNTIME_LIVE_DIR 等 5 个路径常量指到 tmp_runtime 评分
+```
+
+防泄漏纪律：form/robot 只取赛前快照（`event_count_v1`），赛前 rating 一律用 ledger `published_rating_before_match`；任何“当前快照”字段都不能用于已完成比赛的评估。
+
+---
+
+## 6. 实施结果（2026-07-20，本分支已落地）
+
+短期+中期修复已实现并通过整赛季 replay 端到端验证：
+
+| 指标 | 基线 | 修复后 | 变化 |
+|---|---:|---:|---|
+| accuracy | 74.44% | **75.19%** | +0.75pp |
+| logloss | 0.6066 | **0.5770** | -0.030 |
+| brier | 0.2035 | **0.1953** | -0.008 |
+| R1 acc | 70.8% | **75.0%** | +4.2pp |
+| R1 平均置信 | 0.797 | 0.651 | 不再盲目自信 |
+
+落地改动：
+
+1. `configs/trueskill2_full.yaml`：`prediction_head_early_group_min_matches: 1.0→0.0`；新增 `prediction_head_robot_signal_weight: 0.15`、`prediction_head_h2h_max_delta_probability: 0.0`。
+2. `backend/app/service.py`：新增 `_live_robot_signal_theta`（robot 信号独立通道，不按 form 同向 gate、覆盖全部赛段）；`_live_prediction_head_config` 读取两个新键；live 路径 H2H 调用传入 cap。模块回退常量保持旧行为（0.10/0.0），未 re-sync 的旧 manifest 不受影响。
+3. `scripts/head_to_head.py`：`summarize_head_to_head` 新增可选 `max_delta_probability` 参数（默认 None = 原行为，sim 路径与 CLI 不受影响）。
+4. `research/trueskill2/history_sources.py`、`research/trueskill2/fit.py`、`scripts/sync_rmuc_live.py`：两个新键的 dataclass 字段、yaml 解析与 manifest signature 透传。
+
+参数选择过程（25 组 replay 网格）：`h2h cap ∈ {0, 0.05, 0.10} × robot ∈ {0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4} × agreement ∈ {0, 0.15}`。logloss 随 robot 权重单调改善；accuracy 在 0.15 处不降（更高开始翻错北部个别场次），h2h cap 0.0 全面不劣于收缩。agreement 维持 0.15 不动（避免双旋钮过拟合）。
+
+部署注意：预测头配置经 manifest `model_config_signature` 透传，**线上生效需要重新运行一次 `scripts/sync_rmuc_live.py`**（signature 变化会自动触发 runtime 产物重发布）。未 re-sync 前，后端回退到旧行为，测试与旧 runtime 不受影响。

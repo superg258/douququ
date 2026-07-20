@@ -175,6 +175,10 @@ LIVE_PREDICTION_HEAD_PROCESS_RESIDUAL_WEIGHT = 0.35
 LIVE_PREDICTION_HEAD_PROCESS_RESIDUAL_CAP = 0.40
 LIVE_PREDICTION_HEAD_ROBOT_FORM_AGREEMENT_WEIGHT = 0.15
 LIVE_PREDICTION_HEAD_ROBOT_FORM_AGREEMENT_CAP = 0.30
+# Fallbacks keep the legacy behavior when the manifest predates these keys;
+# production values arrive via the manifest model_config_signature.
+LIVE_PREDICTION_HEAD_ROBOT_SIGNAL_WEIGHT = 0.0
+LIVE_PREDICTION_HEAD_H2H_MAX_DELTA_PROBABILITY = 0.10
 DEFAULT_PUBLISHED_RATING_SCALE = 135.0
 
 
@@ -1592,6 +1596,23 @@ def _live_prediction_head_config() -> dict[str, float]:
             ),
             0.0,
         ),
+        "robot_signal_weight": max(
+            _config_float(
+                "prediction_head_robot_signal_weight",
+                LIVE_PREDICTION_HEAD_ROBOT_SIGNAL_WEIGHT,
+            ),
+            0.0,
+        ),
+        "h2h_max_delta_probability": min(
+            max(
+                _config_float(
+                    "prediction_head_h2h_max_delta_probability",
+                    LIVE_PREDICTION_HEAD_H2H_MAX_DELTA_PROBABILITY,
+                ),
+                0.0,
+            ),
+            0.99,
+        ),
         "rating_scale": max(_config_float("rating_scale", DEFAULT_PUBLISHED_RATING_SCALE), 1e-6),
     }
 
@@ -1655,6 +1676,21 @@ def _live_robot_form_agreement_theta(rating: dict[str, Any], *, prediction_head_
     return weight * min(max(float(freshness), 0.0), 1.0) * agreement
 
 
+def _live_robot_signal_theta(rating: dict[str, Any], *, prediction_head_config: dict[str, float]) -> float:
+    weight = max(float(prediction_head_config.get("robot_signal_weight", 0.0)), 0.0)
+    if weight <= 0.0:
+        return 0.0
+    robot_signal = _optional_float_value(rating.get("formRobotFamilySignal"))
+    if robot_signal is None or abs(robot_signal) <= 1e-9:
+        return 0.0
+    freshness = _optional_float_value(rating.get("formEventFreshnessWeight"))
+    if freshness is None:
+        freshness = _optional_float_value(rating.get("formFreshnessWeight"))
+    if freshness is None or freshness <= 0.0:
+        return 0.0
+    return weight * min(max(float(freshness), 0.0), 1.0) * float(robot_signal)
+
+
 def _prediction_theta_for_team(
     team: Any,
     current_rating_index: dict[str, dict[str, Any]],
@@ -1680,10 +1716,15 @@ def _prediction_theta_for_team(
         rating,
         prediction_head_config=prediction_head_config,
     )
+    robot_signal_theta = _live_robot_signal_theta(
+        rating,
+        prediction_head_config=prediction_head_config,
+    )
     if not uses_component_head:
         theta = (current_elo - 1500.0) / float(prediction_head_config["rating_scale"])
         if stage_family == "regional_group":
             theta += robot_form_agreement_theta
+        theta += robot_signal_theta
         return theta
 
     base_theta = _optional_float_value(rating.get("programBaseTheta"))
@@ -1697,6 +1738,7 @@ def _prediction_theta_for_team(
             + (float(prediction_head_config["momentum_weight"]) * momentum_theta)
             + process_residual_theta
             + robot_form_agreement_theta
+            + robot_signal_theta
         )
     return (current_elo - 1500.0) / float(prediction_head_config["rating_scale"])
 
@@ -1735,6 +1777,7 @@ def _deterministic_live_prediction_payload(
         blue_team.college_name,
         p_base=p_game_base_red,
         head_to_head_index=head_to_head_index,
+        max_delta_probability=prediction_head_config.get("h2h_max_delta_probability"),
     )
     p_game_adj_red = float(head_to_head_summary["p_game_adj"])
     raw_distribution = region_sim._compute_scoreline_distribution(best_of, p_game_adj_red)

@@ -750,6 +750,10 @@ def runtime_model_config_signature(regional_cfg: RegionalPreModelConfig) -> dict
         "prediction_head_robot_form_agreement_cap": float(
             regional_cfg.prediction_head_robot_form_agreement_cap
         ),
+        "prediction_head_robot_signal_weight": float(regional_cfg.prediction_head_robot_signal_weight),
+        "prediction_head_h2h_max_delta_probability": float(
+            regional_cfg.prediction_head_h2h_max_delta_probability
+        ),
     }
 
 

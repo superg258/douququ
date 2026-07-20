@@ -131,6 +131,23 @@ class HeadToHeadTests(unittest.TestCase):
         self.assertGreaterEqual(summary["delta_h2h"], 0.09)
         self.assertLessEqual(summary["delta_h2h"], 0.10)
 
+    def test_max_delta_probability_override(self) -> None:
+        rows = [
+            _make_row(red_college_name="甲大学", blue_college_name="乙大学", winner_side="red", match_date="2026-04-05")
+            for _ in range(2)
+        ]
+        index = h2h.build_head_to_head_index(rows, reference_date=date(2026, 4, 5))
+        disabled = h2h.summarize_head_to_head(
+            "甲大学", "乙大学", p_base=0.5, head_to_head_index=index, max_delta_probability=0.0
+        )
+        self.assertEqual(disabled["delta_h2h"], 0.0)
+        self.assertEqual(disabled["p_game_adj"], disabled["p_base"])
+        capped = h2h.summarize_head_to_head(
+            "甲大学", "乙大学", p_base=0.5, head_to_head_index=index, max_delta_probability=0.05
+        )
+        self.assertGreater(capped["delta_h2h"], 0.0)
+        self.assertLessEqual(capped["delta_h2h"], 0.05)
+
     def test_single_decayed_historical_rmuc_sweep_is_tempered(self) -> None:
         row = _make_row(
             red_college_name="太原理工大学",

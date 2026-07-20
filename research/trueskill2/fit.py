@@ -186,6 +186,10 @@ def _regional_pre_config(config: dict[str, Any] | None) -> RegionalPreModelConfi
             payload.get("prediction_head_robot_form_agreement_weight", 0.15)
         ),
         prediction_head_robot_form_agreement_cap=float(payload.get("prediction_head_robot_form_agreement_cap", 0.30)),
+        prediction_head_robot_signal_weight=float(payload.get("prediction_head_robot_signal_weight", 0.25)),
+        prediction_head_h2h_max_delta_probability=float(
+            payload.get("prediction_head_h2h_max_delta_probability", 0.0)
+        ),
     )
 
 
