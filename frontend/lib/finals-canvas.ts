@@ -359,30 +359,30 @@ function buildRepechageQualificationStage(
     "round1",
     columnX(0),
     topHeaderY,
-    "首轮对阵 · 8 队争 4 席",
+    "首轮对阵 · 8 队",
     firstRoundMatches,
-    "胜者进入直通战，负者掉入生死战",
+    "第 23–26 场",
     "cyan",
   );
   const thirdRound = addMatchSection(
     "round3",
     columnX(1),
     topHeaderY,
-    "直通战 · 赢球进全国赛",
+    "直通战 · 全国赛",
     thirdRoundMatches,
-    "2 场 · 胜者锁定全国赛席位",
+    "第 29–30 场",
     "emerald",
   );
   addOutcomeSection({
     id: "round3-national",
     x: columnX(2),
     y: topHeaderY,
-    title: "全国赛席位 · 直通 2 席",
+    title: "全国赛席位",
     subtitle: "第 29–30 场胜者",
     sourceMatches: thirdRoundMatches,
     sourceOutcome: "winner",
     destination: "全国赛",
-    statLine: "直通战胜者 · 晋级全国赛",
+    statLine: "胜者晋级全国赛",
     tone: "amber",
   });
 
@@ -396,7 +396,7 @@ function buildRepechageQualificationStage(
     lowerLaneY,
     "生死战 · 第一轮",
     secondRoundMatches,
-    "2 场 · 胜者续命，负者淘汰",
+    "第 27–28 场",
     "steel",
   );
   const fourthRound = addMatchSection(
@@ -405,19 +405,19 @@ function buildRepechageQualificationStage(
     lowerLaneY,
     "生死战 · 最后一轮",
     fourthRoundMatches,
-    "2 场 · 胜者拿到最后 2 席，负者出局",
+    "第 31–32 场",
     "emerald",
   );
   const fourthRoundNational = addOutcomeSection({
     id: "round4-national",
     x: columnX(3),
     y: lowerLaneY,
-    title: "全国赛席位 · 最后 2 席",
+    title: "全国赛席位",
     subtitle: "第 31–32 场胜者",
     sourceMatches: fourthRoundMatches,
     sourceOutcome: "winner",
     destination: "全国赛",
-    statLine: "生死战胜者 · 晋级全国赛",
+    statLine: "胜者晋级全国赛",
     tone: "amber",
   });
   const lowerDecisionY = Math.max(secondRound.bottom, fourthRound.bottom) + FLOW_SECTION_GAP;
@@ -425,12 +425,12 @@ function buildRepechageQualificationStage(
     id: "round2-eliminated",
     x: columnX(2),
     y: lowerDecisionY,
-    title: "生死战第一轮出局",
+    title: "两败出局",
     subtitle: "第 27–28 场负者",
     sourceMatches: secondRoundMatches,
     sourceOutcome: "loser",
     destination: "淘汰",
-    statLine: "第 27–28 场负者 · 两败止步",
+    statLine: "第 27–28 场负者",
     tone: "steel",
   });
   addOutcomeSection({
@@ -439,12 +439,12 @@ function buildRepechageQualificationStage(
     y: fourthRoundNational.cards.length
       ? fourthRoundNational.bottom + FLOW_SECTION_GAP
       : lowerLaneY,
-    title: "最后一战出局",
+    title: "两败出局",
     subtitle: "第 31–32 场负者",
     sourceMatches: fourthRoundMatches,
     sourceOutcome: "loser",
     destination: "淘汰",
-    statLine: "第 31–32 场负者 · 距门票一步之遥",
+    statLine: "第 31–32 场负者",
     tone: "steel",
   });
 
@@ -458,7 +458,7 @@ function buildRepechageQualificationStage(
     id: stage,
     label: `${event.shortName}赛程`,
     title: `${event.name} · 晋级名额去向`,
-    description: "8 支队争夺最后 4 张全国赛门票：两连胜直通，两连败出局；谁拿门票、谁止步，逐场看清。",
+    description: "8 队争夺 4 张全国赛门票，两败出局。",
     width: START_X * 2 + 4 * CARD_WIDTH + 3 * COLUMN_GAP,
     height: contentBottom + 80,
     viewport: { align: "left", minScale: 0.52, paddingX: 48, paddingY: 36 },
@@ -566,7 +566,7 @@ function buildNationalsSwissStage(
           orderLabel: `${index + 1}`,
           subtitle: qualified ? "晋级 16 强" : "止步瑞士轮",
           statLine: `${record} 战绩 · ${qualified ? "晋级" : "淘汰"}`,
-          meta: ["瑞士轮按战绩重新配对；赛果确认后显示学校队伍"],
+          meta: ["赛果确认后显示学校队伍"],
           isSimulated: true,
         };
         cards.push(destinationCard);
@@ -600,7 +600,7 @@ function buildNationalsSwissStage(
     id: stage,
     label: `${groupName} 组瑞士轮`,
     title: `${event.name} · ${groupName} 组瑞士轮`,
-    description: "五轮按战绩配对：3 胜晋级 16 强，3 败提前出局；逐轮看清每支队距离出线还有多远。",
+    description: "五轮按战绩配对，3 胜晋级 16 强、3 败出局。",
     width: 2740,
     height: Math.max(1600, maxBottom + 124),
     viewport: { align: "left", minScale: 0.52, paddingX: 48, paddingY: 48 },
@@ -726,7 +726,7 @@ function buildNationalsDoubleEliminationStage(
         tone: "amber",
         orderLabel: destinationOrderLabel(destination, index + 1),
         subtitle: destination,
-        statLine: `第 ${match.number} 场胜者 · ${seatName}`,
+        statLine: `第 ${match.number} 场胜者`,
         meta: ["赛果确认后显示学校队伍"],
         isSimulated: true,
       };
@@ -754,7 +754,6 @@ function buildNationalsDoubleEliminationStage(
     title,
     subtitle,
     sourceMatches,
-    exitLabel,
   }: {
     id: string;
     x: number;
@@ -762,7 +761,6 @@ function buildNationalsDoubleEliminationStage(
     title: string;
     subtitle: string;
     sourceMatches: FinalEventMatch[];
-    exitLabel: string;
   }) => {
     const sources = sortByNumber(sourceMatches)
       .filter((match) => match.loserTo === "淘汰")
@@ -793,7 +791,7 @@ function buildNationalsDoubleEliminationStage(
         tone: "steel",
         orderLabel: `${index + 1}`,
         subtitle: "两败出局",
-        statLine: `第 ${match.number} 场负者 · ${exitLabel}`,
+        statLine: `第 ${match.number} 场负者`,
         meta: ["赛果确认后显示学校队伍"],
         isSimulated: true,
       };
@@ -821,7 +819,7 @@ function buildNationalsDoubleEliminationStage(
       x: columnX(0),
       y: topHeaderY,
       title: "首轮对阵 · 16 强",
-      subtitle: "8 场 · 胜者进入直通战，负者掉入生死战",
+      subtitle: "第 67–74 场",
       tone: "cyan",
       sectionMatches: openingMatches,
     });
@@ -829,8 +827,8 @@ function buildNationalsDoubleEliminationStage(
       id: "upper",
       x: columnX(1),
       y: topHeaderY,
-      title: "直通战 · 赢球进八强",
-      subtitle: "第 79–82 场 · 胜者直接晋级八强",
+      title: "直通战 · 八强",
+      subtitle: "第 79–82 场",
       tone: "emerald",
       sectionMatches: upperMatches,
     });
@@ -838,8 +836,8 @@ function buildNationalsDoubleEliminationStage(
       id: "upper-seats",
       x: columnX(2),
       y: topHeaderY,
-      title: "八强席位 · 直通 4 席",
-      subtitle: "第 79–82 场胜者落位 · 4 席",
+      title: "八强席位",
+      subtitle: "第 79–82 场胜者",
       seatName: "八强席位",
       sourceMatches: upperMatches,
     });
@@ -849,7 +847,7 @@ function buildNationalsDoubleEliminationStage(
       x: columnX(1),
       y: lowerLaneY,
       title: "生死战 · 第一轮",
-      subtitle: "第 75–78 场 · 胜者续命，负者淘汰",
+      subtitle: "第 75–78 场",
       tone: "steel",
       sectionMatches: lowerFirstMatches,
     });
@@ -858,7 +856,7 @@ function buildNationalsDoubleEliminationStage(
       x: columnX(2),
       y: lowerLaneY,
       title: "生死战 · 最后一轮",
-      subtitle: "第 83–86 场 · 胜者拿最后 4 席，负者出局",
+      subtitle: "第 83–86 场",
       tone: "emerald",
       sectionMatches: lowerFinalMatches,
     });
@@ -866,8 +864,8 @@ function buildNationalsDoubleEliminationStage(
       id: "lower-seats",
       x: columnX(3),
       y: lowerLaneY,
-      title: "八强席位 · 最后 4 席",
-      subtitle: "第 83–86 场胜者落位 · 4 席",
+      title: "八强席位",
+      subtitle: "第 83–86 场胜者",
       seatName: "八强席位",
       sourceMatches: lowerFinalMatches,
     });
@@ -875,19 +873,17 @@ function buildNationalsDoubleEliminationStage(
       id: "lower-first-eliminated",
       x: columnX(2),
       y: Math.max(lowerFirst.bottom, lowerFinal.bottom) + FLOW_SECTION_GAP,
-      title: "两败出局 · 第 75–78 场负者",
-      subtitle: "生死战第一轮止步",
+      title: "两败出局",
+      subtitle: "第 75–78 场负者",
       sourceMatches: lowerFirstMatches,
-      exitLabel: "止步 16 强阶段",
     });
     addEliminationSection({
       id: "lower-final-eliminated",
       x: columnX(3),
       y: lowerSeats.bottom + FLOW_SECTION_GAP,
-      title: "两败出局 · 第 83–86 场负者",
-      subtitle: "距八强一步之遥",
+      title: "两败出局",
+      subtitle: "第 83–86 场负者",
       sourceMatches: lowerFinalMatches,
-      exitLabel: "止步 16 强阶段",
     });
   } else {
     contentColumnCount = 3;
@@ -895,8 +891,8 @@ function buildNationalsDoubleEliminationStage(
       id: "upper",
       x: columnX(0),
       y: topHeaderY,
-      title: "直通战 · 赢球进四强",
-      subtitle: "第 87–88 场 · 胜者直接晋级四强",
+      title: "直通战 · 四强",
+      subtitle: "第 87–88 场",
       tone: "emerald",
       sectionMatches: upperMatches,
     });
@@ -904,8 +900,8 @@ function buildNationalsDoubleEliminationStage(
       id: "upper-seats",
       x: columnX(1),
       y: topHeaderY,
-      title: "四强席位 · 直通 2 席",
-      subtitle: "第 87–88 场胜者落位 · 2 席",
+      title: "四强席位",
+      subtitle: "第 87–88 场胜者",
       seatName: "四强席位",
       sourceMatches: upperMatches,
     });
@@ -915,7 +911,7 @@ function buildNationalsDoubleEliminationStage(
       x: columnX(0),
       y: lowerLaneY,
       title: "生死战 · 第一轮",
-      subtitle: "第 89–90 场 · 胜者续命，负者淘汰",
+      subtitle: "第 89–90 场",
       tone: "steel",
       sectionMatches: lowerFirstMatches,
     });
@@ -924,7 +920,7 @@ function buildNationalsDoubleEliminationStage(
       x: columnX(1),
       y: lowerLaneY,
       title: "生死战 · 最后一轮",
-      subtitle: "第 91–92 场 · 胜者拿最后 2 席，负者出局",
+      subtitle: "第 91–92 场",
       tone: "emerald",
       sectionMatches: lowerFinalMatches,
     });
@@ -932,8 +928,8 @@ function buildNationalsDoubleEliminationStage(
       id: "lower-seats",
       x: columnX(2),
       y: lowerLaneY,
-      title: "四强席位 · 最后 2 席",
-      subtitle: "第 91–92 场胜者落位 · 2 席",
+      title: "四强席位",
+      subtitle: "第 91–92 场胜者",
       seatName: "四强席位",
       sourceMatches: lowerFinalMatches,
     });
@@ -941,19 +937,17 @@ function buildNationalsDoubleEliminationStage(
       id: "lower-first-eliminated",
       x: columnX(1),
       y: Math.max(lowerFirst.bottom, lowerFinal.bottom) + FLOW_SECTION_GAP,
-      title: "两败出局 · 第 89–90 场负者",
-      subtitle: "生死战第一轮止步",
+      title: "两败出局",
+      subtitle: "第 89–90 场负者",
       sourceMatches: lowerFirstMatches,
-      exitLabel: "止步 8 强阶段",
     });
     addEliminationSection({
       id: "lower-final-eliminated",
       x: columnX(2),
       y: lowerSeats.bottom + FLOW_SECTION_GAP,
-      title: "两败出局 · 第 91–92 场负者",
-      subtitle: "距四强一步之遥",
+      title: "两败出局",
+      subtitle: "第 91–92 场负者",
       sourceMatches: lowerFinalMatches,
-      exitLabel: "止步 8 强阶段",
     });
   }
 
@@ -978,7 +972,7 @@ function buildNationalsDoubleEliminationStage(
     id: stage,
     label: `${event.shortName}赛程`,
     title: `${event.name} · ${stage === "round-of-16" ? "16 进 8" : "8 进 4"} 晋级图`,
-    description: `每队都有两条命：直通战赢球直接锁定${stage === "round-of-16" ? "八强" : "四强"}，生死战告负即出局；${seatCount} 个席位归属与每次止步一目了然。`,
+    description: `直通战胜者锁定${stage === "round-of-16" ? "八强" : "四强"}，生死战负者出局；共 ${seatCount} 席。`,
     width: START_X * 2 + contentColumnCount * CARD_WIDTH + (contentColumnCount - 1) * COLUMN_GAP,
     height: contentBottom + 80,
     viewport: { align: "left", minScale: stage === "round-of-16" ? 0.46 : 0.52, paddingX: 48, paddingY: 36 },
@@ -1250,7 +1244,7 @@ export function buildFinalsWorkspaceStage(event: FinalEventSchedule, stage: Fina
         orderLabel: isFinalRanking ? `${finalRank}` : `${count}`,
         subtitle: isFinalRanking ? `最终第 ${finalRank} 名` : `${count} 支队伍`,
         statLine: isFinalRanking
-          ? `第 ${group.sourceCards[0]?.match.number ?? "-"} 场${group.kind === "winner" ? "胜者" : "负者"} · 名次落位`
+          ? `第 ${group.sourceCards[0]?.match.number ?? "-"} 场${group.kind === "winner" ? "胜者" : "负者"}`
           : isAdvancement
             ? `胜者晋级 · ${group.destination}`
             : `败者淘汰 · ${group.destination}`,
@@ -1343,7 +1337,7 @@ export function buildFinalsWorkspaceStage(event: FinalEventSchedule, stage: Fina
       orderLabel,
       subtitle,
       statLine,
-      meta: [repechageSwissFlow.explanation],
+      meta: ["赛果确认后显示学校队伍"],
       isSimulated: true,
     });
 
@@ -1355,7 +1349,7 @@ export function buildFinalsWorkspaceStage(event: FinalEventSchedule, stage: Fina
         y: preRound3CardY + index * FLOW_TEAM_STEP,
         orderLabel: `${index + 1}`,
         subtitle: "第二轮后淘汰",
-        statLine: "0-2 组 · 学校队伍待确认",
+        statLine: "0-2 组",
         tone: "steel",
       }),
     );
@@ -1365,7 +1359,7 @@ export function buildFinalsWorkspaceStage(event: FinalEventSchedule, stage: Fina
       y: qualificationHeaderY + FLOW_HEADER_TO_CARD_OFFSET + index * FLOW_TEAM_STEP,
       orderLabel: slot,
       subtitle: `${slot} 名额战`,
-      statLine: "第三轮晋级 · 学校队伍待确认",
+      statLine: "第三轮晋级",
       tone: "amber",
     }));
     const postRound3EliminationCards = Array.from(
@@ -1445,7 +1439,7 @@ export function buildFinalsWorkspaceStage(event: FinalEventSchedule, stage: Fina
       subtitle: stage === "final-four" && column === 1
         ? "第 96 场冠军赛 · 第 95 场季军赛"
         : repechageSwissFlow?.roundSubtitles[column + 1]
-          ?? `${matchesByColumn.get(column)?.length ?? 0} 场正式比赛`,
+          ?? `${matchesByColumn.get(column)?.length ?? 0} 场`,
       tone: column === labels.length - 1 && stage === "final-four" ? "amber" : "cyan",
     };
   });
@@ -1458,7 +1452,7 @@ export function buildFinalsWorkspaceStage(event: FinalEventSchedule, stage: Fina
       y: Math.max(32, (outcomeCard?.y ?? START_Y) - 48 - HEADER_TO_CARD_GAP),
       width: CARD_WIDTH,
       title: stage === "final-four" ? "最终名次 · 1–4" : "最终去向",
-      subtitle: stage === "final-four" ? "四场过后全部名次揭晓" : `${terminalGroups.size} 个去向`,
+      subtitle: stage === "final-four" ? "" : `${terminalGroups.size} 个去向`,
       tone: "amber",
     });
   }
@@ -1511,10 +1505,10 @@ export function buildFinalsWorkspaceStage(event: FinalEventSchedule, stage: Fina
       ? `${event.name} · ${stage === "swiss-a" ? "A" : "B"} 组瑞士轮`
       : `${event.name} · ${labels.join(" / ")}`,
     description: isSwissStage
-      ? "先输两场提前出局，第三轮打完决出名额战名单；逐轮看清各队战绩与去向。"
+      ? "先输两场出局，第三轮决出名额战名单。"
       : stage === "final-four"
-        ? "半决赛胜者进冠军赛、负者进季军赛；四场过后，冠亚季殿全部落位。"
-      : "按官方场序逐轮查看对阵与去向；抽签完成后，这里会显示真实队伍。",
+        ? "半决赛胜者争冠、负者争季，四场定第 1–4 名。"
+      : "按官方场序展示，抽签后显示真实队伍。",
     width:
       START_X * 2 +
       totalColumns * CARD_WIDTH +

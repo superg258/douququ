@@ -315,7 +315,7 @@ describe("finals schedule helpers", () => {
     const flowSpecs = [
       {
         id: "round2-eliminated",
-        title: "生死战第一轮出局",
+        title: "两败出局",
         subtitle: "第 27–28 场负者",
         sourceNumbers: [27, 28],
         tone: "steel",
@@ -323,7 +323,7 @@ describe("finals schedule helpers", () => {
       },
       {
         id: "round3-national",
-        title: "全国赛席位 · 直通 2 席",
+        title: "全国赛席位",
         subtitle: "第 29–30 场胜者",
         sourceNumbers: [29, 30],
         tone: "amber",
@@ -331,7 +331,7 @@ describe("finals schedule helpers", () => {
       },
       {
         id: "round4-national",
-        title: "全国赛席位 · 最后 2 席",
+        title: "全国赛席位",
         subtitle: "第 31–32 场胜者",
         sourceNumbers: [31, 32],
         tone: "amber",
@@ -339,7 +339,7 @@ describe("finals schedule helpers", () => {
       },
       {
         id: "round4-eliminated",
-        title: "最后一战出局",
+        title: "两败出局",
         subtitle: "第 31–32 场负者",
         sourceNumbers: [31, 32],
         tone: "steel",
@@ -404,7 +404,7 @@ describe("finals schedule helpers", () => {
     expect(canvas.title).toContain("晋级名额去向");
     expect(canvas.description).toContain("4 张全国赛门票");
     expect(canvas.headers.find((header) => header.id.includes(":round3:header"))).toMatchObject({
-      title: "直通战 · 赢球进全国赛",
+      title: "直通战 · 全国赛",
       tone: "emerald",
     });
     expect(canvas.headers.find((header) => header.id.includes(":round2:header"))).toMatchObject({
@@ -428,7 +428,7 @@ describe("finals schedule helpers", () => {
     );
 
     expect(canvas.title).toContain("16 进 8 晋级图");
-    expect(canvas.description).toContain("两条命");
+    expect(canvas.description).toContain("共 8 席");
     expect(scheduleCards).toHaveLength(20);
     expect(seatCards).toHaveLength(8);
     expect(eliminatedCards).toHaveLength(8);
@@ -437,13 +437,13 @@ describe("finals schedule helpers", () => {
     expect(eliminatedCards.every((card) => card.tone === "steel" && card.isSimulated)).toBe(true);
     expect(canvas.headers.map((header) => header.title)).toEqual([
       "首轮对阵 · 16 强",
-      "直通战 · 赢球进八强",
-      "八强席位 · 直通 4 席",
+      "直通战 · 八强",
+      "八强席位",
       "生死战 · 第一轮",
       "生死战 · 最后一轮",
-      "八强席位 · 最后 4 席",
-      "两败出局 · 第 75–78 场负者",
-      "两败出局 · 第 83–86 场负者",
+      "八强席位",
+      "两败出局",
+      "两败出局",
     ]);
 
     const upperCard = scheduleCards.find((card) => card.match.number === 79);
@@ -460,7 +460,7 @@ describe("finals schedule helpers", () => {
     expect(upperCard?.loserFlowLabel).toBe("负 → 第 83 场");
     expect(canvas.connectors.filter((connector) => connector.id.includes("-seats:"))).toHaveLength(8);
     expect(canvas.connectors.filter((connector) => connector.id.includes("-eliminated:connector"))).toHaveLength(2);
-    expect(canvas.description).toContain("一目了然");
+    expect(canvas.description).toContain("生死战负者出局");
   });
 
   it("lays out nationals 8-to-4 as two double-elimination lanes with four explicit seats", () => {
@@ -480,13 +480,13 @@ describe("finals schedule helpers", () => {
     expect(eliminatedCards).toHaveLength(4);
     expect(seatCards.map((card) => card.orderLabel)).toEqual(["一", "二", "壹", "贰"]);
     expect(canvas.headers.map((header) => header.title)).toEqual([
-      "直通战 · 赢球进四强",
-      "四强席位 · 直通 2 席",
+      "直通战 · 四强",
+      "四强席位",
       "生死战 · 第一轮",
       "生死战 · 最后一轮",
-      "四强席位 · 最后 2 席",
-      "两败出局 · 第 89–90 场负者",
-      "两败出局 · 第 91–92 场负者",
+      "四强席位",
+      "两败出局",
+      "两败出局",
     ]);
 
     const upperCard = scheduleCards.find((card) => card.match.number === 87);
@@ -542,7 +542,7 @@ describe("finals schedule helpers", () => {
       expect(canvas.connectors.every((connector) => connector.kind === "bracket")).toBe(true);
       expect(canvas.connectors.every((connector) => !connector.teamKey)).toBe(true);
       expect(canvas.description).toContain("3 胜晋级 16 强");
-      expect(canvas.description).toContain("3 败提前出局");
+      expect(canvas.description).toContain("3 败出局");
     }
   });
 
@@ -570,9 +570,9 @@ describe("finals schedule helpers", () => {
     expect(rankConnectors.every((connector) => connector.tone === "amber" && connector.weight === "strong")).toBe(true);
     expect(canvas.headers.find((header) => header.id.endsWith(":outcome-header"))).toMatchObject({
       title: "最终名次 · 1–4",
-      subtitle: "四场过后全部名次揭晓",
+      subtitle: "",
     });
-    expect(canvas.description).toContain("冠亚季殿");
+    expect(canvas.description).toContain("第 1–4 名");
   });
 
   it("connects Swiss rounds through neutral re-pairing pools without inventing fixed match routes", () => {
@@ -592,7 +592,7 @@ describe("finals schedule helpers", () => {
     expect(canvas.connectors.every((connector) => !connector.appearance)).toBe(true);
     expect(canvas.connectors.map((connector) => connector.branchY?.length)).toEqual([2, 2]);
     expect(canvas.connectors.map((connector) => connector.targetBranchY?.length)).toEqual([2, 1]);
-    expect(canvas.description).toContain("提前出局");
+    expect(canvas.description).toContain("名额战名单");
   });
 
   it("explains the repechage Swiss round-three 6-to-4/2 split", () => {
@@ -621,9 +621,7 @@ describe("finals schedule helpers", () => {
       qualificationEntryCount: 4,
       eliminatedAfterRound3: 2,
     });
-    expect(flow?.explanation).toContain("2-0 组胜负双方");
-    expect(flow?.explanation).toContain("1-1 组两场胜者");
-    expect(flow?.roundSubtitles[3]).toBe("6 队 · 3 场正式比赛");
+    expect(flow?.roundSubtitles[3]).toBe("6 队 · 3 场");
     expect(getRepechageSwissMatchHint(matches[8])?.routeLabel).toBe("2-0组：胜负均进名额战");
     expect(getRepechageSwissMatchHint(matches[9])?.routeLabel).toBe("1-1组：胜进名额战 · 负淘汰");
 

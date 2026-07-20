@@ -78,7 +78,6 @@ export interface RepechageSwissFlow {
   qualificationSlotRange: string;
   qualificationEntryCount: number;
   eliminatedAfterRound3: number;
-  explanation: string;
   roundSubtitles: Record<number, string>;
 }
 
@@ -124,7 +123,7 @@ export function buildRepechageSwissFlow(
   const roundSubtitles: Record<number, string> = {};
   for (const [roundNumber, matches] of roundMatches) {
     const teamCount = matches.length * 2;
-    roundSubtitles[roundNumber] = `${teamCount} 队 · ${matches.length} 场正式比赛`;
+    roundSubtitles[roundNumber] = `${teamCount} 队 · ${matches.length} 场`;
   }
 
   return {
@@ -138,7 +137,6 @@ export function buildRepechageSwissFlow(
     qualificationSlotRange,
     qualificationEntryCount,
     eliminatedAfterRound3,
-    explanation: `前两轮累计 2 败淘汰 ${eliminatedBeforeRound3} 队，第三轮剩 ${round3TeamCount} 队：2-0 组胜负双方和 1-1 组两场胜者共 ${qualificationEntryCount} 队进入 ${qualificationSlotRange} 名额战；1-1 组两场负者累计 2 败淘汰。`,
     roundSubtitles,
   };
 }
