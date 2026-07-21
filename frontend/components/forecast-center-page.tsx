@@ -252,6 +252,7 @@ export function ForecastCenterPage() {
       seasonDelta: rating.seasonDelta,
       globalRank: rating.globalRank,
       probabilities: overviewTeam?.probabilities ?? null,
+      eloTrajectory: currentSimulation?.eloTrajectoryByTeamKey?.[selectedTeamKey],
     };
   }, [selectedTeamKey, current, allTeams, currentSimulation]);
 
