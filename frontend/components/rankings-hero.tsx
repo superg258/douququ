@@ -7,7 +7,7 @@ export function RankingsHero({
   generatedLabel: string;
 }) {
   return (
-    <header className="sticky top-0 z-10">
+    <header className="z-10">
       {/* Red-blue gradient bottom bar */}
       <div className="bg-rm-metal-dark/95 backdrop-blur-md border-b border-rm-metal-border">
         <div className="max-w-[1600px] mx-auto px-4 py-3 flex items-center justify-between">
