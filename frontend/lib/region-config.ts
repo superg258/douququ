@@ -63,6 +63,10 @@ export const REGION_LABELS: Record<RegionSlug, string> = {
   north_region: "北部赛区",
 };
 
+export function isRegionSlug(value: string): value is RegionSlug {
+  return Object.prototype.hasOwnProperty.call(REGION_LABELS, value);
+}
+
 export function isRegionRealtimeEnabled(regionSlug: RegionSlug, liveState?: LiveStateResponse | LiveStatusSummary | null) {
   return deriveRealtimeAvailability(regionSlug, liveState).enabled;
 }

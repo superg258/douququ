@@ -183,7 +183,7 @@ export function PrematchCenter() {
             <div className="space-y-2">
               <div className="flex items-center justify-center gap-3 mb-1">
                 <span className="h-px w-8 bg-rm-metal-textFaint/20" />
-                <span className="font-mono text-[9px] text-rm-metal-textFaint/40 tracking-[0.3em] uppercase">
+                <span className="font-mono text-[10px] text-rm-metal-textFaint tracking-[0.3em] uppercase">
                   {summaryEmptyStateLabel}
                 </span>
                 <span className="h-px w-8 bg-rm-metal-textFaint/20" />

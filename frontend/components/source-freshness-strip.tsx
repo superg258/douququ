@@ -22,19 +22,19 @@ export function SourceFreshnessStrip({
       <div className="relative px-4 py-3">
         <div className="flex items-center gap-2 mb-2">
           <span className="h-3 w-0.5 bg-rm-status-safe/50 shadow-[0_0_4px_rgba(0,232,120,0.3)]" />
-          <span className="font-mono text-[9px] tracking-[0.2em] text-rm-metal-textFaint/60 uppercase">数据同步状态</span>
+          <span className="font-mono text-[10px] tracking-[0.2em] text-rm-metal-textFaint uppercase">数据同步状态</span>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
-            <div className="font-mono text-[9px] tracking-widest text-rm-metal-textFaint">服务响应时间</div>
+            <div className="font-mono text-[10px] tracking-widest text-rm-metal-textFaint">服务响应时间</div>
             <div className="font-mono text-xs text-rm-status-safe">{formatShortDateTimeLabel(freshness.serviceGeneratedAt)}</div>
           </div>
           <div>
-            <div className="font-mono text-[9px] tracking-widest text-rm-metal-textFaint">预测数据</div>
+            <div className="font-mono text-[10px] tracking-widest text-rm-metal-textFaint">预测数据</div>
             <div className="font-mono text-xs text-rm-metal-textLight">{formatShortDateTimeLabel(freshness.modelGeneratedAt)}</div>
           </div>
           <div>
-            <div className="font-mono text-[9px] tracking-widest text-rm-metal-textFaint">官方赛程同步</div>
+            <div className="font-mono text-[10px] tracking-widest text-rm-metal-textFaint">官方赛程同步</div>
             <div className="font-mono text-xs text-rm-status-warn">{formatShortDateTimeLabel(freshness.officialScheduleUpdatedAt)}</div>
             <div className="mt-1 font-mono text-[10px] leading-snug text-rm-metal-textMuted">
               {freshness.coverageLabel}

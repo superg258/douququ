@@ -137,7 +137,7 @@ function SignalRow({
           <div
             className={cn(
               "absolute inset-0 flex items-center justify-center px-1 text-center font-mono font-bold leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,1)]",
-              compact ? "text-[10px]" : "text-[9px]",
+              compact ? "text-[10px]" : "text-[10px]",
               tone.center
             )}
           >

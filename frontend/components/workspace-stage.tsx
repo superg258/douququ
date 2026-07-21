@@ -92,6 +92,8 @@ export function WorkspaceStageView({
   const layoutFrameRef = useRef<FrameSize | null>(null);
   const layoutStageRef = useRef<WorkspaceStage | null>(null);
   const viewportRef = useRef(viewport);
+  const pendingViewportRef = useRef(viewport);
+  const viewportFrameRef = useRef<number | null>(null);
   const suppressClickRef = useRef(false);
   const suppressAutoPanTeamKeyRef = useRef<string | null>(null);
   const handleTeamSelect = useCallback((teamKey: string) => {
@@ -152,6 +154,7 @@ export function WorkspaceStageView({
   useEffect(() => {
     return () => {
       if (panTimerRef.current) clearTimeout(panTimerRef.current);
+      if (viewportFrameRef.current !== null) cancelAnimationFrame(viewportFrameRef.current);
     };
   }, []);
 
@@ -235,7 +238,13 @@ export function WorkspaceStageView({
     if (!currentFrameSize.width || !currentFrameSize.height) return;
     const clampedViewport = clampViewportPosition(stage, currentFrameSize, nextViewport);
     viewportRef.current = clampedViewport;
-    setViewport(clampedViewport);
+    pendingViewportRef.current = clampedViewport;
+    if (viewportFrameRef.current === null) {
+      viewportFrameRef.current = requestAnimationFrame(() => {
+        viewportFrameRef.current = null;
+        setViewport(pendingViewportRef.current);
+      });
+    }
   };
 
   const setScale = (nextScale: number) => {
@@ -246,7 +255,13 @@ export function WorkspaceStageView({
     const frameCenterY = currentFrameSize.height / 2;
     const nextViewport = scaleViewportAroundFramePoint(stage, currentFrameSize, currentViewport, frameCenterX, frameCenterY, nextScale);
     viewportRef.current = nextViewport;
-    setViewport(nextViewport);
+    pendingViewportRef.current = nextViewport;
+    if (viewportFrameRef.current === null) {
+      viewportFrameRef.current = requestAnimationFrame(() => {
+        viewportFrameRef.current = null;
+        setViewport(pendingViewportRef.current);
+      });
+    }
   };
 
   const minimapViewport = (() => {

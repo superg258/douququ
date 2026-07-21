@@ -151,9 +151,11 @@ function MatchPathRow({
       </div>
 
       {/* 内容卡片 */}
-      <div
+      <Link
+        href={buildTeamHref(match.opponent.teamKey)}
+        aria-label={`查看对手 ${match.opponent.collegeName} 的队伍档案`}
         className={cn(
-          "flex-1 border border-rm-metal-border bg-rm-metal-card px-3 py-2.5 transition-colors duration-200",
+          "group/match flex-1 border border-rm-metal-border bg-rm-metal-card px-3 py-2.5 transition-colors duration-200",
           `border-l-2 ${leftBorder}`,
           bgHover,
         )}
@@ -163,7 +165,7 @@ function MatchPathRow({
             <div className="flex items-center gap-2">
               <span
                 className={cn(
-                  "font-mono text-[9px] px-1.5 py-0.5 border",
+                  "font-mono text-[10px] px-1.5 py-0.5 border",
                   isWin
                     ? "border-rm-status-safe/30 bg-rm-status-safe/10 text-rm-status-safe"
                     : isLoss
@@ -179,15 +181,14 @@ function MatchPathRow({
             </div>
             <div className="mt-1.5 font-mono text-[11px] text-rm-metal-textMuted">
               对手{" "}
-              <Link
-                href={buildTeamHref(match.opponent.teamKey)}
+              <span
                 className={cn(
-                  "hover:underline underline-offset-2 transition-colors",
+                  "underline-offset-2 transition-colors group-hover/match:underline",
                   isWin ? "text-rm-status-safe/70 hover:text-rm-status-safe" : "text-rm-metal-text hover:text-rm-metal-textLight",
                 )}
               >
                 {match.opponent.collegeName}
-              </Link>
+              </span>
               {" "}· {match.opponent.teamName} · {formatTime(match.plannedStartAt)}
             </div>
           </div>
@@ -200,7 +201,7 @@ function MatchPathRow({
             <div className="text-rm-metal-textFaint">{match.scoreline}</div>
           </div>
         </div>
-      </div>
+      </Link>
     </div>
   );
 }
@@ -256,7 +257,7 @@ function UpcomingOpponentRow({
           >
             {winPct.toFixed(0)}%
           </div>
-          <div className="mt-1 font-mono text-[9px] text-rm-metal-textFaint tracking-widest">胜率</div>
+          <div className="mt-1 font-mono text-[10px] text-rm-metal-textFaint tracking-widest">胜率</div>
         </div>
       </div>
       {/* 胜率进度条 */}
@@ -401,7 +402,7 @@ export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) 
 
       <div className="relative mx-auto max-w-screen-xl space-y-6 px-4 py-8">
         {/* ═══ 面包屑 ═══ */}
-        <nav aria-label="面包屑" className="flex items-center gap-2 font-mono text-[10px] text-rm-metal-textFaint/60 tracking-widest">
+        <nav aria-label="面包屑" className="flex items-center gap-2 font-mono text-[10px] text-rm-metal-textFaint tracking-widest">
           <Link href="/" className="hover:text-rm-metal-textMuted transition-colors">
             战术指挥中心
           </Link>
@@ -498,22 +499,34 @@ export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) 
                 {/* 分类标签 */}
                 <div className="flex items-center gap-2 mb-3">
                   <div className={cn("h-px w-6", accent.divider)} />
-                  <span className="font-mono text-[9px] text-rm-metal-textFaint/70 tracking-[0.3em] uppercase">
+                  <span className="font-mono text-[10px] text-rm-metal-textFaint/70 tracking-[0.3em] uppercase">
                     {profile.region.regionName} · 队伍档案
                   </span>
                 </div>
 
                 {/* 队名 + 操作区 */}
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                  <div>
-                    <h1 className="font-sans text-2xl sm:text-3xl font-black text-rm-metal-textLight"
-                      style={{ textShadow: '0 0 18px rgba(255,255,255,0.08)' }}
+                  <div className={cn("flex items-center gap-4 border-l-2 pl-4", accent.btnBorder)}>
+                    <div
+                      aria-label={`队伍编号 ${profile.slot?.slot ?? "待定"}`}
+                      className={cn(
+                        "min-w-16 border border-current/35 bg-black/30 px-3 py-2 text-center font-machine text-2xl font-black tracking-tight text-glow-blue sm:min-w-20 sm:text-3xl",
+                        accent.linkColor,
+                      )}
                     >
-                      {profile.team.collegeName}
-                    </h1>
-                    <p className="mt-1.5 font-mono text-xs text-rm-metal-textMuted">
-                      {formatTeamProfileSubtitle(profile.team.teamName, profile.slot)}
-                    </p>
+                      {profile.slot?.slot ?? "--"}
+                    </div>
+                    <div className="min-w-0">
+                      <h1
+                        className="font-sans text-2xl font-black text-rm-metal-textLight sm:text-3xl"
+                        style={{ textShadow: "0 0 18px rgba(255,255,255,0.08)" }}
+                      >
+                        {profile.team.collegeName}
+                      </h1>
+                      <p className="mt-1.5 font-mono text-xs text-rm-metal-textMuted">
+                        {formatTeamProfileSubtitle(profile.team.teamName, profile.slot)}
+                      </p>
+                    </div>
                   </div>
                   <Link
                     href={regionHref}
@@ -662,7 +675,17 @@ export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) 
                 <UpcomingOpponentRow key={match.matchLabel} match={match} teamElo={teamElo} />
               ))}
               {profile.upcomingMatches.length === 0 && (
-                <EmptyState text="暂无预测路径比赛" />
+                <div className={cn(
+                  "relative overflow-hidden border p-5 text-center",
+                  profile.finalRanking?.rank === 1
+                    ? "border-rm-gold/60 bg-rm-gold/10 shadow-[0_0_24px_rgba(232,196,74,0.12)]"
+                    : "border-rm-metal-border bg-rm-metal-card",
+                )}>
+                  <div className={cn("font-machine text-[10px] tracking-[0.28em]", profile.finalRanking?.rank === 1 ? "text-rm-gold" : "text-rm-metal-textMuted")}>SEASON SUMMARY</div>
+                  <div className={cn("mt-3 font-machine text-xl font-black", profile.finalRanking?.rank === 1 ? "text-rm-gold text-glow-winner" : "text-rm-metal-textLight")}>{finalLabel}</div>
+                  <p className="mt-2 text-xs text-rm-metal-textMuted">本赛区赛程已经结束，暂无后续预测对阵。</p>
+                  {profile.finalRanking?.rank === 1 ? <div className="mt-4 border-t border-rm-gold/25 pt-3 font-mono text-[10px] tracking-widest text-rm-gold">REGIONAL CHAMPION</div> : null}
+                </div>
               )}
             </div>
           </div>

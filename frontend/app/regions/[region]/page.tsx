@@ -1,8 +1,9 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 
 import { RegionWorkspace } from "@/components/region-workspace";
-import { REGION_LABELS } from "@/lib/region-config";
+import { isRegionSlug, REGION_LABELS } from "@/lib/region-config";
 import type { RegionSlug } from "@/lib/types";
 
 interface PageProps {
@@ -21,7 +22,8 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
 
 export default async function RegionPage(props: PageProps) {
   const params = await props.params;
-  const regionSlug = (params.region as RegionSlug) || "north_region";
+  if (!isRegionSlug(params.region)) notFound();
+  const regionSlug: RegionSlug = params.region;
 
   return (
     <Suspense fallback={null}>

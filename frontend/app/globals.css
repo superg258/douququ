@@ -5,7 +5,14 @@
 @layer base {
   :root {
     --background: #000000; /* Pure Black Background */
-    --foreground: #E2E8F0;
+    --foreground: #EDEDEF;
+    --rm-gold: #E8C44A;
+    --rm-gold-bright: #F5D76E;
+    --rm-gold-deep: #D4A830;
+    --rm-gold-soft: #FFF1B0;
+    --rm-gold-pale: #FBE68C;
+    --rm-divider-neutral: #EDEDEF;
+    --rm-divider-audience: #F5D76E;
   }
 }
 
@@ -52,13 +59,13 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #050505;
+  background: var(--background);
 }
 ::-webkit-scrollbar-thumb {
-  background: #2A2A2A;
+  background: rgb(42 42 46);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #A3A3A3;
+  background: rgb(163 163 163);
 }
 
 @layer components {
@@ -177,6 +184,38 @@ body {
   .font-mono {
     font-variant-numeric: tabular-nums;
   }
+
+  .animate-in,
+  .fade-in {
+    animation: hudFadeIn 180ms ease-out both;
+  }
+
+  .slide-in-from-right-8 {
+    animation-name: hudSlideInRight;
+    animation-duration: 220ms;
+    animation-timing-function: ease-out;
+    animation-fill-mode: both;
+  }
+
+  .render-lazy {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 72px;
+  }
+
+  .touch-target {
+    min-width: 40px;
+    min-height: 40px;
+  }
+}
+
+@keyframes hudFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes hudSlideInRight {
+  from { opacity: 0; transform: translateX(2rem); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {

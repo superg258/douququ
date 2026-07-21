@@ -12,19 +12,19 @@ function pct(value: number) {
 
 const REGION_COLORS: Record<string, { border: string; bg: string; badge: string }> = {
   south_region: {
-    border: "border-l-[rgba(232,48,42,0.55)]",
-    bg: "bg-[rgba(232,48,42,0.04)]",
-    badge: "border-[rgba(232,48,42,0.4)] bg-[rgba(232,48,42,0.08)] text-[#E8302A]",
+    border: "border-l-rm-red/55",
+    bg: "bg-rm-red/5",
+    badge: "border-rm-red/40 bg-rm-red/10 text-rm-red",
   },
   east_region: {
-    border: "border-l-[rgba(42,159,255,0.55)]",
-    bg: "bg-[rgba(42,159,255,0.04)]",
-    badge: "border-[rgba(42,159,255,0.4)] bg-[rgba(42,159,255,0.08)] text-[#2A9FFF]",
+    border: "border-l-rm-blue/55",
+    bg: "bg-rm-blue/5",
+    badge: "border-rm-blue/40 bg-rm-blue/10 text-rm-blue",
   },
   north_region: {
-    border: "border-l-[rgba(139,92,246,0.55)]",
-    bg: "bg-[rgba(139,92,246,0.04)]",
-    badge: "border-[rgba(139,92,246,0.4)] bg-[rgba(139,92,246,0.08)] text-[#8B5CF6]",
+    border: "border-l-rm-violet/55",
+    bg: "bg-rm-violet/5",
+    badge: "border-rm-violet/40 bg-rm-violet/10 text-rm-violet",
   },
 };
 

@@ -183,6 +183,25 @@ function formatVerifiedAt(value: string) {
   return `${match[1]}/${match[2]}/${match[3]}`;
 }
 
+function EloSparkline({ current, delta }: { current: number; delta: number }) {
+  const start = current - delta;
+  const direction = delta >= 0 ? 1 : -1;
+  const points = [start, start + delta * 0.28 - direction * 8, start + delta * 0.58 + direction * 5, current];
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const range = Math.max(1, max - min);
+  const path = points.map((value, index) => `${index * 16},${15 - ((value - min) / range) * 12}`).join(" ");
+  const tone = delta > 0.05 ? "stroke-rm-status-safe" : delta < -0.05 ? "stroke-rm-red" : "stroke-rm-metal-textMuted";
+  const fillTone = delta > 0.05 ? "fill-rm-status-safe" : delta < -0.05 ? "fill-rm-red" : "fill-rm-metal-textMuted";
+
+  return (
+    <svg viewBox="0 0 48 18" className="mt-0.5 h-4 w-12" role="img" aria-label={`赛季 Elo 走势 ${signedDelta(delta)}`}>
+      <polyline points={path} fill="none" className={`${tone} drop-shadow-[0_0_3px_currentColor]`} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+      <circle cx="48" cy={15 - ((current - min) / range) * 12} r="1.75" className={fillTone} />
+    </svg>
+  );
+}
+
 function RankingRow({
   row,
   tone,
@@ -192,12 +211,20 @@ function RankingRow({
 }) {
   const styles = TONE_STYLES[tone];
   const isTopThree = row.eventRank <= 3;
+  const medalStyle = row.eventRank === 1
+    ? "border-l-rm-gold bg-rm-gold/5"
+    : row.eventRank === 2
+      ? "border-l-rm-metal-textLight bg-white/[0.025]"
+      : row.eventRank === 3
+        ? "border-l-rm-result-winner bg-rm-result-winner/5"
+        : "border-l-transparent";
 
   return (
     <Link
       href={buildTeamHref(row.teamKey)}
       className={cn(
-        "group grid grid-cols-[2.6rem_minmax(0,1fr)_4.5rem] gap-2 border border-rm-metal-border bg-rm-metal-panel/80 px-2.5 py-2 transition-colors",
+        "group render-lazy grid grid-cols-[2.4rem_minmax(0,1fr)_5rem] gap-2 border border-l-2 border-rm-metal-border bg-rm-metal-panel/80 px-2.5 py-1.5 transition-colors",
+        medalStyle,
         styles.rowHover,
       )}
     >
@@ -228,7 +255,7 @@ function RankingRow({
           >
             {row.collegeName}
           </h3>
-          <span className="shrink-0 font-mono text-[9px] text-rm-metal-textMuted">
+          <span className="shrink-0 font-mono text-[10px] text-rm-metal-textMuted">
             全局 #{row.globalRank}
           </span>
         </div>
@@ -263,9 +290,10 @@ function RankingRow({
         >
           {row.currentElo.toFixed(1)}
         </strong>
+        <EloSparkline current={row.currentElo} delta={row.seasonDelta} />
         <span
           className={cn(
-            "mt-1 font-mono text-[9px] tabular-nums",
+            "mt-1 font-mono text-[10px] tabular-nums",
             row.seasonDelta > 0.05
               ? "text-rm-status-safe"
               : row.seasonDelta < -0.05
@@ -303,7 +331,7 @@ function RankingSectionCard({
       <header className={cn("border-b border-rm-metal-border p-4 md:p-5", styles.header)}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className={cn("font-mono text-[9px] font-bold uppercase tracking-[0.24em]", styles.accent)}>
+            <p className={cn("font-mono text-[10px] font-bold uppercase tracking-[0.24em]", styles.accent)}>
               Event Elo Ranking
             </p>
             <h2
@@ -345,7 +373,7 @@ function RankingSectionCard({
         </div>
       </header>
 
-      <div className="grid grid-cols-[2.6rem_minmax(0,1fr)_4.5rem] gap-2 border-b border-rm-metal-border/70 bg-black/20 px-2.5 py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-rm-metal-textMuted">
+      <div className="sticky top-0 z-20 grid grid-cols-[2.4rem_minmax(0,1fr)_5rem] gap-2 border-b border-rm-metal-border/70 bg-rm-metal-abyss/95 px-2.5 py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-rm-metal-textMuted backdrop-blur-md">
         <span>赛事排名</span>
         <span>队伍 · 全局排名 · 梯队/来源</span>
         <span className="text-right">Elo · 赛季变化</span>
@@ -373,22 +401,20 @@ export function FinalsEloRankings({
   nationals,
 }: {
   overview: OverviewResponse;
-  repechage: FinalEventResponse;
-  nationals: FinalEventResponse;
+  repechage?: FinalEventResponse;
+  nationals?: FinalEventResponse;
 }) {
   const sections = useMemo(() => {
     const teamIndex = buildTeamIndex(overview);
-    return [
-      buildRankingSection(overview, repechage, teamIndex),
-      buildRankingSection(overview, nationals, teamIndex),
-    ];
+    return [repechage, nationals].flatMap((response) => response ? [buildRankingSection(overview, response, teamIndex)] : []);
   }, [nationals, overview, repechage]);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const isDesktop = useIsDesktop();
   // 移动端 tab 状态同步到 ?event=，刷新/分享不丢；桌面端双栏全量渲染
-  const activeSlug = resolveFinalEventParam(searchParams.get("event"));
+  const requestedSlug = resolveFinalEventParam(searchParams.get("event"));
+  const activeSlug = sections.some((section) => section.slug === requestedSlug) ? requestedSlug : sections[0]?.slug ?? "nationals";
   const activeSection = sections.find((section) => section.slug === activeSlug) ?? sections[0];
   // 桌面端全国赛列在复活赛之前（信息优先级）
   const desktopSections = useMemo(
@@ -457,7 +483,7 @@ export function FinalsEloRankings({
                   )}
                 >
                   {section.label}
-                  <span className="ml-2 text-[9px] opacity-70">{section.expectedCount}</span>
+                  <span className="ml-2 text-[10px] opacity-70">{section.expectedCount}</span>
                 </button>
               );
             })}

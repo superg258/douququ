@@ -75,7 +75,7 @@ function RaceBattle({
 }) {
   if (!cutoffTeam) {
     return (
-      <div className="text-[10px] text-rm-metal-textFaint/60 font-mono italic">
+      <div className="text-[10px] text-rm-metal-textFaint font-mono italic">
         卡位分析数据不足...
       </div>
     );
@@ -105,7 +105,7 @@ function RaceBattle({
           </div>
         </Link>
         <span className={cn(
-          "w-20 text-center text-[9px] font-bold py-1.5 tracking-widest border shrink-0",
+          "w-20 text-center text-[10px] font-bold py-1.5 tracking-widest border shrink-0",
           isStable
             ? "border-rm-metal-border bg-rm-metal-dark/10 text-rm-metal-textMuted"
             : cn(colorClass.badge, "animate-pulse-slow"),
@@ -141,7 +141,7 @@ function RaceBattle({
               )}
               <button
                 onClick={() => setExpanded((v) => !v)}
-                className="text-[9px] text-rm-metal-textFaint/60 hover:text-rm-metal-textFaint transition-colors duration-150 cursor-pointer"
+                className="text-[10px] text-rm-metal-textFaint hover:text-rm-metal-textFaint transition-colors duration-150 cursor-pointer"
               >
                 {expanded ? "收起" : `... 等 ${totalChasingCount - 3} 支队伍`}
               </button>
@@ -170,22 +170,22 @@ function CompactRosterTable({ teams, regionSlug }: { teams: OverviewTeam[]; regi
     <div>
       <div className="flex items-center gap-2 mb-2">
         <div className={cn("w-1 h-3", barColor)} />
-        <span className="text-[9px] font-bold text-rm-metal-textLight tracking-widest uppercase">
+        <span className="text-[10px] font-bold text-rm-metal-textLight tracking-widest uppercase">
           战力矩阵
         </span>
-        <span className="text-[8px] text-rm-metal-textFaint/50 ml-auto">
+        <span className="text-[10px] text-rm-metal-textFaint ml-auto">
           共 {sorted.length} 支 · 滚动查看
         </span>
       </div>
       <div className="max-h-64 overflow-y-auto pr-1 border-y border-rm-metal-border/40">
         <table className="w-full text-[10px] border-collapse table-fixed">
           <thead className="sticky top-0 z-10 bg-rm-metal-dark/95 backdrop-blur">
-            <tr className="border-b border-rm-metal-border text-rm-metal-textFaint text-[8px] uppercase tracking-widest">
-              <td className="py-1.5 w-6">#</td>
-              <td className="py-1.5">高校</td>
-              <td className="py-1.5 text-right w-14">Elo</td>
-              <td className="py-1.5 text-center w-14">国赛</td>
-              <td className="py-1.5 text-center w-12">夺冠</td>
+            <tr className="border-b border-rm-metal-border text-rm-metal-textFaint text-[10px] uppercase tracking-widest">
+              <th scope="col" className="py-1.5 w-6 text-left">#</th>
+              <th scope="col" className="py-1.5 text-left">高校</th>
+              <th scope="col" className="py-1.5 text-right w-14">Elo</th>
+              <th scope="col" className="py-1.5 text-center w-14">国赛</th>
+              <th scope="col" className="py-1.5 text-center w-12">夺冠</th>
             </tr>
           </thead>
           <tbody className="font-mono divide-y divide-rm-metal-border/30">
@@ -291,7 +291,7 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
                         group-hover/entry:from-white/[0.08] transition-all duration-500" />
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <span className="text-[8px] font-mono uppercase tracking-[0.2em] text-rm-metal-textFaint">
+            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-rm-metal-textFaint">
               赛程入口 · {entryCopy.mode}
             </span>
             <span className="block truncate text-sm font-bold tracking-wide text-rm-metal-textLight mt-0.5">
@@ -299,7 +299,7 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
             </span>
           </div>
           <span className={cn(
-            "shrink-0 border px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest transition-all duration-200",
+            "shrink-0 border px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest transition-all duration-200",
             realtimeEnabled
               ? "border-rm-status-confirmed/60 bg-rm-status-confirmed/15 text-rm-status-confirmed shadow-[0_0_8px_rgba(0,232,120,0.1)]"
               : "border-rm-metal-border bg-rm-metal-dark/10 text-rm-metal-textMuted",
@@ -310,7 +310,7 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
         <p className="mt-2 text-[10px] leading-relaxed text-rm-metal-textMuted">
           {entryCopy.body}
         </p>
-        <div className="mt-2.5 flex items-start gap-2 text-[8px] font-mono font-bold tracking-widest">
+        <div className="mt-2.5 flex items-start gap-2 text-[10px] font-mono font-bold tracking-widest">
           <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
             <span className="border border-rm-status-confirmed/30 bg-rm-status-confirmed/8 text-rm-status-confirmed/80 px-1.5 py-0.5
                             group-hover/entry:border-rm-status-confirmed/50 group-hover/entry:bg-rm-status-confirmed/15 group-hover/entry:text-rm-status-confirmed transition-all duration-200">
@@ -326,10 +326,10 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
             </span>
           </div>
           <span className={cn(
-            "shrink-0 border px-2.5 py-1 text-[9px] transition-all duration-300 font-bold tracking-widest whitespace-nowrap",
+            "shrink-0 border px-2.5 py-1 text-[10px] transition-all duration-300 font-bold tracking-widest whitespace-nowrap",
             realtimeEnabled
               ? "shadow-[0_0_10px_rgba(232,196,74,0.2)] border-rm-gold/60 bg-rm-gold/15 text-rm-gold group-hover/entry:bg-rm-gold group-hover/entry:text-black group-hover/entry:shadow-[0_0_18px_rgba(232,196,74,0.4)]"
-              : "shadow-[0_0_10px_rgba(45,212,191,0.18)] border-[#2DD4BF]/50 bg-[#2DD4BF]/12 text-[#2DD4BF] group-hover/entry:bg-[#2DD4BF] group-hover/entry:text-black group-hover/entry:shadow-[0_0_18px_rgba(45,212,191,0.35)]",
+              : "shadow-[0_0_10px_rgba(45,212,191,0.18)] border-rm-teal/50 bg-rm-teal/12 text-rm-teal group-hover/entry:bg-rm-teal group-hover/entry:text-black group-hover/entry:shadow-[0_0_18px_rgba(45,212,191,0.35)]",
           )}>
             {entryCopy.cta}
           </span>
@@ -339,7 +339,7 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
       {/* ═══ 3. 赛区Hero指标 ═══ */}
       <div className={cn("grid grid-cols-2 gap-4 px-4 py-4 border-b-2 border-rm-metal-border bg-rm-metal-dark/50")}>
         <div>
-          <span className="text-[9px] text-rm-metal-textFaint uppercase tracking-widest font-bold">
+          <span className="text-[10px] text-rm-metal-textFaint uppercase tracking-widest font-bold">
             头号种子
           </span>
           <div className="text-xl font-black text-rm-metal-textLight mt-1 truncate font-sans tracking-wide">
@@ -350,7 +350,7 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
           </span>
         </div>
         <div className="text-right">
-          <span className="text-[9px] text-rm-metal-textFaint uppercase tracking-widest font-bold">
+          <span className="text-[10px] text-rm-metal-textFaint uppercase tracking-widest font-bold">
             战区数据
           </span>
           <div className="font-mono text-xs text-rm-metal-textLight mt-1 space-y-1 font-semibold">
@@ -374,7 +374,7 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
             <span
               key={tag}
               className={cn(
-                "px-1.5 py-0.5 border text-[8px] tracking-widest transition-all duration-150",
+                "px-1.5 py-0.5 border text-[10px] tracking-widest transition-all duration-150",
                 i === 0
                   ? "border-rm-blue/30 bg-rm-blue/8 text-rm-blue/80"
                   : "border-rm-metal-border bg-rm-metal-dark/10 text-rm-metal-textFaint",
@@ -389,7 +389,7 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
       {/* ═══ 5. 稳进国赛阵容 ═══ */}
       {region.nationalLocks.length > 0 ? (
         <div className="border-b-2 border-rm-metal-border px-4 py-3 border-l-2 border-l-rm-status-warn/50 bg-rm-metal-dark/50">
-          <h4 className="text-[9px] font-bold text-rm-status-warn tracking-widest uppercase mb-2 flex items-center gap-2">
+          <h4 className="text-[10px] font-bold text-rm-status-warn tracking-widest uppercase mb-2 flex items-center gap-2">
             <span className="w-1 h-3 bg-rm-status-warn/60 shadow-[0_0_6px_rgba(255,176,0,0.25)]" />
             稳进国赛阵容
           </h4>
@@ -404,7 +404,7 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
       {/* ═══ 6. 国赛卡位战圈 ═══ */}
       {region.nationalRace.cutoffTeam ? (
         <div className="border-b-2 border-rm-metal-border px-4 py-3 border-l-2 border-l-rm-status-warn/50 bg-rm-metal-dark/50">
-          <h4 className="text-[9px] font-bold text-rm-status-warn tracking-widest uppercase mb-2 flex items-center gap-2">
+          <h4 className="text-[10px] font-bold text-rm-status-warn tracking-widest uppercase mb-2 flex items-center gap-2">
             <span className="w-1 h-3 bg-rm-status-warn/60 shadow-[0_0_4px_rgba(255,176,0,0.2)]" />
             国赛卡位战圈 · 最后 {region.nationalSlots - region.nationalRace.locksCount} 席
           </h4>
@@ -428,7 +428,7 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
       {/* ═══ 7. 复活赛卡位战圈 ═══ */}
       {region.repechageRace.cutoffTeam ? (
         <div className="border-b-2 border-rm-metal-border px-4 py-3 border-l-2 border-l-rm-blue/50 bg-rm-metal-dark/50">
-          <h4 className="text-[9px] font-bold text-rm-blue tracking-widest uppercase mb-2 flex items-center gap-2">
+          <h4 className="text-[10px] font-bold text-rm-blue tracking-widest uppercase mb-2 flex items-center gap-2">
             <span className="w-1 h-3 bg-rm-blue/60 shadow-[0_0_6px_rgba(42,159,255,0.25)]" />
             复活赛卡位战圈
           </h4>

@@ -81,11 +81,11 @@ export function ContenderSection({ contenders }: { contenders: OverviewTeam[] })
               </div>
               <div className="flex justify-between items-end pt-2 border-t border-rm-metal-border">
                 <div>
-                  <div className="text-[9px] text-rm-metal-textFaint tracking-widest">战力</div>
+                  <div className="text-[10px] text-rm-metal-textFaint tracking-widest">战力</div>
                   <div className="font-mono text-sm text-rm-metal-textLight">{elo(displayElo(team))}</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-[9px] text-rm-metal-textFaint tracking-widest">夺冠率</div>
+                  <div className="text-[10px] text-rm-metal-textFaint tracking-widest">夺冠率</div>
                   <div className={cn(
                     "font-mono text-sm",
                     team.probabilities.champion > 0.1

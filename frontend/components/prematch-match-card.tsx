@@ -18,7 +18,7 @@ function DataSourceDot({ match }: { match: PrematchCenterMatch }) {
   return (
     <span
       title={label}
-      className={`inline-flex items-center gap-1 shrink-0 font-mono text-[9px] leading-none
+      className={`inline-flex items-center gap-1 shrink-0 font-mono text-[10px] leading-none
         ${isOfficial && !isPlaceholder ? "text-rm-status-safe" : ""}
         ${isPlaceholder ? "text-rm-status-scheduled" : ""}
         ${isProxy ? "text-rm-status-warn" : ""}
@@ -126,7 +126,7 @@ function SplitBar({
 }) {
   const red = Math.max(0, Math.min(1, redRate));
   const blue = Math.max(0, Math.min(1, blueRate));
-  const dividerColor = variant === "audience" ? "#FFE0A0" : "#FFFFFF";
+  const dividerColor = variant === "audience" ? "var(--rm-divider-audience)" : "var(--rm-divider-neutral)";
   const dividerGlow =
     variant === "audience"
       ? "0 0 3px rgba(255,224,160,0.5)"
@@ -192,14 +192,14 @@ function AudienceBar({ match }: { match: PrematchCenterMatch }) {
     <div className="space-y-1">
       {/* ── Desktop: single row with label + pct + bar + pct ── */}
       <div className="hidden sm:flex items-center gap-1.5">
-        <span className="font-mono text-[9px] text-rm-metal-textFaint/60 tracking-wide shrink-0">
+        <span className="font-mono text-[10px] text-rm-metal-textFaint tracking-wide shrink-0">
           王牌预言家
         </span>
-        <span className="text-rm-red tabular-nums w-7 text-right shrink-0 font-mono text-[9px]">
+        <span className="text-rm-red tabular-nums w-7 text-right shrink-0 font-mono text-[10px]">
           {redPct}%
         </span>
         <SplitBar redRate={aud.redRate} blueRate={aud.blueRate} barHeight="h-1" variant="audience" />
-        <span className="text-rm-blue tabular-nums w-7 text-left shrink-0 font-mono text-[9px]">
+        <span className="text-rm-blue tabular-nums w-7 text-left shrink-0 font-mono text-[10px]">
           {bluePct}%
         </span>
       </div>
@@ -207,7 +207,7 @@ function AudienceBar({ match }: { match: PrematchCenterMatch }) {
       {/* ── Mobile: stacked full-width, same rhythm as Elo bar ── */}
       <div className="sm:hidden space-y-1.5">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[9px] text-rm-metal-textFaint/50 tracking-widest uppercase shrink-0">
+          <span className="font-mono text-[10px] text-rm-metal-textFaint tracking-widest uppercase shrink-0">
             王牌预言家
           </span>
           <span className="flex-1 h-px bg-rm-metal-border/30" />
@@ -267,7 +267,7 @@ export function PrematchMatchCard({
         ${isHero ? "px-3 pt-2 pb-1.5" : "px-2.5 pt-1.5 pb-1"}`}>
         <div className="flex items-center gap-1.5 min-w-0">
           {isHero && (
-            <span className="font-mono text-[9px] text-rm-status-warn border border-rm-status-warn/30
+            <span className="font-mono text-[10px] text-rm-status-warn border border-rm-status-warn/30
               bg-rm-status-warn/8 px-1.5 py-px tracking-widest shrink-0">
               NEXT
             </span>

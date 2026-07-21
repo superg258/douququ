@@ -33,7 +33,7 @@ const config: Config = {
             text: "#A3A3A3",
             textLight: "#EDEDEF",
             textMuted: "#A1A1AA",
-            textFaint: "#71717A",
+            textFaint: "#8F8F99",
             canvas: "#0A0A0F",
             abyss: "#05070C"
           },
@@ -63,6 +63,11 @@ const config: Config = {
             DEFAULT: "#8B5CF6",
             glow: "rgba(139, 92, 246, 0.4)",
             dim: "rgba(139, 92, 246, 0.12)",
+          },
+          teal: {
+            DEFAULT: "#2DD4BF",
+            glow: "rgba(45, 212, 191, 0.45)",
+            dim: "rgba(45, 212, 191, 0.12)",
           },
           result: {
             winner: "#F0972C",
@@ -103,6 +108,17 @@ const config: Config = {
           '0%, 100%': { opacity: '0.6', transform: 'scale(1)' },
           '50%': { opacity: '1', transform: 'scale(1.3)' },
         },
+        hudFadeIn: {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+        hudSlideInRight: {
+          from: { opacity: '0', transform: 'translateX(2rem)' },
+          to: { opacity: '1', transform: 'translateX(0)' },
+        },
+        connectorFlow: {
+          to: { strokeDashoffset: '-24' },
+        },
       },
       animation: {
         'scanline': 'scanlineMove 4s linear infinite',
@@ -111,6 +127,9 @@ const config: Config = {
         'border-glow': 'borderGlow 3s ease-in-out infinite',
         'dot-pulse': 'dotPulse 2s ease-in-out infinite',
         'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'hud-fade-in': 'hudFadeIn 180ms ease-out both',
+        'hud-slide-in-right': 'hudSlideInRight 220ms ease-out both',
+        'connector-flow': 'connectorFlow 1.4s linear infinite',
       }
     },
   },

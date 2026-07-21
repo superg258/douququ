@@ -90,7 +90,7 @@ export function LiveCommandCenterPanel({
                 ))}
               </div>
             ) : (
-              <div className="border border-rm-metal-border bg-rm-metal-panel/50 px-4 py-3 font-mono text-xs text-rm-metal-textFaint/60">
+              <div className="border border-rm-metal-border bg-rm-metal-panel/50 px-4 py-3 font-mono text-xs text-rm-metal-textFaint">
                 {section.emptyLabel}
               </div>
             )}

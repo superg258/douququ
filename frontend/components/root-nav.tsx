@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
+import { ServiceHealth } from "@/components/service-health";
 
 const NAV_ITEMS = [
   { href: "/", label: "全景战略板" },
@@ -28,9 +29,7 @@ export function RootNav() {
           </div>
           <div className="font-machine tracking-widest text-sm md:text-lg font-bold text-white uppercase text-glow-blue">
             赛事总控台
-            <span className="hidden md:inline-block ml-3 animate-pulse text-xs tracking-normal text-rm-status-safe">
-              服务运行中
-            </span>
+            <ServiceHealth />
           </div>
         </div>
         <nav className="flex flex-wrap justify-end gap-x-4 gap-y-2 md:gap-x-6">

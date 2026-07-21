@@ -978,6 +978,7 @@ function buildFinalsWorkspaceStageBase(
     return buildNationalsDoubleEliminationStage(event, matches, stage, simulation);
   }
   const isSwissStage = stage === "swiss-a" || stage === "swiss-b";
+  const matchCardHeight = simulation ? CARD_HEIGHT : 96;
   const repechageSwissFlow = buildRepechageSwissFlow(event, stage);
   const { columnByMatch, labels } = buildColumnAssignments(matches, stage);
   const matchesByColumn = new Map<number, FinalEventMatch[]>();
@@ -996,14 +997,14 @@ function buildFinalsWorkspaceStageBase(
   }
 
   const maxColumnHeight = Math.max(
-    CARD_HEIGHT,
+    matchCardHeight,
     ...[...matchesByColumn.values()].map((rows) =>
-      rows.length * CARD_HEIGHT + Math.max(0, rows.length - 1) * ROW_GAP,
+      rows.length * matchCardHeight + Math.max(0, rows.length - 1) * ROW_GAP,
     ),
   );
   const columnTopByColumn = new Map<number, number>();
   for (const [column, rows] of matchesByColumn) {
-    const columnHeight = rows.length * CARD_HEIGHT + Math.max(0, rows.length - 1) * ROW_GAP;
+    const columnHeight = rows.length * matchCardHeight + Math.max(0, rows.length - 1) * ROW_GAP;
     columnTopByColumn.set(
       column,
       START_Y + Math.max(0, (maxColumnHeight - columnHeight) / 2),
@@ -1019,7 +1020,7 @@ function buildFinalsWorkspaceStageBase(
         event,
         match,
         START_X + column * (CARD_WIDTH + COLUMN_GAP),
-        columnTop + row * (CARD_HEIGHT + ROW_GAP),
+        columnTop + row * (matchCardHeight + ROW_GAP),
         simulation,
       );
       cards.push(card);

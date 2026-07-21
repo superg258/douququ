@@ -1,10 +1,15 @@
 // frontend/components/overview-hero.tsx
 import Link from "next/link";
+import { NextMatchBrief } from "@/components/next-match-brief";
 
-// 金色粒子色板：主色对应 tailwind rm-gold 系列 token
-// #E8C44A = rm-gold(DEFAULT)、#F5D76E = rm-gold-bright、#D4A830 = rm-gold-deep；其余为装饰性邻近色
-const GOLD_PARTICLE_COLORS = ["#F5D76E", "#E8C44A", "#FFF1B0", "#D4A830", "#FBE68C", "#FFEAA7", "#C8962E", "#FDE68A"];
-const GOLD_PARTICLE_GLOW_COLORS = ["#F5D76E", "#E8C44A", "#FFF1B0"];
+const GOLD_PARTICLE_COLORS = [
+  "var(--rm-gold-bright)",
+  "var(--rm-gold)",
+  "var(--rm-gold-soft)",
+  "var(--rm-gold-deep)",
+  "var(--rm-gold-pale)",
+];
+const GOLD_PARTICLE_GLOW_COLORS = ["var(--rm-gold-bright)", "var(--rm-gold)", "var(--rm-gold-soft)"];
 
 const GOLDEN_RAIN_PARTICLES = Array.from({ length: 50 }, (_, index) => {
   const seed = index + 1;
@@ -75,7 +80,7 @@ export function OverviewHero({
           <div className="absolute top-0 left-1/3 w-px h-2 bg-rm-metal-textMuted/20 pointer-events-none" />
           <div className="absolute top-0 left-1/2 w-px h-2 bg-rm-metal-textMuted/25 pointer-events-none" />
           <div className="absolute top-0 right-1/3 w-px h-2 bg-rm-metal-textMuted/20 pointer-events-none" />
-          <div className="absolute top-0 left-1/2 -translate-x-6 text-[7px] text-rm-metal-textFaint/30 font-mono pointer-events-none">SYS</div>
+          <div className="absolute top-0 left-1/2 -translate-x-6 text-[10px] text-rm-metal-textFaint/30 font-mono pointer-events-none">SYS</div>
 
           {/* ═══════════════════════════════════
               CONTENT — responsive layout
@@ -88,7 +93,7 @@ export function OverviewHero({
               {/* Classification */}
               <div className="flex items-center gap-2 mb-3">
                 <div className="h-px w-6 bg-rm-metal-textMuted/20" />
-                <span className="font-mono text-[9px] text-rm-metal-textFaint/50 tracking-[0.3em] uppercase">
+                <span className="font-mono text-[10px] text-rm-metal-textFaint tracking-[0.3em] uppercase">
                   战术指挥中心
                 </span>
               </div>
@@ -100,7 +105,7 @@ export function OverviewHero({
                   {GOLDEN_RAIN_PARTICLES.map((particle, i) => (
                     <span
                       key={i}
-                      className="absolute animate-[goldenRain_6s_linear_infinite]"
+                      className={`absolute animate-[goldenRain_6s_linear_infinite] ${i >= 25 ? "hidden sm:block" : ""}`}
                       style={{
                         left: particle.left,
                         animationDelay: particle.animationDelay,
@@ -174,6 +179,8 @@ export function OverviewHero({
                   参赛名单、赛程对阵、胜负推演一站呈现。
                 </p>
               </div>
+
+              <NextMatchBrief />
 
               <Link
                 href={nextMatchHref}

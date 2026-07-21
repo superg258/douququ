@@ -138,6 +138,15 @@ export const CanvasConnectorView = memo(function CanvasConnectorView({
           strokeLinejoin: "round",
         }}
       />
+      {connector.appearance !== "subtle" ? (
+        <path
+          d={d}
+          className={`pointer-events-none fill-none stroke-[1.5px] opacity-70 animate-connector-flow ${toneClass(connector)}`}
+          strokeDasharray="8 16"
+          style={{ strokeLinecap: "round", strokeLinejoin: "round" }}
+          aria-hidden="true"
+        />
+      ) : null}
       {connector.branchLabels?.map((label) => {
         const width = Math.max(80, label.text.length * 12 + 22);
         return (

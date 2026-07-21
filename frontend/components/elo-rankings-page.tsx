@@ -7,67 +7,73 @@ import { FinalsEloRankings } from "@/components/finals-elo-rankings";
 import { RankingsHero } from "@/components/rankings-hero";
 import { ErrorPanel } from "@/components/ui/async-state";
 import { getFinalEvent, getOverview } from "@/lib/api";
+import { LIVE_REFRESH_INTERVAL_MS, startRealtimePolling } from "@/lib/realtime-polling";
 import { formatShortDateTimeLabel } from "@/lib/time-format";
 import type { FinalEventResponse, OverviewResponse } from "@/lib/types";
 
 interface EloPageData {
-  overview: OverviewResponse;
-  repechage: FinalEventResponse;
-  nationals: FinalEventResponse;
+  overview: OverviewResponse | null;
+  repechage?: FinalEventResponse;
+  nationals?: FinalEventResponse;
 }
 
 export function EloRankingsPage() {
-  const [data, setData] = useState<EloPageData | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<EloPageData>({ overview: null });
+  const [errors, setErrors] = useState<string[]>([]);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
     const { signal } = controller;
 
-    Promise.all([
-      getOverview(),
-      getFinalEvent("repechage"),
-      getFinalEvent("nationals"),
-    ])
-      .then(([overview, repechage, nationals]) => {
+    const load = () => {
+      Promise.allSettled([getOverview(), getFinalEvent("repechage"), getFinalEvent("nationals")]).then((results) => {
         if (signal.aborted) return;
-        setData({ overview, repechage, nationals });
-        setError(null);
-      })
-      .catch((reason: unknown) => {
-        if (signal.aborted) return;
-        setError(reason instanceof Error ? reason.message : String(reason));
+        const [overviewResult, repechageResult, nationalsResult] = results;
+        const nextErrors: string[] = [];
+        setData((current) => ({
+          overview: overviewResult.status === "fulfilled" ? overviewResult.value : current.overview,
+          repechage: repechageResult.status === "fulfilled" ? repechageResult.value : current.repechage,
+          nationals: nationalsResult.status === "fulfilled" ? nationalsResult.value : current.nationals,
+        }));
+        if (overviewResult.status === "rejected") nextErrors.push("战力数据");
+        if (repechageResult.status === "rejected") nextErrors.push("复活赛名单");
+        if (nationalsResult.status === "rejected") nextErrors.push("全国赛名单");
+        setErrors(nextErrors);
       });
+    };
+    const stopPolling = startRealtimePolling(load, LIVE_REFRESH_INTERVAL_MS, { pauseWhenHidden: true });
 
     return () => {
       controller.abort();
+      stopPolling();
     };
   }, [reloadKey]);
 
   const handleRetry = () => {
-    setData(null);
-    setError(null);
+    setErrors([]);
     setReloadKey((key) => key + 1);
   };
+
+  const canRender = Boolean(data.overview && (data.repechage || data.nationals));
 
   return (
     <div className="min-h-screen">
       <RankingsHero
         generatedLabel={
-          data
+          data.overview
             ? formatShortDateTimeLabel(data.overview.generatedAt)
             : "同步中..."
         }
       />
 
       <div className="relative z-10 max-w-[1600px] mx-auto px-4 py-8">
-        {error ? (
+        {!canRender && errors.length ? (
           <ErrorPanel
-            message={`数据加载失败：${error}`}
+            message={`数据加载失败：${errors.join("、")}`}
             onRetry={handleRetry}
           />
-        ) : !data ? (
+        ) : !canRender ? (
           <div
             role="status"
             aria-label="加载中"
@@ -80,11 +86,17 @@ export function EloRankingsPage() {
           </div>
         ) : (
           <FinalsEloRankings
-            overview={data.overview}
+            overview={data.overview!}
             repechage={data.repechage}
             nationals={data.nationals}
           />
         )}
+        {canRender && errors.length ? (
+          <div className="mt-4 border border-rm-status-warn/35 bg-rm-status-warn/5 px-4 py-3 text-xs text-rm-status-warn">
+            {errors.join("、")}暂不可用，其余榜单已正常显示。
+            <button type="button" onClick={handleRetry} className="ml-3 underline underline-offset-2">重试</button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

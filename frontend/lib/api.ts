@@ -12,15 +12,21 @@ import type {
 } from "@/lib/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8001";
+const inFlightRequests = new Map<string, Promise<unknown>>();
 
 async function requestJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
-  }
-  return (await response.json()) as T;
+  const active = inFlightRequests.get(path);
+  if (active) return active as Promise<T>;
+
+  const request = fetch(`${API_BASE_URL}${path}`, { cache: "no-store" })
+    .then(async (response) => {
+      if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+      return (await response.json()) as T;
+    })
+    .finally(() => inFlightRequests.delete(path));
+
+  inFlightRequests.set(path, request);
+  return request;
 }
 
 export function getOverview(): Promise<OverviewResponse> {
