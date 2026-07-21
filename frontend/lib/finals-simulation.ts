@@ -53,6 +53,8 @@ export interface FinalsEventSimulation {
   lockedEliminatedTeamKeys: string[];
   /** 仅吸收真实已完成赛果后的赛事 Elo；预测赛果不会写入。 */
   finalEloByTeamKey: Record<string, number>;
+  /** 仅实时模式：每支队伍的真实赛果 Elo 轨迹（按时间顺序，首点 = 该队赛事起始 Elo） */
+  eloTrajectoryByTeamKey: Record<string, number[]>;
 }
 
 export interface FinalsSimulationResult {
@@ -300,6 +302,11 @@ function simulateEvent(
     if (blueKey) eloByTeamKey.set(blueKey, prediction.blueCurrentElo);
   }
   for (const [teamKey, elo] of options.initialEloByTeamKey ?? []) eloByTeamKey.set(teamKey, elo);
+  // 轨迹：每队从当前 Elo 开始，每次真实赛果后追加更新后的 Elo
+  const trajectories = new Map<string, number[]>();
+  for (const [teamKey, elo] of eloByTeamKey) {
+    trajectories.set(teamKey, [elo]);
+  }
   const teamByKey = new Map<string, SimTeam>();
   const participantByKey = new Map(participants.map((participant) => [participant.teamKey, participant]));
   const participantByIdentity = new Map(
@@ -410,6 +417,11 @@ function simulateEvent(
         result.blueEloAfter = blueElo + update.blueDelta;
         eloByTeamKey.set(resolvedRed.teamKey, result.redEloAfter);
         eloByTeamKey.set(resolvedBlue.teamKey, result.blueEloAfter);
+        // 追加轨迹点
+        const redTraj = trajectories.get(resolvedRed.teamKey);
+        if (redTraj) redTraj.push(result.redEloAfter);
+        const blueTraj = trajectories.get(resolvedBlue.teamKey);
+        if (blueTraj) blueTraj.push(result.blueEloAfter);
       }
       // records 只累计瑞士轮战绩（出线排名、出局时点都只看瑞士轮）
       if (match.stageKey === "swiss" && winnerSide) {
@@ -589,6 +601,7 @@ function simulateEvent(
     finalEloByTeamKey: Object.fromEntries(
       [...eloByTeamKey].filter((entry): entry is [string, number] => entry[1] !== null),
     ),
+    eloTrajectoryByTeamKey: Object.fromEntries(trajectories),
   };
 }
 
