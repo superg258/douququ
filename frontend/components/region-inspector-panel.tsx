@@ -292,8 +292,6 @@ export function RegionInspectorPanel({ selection, regionOverview, selectedOvervi
 
             {!isOfficialPlaceholder ? (
               <>
-                <span className="text-rm-metal-text">历史战绩修正</span>
-                <span className="text-white font-bold text-right">{selectedMatch.deltaH2H.toFixed(3)}</span>
                 {selectedMatch.confidenceLabel && (
                   <>
                     <span className="text-rm-metal-text">结果置信度</span>

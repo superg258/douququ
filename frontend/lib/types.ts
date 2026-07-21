@@ -214,6 +214,8 @@ export interface MatchRow {
   isRealResult?: boolean;
   isConfirmedMatchup?: boolean;
   hasLiveScoreline?: boolean;
+  /** 单次混合推演场景中的预测赛果，用于保持上下游胜负流向自洽。 */
+  isScenarioProjection?: boolean;
   redTeam: TeamRef;
   blueTeam: TeamRef;
   scoreline: string;
@@ -457,6 +459,18 @@ export interface SimulatedFinalMatch {
   /** 沙盘抽样所用的双方 Elo（无 Elo 数据时为 null），供卡片/情报面板合成胜率 */
   redElo?: number | null;
   blueElo?: number | null;
+  redEloAfter?: number | null;
+  blueEloAfter?: number | null;
+  redEloDelta?: number;
+  blueEloDelta?: number;
+  pGameRed?: number;
+  pSeriesRed?: number;
+  deltaH2H?: number;
+  predictionBasis?: string;
+  /** 混合推演中该场是否来自官方真实赛果。 */
+  isRealResult?: boolean;
+  /** 混合推演中双方是否为官方已确认对阵；false 表示模型续推的对阵。 */
+  isConfirmedMatchup?: boolean;
 }
 
 /** 队伍类画布卡片与沙盘模拟结果的关联方式（有模拟数据时据此落位真实队伍） */
@@ -816,6 +830,22 @@ export interface FinalEventMatch {
   endTime: string;
   startsAt: string;
   endsAt: string;
+  officialStatus?: string | null;
+  isCompleted?: boolean;
+  isConfirmedMatchup?: boolean;
+  hasLiveScoreline?: boolean;
+  scoreline?: string | null;
+  result?: string | null;
+  redWins?: number | null;
+  blueWins?: number | null;
+  redSchoolKey?: string | null;
+  redTeamKey?: string | null;
+  redCollegeName?: string | null;
+  redTeamName?: string | null;
+  blueSchoolKey?: string | null;
+  blueTeamKey?: string | null;
+  blueCollegeName?: string | null;
+  blueTeamName?: string | null;
 }
 
 export interface FinalEventSchedule {
@@ -834,6 +864,17 @@ export interface FinalEventSchedule {
   participants: FinalEventParticipant[];
   drawRules: string[];
   matches: FinalEventMatch[];
+  predictionMatrix?: Record<string, {
+    pGameRed: number;
+    pSeriesRed: number;
+    predictedScoreline: string;
+    deltaH2H: number;
+    confidenceLabel: string;
+    redCurrentElo: number;
+    blueCurrentElo: number;
+    predictionBasis: string;
+  }>;
+  predictionBasis?: string;
   ceremonySchedule?: Array<{ activity: string; time: string }>;
 }
 
@@ -845,5 +886,18 @@ export interface FinalEventResponse {
   scheduleStatus: string;
   verifiedAt: string;
   sources: FinalsScheduleSource[];
+  liveStatus?: {
+    sourceStatus: string;
+    sourceKind: "official" | "synthetic" | null;
+    isSynthetic: boolean;
+    sourceUpdatedAt: string | null;
+    sourceAgeSeconds: number | null;
+    freshnessLabel: "fresh" | "stale" | "synthetic" | "unknown" | "missing";
+    validationState: "validated" | "missing";
+    scenarioId: string | null;
+    runtimeArtifactVersion: string;
+    completedMatches: number;
+    confirmedMatches: number;
+  };
   event: FinalEventSchedule;
 }

@@ -1,6 +1,8 @@
 # 胜率预测 70%+ 平台期诊断与优化路线
 
 更新日期：2026-07-20
+
+> 2026-07-21 实施状态：H2H 已从所有胜率预测入口全局下线；交锋索引仅保留为观测统计，不再修正比赛或系列赛概率。
 分析分支：`analysis/winrate-plateau-diagnosis`
 数据基础：`data/runtime/rmuc_live` 全量快照（266 场已完赛、532 条 ledger 流水、2629 个 raw 官方快照）、小程序观众预测 266 场、`data/extracted/2026RMUL`
 方法：用 `backend/app/service.py` 的 live 路径（`mode=live`，已完成比赛严格取 ledger 赛前状态）重建全部 266 场赛前预测；再用 `scripts/sync_rmuc_live.py --skip-fetch` 对 2629 个 raw 快照做整赛季 replay，验证配置级改动。基线 replay 与线上指标逐项一致（acc 74.44% / logloss 0.6066 / brier 0.2035），实验结论可信。

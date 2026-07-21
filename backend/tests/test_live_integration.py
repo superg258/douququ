@@ -603,6 +603,119 @@ def test_tied_live_display_scoreline_uses_model_favorite_for_internal_winner() -
     assert result["winner"] is red
 
 
+def test_live_simulation_updates_only_completed_results_with_plain_sequential_elo() -> None:
+    region_core = service.region_sim.region_core
+
+    def team(team_key: str, rating: float, slot: str):
+        return region_core.RegionTeam(
+            team_key=team_key,
+            college_name=team_key,
+            team_name="Main",
+            admitted_region="南部赛区",
+            seed_tier="unseeded",
+            seed_rank_in_region=1,
+            ranking_global_rank=None,
+            shape_rank=None,
+            mu0=rating,
+            sigma0=40.0,
+            z_25game=0.0,
+            z_robot25_raw=0.0,
+            z_26rmul=0.0,
+            z_form=0.0,
+            tilde_z_hist=0.0,
+            n_matches_2025_rmuc=0,
+            n_matches_2026_rmul=0,
+            robot_stage_reliability=0.0,
+            simulation_mu=rating,
+            match_sigma=16.0,
+            slot=slot,
+            group_name="A",
+        )
+
+    red = team("红方大学", 1500.0, "A1")
+    blue = team("蓝方大学", 1500.0, "A9")
+
+    def completed_builder(*args, **kwargs):
+        del args, kwargs
+        return {
+            "p_game_base_red": 0.5,
+            "p_game_adj_red": 0.5,
+            "p_series_red": 0.5,
+            "p_series_blue": 0.5,
+            "scoreline_distribution": {"2:0": 1.0},
+            "head_to_head_summary": {"delta_h2h": 0.0},
+            "confidence_label": "test",
+            "fixed_scoreline": "2:0",
+            # Deliberately incompatible published/model ratings: the live
+            # simulation Elo chain must ignore these side-channel values.
+            "red_rating_before_match": 1900.0,
+            "red_rating_after_match": 1000.0,
+            "blue_rating_before_match": 1100.0,
+            "blue_rating_after_match": 2000.0,
+        }
+
+    first_result = region_core.simulate_series(
+        red,
+        blue,
+        best_of=3,
+        stage="swiss",
+        round_number=1,
+        match_label="ACTUAL-1",
+        rng=random.Random(1),
+        head_to_head_index={},
+        samples=1,
+        payload_builder=completed_builder,
+    )
+    first_row = region_core.match_row(first_result, winner_next="next", loser_next="next")
+    assert first_row["red_mu0"] == 1500.0
+    assert first_row["blue_mu0"] == 1500.0
+    assert first_row["red_delta"] > 0
+    assert first_row["blue_delta"] < 0
+
+    red_after_first = red.current_display_mu()
+    blue_after_first = blue.current_display_mu()
+    second_result = region_core.simulate_series(
+        red,
+        blue,
+        best_of=3,
+        stage="swiss",
+        round_number=2,
+        match_label="ACTUAL-2",
+        rng=random.Random(2),
+        head_to_head_index={},
+        samples=1,
+        payload_builder=completed_builder,
+    )
+    second_row = region_core.match_row(second_result, winner_next="next", loser_next="next")
+    assert second_row["red_mu0"] == round(red_after_first, 1)
+    assert second_row["blue_mu0"] == round(blue_after_first, 1)
+
+    def projected_builder(*args, **kwargs):
+        payload = completed_builder(*args, **kwargs)
+        payload.pop("fixed_scoreline")
+        return payload
+
+    red_before_projection = red.current_display_mu()
+    blue_before_projection = blue.current_display_mu()
+    projected_result = region_core.simulate_series(
+        red,
+        blue,
+        best_of=3,
+        stage="swiss",
+        round_number=3,
+        match_label="PROJECTED-1",
+        rng=random.Random(3),
+        head_to_head_index={},
+        samples=1,
+        payload_builder=projected_builder,
+    )
+    projected_row = region_core.match_row(projected_result, winner_next="next", loser_next="next")
+    assert "red_mu0" not in projected_row
+    assert "red_delta" not in projected_row
+    assert red.current_display_mu() == red_before_projection
+    assert blue.current_display_mu() == blue_before_projection
+
+
 def test_live_school_rename_aliases_do_not_split_team_keys() -> None:
     payload = _schedule_payload()
     zone = payload["data"]["event"]["zones"]["nodes"][0]
@@ -1108,7 +1221,7 @@ def test_live_mode_preserves_long_horizon_qualification_forecasts_when_official_
     assert service._prematch_data_source("live", live_status, qualification_payload) == "simulation_proxy"
 
 
-def test_live_mode_uses_match_ledger_rating_history_without_current_snapshot_backfill(tmp_path, monkeypatch) -> None:
+def test_live_mode_replays_completed_scoreline_with_plain_elo_without_snapshot_backfill(tmp_path, monkeypatch) -> None:
     normalized = _mock_south_live_normalized(completed_count=1)
     first_live_match = normalized["regions"]["south_region"]["matches"][0]
     ratings_by_team_key = {
@@ -1196,8 +1309,18 @@ def test_live_mode_uses_match_ledger_rating_history_without_current_snapshot_bac
     assert first_payload_match["isRealResult"] is True
     assert first_payload_match["redMu0"] == round(red_preseason, 1)
     assert first_payload_match["blueMu0"] == round(blue_preseason, 1)
-    assert first_payload_match["redDelta"] == 10.0
-    assert first_payload_match["blueDelta"] == -10.0
+    red_games, blue_games = (int(value) for value in first_live_match["scoreline"].split(":"))
+    expected_update = service.region_sim.legacy_elo.average_ordered_series_update(
+        red_preseason,
+        blue_preseason,
+        red_games,
+        blue_games,
+        64.0,
+    )
+    assert first_payload_match["redDelta"] == round(expected_update["red_delta"], 1)
+    assert first_payload_match["blueDelta"] == round(expected_update["blue_delta"], 1)
+    assert first_payload_match["redDelta"] != 10.0
+    assert first_payload_match["blueDelta"] != -10.0
     assert first_payload_match["redLiveDelta"] == 10.0
     assert first_payload_match["blueLiveDelta"] == -10.0
     assert first_payload_match["redPriorDelta"] == 0.0

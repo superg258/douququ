@@ -120,9 +120,6 @@ function EventPanel({
   const confirmedParticipants = rankFinalEventParticipantsByCurrentElo(event.participants, overview);
   const schedulePreview = selectSchedulePreview(event, now);
   const stageFlow = buildStageFlow(event);
-  const statusLabel = eventSlug === "repechage"
-    ? "参赛名单已确认 · 抽签待定"
-    : `${confirmedParticipants.length} 队名单已确认 · 抽签待定`;
   const thirdMetric = eventSlug === "repechage"
     ? { label: "晋级名额", value: `${event.advancementSlots ?? 0} 席` }
     : { label: "赛事阶段", value: `${stageFlow.length} 段` };
@@ -143,7 +140,7 @@ function EventPanel({
               {formatDateRange(event.competitionRange)}
             </p>
           </div>
-          <span className={cn("border px-2.5 py-1 font-mono text-[10px]", tone.badge)}>{statusLabel}</span>
+          <span className={cn("border px-2.5 py-1 font-mono text-[10px]", tone.badge)}>{event.statusLabel}</span>
         </div>
 
         <div className="flex items-center gap-1.5 overflow-x-auto border-b border-rm-metal-border/70 py-3 no-scrollbar" aria-label="赛事阶段进度">

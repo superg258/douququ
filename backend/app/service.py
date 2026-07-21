@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from functools import lru_cache
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from urllib.parse import unquote
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -175,10 +176,10 @@ LIVE_PREDICTION_HEAD_PROCESS_RESIDUAL_WEIGHT = 0.35
 LIVE_PREDICTION_HEAD_PROCESS_RESIDUAL_CAP = 0.40
 LIVE_PREDICTION_HEAD_ROBOT_FORM_AGREEMENT_WEIGHT = 0.15
 LIVE_PREDICTION_HEAD_ROBOT_FORM_AGREEMENT_CAP = 0.30
-# Fallbacks keep the legacy behavior when the manifest predates these keys;
-# production values arrive via the manifest model_config_signature.
+# Robot signal remains manifest-driven; H2H fails closed even when an older
+# manifest predates the key. The shared H2H module also enforces the global ban.
 LIVE_PREDICTION_HEAD_ROBOT_SIGNAL_WEIGHT = 0.0
-LIVE_PREDICTION_HEAD_H2H_MAX_DELTA_PROBABILITY = 0.10
+LIVE_PREDICTION_HEAD_H2H_MAX_DELTA_PROBABILITY = 0.0
 DEFAULT_PUBLISHED_RATING_SCALE = 135.0
 
 
@@ -407,6 +408,7 @@ def _reset_live_state_caches() -> None:
     load_current_rating_index.cache_clear()
     load_global_elo_rank_map.cache_clear()
     _load_prediction_form_index_cached.cache_clear()
+    _build_finals_prediction_matrix_cached.cache_clear()
 
 
 def live_state_unavailable_payload(region_slug: str, reason: str) -> dict[str, Any]:
@@ -1795,6 +1797,64 @@ def _deterministic_live_prediction_payload(
         "head_to_head_summary": head_to_head_summary,
         "confidence_label": region_sim._classify_confidence(red_team, blue_team),
     }
+
+
+@lru_cache(maxsize=8)
+def _build_finals_prediction_matrix_cached(
+    team_keys: tuple[str, ...],
+    _snapshot_path: str,
+    _snapshot_mtime_ns: int,
+    _snapshot_size: int,
+) -> dict[str, dict[str, Any]]:
+    rating_rows = {str(row.get("team_key") or ""): row for row in load_ratings_rows()}
+    current_rating_index = load_current_rating_index()
+    teams: dict[str, Any] = {}
+    for team_key in team_keys:
+        row = rating_rows.get(team_key)
+        if not team_key or row is None:
+            continue
+        teams[team_key] = SimpleNamespace(
+            team_key=team_key,
+            college_name=str(row.get("college_name") or ""),
+            team_name=str(row.get("team_name") or ""),
+            mu0=float(row["mu0"]),
+            sigma0=float(row["sigma0"]),
+            beta_perf=float(row.get("beta_perf") or 1.0),
+            rmuc_history_strength=float(row.get("rmuc_history_strength") or 0.0),
+        )
+
+    matrix: dict[str, dict[str, Any]] = {}
+    for red_key, red_team in teams.items():
+        for blue_key, blue_team in teams.items():
+            if red_key == blue_key:
+                continue
+            red_elo = _prediction_elo_for_team(red_team, current_rating_index)
+            blue_elo = _prediction_elo_for_team(blue_team, current_rating_index)
+            p_game_red = region_sim.legacy_elo.logistic_expectation(red_elo - blue_elo)
+            raw_distribution = region_sim._compute_scoreline_distribution(3, p_game_red)
+            p_series_red = sum(
+                probability
+                for scoreline, probability in raw_distribution.items()
+                if int(scoreline.split(":")[0]) > int(scoreline.split(":")[1])
+            )
+            matrix[f"{red_key}|||{blue_key}"] = {
+                "pGameRed": p_game_red,
+                "pSeriesRed": p_series_red,
+                "predictedScoreline": _predicted_scoreline_from_rates(p_game_red, p_series_red, 3),
+                "deltaH2H": 0.0,
+                "confidenceLabel": region_sim._classify_confidence(red_team, blue_team),
+                "redCurrentElo": red_elo,
+                "blueCurrentElo": blue_elo,
+                "predictionBasis": "finals_initial_elo",
+            }
+    return matrix
+
+
+def build_finals_prediction_matrix(participants: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Build deterministic repechage/nationals pair predictions with the regional live head."""
+    team_keys = tuple(sorted(str(row.get("teamKey") or "") for row in participants if row.get("teamKey")))
+    snapshot_path = _published_current_snapshot_path_for(RUNTIME_PUBLISHED_RATINGS_DIR)
+    return _build_finals_prediction_matrix_cached(team_keys, *_path_signature(snapshot_path))
 
 
 def _live_prediction_rating_index_for_match(
@@ -3251,7 +3311,7 @@ def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", sam
         )
         live_status["slotAssignmentReason"] = live_slot_assignment_reason
         live_status["predictionBasis"] = (
-            "current_ts2_component_head_h2h"
+            "current_ts2_component_head"
             if context.source_status == "active" and slot_assignments is not None
             else "official_placeholder"
             if context.source_status == "active"

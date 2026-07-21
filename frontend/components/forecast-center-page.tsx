@@ -15,9 +15,9 @@ import { ErrorPanel } from "@/components/ui/async-state";
 import { getFinalEvent, getOverview } from "@/lib/api";
 import { translateConfidenceLabel, translateStageLabel } from "@/lib/display";
 import { buildFinalsWorkspaceStage } from "@/lib/finals-canvas";
-import { buildFinalsMatchRow } from "@/lib/finals-match-adapter";
-import { simulateFinalsEvents } from "@/lib/finals-simulation";
-import { buildRegionHref, getOrCreateSessionSeed, parseSeed, refreshSessionSeed } from "@/lib/region-config";
+import { buildFinalsMatchRow, resolveFinalsTeamRating } from "@/lib/finals-match-adapter";
+import { hasOfficialFinalMatchData, simulateFinalsEvents, simulateFinalsLiveEvents } from "@/lib/finals-simulation";
+import { DEFAULT_SEED, buildRegionHref, getOrCreateSessionSeed, parseSeed, refreshSessionSeed } from "@/lib/region-config";
 import { LIVE_REFRESH_INTERVAL_MS, startRealtimePolling } from "@/lib/realtime-polling";
 import {
   FINAL_STAGE_OPTIONS,
@@ -179,7 +179,22 @@ export function ForecastCenterPage() {
       : null),
     [mode, events, overview, seed],
   );
-  const currentSimulation = mode === "sim" ? simulation?.[eventSlug] ?? null : null;
+  const liveFinalsProjection = useMemo(
+    () => {
+      if (mode !== "live" || !current || !overview || !events.repechage || !events.nationals) return null;
+      if (!hasOfficialFinalMatchData(current.event)) return null;
+      return simulateFinalsLiveEvents(
+        events.repechage.event,
+        events.nationals.event,
+        overview,
+        DEFAULT_SEED,
+      )[eventSlug];
+    },
+    [mode, current, overview, events.repechage, events.nationals, eventSlug],
+  );
+  const currentSimulation = mode === "sim"
+    ? simulation?.[eventSlug] ?? null
+    : liveFinalsProjection;
   const workspace = useMemo(
     () => current ? buildFinalsWorkspaceStage(current.event, stage, currentSimulation ?? undefined) : null,
     [current, stage, currentSimulation],
@@ -224,16 +239,18 @@ export function ForecastCenterPage() {
     }
     const collegeName = overviewTeam?.collegeName ?? participant?.collegeName ?? simulatedName?.collegeName ?? null;
     if (!collegeName) return null;
+    const rating = resolveFinalsTeamRating(
+      selectedTeamKey,
+      allTeams,
+      currentSimulation?.finalEloByTeamKey,
+    );
     return {
       teamKey: selectedTeamKey,
       collegeName,
       teamName: overviewTeam?.teamName ?? participant?.teamName ?? simulatedName?.teamName ?? "",
-      elo: overviewTeam ? (overviewTeam.currentElo ?? overviewTeam.mu0 ?? null) : null,
-      seasonDelta: overviewTeam
-        ? overviewTeam.eloDeltaFromPreseason
-          ?? (overviewTeam.currentElo ?? overviewTeam.mu0) - (overviewTeam.preseasonElo ?? overviewTeam.mu0)
-        : null,
-      globalRank: overviewTeam?.eloGlobalRank ?? null,
+      elo: rating.currentElo,
+      seasonDelta: rating.seasonDelta,
+      globalRank: rating.globalRank,
       probabilities: overviewTeam?.probabilities ?? null,
     };
   }, [selectedTeamKey, current, allTeams, currentSimulation]);
@@ -430,6 +447,14 @@ export function ForecastCenterPage() {
               模拟
             </button>
           </div>
+          {mode === "live" && current.liveStatus?.isSynthetic ? (
+            <span
+              className="shrink-0 border border-rm-status-deviation/70 bg-rm-status-deviation/15 px-2 py-1 font-mono text-[10px] font-bold text-rm-status-deviation"
+              title={current.liveStatus.scenarioId ?? "synthetic runtime scenario"}
+            >
+              仿真数据
+            </span>
+          ) : null}
           {mode === "sim" ? (
             <div className="flex shrink-0 items-center overflow-hidden border border-white/10 bg-rm-metal-dark/80">
               <span className="px-2 font-mono text-[10px] text-rm-metal-text">种子</span>

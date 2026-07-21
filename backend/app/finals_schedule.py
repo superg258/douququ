@@ -2,11 +2,16 @@ from __future__ import annotations
 
 import csv
 import json
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from functools import lru_cache
 from pathlib import Path
 import re
 from typing import Any
 import unicodedata
+
+from . import finals_live
+from .service import build_finals_prediction_matrix
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -32,6 +37,8 @@ EVENT_RESPONSE_FIELDS = (
     "drawRules",
     "ceremonySchedule",
 )
+COMPLETED_MATCH_STATUSES = {"DONE", "FINISHED", "ENDED", "COMPLETE", "COMPLETED"}
+RUNNING_MATCH_STATUSES = {"RUNNING", "STARTED", "ONGOING", "IN_PROGRESS", "LIVE"}
 
 
 @lru_cache(maxsize=1)
@@ -130,6 +137,32 @@ def _is_confirmed_real_participant(participant: dict[str, Any]) -> bool:
     return participant.get("status") == "confirmed"
 
 
+def _official_match_status(match: dict[str, Any]) -> str:
+    return str(match.get("officialStatus") or "").strip().upper()
+
+
+def _event_status_label(participant_count: int, matches: list[dict[str, Any]]) -> str:
+    total = len(matches)
+    completed = sum(
+        match.get("isCompleted") is True or _official_match_status(match) in COMPLETED_MATCH_STATUSES
+        for match in matches
+    )
+    running = sum(_official_match_status(match) in RUNNING_MATCH_STATUSES for match in matches)
+    if running:
+        return f"{running} 场进行中 · 已完赛 {completed} / {total} 场"
+    if completed:
+        return f"已完赛 {completed} / {total} 场"
+    confirmed_matchups = sum(
+        match.get("isConfirmedMatchup") is True
+        and bool(match.get("redCollegeName") or match.get("redTeamKey"))
+        and bool(match.get("blueCollegeName") or match.get("blueTeamKey"))
+        for match in matches
+    )
+    if confirmed_matchups:
+        return f"{participant_count} 队抽签已完成 · 等待开赛"
+    return f"{participant_count} 队名单已确认 · 抽签待定"
+
+
 def _build_event_payload(event: dict[str, Any]) -> dict[str, Any]:
     participants = [
         {**participant, **_participant_identity(participant)}
@@ -150,26 +183,144 @@ def _build_event_payload(event: dict[str, Any]) -> dict[str, Any]:
         {
             "participantCount": len(participants),
             "confirmedParticipantCount": len(participants),
-            "statusLabel": f"{len(participants)} 队名单已确认 · 抽签待定",
+            "statusLabel": _event_status_label(len(participants), matches),
             "formalMatchCount": len(matches),
             "participants": participants,
             "matches": matches,
         }
     )
+    response_event["predictionMatrix"] = build_finals_prediction_matrix(participants)
+    response_event["predictionBasis"] = "finals_sequential_elo"
     return response_event
+
+
+def _merge_runtime_event(event: dict[str, Any], runtime_event: dict[str, Any] | None) -> dict[str, Any]:
+    if not runtime_event:
+        return dict(event)
+    merged = dict(event)
+    participants = [dict(row) for row in event.get("participants", []) if isinstance(row, dict)]
+    participant_index = {
+        (_identity_key(row.get("collegeName")), _identity_key(row.get("teamName"))): index
+        for index, row in enumerate(participants)
+    }
+    for participant in runtime_event.get("participants", []):
+        if not isinstance(participant, dict):
+            continue
+        key = (_identity_key(participant.get("collegeName")), _identity_key(participant.get("teamName")))
+        if key in participant_index:
+            participants[participant_index[key]].update(participant)
+        else:
+            participant_index[key] = len(participants)
+            participants.append(dict(participant))
+    for index, participant in enumerate(participants, start=1):
+        participant["order"] = index
+    merged["participants"] = participants
+    merged["participantCount"] = len(participants)
+
+    runtime_matches = {
+        int(row["number"]): row
+        for row in runtime_event.get("matches", [])
+        if isinstance(row, dict) and row.get("number") is not None
+    }
+    merged["matches"] = [
+        {**match, **runtime_matches.get(int(match["number"]), {})}
+        for match in event.get("matches", [])
+        if isinstance(match, dict)
+    ]
+    return merged
+
+
+def _source_age_seconds(value: Any) -> int | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        parsed = parsedate_to_datetime(text) if "," in text else datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return max(0, int((datetime.now(tz=UTC) - parsed.astimezone(UTC)).total_seconds()))
+
+
+def _runtime_status(runtime: dict[str, Any] | None, event_slug: str) -> dict[str, Any]:
+    if not runtime:
+        return {
+            "sourceStatus": "missing",
+            "sourceKind": None,
+            "isSynthetic": False,
+            "sourceUpdatedAt": None,
+            "sourceAgeSeconds": None,
+            "freshnessLabel": "missing",
+            "validationState": "missing",
+            "scenarioId": None,
+            "runtimeArtifactVersion": finals_live.runtime_artifact_version(),
+            "completedMatches": 0,
+            "confirmedMatches": 0,
+        }
+    matches = [
+        match
+        for match in runtime.get("events", {}).get(event_slug, {}).get("matches", [])
+        if isinstance(match, dict)
+    ]
+    source_age_seconds = _source_age_seconds(runtime.get("sourceUpdatedAt"))
+    return {
+        "sourceStatus": runtime.get("sourceStatus"),
+        "sourceKind": runtime.get("sourceKind"),
+        "isSynthetic": runtime.get("isSynthetic") is True,
+        "sourceUpdatedAt": runtime.get("sourceUpdatedAt"),
+        "sourceAgeSeconds": source_age_seconds,
+        "freshnessLabel": (
+            "synthetic"
+            if runtime.get("isSynthetic") is True
+            else "unknown"
+            if source_age_seconds is None
+            else "fresh"
+            if source_age_seconds <= 900
+            else "stale"
+        ),
+        "validationState": "validated",
+        "scenarioId": runtime.get("scenarioId"),
+        "runtimeArtifactVersion": finals_live.runtime_artifact_version(),
+        "completedMatches": sum(match.get("isCompleted") is True for match in matches),
+        "confirmedMatches": sum(match.get("isConfirmedMatchup") is True for match in matches),
+    }
 
 
 def build_final_event_payload(event_slug: str) -> dict[str, Any]:
     if event_slug not in EVENT_SLUGS:
         raise KeyError(event_slug)
     payload = load_finals_schedule()
+    runtime = finals_live.load_finals_runtime()
+    runtime_active = runtime is not None and runtime.get("sourceStatus") == "active"
+    runtime_event = runtime.get("events", {}).get(event_slug) if runtime_active else None
+    merged_event = _merge_runtime_event(payload["events"][event_slug], runtime_event)
+    runtime_status = _runtime_status(runtime, event_slug)
+    sources = list(payload["sources"])
+    if runtime_active:
+        sources.append(
+            {
+                "kind": "synthetic_runtime" if runtime_status["isSynthetic"] else "official_runtime",
+                "title": runtime_status["scenarioId"] or "RMUC finals live runtime",
+                "updatedAt": runtime_status["sourceUpdatedAt"],
+                "coverage": "对阵、局中比分与完赛赛果运行时覆盖层",
+                "isSynthetic": runtime_status["isSynthetic"],
+            }
+        )
     return {
         "schemaVersion": payload["schemaVersion"],
         "season": payload["season"],
         "timezone": payload["timezone"],
         "timezoneLabel": payload["timezoneLabel"],
-        "scheduleStatus": payload["scheduleStatus"],
-        "verifiedAt": payload["verifiedAt"],
-        "sources": payload["sources"],
-        "event": _build_event_payload(payload["events"][event_slug]),
+        "scheduleStatus": (
+            "synthetic_scenario_active"
+            if runtime_status["isSynthetic"] and runtime_active
+            else "official_live_active"
+            if runtime_active
+            else payload["scheduleStatus"]
+        ),
+        "verifiedAt": runtime_status["sourceUpdatedAt"] or payload["verifiedAt"],
+        "sources": sources,
+        "liveStatus": runtime_status,
+        "event": _build_event_payload(merged_event),
     }

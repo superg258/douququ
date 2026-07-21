@@ -24,10 +24,10 @@ from backend.app.main import app
 client = TestClient(app)
 
 
-def test_simulation_exposes_nonzero_head_to_head_adjustments() -> None:
+def test_simulation_keeps_head_to_head_observational_only() -> None:
     response = client.get("/api/regions/east_region/simulation", params={"seed": 20260414})
     assert response.status_code == 200
     payload = response.json()
 
     assert payload["matches"]
-    assert any(abs(float(match["deltaH2H"])) > 0.0 for match in payload["matches"])
+    assert all(float(match["deltaH2H"]) == 0.0 for match in payload["matches"])

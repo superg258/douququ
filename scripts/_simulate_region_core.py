@@ -842,15 +842,6 @@ def simulate_series(
     return result
 
 
-def _optional_float_value(value: Any) -> float | None:
-    if value in (None, ""):
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-
-
 def _set_team_live_rating(team: RegionTeam, rating: float) -> None:
     team.display_mu = rating
     team.simulation_mu = rating
@@ -876,35 +867,23 @@ def match_row(
         blue_wins = int(bw)
 
     is_actual_result = bool(result.get("is_actual_result", False))
-    red_history_before = _optional_float_value(result.get("red_rating_before_match"))
-    red_history_after = _optional_float_value(result.get("red_rating_after_match"))
-    blue_history_before = _optional_float_value(result.get("blue_rating_before_match"))
-    blue_history_after = _optional_float_value(result.get("blue_rating_after_match"))
-    has_published_rating_history = all(
-        value is not None
-        for value in (red_history_before, red_history_after, blue_history_before, blue_history_after)
-    )
-    red_mu_before = red_history_before if is_actual_result and has_published_rating_history else red_team.current_display_mu()
-    blue_mu_before = blue_history_before if is_actual_result and has_published_rating_history else blue_team.current_display_mu()
+    red_mu_before = red_team.current_display_mu()
+    blue_mu_before = blue_team.current_display_mu()
     update: dict[str, float] | None = None
     if is_actual_result:
-        if has_published_rating_history:
-            update = {
-                "red_delta": float(red_history_after) - float(red_history_before),
-                "blue_delta": float(blue_history_after) - float(blue_history_before),
-            }
-            _set_team_live_rating(red_team, float(red_history_after))
-            _set_team_live_rating(blue_team, float(blue_history_after))
-        else:
-            update = elo_model.average_ordered_series_update(
-                float(red_mu_before),
-                float(blue_mu_before),
-                red_wins,
-                blue_wins,
-                64.0,  # Dynamic stage weight proxy K=64.0
-            )
-            _set_team_live_rating(red_team, float(red_mu_before) + update["red_delta"])
-            _set_team_live_rating(blue_team, float(blue_mu_before) + update["blue_delta"])
+        # Live simulation replays completed official scorelines through one
+        # plain Elo chain. Published before/after ratings may contain model
+        # side channels (form/robot/prior adjustments), so they are display
+        # evidence only and must not drive this simulation state.
+        update = elo_model.average_ordered_series_update(
+            float(red_mu_before),
+            float(blue_mu_before),
+            red_wins,
+            blue_wins,
+            64.0,  # Dynamic stage weight proxy K=64.0
+        )
+        _set_team_live_rating(red_team, float(red_mu_before) + update["red_delta"])
+        _set_team_live_rating(blue_team, float(blue_mu_before) + update["blue_delta"])
 
     row = {
         "stage": result["stage"],

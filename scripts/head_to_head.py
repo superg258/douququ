@@ -31,7 +31,8 @@ SOURCE_WEIGHTS = {
 TIME_DECAY_HALF_LIFE_DAYS = 365.0
 MIN_EFFECTIVE_WEIGHT = 0.35
 PRIOR_WEIGHT = 3.5
-MAX_DELTA_PROBABILITY = 0.10
+PREDICTION_ENABLED = False
+MAX_DELTA_PROBABILITY = 0.0
 MAX_DELTA_LOGIT = 4.0 * math.atanh(MAX_DELTA_PROBABILITY)
 CURRENT_SEASON_SOURCE = "CURRENT_RMUC"
 CURRENT_SEASON_MATCH_WEIGHT = 0.75
@@ -49,10 +50,6 @@ def _clip_probability(value: float) -> float:
 def _logit(value: float) -> float:
     clipped = _clip_probability(value)
     return math.log(clipped / (1.0 - clipped))
-
-
-def _sigmoid(value: float) -> float:
-    return 1.0 / (1.0 + math.exp(-value))
 
 
 def _normalize_school_name(value: str) -> str:
@@ -252,6 +249,9 @@ def summarize_head_to_head(
     head_to_head_index: dict[tuple[str, str], dict[str, Any]],
     max_delta_probability: float | None = None,
 ) -> dict[str, Any]:
+    # Compatibility note: callers may still pass the former per-path cap, but
+    # H2H is globally observational-only and can no longer change a prediction.
+    del max_delta_probability
     normalized_a = _normalize_school_name(school_a)
     normalized_b = _normalize_school_name(school_b)
     pair_key = tuple(sorted((normalized_a, normalized_b)))
@@ -274,7 +274,7 @@ def summarize_head_to_head(
             "reliability": 0.0,
             "delta_logit": 0.0,
             "delta_h2h": 0.0,
-            "p_game_adj": round(float(p_base), 6),
+            "p_game_adj": _clip_probability(p_base),
         }
 
     effective_weight = float(raw["effective_weight"])
@@ -299,17 +299,13 @@ def summarize_head_to_head(
             "reliability": round(effective_weight / (effective_weight + PRIOR_WEIGHT), 6),
             "delta_logit": 0.0,
             "delta_h2h": 0.0,
-            "p_game_adj": round(float(p_base), 6),
+            "p_game_adj": _clip_probability(p_base),
         }
 
     p_base_clipped = _clip_probability(p_base)
     p_shrunk = (score_a + (PRIOR_WEIGHT * p_base_clipped)) / (effective_weight + PRIOR_WEIGHT)
-    max_delta_logit = MAX_DELTA_LOGIT
-    if max_delta_probability is not None:
-        capped_probability = min(max(float(max_delta_probability), 0.0), 0.99)
-        max_delta_logit = 4.0 * math.atanh(capped_probability)
-    delta_logit = elo_model.clip(_logit(p_shrunk) - _logit(p_base_clipped), -max_delta_logit, max_delta_logit)
-    p_game_adj = _sigmoid(_logit(p_base_clipped) + delta_logit)
+    delta_logit = 0.0
+    p_game_adj = p_base_clipped
     delta_h2h = p_game_adj - p_base_clipped
     return {
         "meetings_count": int(raw["meetings_count"]),
@@ -328,14 +324,14 @@ def summarize_head_to_head(
         "reliability": round(effective_weight / (effective_weight + PRIOR_WEIGHT), 6),
         "delta_logit": round(delta_logit, 6),
         "delta_h2h": round(delta_h2h, 6),
-        "p_game_adj": round(p_game_adj, 6),
+        "p_game_adj": p_game_adj,
     }
 
 
 def configuration_payload() -> dict[str, Any]:
     return {
-        "enabled": True,
-        "mode": "residual_logit_adjustment",
+        "enabled": PREDICTION_ENABLED,
+        "mode": "observational_only",
         "reference_date": load_reference_date().isoformat(),
         "historical_season_weight_multiplier": HISTORICAL_SEASON_WEIGHT_MULTIPLIER,
         "base_source_weights": BASE_SOURCE_WEIGHTS,

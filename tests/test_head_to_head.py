@@ -69,7 +69,7 @@ class HeadToHeadTests(unittest.TestCase):
         self.assertAlmostEqual(forward["delta_h2h"], -reverse["delta_h2h"], places=6)
         self.assertAlmostEqual(forward["delta_logit"], -reverse["delta_logit"], places=6)
 
-    def test_single_match_is_weaker_than_multiple_matches_with_same_direction(self) -> None:
+    def test_single_match_signal_is_weaker_than_multiple_matches_but_neither_changes_prediction(self) -> None:
         single_index = h2h.build_head_to_head_index(
             [_make_row(red_college_name="甲大学", blue_college_name="乙大学", winner_side="red", match_date="2026-04-05")],
             reference_date=date(2026, 4, 5),
@@ -83,8 +83,9 @@ class HeadToHeadTests(unittest.TestCase):
         )
         single = h2h.summarize_head_to_head("甲大学", "乙大学", p_base=0.75, head_to_head_index=single_index)
         repeated = h2h.summarize_head_to_head("甲大学", "乙大学", p_base=0.75, head_to_head_index=repeated_index)
-        self.assertGreater(abs(repeated["delta_h2h"]), abs(single["delta_h2h"]))
-        self.assertLessEqual(abs(repeated["delta_logit"]), h2h.MAX_DELTA_LOGIT)
+        self.assertGreater(abs(repeated["p_h2h"] - repeated["p_base"]), abs(single["p_h2h"] - single["p_base"]))
+        self.assertEqual(single["delta_h2h"], 0.0)
+        self.assertEqual(repeated["delta_h2h"], 0.0)
 
     def test_older_match_has_smaller_weight_than_newer_match(self) -> None:
         newer_index = h2h.build_head_to_head_index(
@@ -121,17 +122,18 @@ class HeadToHeadTests(unittest.TestCase):
         summary = h2h.summarize_head_to_head("甲大学", "乙大学", p_base=0.1, head_to_head_index=index)
         self.assertAlmostEqual(summary["delta_logit"], h2h.MAX_DELTA_LOGIT, places=6)
 
-    def test_strong_history_can_move_near_ten_percentage_points(self) -> None:
+    def test_strong_history_is_observational_only(self) -> None:
         rows = [
             _make_row(red_college_name="甲大学", blue_college_name="乙大学", winner_side="red", match_date="2026-04-05")
             for _ in range(2)
         ]
         index = h2h.build_head_to_head_index(rows, reference_date=date(2026, 4, 5))
         summary = h2h.summarize_head_to_head("甲大学", "乙大学", p_base=0.5, head_to_head_index=index)
-        self.assertGreaterEqual(summary["delta_h2h"], 0.09)
-        self.assertLessEqual(summary["delta_h2h"], 0.10)
+        self.assertGreater(summary["p_h2h"], summary["p_base"])
+        self.assertEqual(summary["delta_h2h"], 0.0)
+        self.assertEqual(summary["p_game_adj"], summary["p_base"])
 
-    def test_max_delta_probability_override(self) -> None:
+    def test_legacy_max_delta_probability_override_cannot_reenable_h2h(self) -> None:
         rows = [
             _make_row(red_college_name="甲大学", blue_college_name="乙大学", winner_side="red", match_date="2026-04-05")
             for _ in range(2)
@@ -145,8 +147,8 @@ class HeadToHeadTests(unittest.TestCase):
         capped = h2h.summarize_head_to_head(
             "甲大学", "乙大学", p_base=0.5, head_to_head_index=index, max_delta_probability=0.05
         )
-        self.assertGreater(capped["delta_h2h"], 0.0)
-        self.assertLessEqual(capped["delta_h2h"], 0.05)
+        self.assertEqual(capped["delta_h2h"], 0.0)
+        self.assertEqual(capped["p_game_adj"], capped["p_base"])
 
     def test_single_decayed_historical_rmuc_sweep_is_tempered(self) -> None:
         row = _make_row(
@@ -166,10 +168,10 @@ class HeadToHeadTests(unittest.TestCase):
             head_to_head_index=index,
         )
 
-        self.assertGreater(summary["delta_h2h"], 0.0)
-        self.assertLess(summary["delta_h2h"], 0.07)
+        self.assertGreater(summary["p_h2h"], summary["p_base"])
+        self.assertEqual(summary["delta_h2h"], 0.0)
 
-    def test_ts2_build_prediction_payload_applies_h2h_adjustment(self) -> None:
+    def test_ts2_build_prediction_payload_does_not_apply_h2h_adjustment(self) -> None:
         teams = simulate_region.parse_team_rows("东部赛区", simulate_region.DEFAULT_RATINGS_CSV)
         red_team = teams[0]
         blue_team = teams[1]
@@ -193,12 +195,8 @@ class HeadToHeadTests(unittest.TestCase):
             match_seed=20260420,
             head_to_head_index=index,
         )
-        self.assertNotEqual(payload["p_game_adj_red"], payload["p_game_base_red"])
-        self.assertAlmostEqual(
-            payload["p_game_adj_red"] - payload["p_game_base_red"],
-            payload["head_to_head_summary"]["delta_h2h"],
-            places=6,
-        )
+        self.assertEqual(payload["p_game_adj_red"], payload["p_game_base_red"])
+        self.assertEqual(payload["head_to_head_summary"]["delta_h2h"], 0.0)
 
     def test_pair_cache_matches_runtime_payload_for_actual_h2h_pair(self) -> None:
         teams = simulate_region.parse_team_rows("东部赛区", simulate_region.DEFAULT_RATINGS_CSV)
@@ -212,7 +210,7 @@ class HeadToHeadTests(unittest.TestCase):
                 p_base=0.5,
                 head_to_head_index=index,
             )
-            if abs(float(summary["delta_h2h"])) > 0.0:
+            if int(summary["meetings_count"]) > 0:
                 selected_pair = (red_team, blue_team)
                 break
 
@@ -269,7 +267,8 @@ class HeadToHeadTests(unittest.TestCase):
             head_to_head_index=runtime_index,
         )
         self.assertEqual(after["head_to_head_summary"]["meetings_count"], 1)
-        self.assertGreater(after["head_to_head_summary"]["delta_h2h"], 0.0)
+        self.assertEqual(after["head_to_head_summary"]["delta_h2h"], 0.0)
+        self.assertEqual(after["p_game_adj_red"], after["p_game_base_red"])
 
     def test_runtime_close_bo3_loss_does_not_hit_h2h_cap(self) -> None:
         runtime_index: dict[tuple[str, str], dict[str, object]] = {}
@@ -282,8 +281,8 @@ class HeadToHeadTests(unittest.TestCase):
             head_to_head_index=runtime_index,
         )
 
-        self.assertLess(summary["delta_h2h"], 0.0)
-        self.assertGreater(summary["delta_h2h"], -0.06)
+        self.assertLess(summary["p_h2h"], summary["p_base"])
+        self.assertEqual(summary["delta_h2h"], 0.0)
 
     def test_runtime_sweep_counts_stronger_than_close_bo3_result(self) -> None:
         close_index: dict[tuple[str, str], dict[str, object]] = {}
@@ -304,7 +303,9 @@ class HeadToHeadTests(unittest.TestCase):
             head_to_head_index=sweep_index,
         )
 
-        self.assertGreater(close["delta_h2h"], sweep["delta_h2h"])
+        self.assertGreater(close["p_h2h"], sweep["p_h2h"])
+        self.assertEqual(close["delta_h2h"], 0.0)
+        self.assertEqual(sweep["delta_h2h"], 0.0)
 
     def test_runtime_h2h_clone_does_not_mutate_source_index(self) -> None:
         source_index: dict[tuple[str, str], dict[str, object]] = {}
@@ -356,7 +357,7 @@ class HeadToHeadTests(unittest.TestCase):
 
         self.assertEqual(observed[0], (0, 0.0))
         self.assertEqual(observed[1][0], 1)
-        self.assertGreater(observed[1][1], 0.0)
+        self.assertEqual(observed[1][1], 0.0)
 
     def test_simulated_scoreline_does_not_record_runtime_h2h(self) -> None:
         teams = simulate_region.parse_team_rows("东部赛区", simulate_region.DEFAULT_RATINGS_CSV)

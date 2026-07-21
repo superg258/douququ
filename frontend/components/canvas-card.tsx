@@ -45,16 +45,19 @@ export const PREDICTION_MATCH_VISUAL_CLASSES = {
 export function deriveMatchCardState(row: MatchRow, mode?: "sim" | "live") {
   const isSimulationMode = mode === "sim";
   const hasRealResult = Boolean(row.isRealResult);
+  const isLiveNow = !isSimulationMode && !hasRealResult && ["RUNNING", "STARTED", "ONGOING", "IN_PROGRESS", "LIVE"]
+    .includes(String(row.officialStatus ?? "").trim().toUpperCase());
   const isTentativeScoreline = !isSimulationMode && !hasRealResult && Boolean(row.hasLiveScoreline);
   const hasPredictedTeamRefs = Boolean(row.redTeam.teamKey && row.blueTeam.teamKey);
   const isOfficialPlaceholder = !isSimulationMode && !hasRealResult && Boolean(row.officialMatchId) && row.isConfirmedMatchup === false && !hasPredictedTeamRefs;
   const isOfficialScheduled = !isSimulationMode && !hasRealResult && Boolean(row.officialMatchId) && row.isConfirmedMatchup !== false;
   const isPrediction = !isSimulationMode && !hasRealResult && !isOfficialScheduled;
-  const showsResolvedScoreline = isSimulationMode || hasRealResult || isTentativeScoreline;
+  const showsResolvedScoreline = isSimulationMode || hasRealResult || isTentativeScoreline || Boolean(row.isScenarioProjection);
   const usesActualResultVisuals = isSimulationMode || hasRealResult;
   const scheduleTimeLabel = formatMatchCardScheduleTime(row.plannedStartAt);
   const statusLabel = (() => {
     if (hasRealResult) return "已完赛";
+    if (isLiveNow) return "比赛中";
     if (isTentativeScoreline) return "比分待确认";
     if (isOfficialPlaceholder) return "队伍待定";
     if (isPrediction) return "预测";
@@ -72,6 +75,7 @@ export function deriveMatchCardState(row: MatchRow, mode?: "sim" | "live") {
     showsResolvedScoreline,
     usesActualResultVisuals,
     isTentativeScoreline,
+    isLiveNow,
     scheduleTimeLabel,
     statusLabel,
   };
@@ -581,7 +585,7 @@ function MatchCanvasCardComponent({
   const row = card.match;
   const expectedRed = row.pSeriesRed ?? card.redSide.probability;
   const cardState = deriveMatchCardState(row, mode);
-  const { isSimulationMode, isOfficialScheduled, isOfficialPlaceholder, isPrediction, showsResolvedScoreline, usesActualResultVisuals, isTentativeScoreline, scheduleTimeLabel } = cardState;
+  const { isSimulationMode, isOfficialScheduled, isOfficialPlaceholder, isPrediction, showsResolvedScoreline, usesActualResultVisuals, isTentativeScoreline, isLiveNow, scheduleTimeLabel } = cardState;
   const rendersDimmedPredictionOutcome = showsResolvedScoreline && !usesActualResultVisuals && !isTentativeScoreline;
   const [redGamesText, blueGamesText] = (row.scoreline || "0:0").split(":");
   const redGames = Number(redGamesText);
@@ -625,6 +629,7 @@ function MatchCanvasCardComponent({
       return { label: "已完赛", className: "border-rm-status-safe text-rm-status-safe bg-rm-status-safe/20 shadow-[0_0_10px_rgba(0,232,120,0.3)]" };
     }
     // Tier 2: scheduled — muted
+    if (isLiveNow) return { label: "比赛中", className: "border-rm-status-safe/70 text-rm-status-safe bg-rm-status-safe/12" };
     if (isTentativeScoreline) return { label: "比分待确认", className: "border-rm-status-warn/70 text-rm-status-warn bg-rm-status-warn/12" };
     if (isOfficialPlaceholder) return { label: "队伍待定", className: "border-dashed border-rm-status-scheduled/55 text-rm-status-scheduled/75 bg-rm-status-scheduled/8" };
     if (isOfficialScheduled) return { label: "已排期", className: "border-rm-status-scheduled/60 text-rm-status-scheduled/80 bg-rm-status-scheduled/10" };
@@ -732,7 +737,7 @@ function MatchCanvasCardComponent({
       {/* Prediction signal bars: TS2 + 王牌 */}
       <div className="shrink-0 border-t border-white/[0.06] px-2.5 py-1.5 flex flex-col gap-1.5">
         <SignalMicroRow
-          label="Elo"
+          label="模型"
           redRate={row.pSeriesRed}
           blueRate={row.pSeriesBlue}
           statusLabel={isOfficialPlaceholder ? "未确认" : getPredictedAdvantageLabel({
@@ -742,7 +747,7 @@ function MatchCanvasCardComponent({
           })}
           variant="model"
           available={!isOfficialPlaceholder}
-          title={isOfficialPlaceholder ? "该场次已排期，对阵待确认" : `战力预测胜率：红 ${formatRate(row.pSeriesRed)}，蓝 ${formatRate(row.pSeriesBlue)}`}
+          title={isOfficialPlaceholder ? "该场次已排期，对阵待确认" : `胜率模型预测：红 ${formatRate(row.pSeriesRed)}，蓝 ${formatRate(row.pSeriesBlue)}`}
         />
         <SignalMicroRow
           label="王牌"

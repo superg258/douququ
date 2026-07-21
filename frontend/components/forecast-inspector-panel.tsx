@@ -12,6 +12,11 @@ import {
   getRepechageSwissMatchHint,
   type FinalsStageProbabilityProjection,
 } from "@/lib/finals-schedule";
+import {
+  deriveMatchRatingBreakdown,
+  formatSignedRatingDelta,
+  ratingDeltaTone,
+} from "@/lib/live-rating";
 import { buildTeamHref } from "@/lib/team-profile";
 import { isOfficialPlaceholderMatch } from "@/lib/workspace-selection";
 import type {
@@ -225,6 +230,9 @@ export function ForecastInspectorPanel({
   if (selection?.kind === "match" && match && matchRow) {
     const isOfficialPlaceholder = isOfficialPlaceholderMatch(matchRow, mode);
     const predictedScore = predictScoreline(matchRow.pGameRed, matchRow.pSeriesRed, matchRow.bestOf || 3);
+    const redRatingBreakdown = deriveMatchRatingBreakdown(matchRow, "red");
+    const blueRatingBreakdown = deriveMatchRatingBreakdown(matchRow, "blue");
+    const hasEloUpdate = Boolean(matchRow.isRealResult && redRatingBreakdown && blueRatingBreakdown);
 
     return (
       <div className="h-full flex flex-col bg-rm-metal-panel/95 border-l border-rm-metal-border w-full md:w-80 shadow-2xl p-4 overflow-y-auto animate-in slide-in-from-right-8 clip-chamfer-tr-bl">
@@ -250,7 +258,7 @@ export function ForecastInspectorPanel({
           )}
 
           <div className="text-center font-machine text-sm text-rm-metal-text border border-dashed border-rm-metal-border bg-rm-metal-dark py-4 relative overflow-hidden">
-            比赛尚未开始
+            {matchRow.isRealResult ? `已完赛 · ${matchRow.scoreline}` : "比赛尚未开始"}
             <div className="absolute bottom-1 right-2 text-[10px] text-rm-metal-text/50 font-sans">BO{matchRow.bestOf}</div>
           </div>
 
@@ -276,12 +284,29 @@ export function ForecastInspectorPanel({
                   />
                 </div>
                 <div className="col-span-2 border-t border-rm-metal-border my-1"></div>
-                <span className="col-span-2 text-rm-metal-text">
-                  比赛结束后将自动更新战力变化。
-                </span>
+                {hasEloUpdate ? (
+                  <div className="col-span-2 grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-x-2 gap-y-1.5 border border-rm-metal-border/70 bg-rm-metal-abyss px-2 py-2 tabular-nums">
+                    <span className="text-rm-metal-textFaint">Elo 变化</span>
+                    <span className="text-right text-rm-metal-textFaint">赛前</span>
+                    <span className="text-right text-rm-metal-textFaint">本场</span>
+                    <span className="text-right text-rm-metal-textFaint">赛后</span>
+                    {[redRatingBreakdown!, blueRatingBreakdown!].map((breakdown, index) => (
+                      <div key={breakdown.teamName} className="contents">
+                        <span className={cn("truncate font-bold", index === 0 ? "text-rm-red" : "text-rm-blue")}>{breakdown.teamName}</span>
+                        <span className="text-right text-white">{breakdown.before.toFixed(1)}</span>
+                        <span className={cn("text-right font-bold", ratingDeltaTone(breakdown.totalDelta))}>
+                          {formatSignedRatingDelta(breakdown.totalDelta)}
+                        </span>
+                        <span className={cn("text-right font-bold", index === 0 ? "text-rm-red" : "text-rm-blue")}>{breakdown.after.toFixed(1)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="col-span-2 text-rm-metal-text">
+                    仅真实完赛结果更新 Elo；预测赛果不会写回。
+                  </span>
+                )}
                 <div className="col-span-2 border-t border-rm-metal-border my-1"></div>
-                <span className="text-rm-metal-text">历史战绩修正</span>
-                <span className="text-white font-bold text-right">{matchRow.deltaH2H.toFixed(3)}</span>
                 <span className="text-rm-metal-text">结果置信度</span>
                 <span className="text-white font-bold text-right">{translateConfidenceLabel(matchRow.confidenceLabel)}</span>
               </>

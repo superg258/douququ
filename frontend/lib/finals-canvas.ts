@@ -1528,6 +1528,8 @@ export function buildFinalsWorkspaceStage(
 ): WorkspaceStage {
   const workspaceStage = buildFinalsWorkspaceStageBase(event, stage, simulation);
   if (simulation) {
+    const lockedQualifierKeys = new Set(simulation.lockedQualifierTeamKeys);
+    const lockedEliminatedKeys = new Set(simulation.lockedEliminatedTeamKeys);
     const resolveSimulationKey = (key: TeamCardSimulationKey): SimulatedFinalTeam | null => {
       if (key.kind === "slot") return simulation.groupQualifiers[key.slot] ?? null;
       if (key.kind === "destination") {
@@ -1551,10 +1553,21 @@ export function buildFinalsWorkspaceStage(
       if (card.kind === "team" && card.simulationKey) {
         const team = resolveSimulationKey(card.simulationKey);
         if (team) {
+          const isLockedByRealResults = card.simulationKey.kind === "slot"
+            ? lockedQualifierKeys.has(team.teamKey)
+            : card.simulationKey.kind === "swissFlow"
+              ? lockedEliminatedKeys.has(team.teamKey)
+              : card.simulationKey.kind === "matchOutcome"
+                ? simulation.matchResults.get(card.simulationKey.matchNumber)?.isRealResult === true
+              : false;
           card.collegeName = team.collegeName;
           card.teamName = team.teamName;
           card.teamKey = team.teamKey;
-          card.meta = ["模拟落位"];
+          card.isSimulated = !isLockedByRealResults;
+          card.meta = [isLockedByRealResults ? "真实赛果锁定" : "实时混合推演"];
+          if (isLockedByRealResults && card.simulationKey.kind === "slot") {
+            card.subtitle = "已锁定晋级 · 席位推演";
+          }
         }
       }
     }

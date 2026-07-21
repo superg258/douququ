@@ -3,8 +3,17 @@ import { describe, expect, it } from "vitest";
 import officialFinalsSchedule from "../../data/reference/2026_finals/schedule.json";
 
 import { getSwissRoundNumber } from "@/lib/finals-schedule";
+import { buildFinalsWorkspaceStage } from "@/lib/finals-canvas";
+import { buildFinalsMatchRow, resolveFinalsTeamRating } from "@/lib/finals-match-adapter";
+import { predictDisplayScoreline } from "@/lib/scoreline";
 import {
+  gameWinProbability,
+  hasOfficialFinalMatchData,
+  seriesWinProbability,
+  simulateFinalEventHybrid,
   simulateFinalsEvents,
+  simulateFinalsLiveEvents,
+  updateFinalsEloForSeries,
   swissFlowPlaceholderTeams,
   swissRecordBucketTeams,
   type FinalsEventSimulation,
@@ -16,6 +25,7 @@ import type {
   FinalEventSlug,
   OverviewResponse,
   OverviewTeam,
+  TeamCanvasCard,
 } from "@/lib/types";
 
 /** 与后端 finals_schedule 的 teamKey 规则对齐：`学校::队名（去空格）` */
@@ -113,6 +123,49 @@ const repechage = buildEvent("repechage");
 const nationals = buildEvent("nationals");
 const overview = buildOverview([repechage, nationals]);
 
+function withRepechageLiveResults(event: FinalEventSchedule): FinalEventSchedule {
+  const results = new Map<number, [string, string, string]>([
+    [5, ["南京航空航天大学金城学院", "桂林电子科技大学", "2:1"]],
+    [6, ["南方科技大学", "沈阳理工大学", "0:2"]],
+    [7, ["华中科技大学", "西安电子科技大学", "2:1"]],
+    [8, ["深圳技术大学", "广东工业大学", "1:2"]],
+    [13, ["广东工业大学", "南京航空航天大学金城学院", "2:0"]],
+    [14, ["华中科技大学", "沈阳理工大学", "2:1"]],
+    [15, ["南方科技大学", "西安电子科技大学", "2:0"]],
+    [16, ["桂林电子科技大学", "深圳技术大学", "2:1"]],
+    [20, ["华中科技大学", "广东工业大学", "1:2"]],
+  ]);
+  const participantByCollege = new Map(event.participants.map((participant) => [participant.collegeName, participant]));
+  return {
+    ...event,
+    matches: event.matches.map((match) => {
+      const result = results.get(match.number);
+      if (!result) return match;
+      const [redCollegeName, blueCollegeName, scoreline] = result;
+      const red = participantByCollege.get(redCollegeName)!;
+      const blue = participantByCollege.get(blueCollegeName)!;
+      const [redWins, blueWins] = scoreline.split(":").map(Number);
+      return {
+        ...match,
+        officialStatus: "DONE",
+        isCompleted: true,
+        isConfirmedMatchup: true,
+        hasLiveScoreline: true,
+        scoreline,
+        result: redWins > blueWins ? "red" : "blue",
+        redWins,
+        blueWins,
+        redTeamKey: red.teamKey,
+        redCollegeName: red.collegeName,
+        redTeamName: red.teamName,
+        blueTeamKey: blue.teamKey,
+        blueCollegeName: blue.collegeName,
+        blueTeamName: blue.teamName,
+      };
+    }),
+  };
+}
+
 function serializeSimulation(simulation: FinalsEventSimulation) {
   return JSON.stringify(
     [...simulation.matchResults.entries()].map(([number, result]) => [
@@ -148,6 +201,272 @@ function swissRecords(event: FinalEventSchedule, simulation: FinalsEventSimulati
 }
 
 describe("finals sandbox simulation", () => {
+  it("uses the latest replay Elo for the school card snapshot", () => {
+    const allTeams = overview.regions.flatMap((region) => region.teams);
+    const target = allTeams[3];
+    const latestElo = 2300;
+    const snapshot = resolveFinalsTeamRating(target.teamKey, allTeams, {
+      [target.teamKey]: latestElo,
+    });
+
+    expect(snapshot).toEqual({
+      currentElo: latestElo,
+      seasonDelta: latestElo - target.mu0,
+      globalRank: 1,
+    });
+  });
+
+  it("matches the backend ordered-series Elo update", () => {
+    expect(updateFinalsEloForSeries(1500, 1500, 2, 0)).toEqual({
+      redDelta: 30.53049847102443,
+      blueDelta: -30.53049847102443,
+    });
+    const update = updateFinalsEloForSeries(1700, 1650, 2, 1);
+    expect(update.redDelta).toBeCloseTo(5.745321198474433, 12);
+    expect(update.blueDelta).toBeCloseTo(-5.745321198474433, 12);
+  });
+
+  it("replays live repechage results and predicts only unresolved matches", () => {
+    const liveEvent = withRepechageLiveResults(repechage);
+    expect(hasOfficialFinalMatchData(repechage)).toBe(false);
+    expect(hasOfficialFinalMatchData(liveEvent)).toBe(true);
+    const simulation = simulateFinalEventHybrid(liveEvent, overview, 20260414);
+    const match20 = simulation.matchResults.get(20)!;
+    const match21 = simulation.matchResults.get(21)!;
+
+    expect(match20).toMatchObject({
+      isRealResult: true,
+      red: { collegeName: "华中科技大学" },
+      blue: { collegeName: "广东工业大学" },
+      redScore: 1,
+      blueScore: 2,
+      winnerSide: "blue",
+    });
+    const match5 = simulation.matchResults.get(5)!;
+    const match13 = simulation.matchResults.get(13)!;
+    expect(match5.isRealResult).toBe(true);
+    expect(match5.red?.collegeName).toBe("南京航空航天大学金城学院");
+    expect(match13.blue?.collegeName).toBe("南京航空航天大学金城学院");
+    expect(match5.redEloDelta).not.toBe(0);
+    expect(match13.blueElo).toBeCloseTo(match5.redEloAfter!, 10);
+    expect(match21.red?.teamKey).toBeTruthy();
+    expect(match21.blue?.teamKey).toBeTruthy();
+    expect(match21).toMatchObject({ isRealResult: false, isConfirmedMatchup: false });
+    expect(match21.redEloDelta).toBeUndefined();
+    expect(match21.blueEloDelta).toBeUndefined();
+
+    const lockedNames = simulation.lockedQualifierTeamKeys
+      .map((teamKey) => liveEvent.participants.find((participant) => participant.teamKey === teamKey)?.collegeName);
+    expect(lockedNames).toEqual(expect.arrayContaining(["华中科技大学", "广东工业大学"]));
+    expect(Object.values(simulation.groupQualifiers).map((team) => team.collegeName))
+      .toEqual(expect.arrayContaining(["华中科技大学", "广东工业大学"]));
+  });
+
+  it("uses model probabilities rather than the seed for a confirmed live matchup", () => {
+    const red = nationals.participants.find((participant) => participant.collegeName === "华南农业大学")!;
+    const blue = nationals.participants.find((participant) => participant.collegeName === "武汉工程大学")!;
+    const liveEvent: FinalEventSchedule = {
+      ...nationals,
+      matches: nationals.matches.map((match) => match.number === 1 ? {
+        ...match,
+        officialStatus: "PENDING",
+        isCompleted: false,
+        isConfirmedMatchup: true,
+        redTeamKey: red.teamKey,
+        redCollegeName: red.collegeName,
+        redTeamName: red.teamName,
+        blueTeamKey: blue.teamKey,
+        blueCollegeName: blue.collegeName,
+        blueTeamName: blue.teamName,
+      } : match),
+    };
+    const first = simulateFinalEventHybrid(liveEvent, overview, 1).matchResults.get(1)!;
+    const second = simulateFinalEventHybrid(liveEvent, overview, 999).matchResults.get(1)!;
+    const pGameRed = gameWinProbability(first.redElo ?? null, first.blueElo ?? null);
+    const expected = predictDisplayScoreline(pGameRed, seriesWinProbability(pGameRed, 3), 3).scoreline;
+
+    expect(`${first.redScore}:${first.blueScore}`).toBe(expected);
+    expect(second).toMatchObject({
+      red: first.red,
+      blue: first.blue,
+      redScore: first.redScore,
+      blueScore: first.blueScore,
+      winnerSide: first.winnerSide,
+    });
+    expect(serializeSimulation(simulateFinalEventHybrid(liveEvent, overview, 1)))
+      .toBe(serializeSimulation(simulateFinalEventHybrid(liveEvent, overview, 999)));
+  });
+
+  it("uses backend current Elo as the starting point and recomputes finals probability", () => {
+    const red = nationals.participants[0];
+    const blue = nationals.participants[1];
+    const matrixKey = `${red.teamKey}|||${blue.teamKey}`;
+    const liveEvent: FinalEventSchedule = {
+      ...nationals,
+      predictionBasis: "finals_sequential_elo",
+      predictionMatrix: {
+        [matrixKey]: {
+          pGameRed: 0.91,
+          pSeriesRed: 0.977,
+          predictedScoreline: "2:0",
+          deltaH2H: 0,
+          confidenceLabel: "high",
+          redCurrentElo: 1700,
+          blueCurrentElo: 1650,
+          predictionBasis: "finals_initial_elo",
+        },
+      },
+      matches: nationals.matches.map((match) => match.number === 1 ? {
+        ...match,
+        officialStatus: "PENDING",
+        isCompleted: false,
+        isConfirmedMatchup: true,
+        redTeamKey: red.teamKey,
+        redCollegeName: red.collegeName,
+        redTeamName: red.teamName,
+        blueTeamKey: blue.teamKey,
+        blueCollegeName: blue.collegeName,
+        blueTeamName: blue.teamName,
+      } : match),
+    };
+
+    const result = simulateFinalEventHybrid(liveEvent, overview, 7).matchResults.get(1)!;
+    const row = buildFinalsMatchRow(liveEvent, liveEvent.matches[0], result);
+    const expectedPGameRed = gameWinProbability(1700, 1650);
+    const expectedScoreline = predictDisplayScoreline(
+      expectedPGameRed,
+      seriesWinProbability(expectedPGameRed, 3),
+      3,
+    ).scoreline;
+
+    expect(result).toMatchObject({
+      redElo: 1700,
+      blueElo: 1650,
+      pGameRed: expectedPGameRed,
+      deltaH2H: 0,
+      predictionBasis: "finals_sequential_elo",
+    });
+    expect(`${result.redScore}:${result.blueScore}`).toBe(expectedScoreline);
+    expect(row).toMatchObject({ pGameRed: expectedPGameRed, deltaH2H: 0, scoreline: expectedScoreline });
+  });
+
+  it("carries completed repechage Elo into nationals live prediction", () => {
+    const liveRepechage = withRepechageLiveResults(repechage);
+    const promoted = liveRepechage.participants.find(
+      (participant) => participant.collegeName === "南京航空航天大学金城学院",
+    )!;
+    const replaced = nationals.participants[0];
+    const inheritedParticipant = {
+      ...replaced,
+      schoolKey: promoted.schoolKey,
+      teamKey: promoted.teamKey,
+      collegeName: promoted.collegeName,
+      teamName: promoted.teamName,
+    };
+    const liveNationals: FinalEventSchedule = {
+      ...nationals,
+      participants: [inheritedParticipant, ...nationals.participants.slice(1)],
+      matches: nationals.matches.map((match) => match.number === 1 ? {
+        ...match,
+        officialStatus: "PENDING",
+        isCompleted: false,
+        isConfirmedMatchup: true,
+        redTeamKey: inheritedParticipant.teamKey,
+        redCollegeName: inheritedParticipant.collegeName,
+        redTeamName: inheritedParticipant.teamName,
+        blueTeamKey: nationals.participants[1].teamKey,
+        blueCollegeName: nationals.participants[1].collegeName,
+        blueTeamName: nationals.participants[1].teamName,
+      } : match),
+    };
+
+    const simulations = simulateFinalsLiveEvents(liveRepechage, liveNationals, overview, 7);
+    const repechageFinalElo = simulations.repechage.finalEloByTeamKey[promoted.teamKey];
+    const nationalsMatch = simulations.nationals.matchResults.get(1)!;
+
+    expect(repechageFinalElo).not.toBeCloseTo(overview.regions
+      .flatMap((region) => region.teams)
+      .find((team) => team.teamKey === promoted.teamKey)!.currentElo!, 6);
+    expect(nationalsMatch.redElo).toBeCloseTo(repechageFinalElo, 10);
+    expect(nationalsMatch.redEloDelta).toBeUndefined();
+  });
+
+  it("keeps an official in-progress score visible without treating the projection as a result", () => {
+    const red = nationals.participants[0];
+    const blue = nationals.participants[1];
+    const liveEvent: FinalEventSchedule = {
+      ...nationals,
+      matches: nationals.matches.map((match) => match.number === 1 ? {
+        ...match,
+        officialStatus: "LIVE",
+        isCompleted: false,
+        isConfirmedMatchup: true,
+        hasLiveScoreline: true,
+        scoreline: "1:0",
+        redTeamKey: red.teamKey,
+        redCollegeName: red.collegeName,
+        redTeamName: red.teamName,
+        blueTeamKey: blue.teamKey,
+        blueCollegeName: blue.collegeName,
+        blueTeamName: blue.teamName,
+      } : match),
+    };
+
+    const simulation = simulateFinalEventHybrid(liveEvent, overview, 7);
+    const row = buildFinalsMatchRow(liveEvent, liveEvent.matches[0], simulation.matchResults.get(1));
+
+    expect(row).toMatchObject({
+      scoreline: "1:0",
+      hasLiveScoreline: true,
+      isRealResult: false,
+      isScenarioProjection: false,
+      winnerTeamKey: "",
+      loserTeamKey: "",
+    });
+  });
+
+  it("renders actual results, predicted match 21, and locked qualifier cards in live mode", () => {
+    const liveEvent = withRepechageLiveResults(repechage);
+    const simulation = simulateFinalEventHybrid(liveEvent, overview, 20260414);
+    const actualRow = buildFinalsMatchRow(liveEvent, liveEvent.matches[19], simulation.matchResults.get(20));
+    const predictedRow = buildFinalsMatchRow(liveEvent, liveEvent.matches[20], simulation.matchResults.get(21));
+    const canvas = buildFinalsWorkspaceStage(liveEvent, "swiss-b", simulation);
+    const qualifierCards = canvas.cards.filter(
+      (card): card is TeamCanvasCard => card.kind === "team" && card.id.includes(":swiss-flow:qualified:"),
+    );
+    const qualificationCanvas = buildFinalsWorkspaceStage(liveEvent, "qualification", simulation);
+    const terminalCards = qualificationCanvas.cards.filter(
+      (card): card is TeamCanvasCard => card.kind === "team" && card.simulationKey?.kind === "destination",
+    );
+
+    expect(actualRow).toMatchObject({ isRealResult: true, scoreline: "1:2" });
+    expect(actualRow.redCurrentElo).toBeCloseTo(actualRow.redMu0! + actualRow.redDelta!, 10);
+    expect(actualRow.blueCurrentElo).toBeCloseTo(actualRow.blueMu0! + actualRow.blueDelta!, 10);
+    expect(actualRow.pSeriesRed).not.toBe(0.5);
+    expect(predictedRow.redTeam.teamKey).toBeTruthy();
+    expect(predictedRow.blueTeam.teamKey).toBeTruthy();
+    expect(predictedRow).toMatchObject({ isRealResult: false, isConfirmedMatchup: false });
+    expect(qualifierCards.filter((card) => card.isSimulated === false).map((card) => card.collegeName))
+      .toEqual(expect.arrayContaining(["华中科技大学", "广东工业大学"]));
+    expect(terminalCards.every((card) => card.isSimulated === true)).toBe(true);
+  });
+
+  it("renders a qualification outcome as actual when its source match is a real result", () => {
+    const liveEvent = withRepechageLiveResults(repechage);
+    const simulation = simulateFinalEventHybrid(liveEvent, overview, 20260414);
+    const sourceResult = simulation.matchResults.get(29)!;
+    sourceResult.isRealResult = true;
+    const canvas = buildFinalsWorkspaceStage(liveEvent, "qualification", simulation);
+    const outcomeCard = canvas.cards.find(
+      (card): card is TeamCanvasCard => card.kind === "team"
+        && card.simulationKey?.kind === "matchOutcome"
+        && card.simulationKey.matchNumber === 29
+        && card.simulationKey.outcome === "winner",
+    );
+
+    expect(outcomeCard).toMatchObject({ isSimulated: false });
+  });
+
   it("is deterministic for the same seed and diverges across seeds", () => {
     const first = simulateFinalsEvents(repechage, nationals, overview, 42);
     const second = simulateFinalsEvents(repechage, nationals, overview, 42);
@@ -209,8 +528,14 @@ describe("finals sandbox simulation", () => {
         result.blue?.teamKey,
       ]),
     );
-    for (const qualifier of simulation.repechage.qualifierTeamKeys) {
-      expect(nationalsTeamKeys.has(qualifier)).toBe(true);
+    if (nationals.participants.length < 32) {
+      for (const qualifier of simulation.repechage.qualifierTeamKeys) {
+        expect(nationalsTeamKeys.has(qualifier)).toBe(true);
+      }
+    } else {
+      for (const participant of nationals.participants) {
+        expect(nationalsTeamKeys.has(participant.teamKey)).toBe(true);
+      }
     }
     expect(simulation.nationals.championTeamKey).not.toBeNull();
 

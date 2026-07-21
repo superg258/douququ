@@ -1,4 +1,5 @@
 import { createSeededRandom, rankFinalEventParticipantsByCurrentElo } from "@/lib/finals-schedule";
+import { predictDisplayScoreline } from "@/lib/scoreline";
 import type {
   FinalEventMatch,
   FinalEventParticipant,
@@ -46,6 +47,12 @@ export interface FinalsEventSimulation {
   /** 复活赛：晋级全国赛的 4 队（按锁定先后排序）；全国赛为空 */
   qualifierTeamKeys: string[];
   championTeamKey: string | null;
+  /** 仅由真实赛果已经数学锁定晋级的队伍。 */
+  lockedQualifierTeamKeys: string[];
+  /** 仅由真实赛果已经数学锁定淘汰的队伍。 */
+  lockedEliminatedTeamKeys: string[];
+  /** 仅吸收真实已完成赛果后的赛事 Elo；预测赛果不会写入。 */
+  finalEloByTeamKey: Record<string, number>;
 }
 
 export interface FinalsSimulationResult {
@@ -128,7 +135,54 @@ function parseSwissPoolSlot(slot: string): { round: number; group: "A" | "B"; in
 
 function gameWinProbability(redElo: number | null, blueElo: number | null) {
   if (redElo === null || blueElo === null) return 0.5;
-  return 1 / (1 + 10 ** (-(redElo - blueElo) / 400));
+  const delta = Math.max(-300, Math.min(300, redElo - blueElo));
+  return 1 / (1 + 10 ** (-delta / 400));
+}
+
+const FINALS_ELO_K = 64;
+
+function seriesOutcomeSequences(redWins: number, blueWins: number) {
+  const rows: number[][] = [];
+  const visit = (redLeft: number, blueLeft: number, sequence: number[]) => {
+    if (redLeft === 0 && blueLeft === 0) {
+      rows.push(sequence);
+      return;
+    }
+    if (redLeft > 0) visit(redLeft - 1, blueLeft, [...sequence, 1]);
+    if (blueLeft > 0) visit(redLeft, blueLeft - 1, [...sequence, 0]);
+  };
+  visit(Math.max(0, redWins), Math.max(0, blueWins), []);
+  return rows;
+}
+
+/** 与后端 average_ordered_series_update 相同：枚举局序后取平均。 */
+export function updateFinalsEloForSeries(
+  redElo: number,
+  blueElo: number,
+  redWins: number,
+  blueWins: number,
+) {
+  const completedGames = redWins + blueWins;
+  if (completedGames <= 0) return { redDelta: 0, blueDelta: 0 };
+  const sequences = seriesOutcomeSequences(redWins, blueWins);
+  const kPerGame = FINALS_ELO_K / completedGames;
+  let redDeltaTotal = 0;
+  let blueDeltaTotal = 0;
+  for (const sequence of sequences) {
+    let currentRed = redElo;
+    let currentBlue = blueElo;
+    for (const actualRed of sequence) {
+      const expectedRed = gameWinProbability(currentRed, currentBlue);
+      currentRed += kPerGame * (actualRed - expectedRed);
+      currentBlue += kPerGame * ((1 - actualRed) - (1 - expectedRed));
+    }
+    redDeltaTotal += currentRed - redElo;
+    blueDeltaTotal += currentBlue - blueElo;
+  }
+  return {
+    redDelta: redDeltaTotal / sequences.length,
+    blueDelta: blueDeltaTotal / sequences.length,
+  };
 }
 
 /** 与 sampleSeries 相同的「先到 N 胜」规则，求红方赢下整个系列的概率。 */
@@ -175,29 +229,113 @@ function emptyResult(matchNumber: number): SimulatedFinalMatch {
   return { matchNumber, red: null, blue: null, redScore: 0, blueScore: 0, winnerSide: null };
 }
 
+interface SimulationOptions {
+  replayOfficialResults?: boolean;
+  /** 实时混合推演按模型概率选择最可能比分；沙盘模拟仍逐局随机抽样。 */
+  projectMostLikelyResults?: boolean;
+  /** 上一赛事真实赛果更新后的 Elo，例如全国赛继承复活赛。 */
+  initialEloByTeamKey?: ReadonlyMap<string, number>;
+}
+
+const COMPLETED_STATUSES = new Set(["DONE", "FINISHED", "ENDED", "COMPLETE", "COMPLETED"]);
+
+function isOfficiallyCompleted(match: FinalEventMatch) {
+  return match.isCompleted === true
+    || COMPLETED_STATUSES.has(String(match.officialStatus ?? "").trim().toUpperCase());
+}
+
+export function hasOfficialFinalMatchData(event: FinalEventSchedule) {
+  return event.matches.some((match) => (
+    isOfficiallyCompleted(match)
+    || Boolean(match.redTeamKey && match.blueTeamKey)
+    || Boolean(match.redCollegeName && match.blueCollegeName)
+  ));
+}
+
+function officialParticipantForSide(
+  match: FinalEventMatch,
+  side: "red" | "blue",
+  participantByKey: Map<string, FinalEventParticipant>,
+  participantByIdentity: Map<string, FinalEventParticipant>,
+) {
+  const teamKey = String(match[`${side}TeamKey`] ?? "").trim();
+  if (teamKey && participantByKey.has(teamKey)) return participantByKey.get(teamKey) ?? null;
+  const collegeName = String(match[`${side}CollegeName`] ?? "").trim();
+  const teamName = String(match[`${side}TeamName`] ?? "").trim();
+  return participantByIdentity.get(`${collegeName}\u0000${teamName}`)
+    ?? [...participantByIdentity.values()].find((participant) => participant.collegeName === collegeName)
+    ?? null;
+}
+
+function officialWinnerSide(match: FinalEventMatch, redScore: number, blueScore: number): "red" | "blue" | null {
+  const result = String(match.result ?? "").trim().toLowerCase();
+  if (result === "red" || result === "blue") return result;
+  if (redScore === blueScore) return null;
+  return redScore > blueScore ? "red" : "blue";
+}
+
+function officialScore(match: FinalEventMatch): { redScore: number; blueScore: number } | null {
+  if (typeof match.redWins === "number" && typeof match.blueWins === "number") {
+    return { redScore: match.redWins, blueScore: match.blueWins };
+  }
+  const matched = String(match.scoreline ?? "").match(/^(\d+):(\d+)$/);
+  if (!matched) return null;
+  return { redScore: Number(matched[1]), blueScore: Number(matched[2]) };
+}
+
 function simulateEvent(
   event: FinalEventSchedule,
   participants: FinalEventParticipant[],
   overview: OverviewResponse,
   random: () => number,
+  options: SimulationOptions = {},
 ): FinalsEventSimulation {
   const rules = SWISS_RULES[event.slug];
   const eloByTeamKey = new Map(
     rankFinalEventParticipantsByCurrentElo(participants, overview).map((row) => [row.teamKey, row.currentElo]),
   );
+  for (const [pairKey, prediction] of Object.entries(event.predictionMatrix ?? {})) {
+    const [redKey, blueKey] = pairKey.split("|||");
+    if (redKey) eloByTeamKey.set(redKey, prediction.redCurrentElo);
+    if (blueKey) eloByTeamKey.set(blueKey, prediction.blueCurrentElo);
+  }
+  for (const [teamKey, elo] of options.initialEloByTeamKey ?? []) eloByTeamKey.set(teamKey, elo);
   const teamByKey = new Map<string, SimTeam>();
+  const participantByKey = new Map(participants.map((participant) => [participant.teamKey, participant]));
+  const participantByIdentity = new Map(
+    participants.map((participant) => [`${participant.collegeName}\u0000${participant.teamName}`, participant]),
+  );
 
   // ── 抽签：梯队内洗牌后按 drawRules 顺序填入槽位组 ──
   const drawAssignments: Record<string, string> = {};
+  if (options.replayOfficialResults) {
+    for (const match of event.matches) {
+      const redSlot = parseSwissPoolSlot(match.redSlot);
+      const blueSlot = parseSwissPoolSlot(match.blueSlot);
+      if (redSlot?.round === 1) {
+        const participant = officialParticipantForSide(match, "red", participantByKey, participantByIdentity);
+        if (participant) drawAssignments[`${redSlot.group}${redSlot.index}`] = participant.teamKey;
+      }
+      if (blueSlot?.round === 1) {
+        const participant = officialParticipantForSide(match, "blue", participantByKey, participantByIdentity);
+        if (participant) drawAssignments[`${blueSlot.group}${blueSlot.index}`] = participant.teamKey;
+      }
+    }
+  }
+  const assignedTeamKeys = new Set(Object.values(drawAssignments));
   for (const { tier, slots } of DRAW_SLOT_GROUPS[event.slug]) {
-    const tierTeams = shuffled(
-      participants.filter((participant) => participant.drawTier === tier),
-      random,
-    );
-    slots.forEach((slot, index) => {
-      const participant = tierTeams[index];
+    const eligibleTierTeams = participants
+      .filter((participant) => participant.drawTier === tier && !assignedTeamKeys.has(participant.teamKey));
+    const tierTeams = options.projectMostLikelyResults
+      ? [...eligibleTierTeams].sort((left, right) => left.order - right.order)
+      : shuffled(eligibleTierTeams, random);
+    let nextTeamIndex = 0;
+    slots.forEach((slot) => {
+      const knownTeamKey = drawAssignments[slot];
+      const participant = knownTeamKey ? participantByKey.get(knownTeamKey) : tierTeams[nextTeamIndex++];
       if (!participant) return;
       drawAssignments[slot] = participant.teamKey;
+      assignedTeamKeys.add(participant.teamKey);
       teamByKey.set(participant.teamKey, {
         teamKey: participant.teamKey,
         collegeName: participant.collegeName,
@@ -213,35 +351,80 @@ function simulateEvent(
   const matchResults = new Map<number, SimulatedFinalMatch>();
   const lastPlayedRoundByTeam = new Map<string, number>();
   const records = new Map<string, TeamRecord>();
+  const officialRecords = new Map<string, TeamRecord>();
   for (const teamKey of teamByKey.keys()) {
     records.set(teamKey, { wins: 0, losses: 0 });
+    officialRecords.set(teamKey, { wins: 0, losses: 0 });
   }
 
   const playMatch = (match: FinalEventMatch, red: SimulatedFinalTeam | null, blue: SimulatedFinalTeam | null) => {
+    const officialRedParticipant = options.replayOfficialResults
+      ? officialParticipantForSide(match, "red", participantByKey, participantByIdentity)
+      : null;
+    const officialBlueParticipant = options.replayOfficialResults
+      ? officialParticipantForSide(match, "blue", participantByKey, participantByIdentity)
+      : null;
+    const officialRed = officialRedParticipant ? teamByKey.get(officialRedParticipant.teamKey) ?? null : null;
+    const officialBlue = officialBlueParticipant ? teamByKey.get(officialBlueParticipant.teamKey) ?? null : null;
+    const hasOfficialMatchup = Boolean(officialRed && officialBlue);
+    const resolvedRed = officialRed ?? red;
+    const resolvedBlue = officialBlue ?? blue;
     const result = emptyResult(match.number);
-    result.red = red ? { teamKey: red.teamKey, collegeName: red.collegeName, teamName: red.teamName } : null;
-    result.blue = blue ? { teamKey: blue.teamKey, collegeName: blue.collegeName, teamName: blue.teamName } : null;
-    if (red && blue) {
-      const redElo = eloByTeamKey.get(red.teamKey) ?? null;
-      const blueElo = eloByTeamKey.get(blue.teamKey) ?? null;
+    result.red = resolvedRed ? { teamKey: resolvedRed.teamKey, collegeName: resolvedRed.collegeName, teamName: resolvedRed.teamName } : null;
+    result.blue = resolvedBlue ? { teamKey: resolvedBlue.teamKey, collegeName: resolvedBlue.collegeName, teamName: resolvedBlue.teamName } : null;
+    result.isConfirmedMatchup = options.replayOfficialResults ? hasOfficialMatchup : true;
+    if (resolvedRed && resolvedBlue) {
+      const redElo = eloByTeamKey.get(resolvedRed.teamKey) ?? null;
+      const blueElo = eloByTeamKey.get(resolvedBlue.teamKey) ?? null;
       result.redElo = redElo;
       result.blueElo = blueElo;
-      const { redScore, blueScore, winnerSide } = sampleSeries(
-        match.bestOf,
-        gameWinProbability(redElo, blueElo),
-        random,
-      );
+      const pGameRed = gameWinProbability(redElo, blueElo);
+      const pSeriesRed = seriesWinProbability(pGameRed, match.bestOf);
+      result.pGameRed = pGameRed;
+      result.pSeriesRed = pSeriesRed;
+      result.deltaH2H = 0;
+      result.predictionBasis = "finals_sequential_elo";
+      const official = isOfficiallyCompleted(match) && hasOfficialMatchup ? officialScore(match) : null;
+      const projected = official
+        ? null
+        : options.projectMostLikelyResults
+          ? predictDisplayScoreline(pGameRed, pSeriesRed, match.bestOf)
+          : sampleSeries(match.bestOf, pGameRed, random);
+      const [projectedRedScore, projectedBlueScore] = projected && "scoreline" in projected
+        ? projected.scoreline.split(":").map(Number)
+        : [projected?.redScore ?? 0, projected?.blueScore ?? 0];
+      const redScore = official?.redScore ?? projectedRedScore;
+      const blueScore = official?.blueScore ?? projectedBlueScore;
+      const winnerSide = official
+        ? officialWinnerSide(match, redScore, blueScore)
+        : redScore > blueScore ? "red" : "blue";
       result.redScore = redScore;
       result.blueScore = blueScore;
       result.winnerSide = winnerSide;
+      result.isRealResult = Boolean(official && winnerSide);
+      if (result.isRealResult && redElo !== null && blueElo !== null) {
+        const update = updateFinalsEloForSeries(redElo, blueElo, redScore, blueScore);
+        result.redEloDelta = update.redDelta;
+        result.blueEloDelta = update.blueDelta;
+        result.redEloAfter = redElo + update.redDelta;
+        result.blueEloAfter = blueElo + update.blueDelta;
+        eloByTeamKey.set(resolvedRed.teamKey, result.redEloAfter);
+        eloByTeamKey.set(resolvedBlue.teamKey, result.blueEloAfter);
+      }
       // records 只累计瑞士轮战绩（出线排名、出局时点都只看瑞士轮）
-      if (match.stageKey === "swiss") {
-        const winnerKey = winnerSide === "red" ? red.teamKey : blue.teamKey;
-        const loserKey = winnerSide === "red" ? blue.teamKey : red.teamKey;
+      if (match.stageKey === "swiss" && winnerSide) {
+        const winnerKey = winnerSide === "red" ? resolvedRed.teamKey : resolvedBlue.teamKey;
+        const loserKey = winnerSide === "red" ? resolvedBlue.teamKey : resolvedRed.teamKey;
         const winnerRecord = records.get(winnerKey);
         const loserRecord = records.get(loserKey);
         if (winnerRecord) winnerRecord.wins += 1;
         if (loserRecord) loserRecord.losses += 1;
+        if (result.isRealResult) {
+          const officialWinnerRecord = officialRecords.get(winnerKey);
+          const officialLoserRecord = officialRecords.get(loserKey);
+          if (officialWinnerRecord) officialWinnerRecord.wins += 1;
+          if (officialLoserRecord) officialLoserRecord.losses += 1;
+        }
       }
     }
     matchResults.set(match.number, result);
@@ -384,6 +567,13 @@ function simulateEvent(
     });
   }
 
+  const lockedQualifierTeamKeys = [...officialRecords]
+    .filter(([, record]) => record.wins >= rules.advanceWins)
+    .map(([teamKey]) => teamKey);
+  const lockedEliminatedTeamKeys = [...officialRecords]
+    .filter(([, record]) => record.losses >= rules.eliminateLosses)
+    .map(([teamKey]) => teamKey);
+
   return {
     eventSlug: event.slug,
     seed: 0, // 由外层统一回填
@@ -394,7 +584,44 @@ function simulateEvent(
     terminalOutcomes,
     qualifierTeamKeys,
     championTeamKey,
+    lockedQualifierTeamKeys,
+    lockedEliminatedTeamKeys,
+    finalEloByTeamKey: Object.fromEntries(
+      [...eloByTeamKey].filter((entry): entry is [string, number] => entry[1] !== null),
+    ),
   };
+}
+
+/**
+ * 区域赛 live 模式同语义的混合推演：官方对阵/赛果优先回放，只有尚未完成的
+ * 场次才按当前战绩与 Elo 继续推演。
+ */
+export function simulateFinalEventHybrid(
+  event: FinalEventSchedule,
+  overview: OverviewResponse,
+  seed: number,
+  initialEloByTeamKey?: ReadonlyMap<string, number>,
+): FinalsEventSimulation {
+  const simulation = simulateEvent(event, event.participants, overview, createSeededRandom(seed), {
+    replayOfficialResults: true,
+    projectMostLikelyResults: true,
+    initialEloByTeamKey,
+  });
+  simulation.seed = seed;
+  return simulation;
+}
+
+/** 实时复活赛与全国赛共用一条 Elo 链；只有真实已完成赛果会写入。 */
+export function simulateFinalsLiveEvents(
+  repechage: FinalEventSchedule,
+  nationals: FinalEventSchedule,
+  overview: OverviewResponse,
+  seed: number,
+): FinalsSimulationResult {
+  const repechageSimulation = simulateFinalEventHybrid(repechage, overview, seed);
+  const inheritedElo = new Map(Object.entries(repechageSimulation.finalEloByTeamKey));
+  const nationalsSimulation = simulateFinalEventHybrid(nationals, overview, seed, inheritedElo);
+  return { repechage: repechageSimulation, nationals: nationalsSimulation };
 }
 
 export function simulateFinalsEvents(
@@ -408,9 +635,15 @@ export function simulateFinalsEvents(
 
   // 全国赛参赛池 = 已确认名单 + 复活赛模拟晋级的 4 队（归入非种子抽签池）
   const repechageInfoByKey = new Map(repechage.participants.map((participant) => [participant.teamKey, participant]));
+  const confirmedNationalsTeamKeys = new Set(nationals.participants.map((participant) => participant.teamKey));
+  const nationalsFieldSize = nationals.groups.reduce((sum, group) => sum + group.teamCount, 0);
+  const openNationalsSlots = Math.max(0, nationalsFieldSize - nationals.participants.length);
   const nationalsField: FinalEventParticipant[] = [
     ...nationals.participants,
-    ...repechageSimulation.qualifierTeamKeys.map((teamKey, index) => {
+    ...repechageSimulation.qualifierTeamKeys
+      .filter((teamKey) => !confirmedNationalsTeamKeys.has(teamKey))
+      .slice(0, openNationalsSlots)
+      .map((teamKey, index) => {
       const source = repechageInfoByKey.get(teamKey);
       return {
         order: nationals.participants.length + index + 1,
@@ -421,9 +654,11 @@ export function simulateFinalsEvents(
         drawTier: "非种子抽签池",
         status: "confirmed" as const,
       };
-    }),
+      }),
   ];
-  const nationalsSimulation = simulateEvent(nationals, nationalsField, overview, random);
+  const nationalsSimulation = simulateEvent(nationals, nationalsField, overview, random, {
+    initialEloByTeamKey: new Map(Object.entries(repechageSimulation.finalEloByTeamKey)),
+  });
 
   repechageSimulation.seed = seed;
   nationalsSimulation.seed = seed;

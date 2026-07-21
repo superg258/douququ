@@ -11,7 +11,7 @@ from urllib.parse import quote
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
-from backend.app import finals_schedule, service
+from backend.app import finals_live, finals_schedule, service
 
 
 client = TestClient(app)
@@ -86,17 +86,101 @@ def test_repechage_schedule_matches_official_contract() -> None:
     assert event["matches"][-1]["winnerTo"] == "全国赛"
 
 
-def test_nationals_schedule_returns_only_confirmed_real_participants() -> None:
+def test_finals_status_reports_completed_match_progress(monkeypatch) -> None:
+    payload = deepcopy(finals_schedule.load_finals_schedule())
+    matches = payload["events"]["repechage"]["matches"]
+    for match in matches:
+        match.update({"officialStatus": "PENDING", "isCompleted": False})
+    for match in matches[:20]:
+        match.update({"officialStatus": "DONE", "isCompleted": True})
+
+    monkeypatch.setattr(finals_schedule, "load_finals_schedule", lambda: payload)
+    monkeypatch.setattr(finals_schedule.finals_live, "load_finals_runtime", lambda: None)
+    event = finals_schedule.build_final_event_payload("repechage")["event"]
+
+    assert event["statusLabel"] == "已完赛 20 / 32 场"
+
+
+def test_finals_status_prioritizes_running_match(monkeypatch) -> None:
+    payload = deepcopy(finals_schedule.load_finals_schedule())
+    matches = payload["events"]["repechage"]["matches"]
+    for match in matches:
+        match.update({"officialStatus": "PENDING", "isCompleted": False})
+    for match in matches[:19]:
+        match.update({"officialStatus": "DONE", "isCompleted": True})
+    matches[19].update({"officialStatus": "LIVE", "isCompleted": False})
+
+    monkeypatch.setattr(finals_schedule, "load_finals_schedule", lambda: payload)
+    monkeypatch.setattr(finals_schedule.finals_live, "load_finals_runtime", lambda: None)
+    event = finals_schedule.build_final_event_payload("repechage")["event"]
+
+    assert event["statusLabel"] == "1 场进行中 · 已完赛 19 / 32 场"
+
+
+def test_finals_status_reports_completed_draw_before_play(monkeypatch) -> None:
+    payload = deepcopy(finals_schedule.load_finals_schedule())
+    event_payload = payload["events"]["nationals"]
+    for index, match in enumerate(event_payload["matches"][:16], start=1):
+        match.update({
+            "officialStatus": "PENDING",
+            "isCompleted": False,
+            "isConfirmedMatchup": True,
+            "redCollegeName": f"红方{index}",
+            "blueCollegeName": f"蓝方{index}",
+        })
+
+    monkeypatch.setattr(finals_schedule, "load_finals_schedule", lambda: payload)
+    event = finals_schedule.build_final_event_payload("nationals")["event"]
+
+    assert event["statusLabel"] == f"{event['participantCount']} 队抽签已完成 · 等待开赛"
+
+
+def test_nationals_schedule_returns_only_confirmed_real_participants(monkeypatch) -> None:
+    reference = finals_schedule.load_finals_schedule()
+    extra_participants = [
+        {**participant, "drawTier": "复活赛晋级"}
+        for participant in reference["events"]["repechage"]["participants"][:4]
+    ]
+    all_participants = [*reference["events"]["nationals"]["participants"], *extra_participants]
+    runtime_matches = []
+    for index in range(16):
+        red = all_participants[index * 2]
+        blue = all_participants[index * 2 + 1]
+        runtime_matches.append({
+            "number": index + 1,
+            "officialMatchId": f"SYNTH-NATIONALS-{index + 1:03d}",
+            "bestOf": 3,
+            "officialStatus": "PENDING",
+            "isCompleted": False,
+            "isConfirmedMatchup": True,
+            "redCollegeName": red["collegeName"],
+            "redTeamName": red["teamName"],
+            "blueCollegeName": blue["collegeName"],
+            "blueTeamName": blue["teamName"],
+        })
+    runtime = finals_live.validate_runtime_payload({
+        "schemaVersion": "rmuc-finals-live-v1",
+        "season": 2026,
+        "sourceStatus": "active",
+        "sourceKind": "synthetic",
+        "sourceUpdatedAt": "2026-07-21T21:00:00+08:00",
+        "scenarioId": "codex-repechage-complete-nationals-draw-20260721",
+        "events": {"nationals": {"participants": extra_participants, "matches": runtime_matches}},
+    })
+    monkeypatch.setattr(finals_schedule.finals_live, "load_finals_runtime", lambda: runtime)
+    monkeypatch.setattr(finals_schedule.finals_live, "runtime_artifact_version", lambda: "test-runtime")
+
     response = client.get("/api/finals/nationals")
     assert response.status_code == 200
-    event = response.json()["event"]
+    payload = response.json()
+    event = payload["event"]
 
-    assert event["participantCount"] == 28
-    assert event["confirmedParticipantCount"] == 28
+    assert event["participantCount"] == 32
+    assert event["confirmedParticipantCount"] == 32
     assert "pendingParticipantCount" not in event
-    assert event["statusLabel"] == "28 队名单已确认 · 抽签待定"
+    assert event["statusLabel"] == "32 队抽签已完成 · 等待开赛"
     assert event["formalMatchCount"] == 96
-    assert len(event["participants"]) == 28
+    assert len(event["participants"]) == 32
     assert all(participant["status"] == "confirmed" for participant in event["participants"])
     assert all(participant["schoolKey"] for participant in event["participants"])
     assert all(participant["teamKey"] for participant in event["participants"])
@@ -105,12 +189,28 @@ def test_nationals_schedule_returns_only_confirmed_real_participants() -> None:
     assert [match["number"] for match in event["matches"]] == list(range(1, 97))
     assert event["matches"][-1]["stageKey"] == "final"
     assert event["matches"][-1]["endsAt"] == "2026-08-09T16:10:00+08:00"
+    assert payload["scheduleStatus"] == "synthetic_scenario_active"
+    assert payload["liveStatus"]["sourceKind"] == "synthetic"
+    assert payload["liveStatus"]["isSynthetic"] is True
+    assert payload["liveStatus"]["scenarioId"] == "codex-repechage-complete-nationals-draw-20260721"
+    assert event["predictionBasis"] == "finals_sequential_elo"
+    first_match = event["matches"][0]
+    red = next(row for row in event["participants"] if row["collegeName"] == first_match["redCollegeName"])
+    blue = next(row for row in event["participants"] if row["collegeName"] == first_match["blueCollegeName"])
+    prediction_key = f"{red['teamKey']}|||{blue['teamKey']}"
+    prediction = event["predictionMatrix"][prediction_key]
+    assert 0 < prediction["pGameRed"] < 1
+    assert 0 < prediction["pSeriesRed"] < 1
+    assert prediction["predictedScoreline"] in {"2:0", "2:1", "1:2", "0:2"}
+    assert prediction["predictionBasis"] == "finals_initial_elo"
+    assert prediction["deltaH2H"] == 0.0
 
 
 def test_nationals_schedule_expands_when_repechage_qualifiers_are_confirmed(monkeypatch) -> None:
     payload = deepcopy(finals_schedule.load_finals_schedule())
     repechage_qualifiers = payload["events"]["repechage"]["participants"][:4]
     nationals = payload["events"]["nationals"]
+    nationals["participants"] = nationals["participants"][:28]
     for qualifier in repechage_qualifiers:
         nationals["participants"].append(
             {
@@ -120,8 +220,15 @@ def test_nationals_schedule_expands_when_repechage_qualifiers_are_confirmed(monk
             }
         )
     nationals["participantCount"] = 32
+    for match in nationals["matches"]:
+        match["isConfirmedMatchup"] = False
+        match.pop("redCollegeName", None)
+        match.pop("redTeamName", None)
+        match.pop("blueCollegeName", None)
+        match.pop("blueTeamName", None)
 
     monkeypatch.setattr(finals_schedule, "load_finals_schedule", lambda: payload)
+    monkeypatch.setattr(finals_schedule.finals_live, "load_finals_runtime", lambda: None)
     event = finals_schedule.build_final_event_payload("nationals")["event"]
 
     assert event["participantCount"] == 32
@@ -996,8 +1103,8 @@ def test_active_live_prediction_payload_is_seed_independent_with_official_slots(
     first = service.build_simulation_payload("south_region", 20260414, mode="live", samples=1)
     second = service.build_simulation_payload("south_region", 20261111, mode="live", samples=1)
 
-    assert first["meta"]["liveStatus"]["predictionBasis"] == "current_ts2_component_head_h2h"
-    assert second["meta"]["liveStatus"]["predictionBasis"] == "current_ts2_component_head_h2h"
+    assert first["meta"]["liveStatus"]["predictionBasis"] == "current_ts2_component_head"
+    assert second["meta"]["liveStatus"]["predictionBasis"] == "current_ts2_component_head"
     assert _without_volatile_simulation_fields(first) == _without_volatile_simulation_fields(second)
 
 
@@ -1047,7 +1154,7 @@ def test_active_live_prediction_uses_current_elo_before_preseason_rating(tmp_pat
     assert match["winnerTeamKey"] == weakest["team_key"]
 
 
-def test_live_builder_keeps_official_results_and_uses_runtime_h2h_for_later_predictions() -> None:
+def test_live_builder_keeps_official_results_without_runtime_h2h_adjustment() -> None:
     red_team = SimpleNamespace(
         team_key="red-school::main",
         college_name="红方大学",
@@ -1114,8 +1221,9 @@ def test_live_builder_keeps_official_results_and_uses_runtime_h2h_for_later_pred
     )
 
     assert official_payload["fixed_scoreline"] == "0:2"
-    assert later_payload["head_to_head_summary"]["delta_h2h"] < 0
-    assert later_payload["p_game_adj_red"] < later_payload["p_game_base_red"]
+    assert later_payload["head_to_head_summary"]["meetings_count"] >= 1
+    assert later_payload["head_to_head_summary"]["delta_h2h"] == 0.0
+    assert later_payload["p_game_adj_red"] == later_payload["p_game_base_red"]
 
 
 def test_live_builder_uses_ledger_before_ratings_for_completed_match_probability() -> None:

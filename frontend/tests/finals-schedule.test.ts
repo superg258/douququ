@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import officialFinalsSchedule from "../../data/reference/2026_finals/schedule.json";
 
 import { buildFinalsWorkspaceStage } from "@/lib/finals-canvas";
+import { buildFinalsMatchRow } from "@/lib/finals-match-adapter";
 import {
   buildFinalEventDays,
   buildRepechageSwissFlow,
@@ -55,6 +56,66 @@ function event(matches: FinalEventMatch[]): FinalEventSchedule {
 }
 
 describe("finals schedule helpers", () => {
+  it("maps completed official finals matches into real result rows", () => {
+    const payload = event([]);
+    payload.participants = [
+      { order: 1, schoolKey: "red-school", teamKey: "red::team", collegeName: "红方大学", teamName: "红方战队", drawTier: "第一梯队", status: "confirmed" },
+      { order: 2, schoolKey: "blue-school", teamKey: "blue::team", collegeName: "蓝方大学", teamName: "蓝方战队", drawTier: "第一梯队", status: "confirmed" },
+    ];
+    const row = buildFinalsMatchRow(payload, match(1, "2026-07-31T19:00:00+08:00", "A组瑞士轮第一轮（BO3）", {
+      officialStatus: "DONE",
+      isCompleted: true,
+      isConfirmedMatchup: true,
+      scoreline: "2:1",
+      result: "red",
+      redWins: 2,
+      blueWins: 1,
+      redTeamKey: "red::team",
+      redCollegeName: "红方大学",
+      redTeamName: "红方战队",
+      blueTeamKey: "blue::team",
+      blueCollegeName: "蓝方大学",
+      blueTeamName: "蓝方战队",
+    }));
+
+    expect(row).toMatchObject({
+      isRealResult: true,
+      isConfirmedMatchup: true,
+      officialStatus: "DONE",
+      scoreline: "2:1",
+      winnerTeamKey: "red::team",
+      loserTeamKey: "blue::team",
+      redTeam: { teamKey: "red::team", collegeName: "红方大学", teamName: "红方战队" },
+      blueTeam: { teamKey: "blue::team", collegeName: "蓝方大学", teamName: "蓝方战队" },
+    });
+  });
+
+  it("preserves an in-progress official finals score without marking it completed", () => {
+    const row = buildFinalsMatchRow(event([]), match(2, "2026-07-31T19:40:00+08:00", "A组瑞士轮第一轮（BO3）", {
+      officialStatus: "LIVE",
+      isCompleted: false,
+      isConfirmedMatchup: true,
+      hasLiveScoreline: true,
+      scoreline: "1:0",
+      redTeamKey: "red::team",
+      redCollegeName: "红方大学",
+      redTeamName: "红方战队",
+      blueTeamKey: "blue::team",
+      blueCollegeName: "蓝方大学",
+      blueTeamName: "蓝方战队",
+    }));
+
+    expect(row).toMatchObject({
+      isRealResult: false,
+      isConfirmedMatchup: true,
+      hasLiveScoreline: true,
+      officialStatus: "LIVE",
+      scoreline: "1:0",
+      winnerTeamKey: "",
+      loserTeamKey: "",
+    });
+  });
+
   it("recognizes real schools and rejects unresolved schedule slots", () => {
     expect(isActualSchoolName("广东工业大学")).toBe(true);
     expect(isActualSchoolName("DynamicX")).toBe(true);

@@ -3488,7 +3488,7 @@ def compute_preseason_vnext(
             "ranking_1884_policy": "2026_rmul_start_prior_weak_only",
             "recent_form_policy": "calibrated_recent_level_plus_momentum_with_peer_consistency",
             "excluded_current_2026_priors": ["seed_rank_in_region", "seed_tier"],
-            "head_to_head_policy": "disabled_by_default",
+            "head_to_head_policy": "disabled_globally",
             "prior_component_weights": SEASON_START_PRIOR_WEIGHTS,
         "shape_prior_scale": SCHOOL_SHAPE_PRIOR_SCALE,
         "shape_recent_reliability_suppression": SHAPE_RECENT_RELIABILITY_SUPPRESSION,

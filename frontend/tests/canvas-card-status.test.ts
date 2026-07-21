@@ -117,6 +117,15 @@ describe("deriveMatchCardState", () => {
     expect(deriveMatchCardState(match(), "live").statusLabel).toBe("预测");
   });
 
+  it("shows a hybrid scenario score while keeping prediction semantics", () => {
+    expect(deriveMatchCardState(match({ isScenarioProjection: true, isRealResult: false }), "live")).toMatchObject({
+      statusLabel: "预测",
+      isPrediction: true,
+      showsResolvedScoreline: true,
+      usesActualResultVisuals: false,
+    });
+  });
+
   it("treats only official pending matches as scheduled in live mode", () => {
     expect(
       deriveMatchCardState(
@@ -147,6 +156,25 @@ describe("deriveMatchCardState", () => {
       showsResolvedScoreline: true,
       usesActualResultVisuals: false,
       isTentativeScoreline: true,
+    });
+  });
+
+  it("labels an official in-progress score as live", () => {
+    expect(
+      deriveMatchCardState(
+        match({
+          officialMatchId: "repechage-20",
+          officialStatus: "LIVE",
+          scoreline: "1:0",
+          hasLiveScoreline: true,
+        }),
+        "live"
+      )
+    ).toMatchObject({
+      statusLabel: "比赛中",
+      isLiveNow: true,
+      showsResolvedScoreline: true,
+      usesActualResultVisuals: false,
     });
   });
 

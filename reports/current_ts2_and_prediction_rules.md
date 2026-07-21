@@ -1,6 +1,8 @@
 # 当前 TS2 与胜率预测规则复盘
 
-更新日期：2026-07-20（prediction head：R1 启用 component head、新增 robot signal 通道、live 路径 H2H 置零）
+更新日期：2026-07-21（prediction head：R1 启用 component head、新增 robot signal 通道；H2H 全局仅保留观测统计，不再修正任何胜率）
+
+> 2026-07-21 统一契约：区域赛 sim/live、复活赛、全国赛、CLI 与共享预测核心均不得使用 H2H 改变 `pGame`/`pSeries`；兼容字段 `deltaH2H` / `delta_h2h` 恒为 `0`。本文后续关于旧 H2H 算法与消融的数据仅作为历史诊断记录，不代表当前预测行为。
 适用范围：当前仓库里的 RMUC TS2 研究链路、`rmuc_live` runtime 产物、后端 `mode=live` 胜率预测路径。
 主要入口：
 
@@ -875,20 +877,20 @@ p_game_adj = sigmoid(logit(p_base) + delta_logit)
 delta_h2h  = p_game_adj - p_base
 ```
 
-当前最大概率影响：
+旧版最大概率影响（仅保留为历史算法说明）：
 
 ```text
-MAX_DELTA_PROBABILITY = 0.10
-MAX_DELTA_LOGIT = 4 * atanh(0.10)
+MAX_DELTA_PROBABILITY = 0.00
+MAX_DELTA_LOGIT = 0.00
 ```
 
-live 预测路径额外受 `prediction_head_h2h_max_delta_probability` 约束（经 `_deterministic_live_prediction_payload` 传给 `summarize_head_to_head` 的 `max_delta_probability`）：
+配置仍保留 `prediction_head_h2h_max_delta_probability` 作为兼容字段：
 
 ```yaml
 prediction_head_h2h_max_delta_probability: 0.0
 ```
 
-即 live 页面胜率当前不使用 H2H 修正（delta 恒为 0，`deltaH2H` 展示字段同步为 0）。原因：2026-07-20 回测显示 H2H 覆盖的 31 场方向正确率仅 58%，这些场次使用 H2H 时 acc 64.5%、不用时 67.7%。sim 模式与 `scripts/head_to_head.py` CLI 仍使用模块默认 0.10，不受该配置影响。
+共享 `scripts/head_to_head.py` 当前强制 `PREDICTION_ENABLED = False`，调用方即使传入旧的非零上限也不能重新启用修正。区域赛 sim/live、复活赛、全国赛与 CLI 的 `deltaH2H` 均恒为 0，`p_game_adj` 与基础概率严格相等。原因：2026-07-20 回测显示 H2H 覆盖的 31 场方向正确率仅 58%，这些场次使用 H2H 时 acc 64.5%、不用时 67.7%。
 
 ## 23. 页面 live 路径
 
@@ -900,8 +902,9 @@ live 模式流程：
 2. 如果官方 live source active，则使用官方落位、官方瑞士轮对阵、官方已完成赛果。
 3. 对每一场比赛调用 `live_payload_builder_factory`。
 4. builder 对已完成比赛使用 ledger 赛前状态，对未完成比赛使用 current snapshot。
-5. 生成 `pGameRed/pGameBlue/pSeriesRed/pSeriesBlue/deltaH2H`。
-6. 再附加 `redCurrentElo/blueCurrentElo/redLiveDelta/redPriorDelta` 等展示字段。
+5. 已完成官方赛局按赛程顺序，以真实比分执行普通 Elo 更新；这条实时仿真 Elo 链忽略 published rating 中的 robot/form/prior 附加调整。
+6. 未完成的续推赛局只生成预测赛果，不更新 Elo，也不改变后续场次的 Elo 状态。
+7. 生成 `pGameRed/pGameBlue/pSeriesRed/pSeriesBlue/deltaH2H`，再附加 `redCurrentElo/blueCurrentElo/redLiveDelta/redPriorDelta` 等展示字段。
 
 当前页面实际评判路径应以：
 
@@ -910,6 +913,14 @@ live 模式流程：
 ```
 
 返回的 `predictionBasis` 为准。
+
+### 23.1 复活赛 / 全国赛顺序 Elo
+
+- 初始 Elo 取区域赛结束后的 current snapshot；后端 `predictionMatrix` 只提供 `finals_initial_elo` 初值，不携带 robot/form/H2H 修正。
+- 真实已完成比赛按场号顺序，以真实比分和 `K=64` 执行 ordered-series Elo 更新，并输出赛前 Elo、增量、赛后 Elo。
+- 未完成比赛使用当时最新 Elo 计算单局与系列赛胜率，但预测赛果不写回 Elo。
+- 全国赛实时推演继承复活赛真实完赛结果形成的最终 Elo；复活赛预测赛果不进入全国赛 Elo。
+- 页面场次预测基准统一标记为 `finals_sequential_elo`。
 
 ## 24. 当前关键参数快照
 

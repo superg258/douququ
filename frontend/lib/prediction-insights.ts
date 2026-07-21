@@ -112,10 +112,6 @@ function buildReasons(match: MatchRow, favoriteName: string, favoriteRate: numbe
     reasons.push(`赛前战力差距约 ${eloGap.toFixed(1)}，更看好 ${eloLeader}。`);
   }
 
-  if (Math.abs(match.deltaH2H) >= 0.1) {
-    reasons.push(`历史对战修正 ${match.deltaH2H > 0 ? "+" : ""}${match.deltaH2H.toFixed(2)}，反映两队过往交锋记录的影响。`);
-  }
-
   if (match.miniProgramPrediction?.status === "available") {
     const audienceRed = match.miniProgramPrediction.redRate;
     const modelRed = match.pSeriesRed;

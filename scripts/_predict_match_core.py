@@ -421,7 +421,7 @@ def render_text_prediction(prediction: dict[str, Any]) -> str:
             f"{team_b['school_name']} {prediction['p_series_b']:.3%}"
         ),
         (
-            "Head-to-head: disabled by default"
+            "Head-to-head: globally disabled"
             if not head_to_head.get("enabled", True)
             else (
                 f"Head-to-head: meetings={head_to_head['meetings_count']}, "
