@@ -133,7 +133,7 @@ export function buildFinalsMatchCard(
     x,
     y,
     width: FINALS_MATCH_CARD_WIDTH,
-    height: simulation ? FINALS_MATCH_CARD_HEIGHT : 96,
+    height: FINALS_MATCH_CARD_HEIGHT,
     tone: match.stageKey === "final" || match.stageKey === "third_place"
       ? "amber"
       : match.stageKey === "swiss"

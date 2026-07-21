@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, type KeyboardEvent } from "react";
 
+import { EloSparkline, formatEloDelta } from "@/components/elo-sparkline";
 import { buildTeamHref } from "@/lib/team-profile";
 import { formatShortDateTimeLabel } from "@/lib/time-format";
 import type {
@@ -172,34 +173,10 @@ function buildRankingSection(
   };
 }
 
-function signedDelta(value: number) {
-  if (Math.abs(value) < 0.05) return "±0.0";
-  return `${value > 0 ? "+" : ""}${value.toFixed(1)}`;
-}
-
 function formatVerifiedAt(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
   if (!match) return value;
   return `${match[1]}/${match[2]}/${match[3]}`;
-}
-
-function EloSparkline({ current, delta }: { current: number; delta: number }) {
-  const start = current - delta;
-  const direction = delta >= 0 ? 1 : -1;
-  const points = [start, start + delta * 0.28 - direction * 8, start + delta * 0.58 + direction * 5, current];
-  const min = Math.min(...points);
-  const max = Math.max(...points);
-  const range = Math.max(1, max - min);
-  const path = points.map((value, index) => `${index * 16},${15 - ((value - min) / range) * 12}`).join(" ");
-  const tone = delta > 0.05 ? "stroke-rm-status-safe" : delta < -0.05 ? "stroke-rm-red" : "stroke-rm-metal-textMuted";
-  const fillTone = delta > 0.05 ? "fill-rm-status-safe" : delta < -0.05 ? "fill-rm-red" : "fill-rm-metal-textMuted";
-
-  return (
-    <svg viewBox="0 0 48 18" className="mt-0.5 h-4 w-12" role="img" aria-label={`赛季 Elo 走势 ${signedDelta(delta)}`}>
-      <polyline points={path} fill="none" className={`${tone} drop-shadow-[0_0_3px_currentColor]`} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-      <circle cx="48" cy={15 - ((current - min) / range) * 12} r="1.75" className={fillTone} />
-    </svg>
-  );
 }
 
 function RankingRow({
@@ -211,20 +188,12 @@ function RankingRow({
 }) {
   const styles = TONE_STYLES[tone];
   const isTopThree = row.eventRank <= 3;
-  const medalStyle = row.eventRank === 1
-    ? "border-l-rm-gold bg-rm-gold/5"
-    : row.eventRank === 2
-      ? "border-l-rm-metal-textLight bg-white/[0.025]"
-      : row.eventRank === 3
-        ? "border-l-rm-result-winner bg-rm-result-winner/5"
-        : "border-l-transparent";
 
   return (
     <Link
       href={buildTeamHref(row.teamKey)}
       className={cn(
-        "group render-lazy grid grid-cols-[2.4rem_minmax(0,1fr)_5rem] gap-2 border border-l-2 border-rm-metal-border bg-rm-metal-panel/80 px-2.5 py-1.5 transition-colors",
-        medalStyle,
+        "group render-lazy grid grid-cols-[2.4rem_minmax(0,1fr)_5rem] gap-2 border border-rm-metal-border bg-rm-metal-panel/80 px-2.5 py-1.5 transition-colors",
         styles.rowHover,
       )}
     >
@@ -301,7 +270,7 @@ function RankingRow({
                 : "text-rm-metal-textMuted",
           )}
         >
-          赛季 {signedDelta(row.seasonDelta)}
+          赛季 {formatEloDelta(row.seasonDelta)}
         </span>
       </div>
     </Link>
@@ -416,11 +385,6 @@ export function FinalsEloRankings({
   const requestedSlug = resolveFinalEventParam(searchParams.get("event"));
   const activeSlug = sections.some((section) => section.slug === requestedSlug) ? requestedSlug : sections[0]?.slug ?? "nationals";
   const activeSection = sections.find((section) => section.slug === activeSlug) ?? sections[0];
-  // 桌面端全国赛列在复活赛之前（信息优先级）
-  const desktopSections = useMemo(
-    () => [...sections].sort((a, b) => (a.slug === "nationals" ? -1 : b.slug === "nationals" ? 1 : 0)),
-    [sections],
-  );
   const totalUnmatched = sections.reduce((sum, section) => sum + section.unmatchedCount, 0);
 
   const selectEvent = (slug: FinalEventSlug) => {
@@ -450,7 +414,7 @@ export function FinalsEloRankings({
 
       {isDesktop ? (
         <div className="grid items-start gap-5 lg:grid-cols-2">
-          {desktopSections.map((section) => (
+          {sections.map((section) => (
             <RankingSectionCard key={section.slug} section={section} instance="desktop" />
           ))}
         </div>

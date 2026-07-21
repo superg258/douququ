@@ -228,11 +228,8 @@ function EventPanel({
                   <tr
                     key={`${participant.order}-${participant.teamName}`}
                     className={cn(
-                      "render-lazy border-l-2 transition-colors hover:bg-rm-metal-panel/50",
-                      index === 0 && "border-l-rm-gold bg-rm-gold/5 font-semibold text-rm-metal-textLight",
-                      index === 1 && "border-l-rm-metal-textMuted bg-white/[0.025] font-semibold text-rm-metal-textLight",
-                      index === 2 && "border-l-rm-result-winner bg-rm-result-winner/5 font-semibold text-rm-metal-textLight",
-                      index > 2 && "border-l-transparent text-rm-metal-textMuted",
+                      "render-lazy transition-colors hover:bg-rm-metal-panel/50",
+                      index < 2 ? "font-semibold text-rm-metal-textLight" : "text-rm-metal-textMuted",
                     )}
                   >
                     <td className="py-1.5 text-rm-metal-textFaint">{index + 1}</td>

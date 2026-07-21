@@ -592,41 +592,6 @@ function MatchCanvasCardComponent({
   const predictedDisplayScore = scoreParts(predictedScore.scoreline);
   const audience = audienceSignal(row.miniProgramPrediction);
 
-  if (isOfficialPlaceholder) {
-    return (
-      <div
-        role="button"
-        tabIndex={0}
-        aria-label={`${card.displayLabel}，等待抽签，${card.redSide.collegeName} 对阵 ${card.blueSide.collegeName}`}
-        className={cn(
-          "absolute touch-none group flex cursor-pointer flex-col overflow-hidden border border-dashed border-rm-status-scheduled/45 bg-black/65 outline-none clip-chamfer transition-all hover:border-rm-status-scheduled/75 hover:bg-rm-status-scheduled/5",
-          isSelected ? "z-30 ring-1 ring-rm-result-winner" : "z-10",
-        )}
-        style={{ transform: `translate3d(${card.x}px, ${card.y}px, 0)`, width: card.width, height: card.height }}
-        onClick={() => {
-          if (!consumePress()) onMatchSelect(row.matchLabel);
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            onMatchSelect(row.matchLabel);
-          }
-        }}
-        {...pressGuardProps}
-      >
-        <div className="flex h-8 shrink-0 items-center justify-between gap-2 border-b border-rm-status-scheduled/20 px-3">
-          <span className="font-machine text-[11px] font-bold tracking-widest text-rm-metal-textLight">{card.displayLabel}</span>
-          <span className="font-mono text-[10px] text-rm-status-scheduled">{scheduleTimeLabel}</span>
-        </div>
-        <div className="grid flex-1 grid-cols-[1fr_auto_1fr] items-center gap-3 px-3 font-mono text-[11px]">
-          <span className="truncate text-rm-red">{card.redSide.collegeName}</span>
-          <span className="border border-rm-status-scheduled/30 bg-rm-status-scheduled/10 px-2 py-1 text-[10px] text-rm-status-scheduled">等待抽签</span>
-          <span className="truncate text-right text-rm-blue">{card.blueSide.collegeName}</span>
-        </div>
-      </div>
-    );
-  }
-
   /* ─── 三档亮度仅用于真实赛程（live），模拟保持不变 ─── */
   const containerBorder = (() => {
     // Simulation mode — unchanged

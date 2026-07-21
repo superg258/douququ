@@ -731,7 +731,7 @@ describe("finals schedule helpers", () => {
     });
 
     expect(scheduleCards).toHaveLength(33);
-    expect(scheduleCards.every((card) => card.width === 400 && card.height === 96)).toBe(true);
+    expect(scheduleCards.every((card) => card.width === 400 && card.height === 188)).toBe(true);
     expect(canvas.headers.slice(0, 5).map((header) => header.title)).toEqual([
       "第 1 轮",
       "第 2 轮",

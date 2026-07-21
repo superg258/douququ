@@ -229,6 +229,10 @@ export function ForecastCenterPage() {
       collegeName,
       teamName: overviewTeam?.teamName ?? participant?.teamName ?? simulatedName?.teamName ?? "",
       elo: overviewTeam ? (overviewTeam.currentElo ?? overviewTeam.mu0 ?? null) : null,
+      seasonDelta: overviewTeam
+        ? overviewTeam.eloDeltaFromPreseason
+          ?? (overviewTeam.currentElo ?? overviewTeam.mu0) - (overviewTeam.preseasonElo ?? overviewTeam.mu0)
+        : null,
       globalRank: overviewTeam?.eloGlobalRank ?? null,
       probabilities: overviewTeam?.probabilities ?? null,
     };

@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { formatMatchCardScheduleTime, predictScoreline } from "@/components/canvas-card";
+import { EloSparkline, formatEloDelta } from "@/components/elo-sparkline";
 import { PredictionExplanationCard } from "@/components/prediction-explanation-card";
 import { PredictionSignalsPanel } from "@/components/prediction-signals";
 import { translateConfidenceLabel, translateStageLabel } from "@/lib/display";
@@ -54,6 +55,7 @@ export interface InspectorTeamInfo {
   collegeName: string;
   teamName: string;
   elo: number | null;
+  seasonDelta: number | null;
   globalRank: number | null;
   probabilities: OverviewTeam["probabilities"] | null;
 }
@@ -116,6 +118,21 @@ export function ForecastInspectorPanel({
           <div className="bg-rm-metal-dark border border-rm-metal-border p-3 grid grid-cols-2 gap-2 text-[10px] font-mono">
             <span className="text-rm-metal-text">Elo {teamInfo.elo === null ? "待确认" : teamInfo.elo.toFixed(1)}</span>
             <span className="text-rm-metal-text">{globalRankLabel}</span>
+            {mode === "live" && teamInfo.elo !== null && teamInfo.seasonDelta !== null ? (
+              <div className="col-span-2 mt-1 flex items-center justify-between border-y border-rm-metal-border/70 py-2">
+                <div>
+                  <div className="text-rm-metal-textMuted">赛季 Elo 走势</div>
+                  <div className={teamInfo.seasonDelta >= 0 ? "text-rm-status-safe" : "text-rm-red"}>
+                    赛季 {formatEloDelta(teamInfo.seasonDelta)}
+                  </div>
+                </div>
+                <EloSparkline
+                  current={teamInfo.elo}
+                  delta={teamInfo.seasonDelta}
+                  className="h-7 w-20"
+                />
+              </div>
+            ) : null}
             {eventSlug === "repechage" ? (
               <span className="col-span-2 text-rm-blue">
                 晋级率{" "}
