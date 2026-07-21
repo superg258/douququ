@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef } from "react";
+import { memo } from "react";
 
 import type { CanvasCard, MatchCanvasCard, MatchRow, ScheduleCanvasCard, TeamCanvasCard } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { getPredictedAdvantageLabel } from "@/lib/prediction-display";
+import { audienceSignal, clampProbability, formatRate, getPredictedAdvantageLabel } from "@/lib/prediction-display";
 import { predictDisplayScoreline } from "@/lib/scoreline";
 import { formatBeijingMonthDayTime } from "@/lib/time-format";
+import { usePressGuard } from "@/lib/use-press-guard";
 
 function toneClass(tone: CanvasCard["tone"]) {
   switch (tone) {
@@ -126,7 +127,7 @@ function TeamCanvasCardComponent({
   const { isSimulated, isSafe, isSummary, summaryLabel, visualTier } = teamState;
   const shellClass = (() => {
     if (visualTier === "actual-eliminated") {
-      return "border-rm-status-upset/55 bg-black/85 opacity-90 grayscale-[18%] shadow-[inset_3px_0_0_rgba(239,68,68,0.45),0_0_10px_rgba(239,68,68,0.08)]";
+      return "border-rm-status-upset/55 bg-black/85 opacity-90 grayscale-[18%] shadow-[inset_3px_0_0_rgba(232,48,42,0.45),0_0_10px_rgba(232,48,42,0.08)]";
     }
     if (visualTier === "predicted-eliminated") {
       return "border-dashed border-rm-status-upset/30 bg-black/65 opacity-70 grayscale-[55%]";
@@ -141,7 +142,7 @@ function TeamCanvasCardComponent({
   })();
   const badgeClass = (() => {
     if (visualTier === "actual-eliminated") {
-      return "border border-rm-status-upset/70 bg-rm-status-upset/25 text-rm-status-upset shadow-[0_0_8px_rgba(239,68,68,0.24)]";
+      return "border border-rm-status-upset/70 bg-rm-status-upset/25 text-rm-status-upset shadow-[0_0_8px_rgba(232,48,42,0.24)]";
     }
     if (visualTier === "predicted-eliminated") {
       return "border border-dashed border-rm-status-upset/35 bg-rm-status-upset/10 text-rm-status-upset/65";
@@ -154,22 +155,22 @@ function TeamCanvasCardComponent({
     }
     return isSafe
       ? "bg-rm-status-safe/30 text-rm-status-safe shadow-[0_0_6px_rgba(0,232,120,0.2)]"
-      : "bg-rm-status-upset/25 text-rm-status-upset shadow-[0_0_6px_rgba(239,68,68,0.2)]";
+      : "bg-rm-status-upset/25 text-rm-status-upset shadow-[0_0_6px_rgba(232,48,42,0.2)]";
   })();
   const titleClass = (() => {
     if (visualTier === "actual-eliminated") return "text-white/85";
-    if (visualTier === "predicted-eliminated") return "text-[#A0A0B0]/65";
-    return isSimulated ? (isSafe ? "text-white/70" : "text-[#A0A0B0]/70") : (isSafe ? "text-[#FFFFFF]" : "text-[#E0E0E0]");
+    if (visualTier === "predicted-eliminated") return "text-rm-metal-textMuted/65";
+    return isSimulated ? (isSafe ? "text-white/70" : "text-rm-metal-textMuted/70") : (isSafe ? "text-[#FFFFFF]" : "text-rm-metal-textLight");
   })();
   const detailClass = (() => {
     if (visualTier === "actual-eliminated") return "text-rm-status-upset/75";
-    if (visualTier === "predicted-eliminated") return "text-[#808080]/55";
+    if (visualTier === "predicted-eliminated") return "text-rm-metal-textFaint/55";
     return isSimulated
-      ? (isSafe ? "text-rm-status-safe/50" : "text-[#808080]/50")
-      : (isSafe ? "text-rm-result-winner" : "text-[#A0A0B0]");
+      ? (isSafe ? "text-rm-status-safe/50" : "text-rm-metal-textFaint/50")
+      : (isSafe ? "text-rm-result-winner" : "text-rm-metal-textMuted");
   })();
 
-  const pointerIntentRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const { consumePress, pressGuardProps } = usePressGuard();
 
   return (
     <button
@@ -192,36 +193,16 @@ function TeamCanvasCardComponent({
       }}
       title={[card.collegeName, card.teamName, card.statLine, ...(card.meta ?? [])].filter(Boolean).join(" / ")}
       onClick={hasTeamKey ? () => {
-        if (pointerIntentRef.current?.moved) {
-          pointerIntentRef.current = null;
+        if (consumePress()) {
           return;
         }
         onTeamSelect(card.teamKey);
-        pointerIntentRef.current = null;
       } : undefined}
-      onPointerDown={(event) => {
-        pointerIntentRef.current = { x: event.clientX, y: event.clientY, moved: false };
-      }}
-      onPointerMove={(event) => {
-        if (!pointerIntentRef.current) return;
-        const deltaX = Math.abs(event.clientX - pointerIntentRef.current.x);
-        const deltaY = Math.abs(event.clientY - pointerIntentRef.current.y);
-        if (deltaX > 6 || deltaY > 6) {
-          pointerIntentRef.current = { ...pointerIntentRef.current, moved: true };
-        }
-      }}
-      onPointerUp={() => {
-        if (pointerIntentRef.current?.moved) {
-          pointerIntentRef.current = null;
-        }
-      }}
-      onPointerCancel={() => {
-        pointerIntentRef.current = null;
-      }}
+      {...pressGuardProps}
     >
       {isSummary ? (
         <span className={cn(
-          "flex-none flex items-center justify-center px-2 h-5 text-[8px] font-extrabold uppercase tracking-widest leading-none",
+          "flex-none flex items-center justify-center px-2 h-5 text-[10px] font-extrabold uppercase tracking-widest leading-none",
           badgeClass
         )}>
           {summaryLabel}
@@ -229,7 +210,7 @@ function TeamCanvasCardComponent({
       ) : null}
 
       {card.orderLabel ? (
-        <span className="flex-none flex items-center justify-center w-12 h-full px-1 overflow-hidden border-r border-white/10 bg-black/40 text-[16px] font-bold font-mono text-[#A0A0B0]">
+        <span className="flex-none flex items-center justify-center w-12 h-full px-1 overflow-hidden border-r border-white/10 bg-black/40 text-[16px] font-bold font-mono text-rm-metal-textMuted">
           {card.orderLabel}
         </span>
       ) : null}
@@ -263,48 +244,6 @@ function scoreParts(scoreline: string) {
   return { red, blue };
 }
 
-function clampRate(value: number | null | undefined) {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return 0;
-  }
-  return Math.max(0, Math.min(1, value));
-}
-
-function formatRate(value: number) {
-  return `${Math.round(clampRate(value) * 100)}%`;
-}
-
-function audienceSignal(prediction: MatchCanvasCard["match"]["miniProgramPrediction"]) {
-  if (!prediction) {
-    return {
-      redRate: 0,
-      blueRate: 0,
-      statusLabel: "暂未开放",
-      available: false,
-      title: "王牌预言家投票通道暂未开放",
-    };
-  }
-
-  if (prediction.status === "available") {
-    return {
-      redRate: prediction.redRate,
-      blueRate: prediction.blueRate,
-      statusLabel: `${prediction.totalCount}票`,
-      available: true,
-      title: `王牌预言家观众投票：红 ${formatRate(prediction.redRate)}，蓝 ${formatRate(prediction.blueRate)}`,
-    };
-  }
-
-  const hasCache = typeof prediction.redRate === "number" && typeof prediction.blueRate === "number";
-  return {
-    redRate: hasCache ? (prediction.redRate ?? 0) : 0,
-    blueRate: hasCache ? (prediction.blueRate ?? 0) : 0,
-    statusLabel: hasCache ? "历史记录" : "暂未开放",
-    available: hasCache,
-    title: prediction.reason ?? "王牌预言家暂未开放",
-  };
-}
-
 function SignalMicroRow({
   label,
   redRate,
@@ -322,10 +261,10 @@ function SignalMicroRow({
   available?: boolean;
   title?: string;
 }) {
-  const red = clampRate(redRate);
-  const blue = clampRate(blueRate);
+  const red = clampProbability(redRate);
+  const blue = clampProbability(blueRate);
   // Label stays neutral (gray), never red or blue
-  const labelClass = variant === "model" ? "text-rm-metal-text" : "text-rm-metal-text";
+  const labelClass = "text-rm-metal-text";
   // Status color reflects who's winning: red-dominant → red, blue-dominant → blue
   const statusColor = statusLabel.includes("红方")
     ? "text-rm-red"
@@ -345,10 +284,10 @@ function SignalMicroRow({
       className="grid h-[18px] grid-cols-[28px_34px_minmax(0,1fr)_34px_44px] items-center gap-1.5 font-mono"
       title={title}
     >
-      <span className={cn("text-[8px] font-extrabold tracking-widest", available ? labelClass : "text-rm-metal-text/50")}>
+      <span className={cn("text-[10px] font-extrabold tracking-widest", available ? labelClass : "text-rm-metal-text/50")}>
         {label}
       </span>
-      <span className={cn("text-left text-[8px] font-bold", available ? "text-rm-red" : "text-rm-metal-text/60")}>
+      <span className={cn("text-left text-[10px] font-bold", available ? "text-rm-red" : "text-rm-metal-text/60")}>
         {available ? formatRate(red) : "--"}
       </span>
       <span className={cn("relative h-[10px] overflow-hidden bg-black/80", trackBorder)} style={{ borderRadius: "1px" }}>
@@ -397,10 +336,10 @@ function SignalMicroRow({
           <span className="absolute inset-x-1 top-1/2 border-t border-dashed border-white/15" />
         )}
       </span>
-      <span className={cn("text-right text-[8px] font-bold", available ? "text-rm-blue" : "text-rm-metal-text/60")}>
+      <span className={cn("text-right text-[10px] font-bold", available ? "text-rm-blue" : "text-rm-metal-text/60")}>
         {available ? formatRate(blue) : "--"}
       </span>
-      <span className={cn("truncate text-right text-[8px] font-bold", available ? statusColor : "text-rm-metal-text/65")}>
+      <span className={cn("truncate text-right text-[10px] font-bold", available ? statusColor : "text-rm-metal-text/65")}>
         {statusLabel}
       </span>
     </div>
@@ -443,7 +382,7 @@ function MatchTeamLine({
   const isLoser = resultResolved && !isTentativeDraw && !side.isWinner;
   const hasTeamKey = Boolean(side.teamKey);
   const isFocused = hasTeamKey && (selectedTeamKey === side.teamKey || highlightedTeamKey === side.teamKey);
-  const pointerIntentRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const { consumePress, pressGuardProps } = usePressGuard();
 
   const sideBg = isRealWinner
     ? (isRed
@@ -480,7 +419,7 @@ function MatchTeamLine({
   return (
     <div
       role="button"
-      tabIndex={-1}
+      tabIndex={0}
       className={cn(
         "relative grid min-h-[52px] grid-cols-[6px_minmax(0,1fr)_56px] items-stretch overflow-hidden text-left outline-none transition-colors",
         sideBg,
@@ -492,33 +431,20 @@ function MatchTeamLine({
         isFocused && "z-20"
       )}
       onClick={hasTeamKey ? (e) => {
-        if (pointerIntentRef.current?.moved) {
-          pointerIntentRef.current = null;
+        if (consumePress()) {
           return;
         }
         e.stopPropagation();
         onTeamSelect(side.teamKey);
-        pointerIntentRef.current = null;
       } : undefined}
-      onPointerDown={(event) => {
-        pointerIntentRef.current = { x: event.clientX, y: event.clientY, moved: false };
-      }}
-      onPointerMove={(event) => {
-        if (!pointerIntentRef.current) return;
-        const deltaX = Math.abs(event.clientX - pointerIntentRef.current.x);
-        const deltaY = Math.abs(event.clientY - pointerIntentRef.current.y);
-        if (deltaX > 6 || deltaY > 6) {
-          pointerIntentRef.current = { ...pointerIntentRef.current, moved: true };
+      onKeyDown={hasTeamKey ? (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          event.stopPropagation();
+          onTeamSelect(side.teamKey);
         }
-      }}
-      onPointerUp={() => {
-        if (pointerIntentRef.current?.moved) {
-          pointerIntentRef.current = null;
-        }
-      }}
-      onPointerCancel={() => {
-        pointerIntentRef.current = null;
-      }}
+      } : undefined}
+      {...pressGuardProps}
     >
       {/* Left: 6px color bar — dim by tier */}
       <div
@@ -547,7 +473,7 @@ function MatchTeamLine({
             isRealWinner ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]"
             : isSimWinner ? "text-white/70"
             : isLoser ? "text-rm-result-loser"
-            : "text-[#F0F0F0]"
+            : "text-rm-metal-textLight"
           )}
         >
           {side.collegeName}
@@ -557,14 +483,14 @@ function MatchTeamLine({
           isRealWinner ? "text-white/70"
           : isSimWinner ? "text-white/40"
           : isLoser ? "text-rm-result-loser/40"
-          : "text-[#A0A0B0]"
+          : "text-rm-metal-textMuted"
         )}>|</span>
         <span className={cn(
           "truncate text-[11px] font-bold font-mono tracking-wide",
           isRealWinner ? "text-white/80"
           : isSimWinner ? "text-white/50"
           : isLoser ? "text-rm-result-loser/50"
-          : "text-[#A0A0B0]"
+          : "text-rm-metal-textMuted"
         )}>
           {side.teamName}
         </span>
@@ -613,15 +539,15 @@ function MatchTeamLine({
           {score || "-"}
         </span>
         {isRealWinner ? (
-          <span className="text-[9px] font-extrabold leading-none text-[#D0D0D0]">胜</span>
+          <span className="text-[9px] font-extrabold leading-none text-rm-metal-textMuted">胜</span>
         ) : isTentativeDraw ? (
-          <span className="text-[8px] font-semibold leading-none text-white/60">平局</span>
+          <span className="text-[10px] font-semibold leading-none text-white/60">平局</span>
         ) : isTentativeWinner ? (
-          <span className="text-[8px] font-semibold leading-none text-white/60">暂领先</span>
+          <span className="text-[10px] font-semibold leading-none text-white/60">暂领先</span>
         ) : isSimWinner ? (
-          <span className="text-[8px] font-semibold leading-none text-white/50">预测胜</span>
+          <span className="text-[10px] font-semibold leading-none text-white/50">预测胜</span>
         ) : !resultResolved ? (
-          <span className="text-[8px] font-semibold leading-none text-[#A0A0A0]">{score === "-" ? "待定" : "预测"}</span>
+          <span className="text-[10px] font-semibold leading-none text-[#A0A0A0]">{score === "-" ? "待定" : "预测"}</span>
         ) : null}
       </div>
     </div>
@@ -651,7 +577,7 @@ function MatchCanvasCardComponent({
   const matchDimmed = hasActiveHighlight && !isSelected &&
     highlightedTeamKey !== card.redSide.teamKey &&
     highlightedTeamKey !== card.blueSide.teamKey;
-  const pointerIntentRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const { consumePress, pressGuardProps } = usePressGuard();
   const row = card.match;
   const expectedRed = row.pSeriesRed ?? card.redSide.probability;
   const cardState = deriveMatchCardState(row, mode);
@@ -674,9 +600,9 @@ function MatchCanvasCardComponent({
     if (row.isRealResult) {
       const predWinnerSame = (predictedScore.scoreline[0] > predictedScore.scoreline[2]) === (redGames > blueGames);
       const predScoreSame = predictedScore.scoreline === row.scoreline;
-      if (!predWinnerSame) return "border-2 border-rm-status-upset bg-[#0D0D10] shadow-[0_0_16px_rgba(239,68,68,0.2)]";
-      if (!predScoreSame) return "border-2 border-rm-status-deviation bg-[#0D0D10] shadow-[0_0_16px_rgba(168,85,247,0.2)]";
-      return "border-2 border-rm-status-safe bg-[#0D0D10] shadow-[0_0_12px_rgba(0,232,120,0.15)]";
+      if (!predWinnerSame) return "border-2 border-rm-status-upset bg-rm-metal-canvas shadow-[0_0_16px_rgba(232,48,42,0.2)]";
+      if (!predScoreSame) return "border-2 border-rm-status-deviation bg-rm-metal-canvas shadow-[0_0_16px_rgba(168,85,247,0.2)]";
+      return "border-2 border-rm-status-safe bg-rm-metal-canvas shadow-[0_0_12px_rgba(0,232,120,0.15)]";
     }
     // Tier 2: scheduled — medium
     if (isTentativeScoreline) return "border border-rm-status-warn/60 bg-black/70 shadow-[0_0_10px_rgba(255,184,46,0.10)]";
@@ -694,7 +620,7 @@ function MatchCanvasCardComponent({
     if (row.isRealResult) {
       const predWinnerSame = (predictedScore.scoreline[0] > predictedScore.scoreline[2]) === (redGames > blueGames);
       const predScoreSame = predictedScore.scoreline === row.scoreline;
-      if (!predWinnerSame) return { label: "爆冷", className: "border-rm-status-upset text-rm-status-upset bg-rm-status-upset/20 shadow-[0_0_10px_rgba(239,68,68,0.35)]" };
+      if (!predWinnerSame) return { label: "爆冷", className: "border-rm-status-upset text-rm-status-upset bg-rm-status-upset/20 shadow-[0_0_10px_rgba(232,48,42,0.35)]" };
       if (!predScoreSame) return { label: "比分偏离", className: "border-rm-status-deviation text-rm-status-deviation bg-rm-status-deviation/20 shadow-[0_0_10px_rgba(168,85,247,0.35)]" };
       return { label: "已完赛", className: "border-rm-status-safe text-rm-status-safe bg-rm-status-safe/20 shadow-[0_0_10px_rgba(0,232,120,0.3)]" };
     }
@@ -703,7 +629,6 @@ function MatchCanvasCardComponent({
     if (isOfficialPlaceholder) return { label: "队伍待定", className: "border-dashed border-rm-status-scheduled/55 text-rm-status-scheduled/75 bg-rm-status-scheduled/8" };
     if (isOfficialScheduled) return { label: "已排期", className: "border-rm-status-scheduled/60 text-rm-status-scheduled/80 bg-rm-status-scheduled/10" };
     // Tier 3: prediction — faint
-    if (isPrediction) return { label: "预测", className: PREDICTION_MATCH_VISUAL_CLASSES.statusBadge };
     return { label: "预测", className: PREDICTION_MATCH_VISUAL_CLASSES.statusBadge };
   })();
 
@@ -731,12 +656,10 @@ function MatchCanvasCardComponent({
         height: card.height,
       }}
       onClick={() => {
-        if (pointerIntentRef.current?.moved) {
-          pointerIntentRef.current = null;
+        if (consumePress()) {
           return;
         }
         onMatchSelect(row.matchLabel);
-        pointerIntentRef.current = null;
       }}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -744,25 +667,7 @@ function MatchCanvasCardComponent({
           onMatchSelect(row.matchLabel);
         }
       }}
-      onPointerDown={(event) => {
-        pointerIntentRef.current = { x: event.clientX, y: event.clientY, moved: false };
-      }}
-      onPointerMove={(event) => {
-        if (!pointerIntentRef.current) return;
-        const deltaX = Math.abs(event.clientX - pointerIntentRef.current.x);
-        const deltaY = Math.abs(event.clientY - pointerIntentRef.current.y);
-        if (deltaX > 6 || deltaY > 6) {
-          pointerIntentRef.current = { ...pointerIntentRef.current, moved: true };
-        }
-      }}
-      onPointerUp={() => {
-        if (pointerIntentRef.current?.moved) {
-          pointerIntentRef.current = null;
-        }
-      }}
-      onPointerCancel={() => {
-        pointerIntentRef.current = null;
-      }}
+      {...pressGuardProps}
     >
       {/* Top bar: status badge + match label + BO info */}
       <div className="flex h-[28px] shrink-0 items-center justify-between gap-2 border-b border-white/[0.06] bg-white/[0.025] px-2.5">
@@ -843,9 +748,9 @@ function MatchCanvasCardComponent({
           label="王牌"
           redRate={audience.redRate}
           blueRate={audience.blueRate}
-          statusLabel={audience.statusLabel}
+          statusLabel={audience.centerLabel}
           variant="audience"
-          available={audience.available}
+          available={audience.status !== "unavailable"}
           title={audience.title}
         />
       </div>
@@ -902,7 +807,7 @@ function ScheduleCanvasCardComponent({
           >
             {team.collegeName}
           </span>
-          <span className="block truncate font-mono text-[8px] text-rm-metal-textFaint">{slot} · {team.teamName}</span>
+          <span className="block truncate font-mono text-[10px] text-rm-metal-textFaint">{slot} · {team.teamName}</span>
         </span>
         <span className={cn(
           "border-l border-white/[0.06] px-2 text-center font-machine text-lg font-bold tabular-nums",
@@ -983,7 +888,7 @@ function ScheduleCanvasCardComponent({
   );
 }
 
-export function CanvasCardView({
+export const CanvasCardView = memo(function CanvasCardView({
   card,
   mode,
   selectedTeamKey,
@@ -1037,4 +942,4 @@ export function CanvasCardView({
       onTeamSelect={onTeamSelect}
     />
   );
-}
+});

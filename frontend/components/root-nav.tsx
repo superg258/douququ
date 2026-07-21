@@ -15,7 +15,7 @@ export function RootNav() {
   const pathname = usePathname();
 
   // Canvas workspaces own their compact navigation and need the full viewport.
-  if (pathname.startsWith("/regions/") || pathname.startsWith("/forecast-center")) {
+  if (pathname.startsWith("/regions/") || pathname.startsWith("/forecast-center") || pathname.startsWith("/elo-rankings")) {
     return null;
   }
 
@@ -26,12 +26,12 @@ export function RootNav() {
           <div className="flex h-6 w-6 md:h-8 md:w-8 text-[10px] md:text-base items-center justify-center border border-rm-blue bg-rm-blue/20 text-rm-blue clip-chamfer shadow-[0_0_15px_rgba(0,163,255,0.4)]">
             RM
           </div>
-          <h1 className="font-machine tracking-widest text-sm md:text-lg font-bold text-white uppercase text-glow-blue">
+          <div className="font-machine tracking-widest text-sm md:text-lg font-bold text-white uppercase text-glow-blue">
             赛事总控台
             <span className="hidden md:inline-block ml-3 animate-pulse text-xs tracking-normal text-rm-status-safe">
               服务运行中
             </span>
-          </h1>
+          </div>
         </div>
         <nav className="flex flex-wrap justify-end gap-x-4 gap-y-2 md:gap-x-6">
           {NAV_ITEMS.map((item) => {
@@ -40,6 +40,7 @@ export function RootNav() {
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={active ? "page" : undefined}
                 className={cn(
                   "text-[11px] font-bold uppercase tracking-widest transition-colors md:text-sm",
                   active ? "text-rm-blue" : "text-rm-metal-text hover:text-white",

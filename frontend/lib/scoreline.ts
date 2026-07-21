@@ -2,6 +2,14 @@ function clampRate(value: number) {
   return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
 }
 
+/**
+ * 把 "3:1" 形式的比分解析为 [红方局分, 蓝方局分]；空值按 "0:0" 处理。
+ */
+export function parseScoreline(scoreline?: string | null): [number, number] {
+  const [redText, blueText] = (scoreline || "0:0").split(":");
+  return [Number(redText), Number(blueText)];
+}
+
 export function predictDisplayScoreline(pGameRed: number, pSeriesRed: number, bestOf: number = 3) {
   const p = clampRate(pGameRed);
   const q = 1 - p;

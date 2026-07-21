@@ -1,11 +1,14 @@
 // frontend/components/overview-hero.tsx
 import Link from "next/link";
 
+// 金色粒子色板：主色对应 tailwind rm-gold 系列 token
+// #E8C44A = rm-gold(DEFAULT)、#F5D76E = rm-gold-bright、#D4A830 = rm-gold-deep；其余为装饰性邻近色
+const GOLD_PARTICLE_COLORS = ["#F5D76E", "#E8C44A", "#FFF1B0", "#D4A830", "#FBE68C", "#FFEAA7", "#C8962E", "#FDE68A"];
+const GOLD_PARTICLE_GLOW_COLORS = ["#F5D76E", "#E8C44A", "#FFF1B0"];
+
 const GOLDEN_RAIN_PARTICLES = Array.from({ length: 50 }, (_, index) => {
   const seed = index + 1;
   const pick = (multiplier: number, modulo: number) => (seed * multiplier) % modulo;
-  const colors = ["#F5D76E", "#E8C44A", "#FFF1B0", "#D4A830", "#FBE68C", "#FFEAA7", "#C8962E", "#FDE68A"];
-  const glowColors = ["#F5D76E", "#E8C44A", "#FFF1B0"];
 
   return {
     left: `${pick(37, 100)}%`,
@@ -13,20 +16,18 @@ const GOLDEN_RAIN_PARTICLES = Array.from({ length: 50 }, (_, index) => {
     animationDuration: `${(3.5 + pick(23, 40) / 10).toFixed(1)}s`,
     width: `${1 + pick(11, 30) / 10}px`,
     height: `${2 + pick(19, 80) / 10}px`,
-    background: colors[index % colors.length],
-    boxShadow: `0 0 ${2 + pick(29, 40) / 10}px ${glowColors[index % glowColors.length]}`,
+    background: GOLD_PARTICLE_COLORS[index % GOLD_PARTICLE_COLORS.length],
+    boxShadow: `0 0 ${2 + pick(29, 40) / 10}px ${GOLD_PARTICLE_GLOW_COLORS[index % GOLD_PARTICLE_GLOW_COLORS.length]}`,
     borderRadius: pick(31, 10) > 5 ? "1px" : "50%",
     transform: `rotate(${pick(13, 30) - 15}deg)`,
   };
 });
 
 export function OverviewHero({
-  serviceGeneratedLabel,
   nextMatchHref,
   ctaLabel = "查看赛事赛程",
 }: {
-  serviceGeneratedLabel: string;
-  nextMatchHref: string | null;
+  nextMatchHref: string;
   ctaLabel?: string;
 }) {
   return (
@@ -120,7 +121,7 @@ export function OverviewHero({
                 <span
                   aria-hidden="true"
                   className="absolute inset-0 text-[2.5rem] sm:text-6xl lg:text-7xl xl:text-8xl text-transparent bg-clip-text
-                             bg-gradient-to-r from-rm-red/60 via-[#E8C44A]/50 to-rm-red/40
+                             bg-gradient-to-r from-rm-red/60 via-rm-gold/50 to-rm-red/40
                              translate-x-[-2px] opacity-[0.13]"
                 >
                   ROBOMASTER
@@ -129,14 +130,14 @@ export function OverviewHero({
                 <span
                   aria-hidden="true"
                   className="absolute inset-0 text-[2.5rem] sm:text-6xl lg:text-7xl xl:text-8xl text-transparent bg-clip-text
-                             bg-gradient-to-r from-rm-blue/50 via-[#D4A830]/30 to-rm-blue/60
+                             bg-gradient-to-r from-rm-blue/50 via-rm-gold-deep/30 to-rm-blue/60
                              translate-x-[2px] opacity-[0.10]"
                 >
                   ROBOMASTER
                 </span>
                 {/* Main — champagne gold gradient */}
                 <span className="relative text-[2.5rem] sm:text-6xl lg:text-7xl xl:text-8xl">
-                  <span className="bg-gradient-to-b from-[#E8C44A] via-white to-[#F5D76E] bg-clip-text text-transparent
+                  <span className="bg-gradient-to-b from-rm-gold via-white to-rm-gold-bright bg-clip-text text-transparent
                                  [text-shadow:0_0_30px_rgba(232,196,74,0.15),0_0_60px_rgba(245,215,110,0.08)]">
                     ROBOMASTER
                   </span>
@@ -152,13 +153,13 @@ export function OverviewHero({
             {/* ── Vertical divider (desktop only) ── */}
             <div className="hidden lg:block w-px h-24 bg-gradient-to-b from-transparent via-rm-metal-border to-transparent shrink-0" />
 
-            {/* ── RIGHT: Intro + Status (stacked on mobile, side on desktop) ── */}
+            {/* ── RIGHT: Intro + CTA (stacked on mobile, side on desktop) ── */}
             <div className="lg:w-72 xl:w-80 shrink-0 space-y-4">
               {/* Crosshair accent */}
               <div className="flex items-center gap-0">
                 <div className="h-px w-6 bg-gradient-to-r from-transparent to-rm-red/40" />
                 <div className="relative mx-1">
-                  <div className="w-2 h-2 border border-[#F0972C]/60 rotate-45" />
+                  <div className="w-2 h-2 border border-rm-result-winner/60 rotate-45" />
                   <div className="absolute inset-0 w-2 h-2 border border-rm-blue/50 -rotate-45" />
                 </div>
                 <div className="h-px flex-1 bg-gradient-to-l from-transparent to-rm-blue/40" />
@@ -170,23 +171,12 @@ export function OverviewHero({
                   复活赛 · 全国赛 赛程与预测
                 </p>
                 <p className="font-mono text-[11px] sm:text-xs text-rm-metal-textFaint leading-relaxed tracking-[0.08em]">
-                  参赛名单、实时对阵、胜负推演一站呈现。
+                  参赛名单、赛程对阵、胜负推演一站呈现。
                 </p>
               </div>
 
-              {/* Status line */}
-              <div className="flex items-start gap-2 pt-1">
-                <span className="flex h-2 w-2 relative shrink-0">
-                  <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-rm-status-confirmed opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-rm-status-confirmed shadow-[0_0_6px_rgba(0,232,120,0.7)]" />
-                </span>
-                <span className="flex flex-col gap-1 font-mono text-[9px] leading-tight text-rm-metal-textFaint/60 tracking-[0.18em]">
-                  <span>系统运行正常 &nbsp;|&nbsp; 服务响应 {serviceGeneratedLabel}</span>
-                </span>
-              </div>
-
               <Link
-                href={nextMatchHref ?? "/forecast-center?event=repechage&mode=live"}
+                href={nextMatchHref}
                 className="inline-flex w-full items-center justify-center border border-rm-red/60 bg-rm-red/15 px-4 py-2.5 font-mono text-sm font-bold tracking-wider text-rm-red shadow-[0_0_10px_rgba(232,48,42,0.2)] transition-all hover:bg-rm-red hover:text-white hover:shadow-[0_0_20px_rgba(232,48,42,0.4)] active:scale-[0.98]"
               >
                 {ctaLabel}
@@ -199,7 +189,7 @@ export function OverviewHero({
         <div className="flex items-center gap-0 -mt-px">
           <div className="h-0.5 flex-1 bg-rm-red/30" />
           <div className="h-0.5 w-12 bg-rm-red/60" />
-          <div className="h-0.5 w-8 bg-[#F0972C]/50" />
+          <div className="h-0.5 w-8 bg-rm-result-winner/50" />
           <div className="h-0.5 w-6 bg-rm-metal-textMuted/20" />
           <div className="h-0.5 w-12 bg-rm-blue/60" />
           <div className="h-0.5 flex-1 bg-rm-blue/30" />

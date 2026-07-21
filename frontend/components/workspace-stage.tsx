@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CanvasCardView } from "@/components/canvas-card";
 import { CanvasConnectorView } from "@/components/canvas-connector";
 import type { WorkspaceStage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { isPageFullscreenActive, setPageFullscreenLock } from "@/lib/fullscreen-api";
+import { exceedsPressThreshold } from "@/lib/use-press-guard";
 import {
   clampViewportPosition,
   fitWorkspaceViewport,
@@ -25,7 +26,7 @@ export function getWorkspaceStageFullscreenClasses(fullscreen: boolean, reserveR
   if (!fullscreen) return "";
 
   return cn(
-    "fixed inset-0 z-[140] h-screen border-0 bg-[#05070c]",
+    "fixed inset-0 z-[140] h-screen border-0 bg-rm-metal-abyss",
     reserveRightRail && "md:right-80 transition-[right] duration-300 ease-in-out"
   );
 }
@@ -93,10 +94,10 @@ export function WorkspaceStageView({
   const viewportRef = useRef(viewport);
   const suppressClickRef = useRef(false);
   const suppressAutoPanTeamKeyRef = useRef<string | null>(null);
-  const handleTeamSelect = (teamKey: string) => {
+  const handleTeamSelect = useCallback((teamKey: string) => {
     suppressAutoPanTeamKeyRef.current = teamKey;
     onTeamSelect(teamKey);
-  };
+  }, [onTeamSelect]);
   const panTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activePointers = useRef(new Map<number, { x: number; y: number }>());
   const dragState = useRef<{
@@ -365,7 +366,7 @@ export function WorkspaceStageView({
       const deltaX = event.clientX - currentDrag.startX;
       const deltaY = event.clientY - currentDrag.startY;
 
-      if (Math.abs(deltaX) > 6 || Math.abs(deltaY) > 6) {
+      if (exceedsPressThreshold(currentDrag.startX, currentDrag.startY, event.clientX, event.clientY)) {
         dragState.current = { ...currentDrag, moved: true };
         suppressClickRef.current = true;
       }
@@ -391,11 +392,19 @@ export function WorkspaceStageView({
       suppressClickRef.current = false;
     };
 
+    // React 的 onWheel 是被动监听，preventDefault 无效；这里显式挂非 passive 监听
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const nextScale = viewportRef.current.scale - event.deltaY * 0.001;
+      setScale(nextScale);
+    };
+
     frameElement.addEventListener("pointerdown", handlePointerDown, true);
     window.addEventListener("pointermove", handlePointerMove, true);
     window.addEventListener("pointerup", handlePointerEnd, true);
     window.addEventListener("pointercancel", handlePointerEnd, true);
     frameElement.addEventListener("click", handleClickCapture, true);
+    frameElement.addEventListener("wheel", handleWheel, { passive: false });
 
     return () => {
       frameElement.removeEventListener("pointerdown", handlePointerDown, true);
@@ -403,6 +412,7 @@ export function WorkspaceStageView({
       window.removeEventListener("pointerup", handlePointerEnd, true);
       window.removeEventListener("pointercancel", handlePointerEnd, true);
       frameElement.removeEventListener("click", handleClickCapture, true);
+      frameElement.removeEventListener("wheel", handleWheel);
     };
   }, [fullscreen, portalReady, stage]);
 
@@ -436,15 +446,14 @@ export function WorkspaceStageView({
             className="text-rm-metal-text hover:text-white px-1 md:px-2 py-0.5 text-xs font-mono uppercase transition-colors focus:outline-none"
             onClick={resetViewport}
           >
-            <span className="hidden md:inline">归位</span><span className="md:hidden">归位</span>
+            <span>归位</span>
           </button>
           <div className="w-[1px] h-3 bg-rm-metal-text/30 mx-1"></div>
           <button
             className="text-rm-metal-text hover:text-white px-1 md:px-2 py-0.5 text-xs font-mono uppercase transition-colors focus:outline-none"
             onClick={toggleFullscreen}
           >
-            <span className="hidden md:inline">{fullscreen ? "退出全屏" : "全屏"}</span>
-            <span className="md:hidden">{fullscreen ? "退出全屏" : "全屏"}</span>
+            <span>{fullscreen ? "退出全屏" : "全屏"}</span>
           </button>
         </div>
 
@@ -475,11 +484,6 @@ export function WorkspaceStageView({
       <div
         ref={frameRef}
         className="flex-1 w-full h-full cursor-grab active:cursor-grabbing overflow-hidden touch-none"
-        onWheel={(event) => {
-           event.preventDefault();
-           const nextScale = viewportRef.current.scale - event.deltaY * 0.001;
-           setScale(nextScale);
-        }}
       >
         <div
           className="absolute top-0 left-0 origin-top-left canvas-grid"

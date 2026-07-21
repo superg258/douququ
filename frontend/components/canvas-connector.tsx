@@ -1,5 +1,7 @@
 "use client";
 
+import { memo } from "react";
+
 import type { CanvasConnector } from "@/lib/types";
 
 function toneClass(connector: CanvasConnector) {
@@ -94,7 +96,7 @@ function bracketPath(connector: CanvasConnector) {
   return segments.join(" ");
 }
 
-export function CanvasConnectorView({
+export const CanvasConnectorView = memo(function CanvasConnectorView({
   connector,
   selectedTeamKey,
   highlightedTeamKey,
@@ -145,7 +147,7 @@ export function CanvasConnectorView({
               y={-12}
               width={width}
               height={24}
-              className="fill-[#05070c]/90 stroke-rm-metal-border"
+              className="fill-rm-metal-abyss/90 stroke-rm-metal-border"
               rx={0}
               style={{ backdropFilter: "blur(2px)" }}
             />
@@ -162,4 +164,4 @@ export function CanvasConnectorView({
       })}
     </g>
   );
-}
+});

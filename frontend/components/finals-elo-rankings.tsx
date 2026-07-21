@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useMemo, type KeyboardEvent } from "react";
 
 import { buildTeamHref } from "@/lib/team-profile";
 import { formatShortDateTimeLabel } from "@/lib/time-format";
@@ -11,7 +12,13 @@ import type {
   OverviewResponse,
   OverviewTeam,
 } from "@/lib/types";
+import { useIsDesktop } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
+
+/** 解析 ?event= 参数；缺省或非法时回退到全国赛（移动端默认激活 tab） */
+export function resolveFinalEventParam(value: string | null): FinalEventSlug {
+  return value === "repechage" || value === "nationals" ? value : "nationals";
+}
 
 interface FinalsEloRankingRow {
   eventRank: number;
@@ -55,6 +62,7 @@ const TONE_STYLES = {
     badge: "border-rm-status-warn/40 bg-rm-status-warn/10 text-rm-status-warn",
     topBar: "bg-gradient-to-r from-rm-status-warn via-rm-status-warn/35 to-transparent",
     header:
+      // rgba(255,176,0,…) = rm-status-warn #FFB000；任意值语法无法走 token，保持同值 raw rgba
       "bg-[radial-gradient(circle_at_15%_0%,rgba(255,176,0,0.13),transparent_42%)]",
     rowHover: "hover:border-rm-status-warn/45 hover:bg-rm-status-warn/[0.035]",
   },
@@ -64,6 +72,7 @@ const TONE_STYLES = {
     badge: "border-rm-blue/40 bg-rm-blue/10 text-rm-blue",
     topBar: "bg-gradient-to-r from-rm-blue via-rm-blue/35 to-transparent",
     header:
+      // rgba(42,159,255,…) = rm-blue #2A9FFF；任意值语法无法走 token，保持同值 raw rgba
       "bg-[radial-gradient(circle_at_15%_0%,rgba(42,159,255,0.14),transparent_42%)]",
     rowHover: "hover:border-rm-blue/45 hover:bg-rm-blue/[0.035]",
   },
@@ -188,11 +197,11 @@ function RankingRow({
     <Link
       href={buildTeamHref(row.teamKey)}
       className={cn(
-        "group grid grid-cols-[3.4rem_minmax(0,1fr)_5.25rem] gap-3 border border-rm-metal-border bg-rm-metal-panel/78 px-3 py-3 transition-colors",
+        "group grid grid-cols-[2.6rem_minmax(0,1fr)_4.5rem] gap-2 border border-rm-metal-border bg-rm-metal-panel/80 px-2.5 py-2 transition-colors",
         styles.rowHover,
       )}
     >
-      <div className="flex items-center gap-2 border-r border-rm-metal-border/65 pr-3">
+      <div className="flex items-center gap-2 border-r border-rm-metal-border/65 pr-2">
         <div className="min-w-[1.75rem] text-center">
           <span
             className={cn(
@@ -202,7 +211,7 @@ function RankingRow({
           >
             {String(row.eventRank).padStart(2, "0")}
           </span>
-          <span className="block text-[7px] tracking-widest text-rm-metal-textFaint">
+          <span className="block text-[10px] tracking-widest text-rm-metal-textMuted">
             赛事
           </span>
         </div>
@@ -219,7 +228,7 @@ function RankingRow({
           >
             {row.collegeName}
           </h3>
-          <span className="shrink-0 font-mono text-[9px] text-rm-metal-textFaint">
+          <span className="shrink-0 font-mono text-[9px] text-rm-metal-textMuted">
             全局 #{row.globalRank}
           </span>
         </div>
@@ -229,10 +238,10 @@ function RankingRow({
         >
           {row.teamName}
         </p>
-        <div className="mt-2 flex min-w-0 items-center gap-2">
+        <div className="mt-1.5 flex min-w-0 items-center gap-2">
           <span
             className={cn(
-              "max-w-full truncate border px-2 py-0.5 font-mono text-[8px]",
+              "max-w-full truncate border px-2 py-0.5 font-mono text-[10px]",
               styles.badge,
             )}
             title={row.sourceLabel}
@@ -243,7 +252,7 @@ function RankingRow({
       </div>
 
       <div className="flex flex-col items-end justify-center text-right">
-        <span className="text-[8px] uppercase tracking-[0.16em] text-rm-metal-textFaint">
+        <span className="text-[10px] uppercase tracking-[0.16em] text-rm-metal-textMuted">
           Elo
         </span>
         <strong
@@ -261,7 +270,7 @@ function RankingRow({
               ? "text-rm-status-safe"
               : row.seasonDelta < -0.05
                 ? "text-rm-red"
-                : "text-rm-metal-textFaint",
+                : "text-rm-metal-textMuted",
           )}
         >
           赛季 {signedDelta(row.seasonDelta)}
@@ -313,7 +322,7 @@ function RankingSectionCard({
 
         <div className="mt-4 grid grid-cols-2 gap-3 border-t border-rm-metal-border/70 pt-4">
           <div>
-            <span className="block font-mono text-[8px] uppercase tracking-[0.18em] text-rm-metal-textFaint">
+            <span className="block font-mono text-[10px] uppercase tracking-[0.18em] text-rm-metal-textMuted">
               当前榜首
             </span>
             <strong className="mt-1 block truncate text-xs text-rm-metal-textLight" title={leader?.collegeName}>
@@ -321,7 +330,7 @@ function RankingSectionCard({
             </strong>
           </div>
           <div className="text-right">
-            <span className="block font-mono text-[8px] uppercase tracking-[0.18em] text-rm-metal-textFaint">
+            <span className="block font-mono text-[10px] uppercase tracking-[0.18em] text-rm-metal-textMuted">
               数据更新时间
             </span>
             <strong className={cn("mt-1 block font-mono text-xs", styles.accent)}>
@@ -330,13 +339,13 @@ function RankingSectionCard({
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 font-mono text-[8px] text-rm-metal-textFaint">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 font-mono text-[10px] text-rm-metal-textMuted">
           <span>{section.statusLabel}</span>
           <span>数据更新 {formatVerifiedAt(section.verifiedAt)}</span>
         </div>
       </header>
 
-      <div className="grid grid-cols-[3.4rem_minmax(0,1fr)_5.25rem] gap-3 border-b border-rm-metal-border/70 bg-black/20 px-3 py-2 font-mono text-[8px] uppercase tracking-[0.16em] text-rm-metal-textFaint">
+      <div className="grid grid-cols-[2.6rem_minmax(0,1fr)_4.5rem] gap-2 border-b border-rm-metal-border/70 bg-black/20 px-2.5 py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-rm-metal-textMuted">
         <span>赛事排名</span>
         <span>队伍 · 全局排名 · 梯队/来源</span>
         <span className="text-right">Elo · 赛季变化</span>
@@ -374,9 +383,36 @@ export function FinalsEloRankings({
       buildRankingSection(overview, nationals, teamIndex),
     ];
   }, [nationals, overview, repechage]);
-  const [activeSlug, setActiveSlug] = useState<FinalEventSlug>("repechage");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isDesktop = useIsDesktop();
+  // 移动端 tab 状态同步到 ?event=，刷新/分享不丢；桌面端双栏全量渲染
+  const activeSlug = resolveFinalEventParam(searchParams.get("event"));
   const activeSection = sections.find((section) => section.slug === activeSlug) ?? sections[0];
+  // 桌面端全国赛列在复活赛之前（信息优先级）
+  const desktopSections = useMemo(
+    () => [...sections].sort((a, b) => (a.slug === "nationals" ? -1 : b.slug === "nationals" ? 1 : 0)),
+    [sections],
+  );
   const totalUnmatched = sections.reduce((sum, section) => sum + section.unmatchedCount, 0);
+
+  const selectEvent = (slug: FinalEventSlug) => {
+    if (slug === activeSlug) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("event", slug);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
+
+  const handleTabListKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const currentIndex = sections.findIndex((section) => section.slug === activeSlug);
+    const delta = event.key === "ArrowRight" ? 1 : -1;
+    const next = sections[(currentIndex + delta + sections.length) % sections.length];
+    selectEvent(next.slug);
+    document.getElementById(`elo-${next.slug}-tab`)?.focus();
+  };
 
   return (
     <div className="space-y-4">
@@ -386,46 +422,56 @@ export function FinalsEloRankings({
         </div>
       ) : null}
 
-      <div
-        role="tablist"
-        aria-label="赛事 Elo 榜单"
-        className="grid grid-cols-2 gap-2 border border-rm-metal-border bg-rm-metal-card p-2 lg:hidden"
-      >
-        {sections.map((section) => {
-          const selected = section.slug === activeSlug;
-          const styles = TONE_STYLES[EVENT_META[section.slug].tone];
-          return (
-            <button
-              key={section.slug}
-              id={`elo-${section.slug}-tab`}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              aria-controls={`elo-mobile-${section.slug}`}
-              onClick={() => setActiveSlug(section.slug)}
-              className={cn(
-                "border px-3 py-2.5 font-mono text-xs font-bold tracking-widest transition-colors",
-                selected
-                  ? styles.badge
-                  : "border-rm-metal-border bg-black/20 text-rm-metal-textMuted",
-              )}
-            >
-              {section.label}
-              <span className="ml-2 text-[9px] opacity-70">{section.expectedCount}</span>
-            </button>
-          );
-        })}
-      </div>
+      {isDesktop ? (
+        <div className="grid items-start gap-5 lg:grid-cols-2">
+          {desktopSections.map((section) => (
+            <RankingSectionCard key={section.slug} section={section} instance="desktop" />
+          ))}
+        </div>
+      ) : (
+        <>
+          <div
+            role="tablist"
+            aria-label="赛事 Elo 榜单"
+            onKeyDown={handleTabListKeyDown}
+            className="grid grid-cols-2 gap-2 border border-rm-metal-border bg-rm-metal-card p-2"
+          >
+            {sections.map((section) => {
+              const selected = section.slug === activeSlug;
+              const styles = TONE_STYLES[EVENT_META[section.slug].tone];
+              return (
+                <button
+                  key={section.slug}
+                  id={`elo-${section.slug}-tab`}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  aria-controls={`elo-panel-${section.slug}`}
+                  tabIndex={selected ? 0 : -1}
+                  onClick={() => selectEvent(section.slug)}
+                  className={cn(
+                    "border px-3 py-2.5 font-mono text-xs font-bold tracking-widest transition-colors",
+                    selected
+                      ? styles.badge
+                      : "border-rm-metal-border bg-black/20 text-rm-metal-textMuted",
+                  )}
+                >
+                  {section.label}
+                  <span className="ml-2 text-[9px] opacity-70">{section.expectedCount}</span>
+                </button>
+              );
+            })}
+          </div>
 
-      <div className="lg:hidden" role="tabpanel" aria-labelledby={`elo-${activeSlug}-tab`}>
-        <RankingSectionCard section={activeSection} instance="mobile" />
-      </div>
-
-      <div className="hidden items-start gap-5 lg:grid lg:grid-cols-2">
-        {sections.map((section) => (
-          <RankingSectionCard key={section.slug} section={section} instance="desktop" />
-        ))}
-      </div>
+          <div
+            role="tabpanel"
+            id={`elo-panel-${activeSlug}`}
+            aria-labelledby={`elo-${activeSlug}-tab`}
+          >
+            <RankingSectionCard section={activeSection} instance="mobile" />
+          </div>
+        </>
+      )}
     </div>
   );
 }

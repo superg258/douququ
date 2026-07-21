@@ -328,7 +328,7 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
           <span className={cn(
             "shrink-0 border px-2.5 py-1 text-[9px] transition-all duration-300 font-bold tracking-widest whitespace-nowrap",
             realtimeEnabled
-              ? "shadow-[0_0_10px_rgba(232,196,74,0.2)] border-[#E8C44A]/60 bg-[#E8C44A]/15 text-[#E8C44A] group-hover/entry:bg-[#E8C44A] group-hover/entry:text-black group-hover/entry:shadow-[0_0_18px_rgba(232,196,74,0.4)]"
+              ? "shadow-[0_0_10px_rgba(232,196,74,0.2)] border-rm-gold/60 bg-rm-gold/15 text-rm-gold group-hover/entry:bg-rm-gold group-hover/entry:text-black group-hover/entry:shadow-[0_0_18px_rgba(232,196,74,0.4)]"
               : "shadow-[0_0_10px_rgba(45,212,191,0.18)] border-[#2DD4BF]/50 bg-[#2DD4BF]/12 text-[#2DD4BF] group-hover/entry:bg-[#2DD4BF] group-hover/entry:text-black group-hover/entry:shadow-[0_0_18px_rgba(45,212,191,0.35)]",
           )}>
             {entryCopy.cta}

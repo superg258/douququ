@@ -24,12 +24,12 @@ export function PredictionExplanationCard({
     pending: "border-rm-blue/45 bg-rm-blue/10 text-rm-blue",
     hit: "border-rm-status-safe/45 bg-rm-status-safe/10 text-rm-status-safe",
     "score-hit": "border-rm-status-safe/60 bg-rm-status-safe/15 text-rm-status-safe",
-    miss: "border-[#a855f7]/45 bg-[#a855f7]/10 text-[#c084fc]",
+    miss: "border-rm-status-deviation/45 bg-rm-status-deviation/10 text-rm-status-deviation",
     upset: "border-rm-red/55 bg-rm-red/10 text-rm-red",
   }[explanation.verdict];
 
   return (
-    <section className={cn("border border-rm-metal-border bg-[#05070c] clip-chamfer", compact ? "p-2" : "p-3")}>
+    <section className={cn("border border-rm-metal-border bg-rm-metal-abyss clip-chamfer", compact ? "p-2" : "p-3")}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest text-rm-metal-text">预测解释</p>

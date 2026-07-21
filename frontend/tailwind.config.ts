@@ -12,7 +12,7 @@ const config: Config = {
         // Red vs Blue Theme Focus
         background: "var(--background)",
         foreground: "var(--foreground)",
-        
+
         rm: {
           red: {
             DEFAULT: "#E8302A",
@@ -33,7 +33,9 @@ const config: Config = {
             text: "#A3A3A3",
             textLight: "#EDEDEF",
             textMuted: "#A1A1AA",
-            textFaint: "#71717A"
+            textFaint: "#71717A",
+            canvas: "#0A0A0F",
+            abyss: "#05070C"
           },
           status: {
             safe: "#00E878",
@@ -50,6 +52,12 @@ const config: Config = {
             DEFAULT: "#0EA5E9",
             glow: "rgba(14, 165, 233, 0.4)",
             dim: "rgba(14, 165, 233, 0.12)",
+          },
+          gold: {
+            DEFAULT: "#E8C44A",
+            bright: "#F5D76E",
+            deep: "#D4A830",
+            dim: "rgba(232,196,74,0.12)",
           },
           violet: {
             DEFAULT: "#8B5CF6",
@@ -70,7 +78,7 @@ const config: Config = {
         'red-blue-split': "linear-gradient(135deg, rgba(230,0,0,0.1) 0%, rgba(230,0,0,0) 40%, rgba(0,163,255,0) 60%, rgba(0,163,255,0.1) 100%)"
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "sans-serif"],
+        sans: ["Arial", "Helvetica", "sans-serif"],
         mono: ["var(--font-roboto-mono)", "monospace"],
         machine: ["var(--font-orbitron)", "sans-serif"],
       },

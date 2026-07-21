@@ -2,14 +2,28 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { getTeamProfile } from "@/lib/api";
 import { formatMatchLabel, formatRankingResultLabel } from "@/lib/display";
+import { DEFAULT_SEED, parseSeed } from "@/lib/region-config";
 import { buildTeamRegionHref, buildTeamHref, formatTeamProfileSubtitle } from "@/lib/team-profile";
 import type { TeamProfileMatch, TeamProfileResponse } from "@/lib/types";
 import { SourceFreshnessStrip } from "@/components/source-freshness-strip";
+import { ErrorPanel, EmptyState } from "@/components/ui/async-state";
 import { MechCard } from "@/components/ui/mech-card";
 import { cn } from "@/lib/utils";
 import { formatBeijingMonthDayTime } from "@/lib/time-format";
+
+/** 从 URL 查询串解析 seed/mode；缺省或非法时回退到 live 默认上下文 */
+export function resolveTeamProfileRequest(
+  seedText: string | null,
+  modeText: string | null,
+): { seed: number; mode: "live" | "sim" } {
+  return {
+    seed: parseSeed(seedText) ?? DEFAULT_SEED,
+    mode: modeText === "sim" || modeText === "live" ? modeText : "live",
+  };
+}
 
 function pct(value: number | undefined) {
   if (typeof value !== "number") return "暂无";
@@ -27,71 +41,71 @@ function formatTime(value: string | null | undefined) {
 }
 
 const REGION_ACCENT: Record<string, {
-  label: string;
-  bar: string;
+  glowPrimary: string;
+  glowSecondary: string;
   glowBar: string;
   blob: string;
-  textGlow: string;
-  border: string;
-  borderLeft: string;
+  blobSecondary: string;
+  divider: string;
+  edgePrimary: string;
+  edgeSecondary: string;
+  accentBar: string;
   btnBg: string;
   btnBorder: string;
   btnHover: string;
-  dotColor: string;
   linkColor: string;
   barColor: string;
-  eloColor: string;
   bottomBar: string;
 }> = {
   south_region: {
-    label: "南部赛区",
-    bar: "bg-gradient-to-r from-rm-red/80 via-rm-red/40 to-transparent",
+    glowPrimary: "bg-rm-red",
+    glowSecondary: "bg-rm-blue",
     glowBar: "from-rm-red/90 via-rm-red/30 to-rm-blue/30",
     blob: "bg-rm-red/6",
-    textGlow: "text-glow-red",
-    border: "border-rm-red/60",
-    borderLeft: "border-l-rm-red/60",
+    blobSecondary: "bg-rm-blue/4",
+    divider: "bg-rm-red/40",
+    edgePrimary: "bg-rm-red/30",
+    edgeSecondary: "bg-rm-blue/30",
+    accentBar: "bg-rm-blue/60",
     btnBg: "bg-rm-red/15",
     btnBorder: "border-rm-red/60",
     btnHover: "hover:bg-rm-red hover:text-white hover:shadow-[0_0_20px_rgba(232,48,42,0.4)]",
-    dotColor: "bg-rm-red/70 shadow-[0_0_6px_rgba(232,48,42,0.5)]",
     linkColor: "text-rm-red",
     barColor: "bg-rm-red/50 shadow-[0_0_6px_rgba(232,48,42,0.3)]",
-    eloColor: "text-rm-red/80",
     bottomBar: "bg-rm-red/60",
   },
   east_region: {
-    label: "东部赛区",
-    bar: "bg-gradient-to-r from-rm-blue/80 via-rm-blue/40 to-transparent",
+    glowPrimary: "bg-rm-blue",
+    glowSecondary: "bg-rm-red",
     glowBar: "from-rm-blue/90 via-rm-blue/30 to-rm-red/30",
     blob: "bg-rm-blue/6",
-    textGlow: "text-glow-blue",
-    border: "border-rm-blue/60",
-    borderLeft: "border-l-rm-blue/60",
+    blobSecondary: "bg-rm-red/4",
+    divider: "bg-rm-blue/40",
+    edgePrimary: "bg-rm-blue/30",
+    edgeSecondary: "bg-rm-red/30",
+    accentBar: "bg-rm-red/60",
     btnBg: "bg-rm-blue/15",
     btnBorder: "border-rm-blue/60",
     btnHover: "hover:bg-rm-blue hover:text-white hover:shadow-[0_0_20px_rgba(42,159,255,0.4)]",
-    dotColor: "bg-rm-blue/70 shadow-[0_0_6px_rgba(42,159,255,0.5)]",
     linkColor: "text-rm-blue",
     barColor: "bg-rm-blue/50 shadow-[0_0_6px_rgba(42,159,255,0.3)]",
-    eloColor: "text-rm-blue/80",
     bottomBar: "bg-rm-blue/60",
   },
   north_region: {
-    label: "北部赛区",
-    bar: "bg-gradient-to-r from-rm-violet/70 via-rm-violet/30 to-transparent",
+    glowPrimary: "bg-rm-violet",
+    glowSecondary: "bg-rm-blue",
     glowBar: "from-rm-violet/90 via-rm-violet/30 to-rm-blue/30",
     blob: "bg-rm-violet/6",
-    textGlow: "text-glow-violet",
-    border: "border-rm-violet/60",
-    borderLeft: "border-l-rm-violet/60",
+    blobSecondary: "bg-rm-red/4",
+    divider: "bg-rm-violet/40",
+    edgePrimary: "bg-rm-violet/30",
+    edgeSecondary: "bg-rm-blue/30",
+    accentBar: "bg-rm-red/60",
     btnBg: "bg-rm-violet/15",
     btnBorder: "border-rm-violet/60",
     btnHover: "hover:bg-rm-violet hover:text-white hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]",
-    dotColor: "bg-rm-violet/70 shadow-[0_0_6px_rgba(139,92,246,0.5)]",
     linkColor: "text-rm-violet",
     barColor: "bg-rm-violet/50 shadow-[0_0_6px_rgba(139,92,246,0.3)]",
-    eloColor: "text-rm-violet/80",
     bottomBar: "bg-rm-violet/60",
   },
 };
@@ -218,11 +232,11 @@ function UpcomingOpponentRow({
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2 font-mono text-[11px] text-rm-metal-textMuted">
             <span>{match.opponent.teamName}</span>
-            <span className="text-rm-metal-textFaint/50">·</span>
+            <span className="text-rm-metal-textFaint/70">·</span>
             <span>{match.stageLabel}</span>
             {opponentElo > 0 && (
               <>
-                <span className="text-rm-metal-textFaint/50">·</span>
+                <span className="text-rm-metal-textFaint/70">·</span>
                 <span className={cn(
                   "font-semibold",
                   eloDiff > 5 ? "text-rm-status-safe/80" : eloDiff < -5 ? "text-rm-red/80" : "text-rm-metal-text/70",
@@ -246,7 +260,14 @@ function UpcomingOpponentRow({
         </div>
       </div>
       {/* 胜率进度条 */}
-      <div className="mt-2.5 h-1 bg-rm-metal-dark rounded-full overflow-hidden">
+      <div
+        role="progressbar"
+        aria-label="预测胜率"
+        aria-valuenow={Math.round(winPct)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        className="mt-2.5 h-1 bg-rm-metal-dark rounded-full overflow-hidden"
+      >
         <div
           className={cn(
             "h-full rounded-full transition-all duration-500",
@@ -265,39 +286,46 @@ function UpcomingOpponentRow({
 export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) {
   const [profile, setProfile] = useState<TeamProfileResponse | null>(null);
   const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const teamKey = decodeURIComponent(encodedTeamKey);
+  const searchParams = useSearchParams();
+  const { seed, mode } = resolveTeamProfileRequest(
+    searchParams.get("seed"),
+    searchParams.get("mode"),
+  );
 
   useEffect(() => {
-    let canceled = false;
-    getTeamProfile(teamKey, 20260414, "live")
+    const controller = new AbortController();
+    getTeamProfile(teamKey, seed, mode)
       .then((payload) => {
-        if (!canceled) setProfile(payload);
+        if (!controller.signal.aborted) setProfile(payload);
       })
       .catch((err) => {
-        if (!canceled) setError(err instanceof Error ? err.message : String(err));
+        if (!controller.signal.aborted) setError(err instanceof Error ? err.message : String(err));
       });
     return () => {
-      canceled = true;
+      controller.abort();
     };
-  }, [teamKey]);
+  }, [teamKey, seed, mode, reloadKey]);
+
+  const handleRetry = () => {
+    setProfile(null);
+    setError("");
+    setReloadKey((key) => key + 1);
+  };
 
   /* ── 错误态 ── */
   if (error) {
     return (
       <div className="min-h-screen">
         <div className="mx-auto max-w-screen-xl px-4 py-8">
-          <div className="relative border border-rm-red/30 bg-rm-red/5 overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-0.5 bg-rm-red/60" />
-            <div className="absolute top-4 left-4 w-1.5 h-1.5 rounded-full bg-rm-red/40" />
-            <div className="absolute top-4 right-4 w-1.5 h-1.5 rounded-full bg-rm-red/40" />
-            <div className="relative px-5 py-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="h-3 w-0.5 bg-rm-red/60" />
-                <span className="font-mono text-[10px] tracking-[0.3em] text-rm-red/70">系统错误</span>
-              </div>
-              <p className="font-mono text-sm text-rm-red">队伍档案加载失败：{error}</p>
-            </div>
-          </div>
+          <ErrorPanel
+            title="系统错误"
+            message={`队伍档案加载失败：${error}`}
+            onRetry={handleRetry}
+            backHref="/"
+            backLabel="返回总控台"
+          />
         </div>
       </div>
     );
@@ -358,14 +386,14 @@ export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) 
         <div
           className={cn(
             "absolute top-0 right-0 w-[40vw] h-[60vh] rounded-full blur-[120px] opacity-[0.07]",
-            regionSlug === "south_region" ? "bg-rm-red" : regionSlug === "east_region" ? "bg-rm-blue" : "bg-rm-violet",
+            accent.glowPrimary,
           )}
           style={{ transform: "translate(20%, -20%)" }}
         />
         <div
           className={cn(
             "absolute bottom-0 left-0 w-[35vw] h-[50vh] rounded-full blur-[100px] opacity-[0.05]",
-            regionSlug === "south_region" ? "bg-rm-blue" : regionSlug === "east_region" ? "bg-rm-red" : "bg-rm-blue",
+            accent.glowSecondary,
           )}
           style={{ transform: "translate(-20%, 20%)" }}
         />
@@ -373,7 +401,7 @@ export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) 
 
       <div className="relative mx-auto max-w-screen-xl space-y-6 px-4 py-8">
         {/* ═══ 面包屑 ═══ */}
-        <div className="flex items-center gap-2 font-mono text-[10px] text-rm-metal-textFaint/60 tracking-widest">
+        <nav aria-label="面包屑" className="flex items-center gap-2 font-mono text-[10px] text-rm-metal-textFaint/60 tracking-widest">
           <Link href="/" className="hover:text-rm-metal-textMuted transition-colors">
             战术指挥中心
           </Link>
@@ -382,11 +410,11 @@ export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) 
             href={regionHref}
             className={cn("hover:text-rm-metal-textLight transition-colors", accent.linkColor)}
           >
-            {accent.label}
+            {profile.region.regionName}
           </Link>
           <span>/</span>
-          <span className="text-rm-metal-textLight">{profile.team.collegeName}</span>
-        </div>
+          <span aria-current="page" className="text-rm-metal-textLight">{profile.team.collegeName}</span>
+        </nav>
 
         {/* ═══ Hero 头部 ═══ */}
         <div>
@@ -395,11 +423,7 @@ export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) 
             <div
               className={cn(
                 "h-0.5 bg-gradient-to-r shadow-[0_0_12px_rgba(232,48,42,0.2),0_0_12px_rgba(42,159,255,0.2)]",
-                regionSlug === "south_region"
-                  ? "from-rm-red/90 via-rm-red/30 to-rm-blue/30"
-                  : regionSlug === "east_region"
-                    ? "from-rm-blue/90 via-rm-blue/30 to-rm-red/30"
-                    : "from-rm-violet/90 via-rm-violet/30 to-rm-blue/30",
+                accent.glowBar,
               )}
             />
 
@@ -431,7 +455,7 @@ export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) 
               <div
                 className={cn(
                   "absolute bottom-0 left-0 w-72 h-72 rounded-full blur-3xl translate-y-1/3 -translate-x-1/4 pointer-events-none opacity-60",
-                  regionSlug === "south_region" ? "bg-rm-blue/4" : "bg-rm-red/4",
+                  accent.blobSecondary,
                 )}
               />
 
@@ -465,7 +489,7 @@ export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) 
               <div className="absolute top-0 left-1/3 w-px h-2 bg-rm-metal-textMuted/15 pointer-events-none" />
               <div className="absolute top-0 left-1/2 w-px h-2 bg-rm-metal-textMuted/20 pointer-events-none" />
               <div className="absolute top-0 right-1/3 w-px h-2 bg-rm-metal-textMuted/15 pointer-events-none" />
-              <div className="absolute top-0 left-1/2 -translate-x-6 text-[7px] text-rm-metal-textFaint/25 font-mono pointer-events-none">
+              <div className="absolute top-0 left-1/2 -translate-x-6 text-[10px] text-rm-metal-textFaint/25 font-mono pointer-events-none">
                 SYS
               </div>
 
@@ -473,9 +497,9 @@ export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) 
               <div className="relative z-10 px-6 sm:px-8 py-7">
                 {/* 分类标签 */}
                 <div className="flex items-center gap-2 mb-3">
-                  <div className={cn("h-px w-6", regionSlug === "south_region" ? "bg-rm-red/40" : regionSlug === "east_region" ? "bg-rm-blue/40" : "bg-rm-violet/40")} />
-                  <span className="font-mono text-[9px] text-rm-metal-textFaint/50 tracking-[0.3em] uppercase">
-                    {accent.label} · 队伍档案
+                  <div className={cn("h-px w-6", accent.divider)} />
+                  <span className="font-mono text-[9px] text-rm-metal-textFaint/70 tracking-[0.3em] uppercase">
+                    {profile.region.regionName} · 队伍档案
                   </span>
                 </div>
 
@@ -494,7 +518,7 @@ export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) 
                   <Link
                     href={regionHref}
                     className={cn(
-                      "inline-flex items-center gap-2 border px-4 py-2.5 text-center font-mono text-xs transition-all duration-200 active:scale-[0.98]",
+                      "group/btn inline-flex items-center gap-2 border px-4 py-2.5 text-center font-mono text-xs transition-all duration-200 active:scale-[0.98]",
                       accent.btnBorder,
                       accent.btnBg,
                       accent.linkColor,
@@ -511,12 +535,12 @@ export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) 
 
             {/* 底部装饰条 */}
             <div className="flex items-center gap-0 -mt-px">
-              <div className={cn("h-0.5 flex-1", regionSlug === "south_region" ? "bg-rm-red/30" : regionSlug === "east_region" ? "bg-rm-blue/30" : "bg-rm-violet/30")} />
+              <div className={cn("h-0.5 flex-1", accent.edgePrimary)} />
               <div className={cn("h-0.5 w-12", accent.bottomBar)} />
-              <div className="h-0.5 w-8 bg-[#F0972C]/40" />
+              <div className="h-0.5 w-8 bg-rm-result-winner/40" />
               <div className="h-0.5 w-6 bg-rm-metal-textMuted/15" />
-              <div className={cn("h-0.5 w-12", regionSlug === "south_region" ? "bg-rm-blue/60" : "bg-rm-red/60")} />
-              <div className={cn("h-0.5 flex-1", regionSlug === "south_region" ? "bg-rm-blue/30" : regionSlug === "east_region" ? "bg-rm-red/30" : "bg-rm-blue/30")} />
+              <div className={cn("h-0.5 w-12", accent.accentBar)} />
+              <div className={cn("h-0.5 flex-1", accent.edgeSecondary)} />
             </div>
           </div>
         </div>
@@ -550,7 +574,14 @@ export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) 
             <div className="font-machine text-2xl font-bold text-rm-status-warn tracking-wide">
               {pct(profile.team.probabilities.national)}
             </div>
-            <div className="mt-2 h-1.5 bg-rm-metal-dark rounded-full overflow-hidden">
+            <div
+              role="progressbar"
+              aria-label="国赛概率"
+              aria-valuenow={Math.round((profile.team.probabilities.national ?? 0) * 100)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              className="mt-2 h-1.5 bg-rm-metal-dark rounded-full overflow-hidden"
+            >
               <div
                 className="h-full bg-rm-status-warn/50 rounded-full"
                 style={{ width: `${(profile.team.probabilities.national ?? 0) * 100}%` }}
@@ -566,7 +597,14 @@ export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) 
             <div className="font-machine text-2xl font-bold text-rm-blue tracking-wide">
               {pct(profile.team.probabilities.repechage)}
             </div>
-            <div className="mt-2 h-1.5 bg-rm-metal-dark rounded-full overflow-hidden">
+            <div
+              role="progressbar"
+              aria-label="复活赛概率"
+              aria-valuenow={Math.round((profile.team.probabilities.repechage ?? 0) * 100)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              className="mt-2 h-1.5 bg-rm-metal-dark rounded-full overflow-hidden"
+            >
               <div
                 className="h-full bg-rm-blue/50 rounded-full"
                 style={{ width: `${(profile.team.probabilities.repechage ?? 0) * 100}%` }}
@@ -605,11 +643,7 @@ export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) 
                 />
               ))}
               {profile.matchPath.length === 0 && (
-                <MechCard variant="default">
-                  <p className="font-mono text-xs text-rm-metal-textFaint py-2 text-center">
-                    暂无已举行比赛。
-                  </p>
-                </MechCard>
+                <EmptyState text="暂无已举行比赛" />
               )}
             </div>
           </div>
@@ -628,11 +662,7 @@ export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) 
                 <UpcomingOpponentRow key={match.matchLabel} match={match} teamElo={teamElo} />
               ))}
               {profile.upcomingMatches.length === 0 && (
-                <MechCard variant="default">
-                  <p className="font-mono text-xs text-rm-metal-textFaint py-2 text-center">
-                    暂无预测路径比赛。
-                  </p>
-                </MechCard>
+                <EmptyState text="暂无预测路径比赛" />
               )}
             </div>
           </div>

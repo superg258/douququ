@@ -1,6 +1,6 @@
 import { buildRegionHref } from "@/lib/region-config";
 import { translateConfidenceLabel, translateStageLabel } from "@/lib/display";
-import { predictDisplayScoreline } from "@/lib/scoreline";
+import { parseScoreline, predictDisplayScoreline } from "@/lib/scoreline";
 import type { MatchRow, RegionSlug, SimulationResponse, WorkspaceView } from "@/lib/types";
 
 export interface MatchPredictionExplanation {
@@ -43,6 +43,23 @@ function pct(value: number) {
 
 export function predictMatchScoreline(pGameRed: number, pSeriesRed: number, bestOf: number = 3) {
   return predictDisplayScoreline(pGameRed, pSeriesRed, bestOf);
+}
+
+export type PredictionVerdict = "exact" | "deviation" | "upset";
+
+/**
+ * 工作区判定口径：已完赛场次对比预测比分与实际比分——
+ * 胜负相反为爆冷（upset），胜负一致但比分不同为偏离（deviation），比分一致为命中（exact）。
+ * 未完赛返回 null。
+ */
+export function derivePredictionVerdict(match: MatchRow, predictedScoreline: string): PredictionVerdict | null {
+  if (!match.isRealResult) return null;
+
+  const [redGames, blueGames] = parseScoreline(match.scoreline);
+  const [predictedRed, predictedBlue] = parseScoreline(predictedScoreline);
+  const winnerSame = (predictedRed > predictedBlue) === (redGames > blueGames);
+  if (!winnerSame) return "upset";
+  return predictedScoreline === match.scoreline ? "exact" : "deviation";
 }
 
 function predictedWinnerSide(match: MatchRow) {

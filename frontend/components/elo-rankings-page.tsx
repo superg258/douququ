@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { FinalsEloRankings } from "@/components/finals-elo-rankings";
 import { RankingsHero } from "@/components/rankings-hero";
+import { ErrorPanel } from "@/components/ui/async-state";
 import { getFinalEvent, getOverview } from "@/lib/api";
 import { formatShortDateTimeLabel } from "@/lib/time-format";
 import type { FinalEventResponse, OverviewResponse } from "@/lib/types";
@@ -18,9 +19,11 @@ interface EloPageData {
 export function EloRankingsPage() {
   const [data, setData] = useState<EloPageData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    let canceled = false;
+    const controller = new AbortController();
+    const { signal } = controller;
 
     Promise.all([
       getOverview(),
@@ -28,19 +31,25 @@ export function EloRankingsPage() {
       getFinalEvent("nationals"),
     ])
       .then(([overview, repechage, nationals]) => {
-        if (canceled) return;
+        if (signal.aborted) return;
         setData({ overview, repechage, nationals });
         setError(null);
       })
       .catch((reason: unknown) => {
-        if (canceled) return;
+        if (signal.aborted) return;
         setError(reason instanceof Error ? reason.message : String(reason));
       });
 
     return () => {
-      canceled = true;
+      controller.abort();
     };
-  }, []);
+  }, [reloadKey]);
+
+  const handleRetry = () => {
+    setData(null);
+    setError(null);
+    setReloadKey((key) => key + 1);
+  };
 
   return (
     <div className="min-h-screen">
@@ -52,13 +61,18 @@ export function EloRankingsPage() {
         }
       />
 
-      <main className="relative z-10 max-w-[1600px] mx-auto px-4 py-8">
+      <div className="relative z-10 max-w-[1600px] mx-auto px-4 py-8">
         {error ? (
-          <div className="p-4 bg-rm-red/5 border border-rm-red/30 text-rm-red font-mono text-sm mb-8">
-            数据加载失败：{error}
-          </div>
+          <ErrorPanel
+            message={`数据加载失败：${error}`}
+            onRetry={handleRetry}
+          />
         ) : !data ? (
-          <div className="flex flex-col items-center justify-center py-20 text-rm-metal-textMuted">
+          <div
+            role="status"
+            aria-label="加载中"
+            className="flex flex-col items-center justify-center py-20 text-rm-metal-textMuted"
+          >
             <div className="w-8 h-8 border-4 border-rm-blue/30 border-t-rm-blue rounded-full animate-spin mb-4" />
             <span className="font-machine tracking-widest uppercase text-xs">
               加载战力数据...
@@ -71,7 +85,7 @@ export function EloRankingsPage() {
             nationals={data.nationals}
           />
         )}
-      </main>
+      </div>
     </div>
   );
 }

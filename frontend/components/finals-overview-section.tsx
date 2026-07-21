@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
+import { ErrorPanel, LoadingBlock } from "@/components/ui/async-state";
 import { getFinalEvent, getOverview } from "@/lib/api";
 import {
   hasActualFinalMatchup,
@@ -92,11 +93,10 @@ function buildStageFlow(event: EventSchedule) {
   return labels;
 }
 
-function selectSchedulePreview(event: EventSchedule) {
+function selectSchedulePreview(event: EventSchedule, now: number) {
   const ordered = event.matches
     .filter(hasActualFinalMatchup)
     .sort((left, right) => left.startsAt.localeCompare(right.startsAt));
-  const now = Date.now();
   const nextIndex = ordered.findIndex((match) => Date.parse(match.startsAt) >= now);
   const start = nextIndex >= 0 ? nextIndex : Math.max(0, ordered.length - 3);
   return ordered.slice(start, start + 3);
@@ -107,15 +107,17 @@ function EventPanel({
   event,
   overview,
   probabilities,
+  now,
 }: {
   eventSlug: FinalEventSlug;
   event: EventSchedule;
   overview: OverviewResponse;
   probabilities: FinalsStageProbabilityProjection;
+  now: number;
 }) {
   const tone = EVENT_TONES[eventSlug];
   const confirmedParticipants = rankFinalEventParticipantsByCurrentElo(event.participants, overview);
-  const schedulePreview = selectSchedulePreview(event);
+  const schedulePreview = selectSchedulePreview(event, now);
   const stageFlow = buildStageFlow(event);
   const statusLabel = eventSlug === "repechage"
     ? "参赛名单已确认 · 抽签待定"
@@ -196,16 +198,16 @@ function EventPanel({
             )}>
               <thead className="sticky top-0 z-10 bg-rm-metal-dark/95 backdrop-blur">
                 <tr className="border-b border-rm-metal-border text-[8px] uppercase tracking-widest text-rm-metal-textFaint">
-                  <td className="w-8 py-1.5">#</td>
-                  <td className={cn("py-1.5", eventSlug === "nationals" && "w-32")}>高校</td>
-                  <td className="w-16 py-1.5 text-right">Elo</td>
+                  <th scope="col" className="w-8 py-1.5 text-left font-normal">#</th>
+                  <th scope="col" className={cn("py-1.5 text-left font-normal", eventSlug === "nationals" && "w-32")}>高校</th>
+                  <th scope="col" className="w-16 py-1.5 text-right font-normal">Elo</th>
                   {eventSlug === "repechage" ? (
-                    <td className="w-14 py-1.5 text-right">晋级</td>
+                    <th scope="col" className="w-14 py-1.5 text-right font-normal">晋级</th>
                   ) : (
                     <>
-                      <td className="w-14 py-1.5 text-right">出线</td>
-                      <td className="w-14 py-1.5 text-right">四强</td>
-                      <td className="w-14 py-1.5 text-right">冠军</td>
+                      <th scope="col" className="w-14 py-1.5 text-right font-normal">出线</th>
+                      <th scope="col" className="w-14 py-1.5 text-right font-normal">四强</th>
+                      <th scope="col" className="w-14 py-1.5 text-right font-normal">冠军</th>
                     </>
                   )}
                 </tr>
@@ -271,14 +273,43 @@ function EventPanel({
 
 function LoadingPanels() {
   return (
-    <div className="grid gap-5 xl:grid-cols-2">
+    <div className="grid gap-5 xl:grid-cols-2" aria-hidden="true">
       {EVENT_ORDER.map((eventSlug) => (
-        <div key={eventSlug} className="h-[34rem] animate-pulse border border-rm-metal-border bg-rm-metal-card/70">
+        <div key={eventSlug} className="flex min-h-[34rem] flex-col border border-rm-metal-border bg-rm-metal-card/70">
           <div className="h-0.5 bg-rm-blue/30" />
-          <div className="space-y-4 p-6">
-            <div className="h-7 w-2/5 bg-rm-metal-panel" />
-            <div className="h-20 bg-rm-metal-panel/80" />
-            <div className="h-36 bg-rm-metal-panel/60" />
+          <div className="flex flex-1 flex-col p-5 md:p-6">
+            {/* 头部条 */}
+            <div className="flex items-start justify-between gap-4 border-b border-rm-metal-border/70 pb-5">
+              <div className="space-y-2">
+                <LoadingBlock className="h-2.5 w-28" />
+                <LoadingBlock className="h-8 w-48" />
+                <LoadingBlock className="h-3 w-32" />
+              </div>
+              <LoadingBlock className="h-6 w-24" />
+            </div>
+            {/* 3 指标块 */}
+            <div className="grid grid-cols-3 gap-2 border-b border-rm-metal-border/70 py-4">
+              {[0, 1, 2].map((index) => (
+                <LoadingBlock key={index} className="h-14" />
+              ))}
+            </div>
+            {/* 表格行 ×8 */}
+            <div className="flex-1 py-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <LoadingBlock className="h-4 w-24" />
+                <LoadingBlock className="h-3 w-16" />
+              </div>
+              <div className="space-y-2">
+                {[0, 1, 2, 3, 4, 5, 6, 7].map((index) => (
+                  <LoadingBlock key={index} className="h-6" />
+                ))}
+              </div>
+            </div>
+            {/* 底部双按钮 */}
+            <div className="grid grid-cols-2 gap-2 border-t border-rm-metal-border/70 pt-4">
+              <LoadingBlock className="h-10" />
+              <LoadingBlock className="h-10" />
+            </div>
           </div>
         </div>
       ))}
@@ -290,6 +321,9 @@ export function FinalsOverviewSection() {
   const [events, setEvents] = useState<Record<FinalEventSlug, FinalEventResponse> | null>(null);
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
   const [error, setError] = useState("");
+  // "当前时间"随每次拉数刷新一次，渲染期不再直接调用 Date.now()
+  const [now, setNow] = useState(0);
+  const [reloadKey, setReloadKey] = useState(0);
   const probabilities = useMemo(() => {
     if (!events || !overview) return null;
     return projectFinalsStageProbabilities(
@@ -301,21 +335,30 @@ export function FinalsOverviewSection() {
 
   useEffect(() => {
     let canceled = false;
-    Promise.all([getOverview(), getFinalEvent("repechage"), getFinalEvent("nationals")])
-      .then(([overviewResponse, repechage, nationals]) => {
-        if (canceled) return;
-        setOverview(overviewResponse);
-        setEvents({ repechage, nationals });
-        setError("");
-      })
-      .catch((reason) => {
-        if (canceled) return;
-        setError(reason instanceof Error ? reason.message : String(reason));
-      });
+    const load = () => {
+      setError("");
+      Promise.all([getOverview(), getFinalEvent("repechage"), getFinalEvent("nationals")])
+        .then(([overviewResponse, repechage, nationals]) => {
+          if (canceled) return;
+          setOverview(overviewResponse);
+          setEvents({ repechage, nationals });
+          setNow(Date.now());
+        })
+        .catch((reason) => {
+          if (canceled) return;
+          setError(reason instanceof Error ? reason.message : String(reason));
+        });
+    };
+    load();
     return () => {
       canceled = true;
     };
-  }, []);
+  }, [reloadKey]);
+
+  const handleRetry = () => {
+    setError("");
+    setReloadKey((key) => key + 1);
+  };
 
   return (
     <section aria-labelledby="finals-overview-heading">
@@ -329,7 +372,7 @@ export function FinalsOverviewSection() {
             <h2 id="finals-overview-heading" className="font-sans text-lg font-semibold tracking-wide text-rm-metal-textLight">
               复活赛与全国赛
             </h2>
-            <p className="mt-1 font-mono text-[10px] text-rm-metal-textFaint">参赛名单 · 赛程对阵 · 实时胜率预测</p>
+            <p className="mt-1 font-mono text-[10px] text-rm-metal-textFaint">参赛名单 · 赛程对阵 · 胜率预测</p>
           </div>
         </div>
         <span className={cn(
@@ -345,9 +388,11 @@ export function FinalsOverviewSection() {
       </div>
 
       {error ? (
-        <div className="border border-rm-red/30 bg-rm-red/5 p-4 font-mono text-xs text-rm-red">
-          全国阶段数据加载失败：{error}
-        </div>
+        <ErrorPanel
+          title="全国阶段数据加载失败"
+          message={error}
+          onRetry={handleRetry}
+        />
       ) : !events || !overview || !probabilities ? (
         <LoadingPanels />
       ) : (
@@ -359,6 +404,7 @@ export function FinalsOverviewSection() {
               event={events[eventSlug].event}
               overview={overview}
               probabilities={probabilities}
+              now={now}
             />
           ))}
         </div>

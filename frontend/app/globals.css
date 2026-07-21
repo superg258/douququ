@@ -2,14 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@font-face {
-  font-family: "Dji-Bold";
-  src: url("/fonts/Dji-Bold.woff") format("woff");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
 @layer base {
   :root {
     --background: #000000; /* Pure Black Background */
@@ -60,13 +52,13 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #050505; 
+  background: #050505;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2A2A2A; 
+  background: #2A2A2A;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #A3A3A3; 
+  background: #A3A3A3;
 }
 
 @layer components {
@@ -167,3 +159,43 @@ body {
   background-repeat: no-repeat, no-repeat, repeat, repeat;
 }
 
+
+@layer utilities {
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .text-glow-white {
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
+  }
+
+  .font-machine,
+  .font-mono {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@layer base {
+  :focus-visible {
+    outline: 2px solid rgba(42, 159, 255, 0.7);
+    outline-offset: 2px;
+  }
+
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+}

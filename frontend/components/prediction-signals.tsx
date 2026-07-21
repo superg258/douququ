@@ -1,5 +1,5 @@
 import type { MiniProgramPrediction } from "@/lib/types";
-import { formatProbability } from "@/lib/prediction-display";
+import { audienceSignal, clampProbability, formatRate } from "@/lib/prediction-display";
 import { cn } from "@/lib/utils";
 
 type SignalDensity = "compact" | "full";
@@ -15,68 +15,6 @@ interface PredictionSignalsPanelProps {
   modelBadge?: string;
   ratePrecision?: number;
   className?: string;
-}
-
-function clampRate(value: number | null | undefined) {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return 0;
-  }
-  return Math.max(0, Math.min(1, value));
-}
-
-function hasRate(value: number | undefined): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
-function formatRate(value: number, precision = 1) {
-  return formatProbability(clampRate(value), precision);
-}
-
-function audienceSignal(prediction: MiniProgramPrediction | undefined): {
-  status: SignalStatus;
-  redRate: number;
-  blueRate: number;
-  centerLabel: string;
-  title: string;
-} {
-  if (!prediction) {
-    return {
-      status: "unavailable",
-      redRate: 0,
-      blueRate: 0,
-      centerLabel: "暂未开放",
-      title: "王牌预言家投票通道暂未开放",
-    };
-  }
-
-  if (prediction.status === "available") {
-    const tieText = prediction.tieRate > 0 ? ` / 平 ${formatRate(prediction.tieRate)}` : "";
-    return {
-      status: "available",
-      redRate: prediction.redRate,
-      blueRate: prediction.blueRate,
-      centerLabel: `${prediction.totalCount}票${tieText}`,
-      title: `王牌预言家观众投票：红 ${formatRate(prediction.redRate)}，蓝 ${formatRate(prediction.blueRate)}${tieText}`,
-    };
-  }
-
-  if (hasRate(prediction.redRate) && hasRate(prediction.blueRate)) {
-    return {
-      status: "stale",
-      redRate: prediction.redRate,
-      blueRate: prediction.blueRate,
-      centerLabel: "历史记录 / 暂未更新",
-      title: prediction.reason ?? "王牌预言家暂未更新，显示最近一次记录",
-    };
-  }
-
-  return {
-    status: "unavailable",
-    redRate: 0,
-    blueRate: 0,
-    centerLabel: "暂未开放",
-    title: prediction.reason ?? "王牌预言家暂未开放",
-  };
 }
 
 function signalTone(variant: SignalVariant, status: SignalStatus) {
@@ -134,8 +72,8 @@ function SignalRow({
 }) {
   const compact = density === "compact";
   const tone = signalTone(variant, status);
-  const red = clampRate(redRate);
-  const blue = clampRate(blueRate);
+  const red = clampProbability(redRate);
+  const blue = clampProbability(blueRate);
   const showBars = status !== "unavailable";
 
   return (
@@ -150,13 +88,13 @@ function SignalRow({
       title={title}
     >
       <div className="min-w-0">
-        <div className={cn("truncate font-bold tracking-widest", compact ? "text-[8px]" : "text-[10px]", tone.label)}>
+        <div className={cn("truncate font-bold tracking-widest", "text-[10px]", tone.label)}>
           {label}
         </div>
         <div
           className={cn(
             "mt-0.5 inline-flex max-w-full border px-1 font-mono font-bold leading-tight",
-            compact ? "text-[7px]" : "text-[8px]",
+            "text-[10px]",
             tone.badge
           )}
         >
@@ -199,7 +137,7 @@ function SignalRow({
           <div
             className={cn(
               "absolute inset-0 flex items-center justify-center px-1 text-center font-mono font-bold leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,1)]",
-              compact ? "text-[7px]" : "text-[9px]",
+              compact ? "text-[10px]" : "text-[9px]",
               tone.center
             )}
           >
@@ -232,7 +170,7 @@ export function PredictionSignalsPanel({
   return (
     <div
       className={cn(
-        "border border-rm-metal-border/60 bg-[#05070c] clip-chamfer",
+        "border border-rm-metal-border/60 bg-rm-metal-abyss clip-chamfer",
         compact ? "space-y-1 p-1" : "space-y-2 p-2.5",
         className
       )}

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { CompetitionSelector, isRegionCompetition } from "@/components/competition-selector";
@@ -10,6 +10,7 @@ import { PredictionExplanationCard } from "@/components/prediction-explanation-c
 import { PredictionSignalsPanel } from "@/components/prediction-signals";
 import { WorkspaceStageView } from "@/components/workspace-stage";
 import { formatMatchCardScheduleTime, predictScoreline } from "@/components/canvas-card";
+import { ErrorPanel } from "@/components/ui/async-state";
 import { getFinalEvent, getOverview } from "@/lib/api";
 import { translateConfidenceLabel, translateStageLabel } from "@/lib/display";
 import { buildFinalsWorkspaceStage } from "@/lib/finals-canvas";
@@ -52,13 +53,6 @@ function defaultStage(eventSlug: FinalEventSlug) {
 
 function isFinalEventSlug(value: string | null): value is FinalEventSlug {
   return value === "repechage" || value === "nationals";
-}
-
-function updateDeepLink(eventSlug: FinalEventSlug, mode: ForecastMode, stage: FinalEventStageFilter, seed: number | null) {
-  if (typeof window === "undefined") return;
-  const params = new URLSearchParams({ event: eventSlug, mode, stage });
-  if (mode === "sim" && seed !== null) params.set("seed", String(seed));
-  window.history.replaceState(null, "", `/forecast-center?${params.toString()}`);
 }
 
 function MatchRoute({ match, eventSlug }: { match: FinalEventMatch; eventSlug?: FinalEventSlug }) {
@@ -142,7 +136,7 @@ function InspectorPanel({
               打开队伍档案
             </Link>
           </div>
-          <button onClick={onClose} className="text-rm-metal-text hover:text-rm-red font-mono text-[10px]">X</button>
+          <button onClick={onClose} aria-label="关闭情报面板" className="text-rm-metal-text hover:text-rm-red font-mono text-[10px]">X</button>
         </div>
 
         <div className="space-y-6">
@@ -250,7 +244,7 @@ function InspectorPanel({
             <h3 className="text-lg font-machine text-white">第 {match.number} 场</h3>
             <p className="text-xs text-rm-blue font-mono">{matchRow.stage}</p>
           </div>
-          <button onClick={onClose} className="text-rm-metal-text hover:text-rm-red font-mono text-[10px]">X</button>
+          <button onClick={onClose} aria-label="关闭情报面板" className="text-rm-metal-text hover:text-rm-red font-mono text-[10px]">X</button>
         </div>
 
         <div className="space-y-6">
@@ -351,10 +345,20 @@ function InspectorPanel({
 
 export function ForecastCenterPage() {
   const router = useRouter();
-  const [eventSlug, setEventSlug] = useState<FinalEventSlug>("repechage");
-  const [mode, setMode] = useState<ForecastMode>("live");
-  const [stage, setStage] = useState<FinalEventStageFilter>(defaultStage("repechage"));
-  const [seed, setSeed] = useState<number | null>(null);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // URL 即状态源：响应浏览器前进/后退；旧链接 view=bracket / view=matches 一律并入实时模式
+  const requestedEvent = searchParams.get("event");
+  const eventSlug: FinalEventSlug = isFinalEventSlug(requestedEvent) ? requestedEvent : "repechage";
+  const mode: ForecastMode = searchParams.get("mode") === "sim" ? "sim" : "live";
+  const requestedStage = searchParams.get("stage") as FinalEventStageFilter | null;
+  const stage: FinalEventStageFilter =
+    requestedStage && FINAL_STAGE_OPTIONS[eventSlug].some((item) => item.id === requestedStage)
+      ? requestedStage
+      : defaultStage(eventSlug);
+  const parsedSeed = parseSeed(searchParams.get("seed"));
+  const [sessionSeed, setSessionSeed] = useState<number | null>(null);
+  const seed = parsedSeed ?? sessionSeed;
   const [seedDraft, setSeedDraft] = useState("");
   const [events, setEvents] = useState<Record<FinalEventSlug, FinalEventResponse> | null>(null);
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
@@ -362,7 +366,20 @@ export function ForecastCenterPage() {
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [stageFullscreen, setStageFullscreen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
-  const [error, setError] = useState("");
+  const [eventsError, setEventsError] = useState<string | null>(null);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
+  const [overviewWarnDismissed, setOverviewWarnDismissed] = useState(false);
+  const [eventsReloadKey, setEventsReloadKey] = useState(0);
+  const [overviewReloadKey, setOverviewReloadKey] = useState(0);
+
+  const updateDeepLink = useCallback(
+    (nextEvent: FinalEventSlug, nextMode: ForecastMode, nextStage: FinalEventStageFilter, nextSeed: number | null) => {
+      const params = new URLSearchParams({ event: nextEvent, mode: nextMode, stage: nextStage });
+      if (nextMode === "sim" && nextSeed !== null) params.set("seed", String(nextSeed));
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [pathname, router],
+  );
 
   // Suppress root layout header on mount — this page is a fullscreen canvas
   useEffect(() => {
@@ -372,35 +389,32 @@ export function ForecastCenterPage() {
     };
   }, []);
 
+  // 模拟模式缺种子时补一个会话种子（不写回 URL，与原行为一致）
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const requestedEvent = params.get("event");
-    const nextEvent = isFinalEventSlug(requestedEvent) ? requestedEvent : "repechage";
-    // 旧链接 view=bracket / view=matches 一律并入实时模式
-    const nextMode: ForecastMode = params.get("mode") === "sim" ? "sim" : "live";
-    const allowedStages = FINAL_STAGE_OPTIONS[nextEvent].map((item) => item.id);
-    const requestedStage = params.get("stage") as FinalEventStageFilter | null;
-    const nextStage = requestedStage && allowedStages.includes(requestedStage) ? requestedStage : defaultStage(nextEvent);
-    setEventSlug(nextEvent);
-    setMode(nextMode);
-    setStage(nextStage);
-    if (nextMode === "sim") {
-      setSeed(parseSeed(params.get("seed")) ?? getOrCreateSessionSeed());
+    if (mode === "sim" && seed === null) {
+      setSessionSeed(getOrCreateSessionSeed());
     }
+  }, [mode, seed]);
 
+  // 决赛双事件：任一失败即整页错误，可重试
+  useEffect(() => {
     let canceled = false;
     Promise.all([getFinalEvent("repechage"), getFinalEvent("nationals")])
       .then(([repechage, nationals]) => {
-        if (!canceled) setEvents({ repechage, nationals });
+        if (!canceled) {
+          setEvents({ repechage, nationals });
+          setEventsError(null);
+        }
       })
       .catch((reason) => {
-        if (!canceled) setError(reason instanceof Error ? reason.message : String(reason));
+        if (!canceled) setEventsError(reason instanceof Error ? reason.message : String(reason));
       });
     return () => {
       canceled = true;
     };
-  }, []);
+  }, [eventsReloadKey]);
 
+  // 概览数据：失败不阻塞页面，情报/概率降级为 "--"
   useEffect(() => {
     if (overview) return;
     let canceled = false;
@@ -409,12 +423,26 @@ export function ForecastCenterPage() {
         if (!canceled) setOverview(payload);
       })
       .catch((reason) => {
-        if (!canceled) setError(reason instanceof Error ? reason.message : String(reason));
+        if (!canceled) {
+          setOverviewError(reason instanceof Error ? reason.message : String(reason));
+          setOverviewWarnDismissed(false);
+        }
       });
     return () => {
       canceled = true;
     };
-  }, [overview]);
+  }, [overview, overviewReloadKey]);
+
+  const retryEvents = useCallback(() => {
+    setEventsError(null);
+    setEventsReloadKey((key) => key + 1);
+  }, []);
+
+  const retryOverview = useCallback(() => {
+    setOverviewError(null);
+    setOverviewWarnDismissed(false);
+    setOverviewReloadKey((key) => key + 1);
+  }, []);
 
   useEffect(() => {
     setSeedDraft(seed === null ? "" : String(seed));
@@ -513,62 +541,62 @@ export function ForecastCenterPage() {
       }));
   }, [current, overview, allTeams]);
 
-  const closeInspector = () => {
+  const closeInspector = useCallback(() => {
     setInspectorOpen(false);
     setSelection(null);
-  };
+  }, []);
 
-  const openTeam = (teamKey: string) => {
+  const openTeam = useCallback((teamKey: string) => {
     if (!teamKey || teamKey.startsWith("outcome:")) return;
     setSelection({ kind: "team", teamKey });
     setInspectorOpen(true);
-  };
+  }, []);
 
-  const openMatch = (matchLabel: string) => {
+  const openMatch = useCallback((matchLabel: string) => {
     if (!current) return;
     const exists = current.event.matches.some((match) => `${current.event.slug}:${match.number}` === matchLabel);
     if (!exists) return;
     setSelection({ kind: "match", matchLabel });
     setInspectorOpen(true);
-  };
+  }, [current]);
 
   const chooseEvent = (nextEvent: FinalEventSlug) => {
     const nextStage = defaultStage(nextEvent);
-    setEventSlug(nextEvent);
-    setStage(nextStage);
     closeInspector();
     updateDeepLink(nextEvent, mode, nextStage, seed);
   };
   const chooseMode = (nextMode: ForecastMode) => {
     const nextSeed = nextMode === "sim" ? (seed ?? getOrCreateSessionSeed()) : seed;
-    setMode(nextMode);
-    if (nextMode === "sim") setSeed(nextSeed);
+    if (nextMode === "sim") setSessionSeed(nextSeed);
     closeInspector();
     updateDeepLink(eventSlug, nextMode, stage, nextMode === "sim" ? nextSeed : null);
   };
   const chooseStage = (nextStage: FinalEventStageFilter) => {
-    setStage(nextStage);
     closeInspector();
     updateDeepLink(eventSlug, mode, nextStage, seed);
   };
   const applySeedDraft = () => {
     const parsed = parseSeed(seedDraft);
     if (parsed === null) return;
-    setSeed(parsed);
+    setSessionSeed(parsed);
     updateDeepLink(eventSlug, "sim", stage, parsed);
   };
   const refreshSeed = () => {
     const nextSeed = refreshSessionSeed();
-    setSeed(nextSeed);
+    setSessionSeed(nextSeed);
     updateDeepLink(eventSlug, "sim", stage, nextSeed);
   };
 
-  if (error) {
-    return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0a0a0f] p-6"><div className="border border-rm-red/30 bg-rm-red/5 p-4 font-mono text-sm text-rm-red">实时预测中心加载失败：{error}</div></div>;
-  }
-  if (!current || !workspace || (mode === "sim" && !currentSimulation)) {
+  if (eventsError) {
     return (
-      <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#0a0a0f] animate-pulse">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-rm-metal-canvas p-6">
+        <ErrorPanel title="实时预测中心加载失败" message={eventsError} onRetry={retryEvents} />
+      </div>
+    );
+  }
+  if (!current || !workspace || (mode === "sim" && !currentSimulation && !overviewError)) {
+    return (
+      <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-rm-metal-canvas animate-pulse">
         <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-rm-blue/30 border-t-rm-blue" />
         <span className="font-mono text-xs tracking-widest text-rm-blue">{mode === "sim" ? "加载模拟沙盘..." : "加载正式赛程..."}</span>
       </div>
@@ -631,7 +659,7 @@ export function ForecastCenterPage() {
   );
 
   return (
-    <div className="fixed inset-0 z-[100] flex min-h-0 flex-col bg-[#0a0a0f] bg-red-blue-split">
+    <div className="fixed inset-0 z-[100] flex min-h-0 flex-col bg-rm-metal-canvas bg-red-blue-split">
       <header className="glass-sheet z-30 flex select-none flex-col gap-2 px-3 py-2 md:px-4 md:py-2.5">
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
           <Link href="/" className="flex h-7 w-7 shrink-0 items-center justify-center border border-rm-blue/40 bg-rm-blue/15 text-rm-blue clip-chamfer transition-colors hover:bg-rm-blue hover:text-white" title="返回全景战略板">
@@ -679,6 +707,7 @@ export function ForecastCenterPage() {
                 value={seedDraft}
                 onChange={(event) => setSeedDraft(event.target.value.replace(/\D/g, ""))}
                 onKeyDown={(event) => { if (event.key === "Enter") applySeedDraft(); }}
+                aria-label="随机种子"
                 className="w-16 bg-transparent px-1.5 py-1.5 font-mono text-xs text-white focus:outline-none md:w-20"
               />
               <button
@@ -720,6 +749,29 @@ export function ForecastCenterPage() {
         </div>
       </header>
 
+      {overviewError && !overviewWarnDismissed ? (
+        <div className="z-30 flex items-center gap-2 border-b border-rm-status-warn/40 bg-rm-status-warn/10 px-3 py-1.5 font-mono text-[10px] text-rm-status-warn md:px-4">
+          <span className="min-w-0 flex-1 truncate" title={overviewError}>
+            概览数据加载失败（{overviewError}）：胜率情报已降级为 &quot;--&quot; 显示{mode === "sim" ? "，模拟推演暂不可用" : ""}。
+          </span>
+          <button
+            type="button"
+            onClick={retryOverview}
+            className="shrink-0 border border-rm-status-warn/50 px-2 py-0.5 font-bold uppercase transition-colors hover:bg-rm-status-warn hover:text-black"
+          >
+            重试
+          </button>
+          <button
+            type="button"
+            onClick={() => setOverviewWarnDismissed(true)}
+            aria-label="关闭概览数据警告"
+            className="shrink-0 px-1 font-bold transition-colors hover:text-white"
+          >
+            X
+          </button>
+        </div>
+      ) : null}
+
       {legendOpen ? (
         <div className="absolute left-0 right-0 top-[74px] z-40 glass-sheet border-y border-rm-metal-border px-3 py-3 md:left-auto md:right-4 md:top-20 md:w-72 md:border">
           <div className="flex items-center justify-between"><span className="text-[10px] font-bold uppercase tracking-widest text-rm-metal-text">路线图例</span><button type="button" onClick={() => setLegendOpen(false)} className="font-mono text-[10px] text-rm-metal-text hover:text-white">收起</button></div>
@@ -751,12 +803,12 @@ export function ForecastCenterPage() {
         </div>
 
         {!stageFullscreen ? inspectorToggle : null}
-        {!stageFullscreen ? inspectorPanel : null}
+        {!stageFullscreen && inspectorOpen ? inspectorPanel : null}
       </div>
       {stageFullscreen && typeof document !== "undefined" ? createPortal(
         <>
           {inspectorToggle}
-          {inspectorPanel}
+          {inspectorOpen ? inspectorPanel : null}
         </>,
         document.body
       ) : null}

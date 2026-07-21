@@ -1,7 +1,4 @@
 import type {
-  EloRankingRow,
-  EloRankingsDashboard,
-  EloRankingSection,
   OverviewDashboard,
   OverviewMetric,
   OverviewRegion,
@@ -76,20 +73,6 @@ function rankTeamsByProbability(
       return rightValue - leftValue;
     }
     return displayElo(right) - displayElo(left);
-  });
-}
-
-function rankTeamsByElo(region: OverviewRegion) {
-  return [...region.teams].sort((left, right) => {
-    const leftElo = displayElo(left);
-    const rightElo = displayElo(right);
-    if (rightElo !== leftElo) {
-      return rightElo - leftElo;
-    }
-    if (left.eloRegionRank !== right.eloRegionRank) {
-      return left.eloRegionRank - right.eloRegionRank;
-    }
-    return left.teamKey.localeCompare(right.teamKey);
   });
 }
 
@@ -383,46 +366,5 @@ export function buildOverviewDashboard(overview: OverviewResponse): OverviewDash
     regions,
     contenders,
     regionStrength,
-  };
-}
-
-function buildEloRankingSections(regions: OverviewRegion[]): EloRankingSection[] {
-  return [...regions]
-    .sort((left, right) => compareRegionOrder(left.regionSlug, right.regionSlug))
-    .map((region) => {
-      const rankedTeams = rankTeamsByElo(region);
-      const rows: EloRankingRow[] = rankedTeams.map((team, index) => ({
-        rankInRegion: index + 1,
-        teamKey: team.teamKey,
-        collegeName: team.collegeName,
-        teamName: team.teamName,
-        mu0: team.mu0,
-        currentElo: displayElo(team),
-        preseasonElo: team.preseasonElo ?? team.mu0,
-        eloDeltaFromPreseason: team.eloDeltaFromPreseason ?? displayElo(team) - team.mu0,
-        eloRankSource: team.eloRankSource ?? "preseason",
-        repechageProbability: team.probabilities.repechage,
-        nationalProbability: team.probabilities.national,
-        championProbability: team.probabilities.champion,
-      }));
-
-      const elos = rankedTeams.map((team) => displayElo(team));
-
-      return {
-        regionSlug: region.regionSlug,
-        regionName: region.regionName,
-        teamCount: region.teams.length,
-        medianElo: median(elos),
-        topTeam: rankedTeams[0] ?? null,
-        top8AverageElo: average(elos.slice(0, 8)),
-        rows,
-      };
-    });
-}
-
-export function buildEloRankingsDashboard(overview: OverviewResponse): EloRankingsDashboard {
-  return {
-    generatedLabel: formatGeneratedLabel(overview.generatedAt),
-    sections: buildEloRankingSections(overview.regions),
   };
 }

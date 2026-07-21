@@ -374,42 +374,12 @@ export interface RegionStrengthRow {
   titleGap: number;
 }
 
-export interface EloRankingRow {
-  rankInRegion: number;
-  teamKey: string;
-  collegeName: string;
-  teamName: string;
-  mu0: number;
-  currentElo?: number;
-  preseasonElo?: number;
-  eloDeltaFromPreseason?: number;
-  eloRankSource?: EloRankSource;
-  repechageProbability: number;
-  nationalProbability: number;
-  championProbability: number;
-}
-
-export interface EloRankingSection {
-  regionSlug: RegionSlug;
-  regionName: string;
-  teamCount: number;
-  medianElo: number;
-  topTeam: OverviewTeam | null;
-  top8AverageElo: number;
-  rows: EloRankingRow[];
-}
-
 export interface OverviewDashboard {
   generatedLabel: string;
   heroMetrics: OverviewMetric[];
   regions: RegionDashboardCard[];
   contenders: OverviewTeam[];
   regionStrength: RegionStrengthRow[];
-}
-
-export interface EloRankingsDashboard {
-  generatedLabel: string;
-  sections: EloRankingSection[];
 }
 
 export interface WorkspaceStageHeader {

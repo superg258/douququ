@@ -1,12 +1,26 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import { Quantico } from "next/font/google";
+import { Orbitron, Quantico, Roboto_Mono } from "next/font/google";
 import { RootNav } from "@/components/root-nav";
 
 const quantico = Quantico({
   subsets: ["latin"],
   weight: ["400", "700"],
   variable: "--font-quantico",
+  display: "swap",
+});
+
+const orbitron = Orbitron({
+  subsets: ["latin"],
+  weight: ["500", "700"],
+  variable: "--font-orbitron",
+  display: "swap",
+});
+
+const robotoMono = Roboto_Mono({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-roboto-mono",
   display: "swap",
 });
 
@@ -27,7 +41,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN" className="dark" suppressHydrationWarning>
-      <body className={`min-h-screen bg-rm-metal-dark text-rm-metal-text antialiased ${quantico.variable}`}>
+      <body className={`min-h-screen bg-rm-metal-dark text-rm-metal-text antialiased ${quantico.variable} ${orbitron.variable} ${robotoMono.variable}`}>
         <div className="flex min-h-screen w-full flex-col">
           <RootNav />
           <main className="flex-1 relative z-10 p-6 md:p-8">
