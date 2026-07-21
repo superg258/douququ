@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, type KeyboardEvent } from "react";
 
-import { EloSparkline, formatEloDelta } from "@/components/elo-sparkline";
+import { downsampleTrajectory, EloSparkline, formatEloDelta } from "@/components/elo-sparkline";
 import { buildTeamHref } from "@/lib/team-profile";
 import { formatShortDateTimeLabel } from "@/lib/time-format";
 import type {
@@ -31,6 +31,7 @@ interface FinalsEloRankingRow {
   currentElo: number;
   seasonDelta: number;
   sourceLabel: string;
+  eloTrajectory?: number[];
 }
 
 interface FinalsEloRankingSection {
@@ -79,16 +80,23 @@ const TONE_STYLES = {
   },
 } as const;
 
-function getCurrentElo(team: OverviewTeam) {
+function getCurrentElo(team: OverviewTeam, liveElo?: number | null) {
+  if (typeof liveElo === "number" && Number.isFinite(liveElo)) return liveElo;
   return team.currentElo ?? team.mu0;
 }
 
-function getSeasonDelta(team: OverviewTeam) {
-  const currentElo = getCurrentElo(team);
+function getSeasonDelta(team: OverviewTeam, liveElo?: number | null) {
+  const currentElo = getCurrentElo(team, liveElo);
+  if (typeof liveElo === "number" && Number.isFinite(liveElo)) {
+    return liveElo - (team.preseasonElo ?? team.mu0);
+  }
   return team.eloDeltaFromPreseason ?? currentElo - (team.preseasonElo ?? team.mu0);
 }
 
-function buildTeamIndex(overview: OverviewResponse) {
+function buildTeamIndex(
+  overview: OverviewResponse,
+  finalEloByTeamKey?: Readonly<Record<string, number>> | null,
+) {
   const index = new Map<string, OverviewTeam>();
 
   for (const region of overview.regions) {
@@ -97,7 +105,8 @@ function buildTeamIndex(overview: OverviewResponse) {
       if (!teamKey) continue;
 
       const existing = index.get(teamKey);
-      if (!existing || getCurrentElo(team) > getCurrentElo(existing)) {
+      const liveElo = finalEloByTeamKey?.[teamKey];
+      if (!existing || getCurrentElo(team, liveElo) > getCurrentElo(existing, finalEloByTeamKey?.[existing.teamKey])) {
         index.set(teamKey, team);
       }
     }
@@ -110,6 +119,8 @@ function buildRankingSection(
   overview: OverviewResponse,
   response: FinalEventResponse,
   teamIndex: Map<string, OverviewTeam>,
+  finalEloByTeamKey?: Readonly<Record<string, number>> | null,
+  eloTrajectoryByTeamKey?: Record<string, number[]> | null,
 ): FinalsEloRankingSection {
   const { event } = response;
   const confirmedParticipants = event.participants.filter(
@@ -125,15 +136,19 @@ function buildRankingSection(
     const team = teamIndex.get(teamKey);
     if (!team) continue;
 
+    const liveElo = finalEloByTeamKey?.[teamKey];
+    const eloTrajectory = eloTrajectoryByTeamKey?.[teamKey];
+
     rows.push({
       globalRank: team.eloGlobalRank,
       schoolKey,
       teamKey: team.teamKey,
       collegeName: participant.collegeName,
       teamName: participant.teamName,
-      currentElo: getCurrentElo(team),
-      seasonDelta: getSeasonDelta(team),
+      currentElo: getCurrentElo(team, liveElo),
+      seasonDelta: getSeasonDelta(team, liveElo),
       sourceLabel: participant.drawTier,
+      eloTrajectory,
     });
   }
 
@@ -152,8 +167,14 @@ function buildRankingSection(
     eventRank: index + 1,
   }));
   const meta = EVENT_META[event.slug];
+  const qualifierCount = event.slug === "nationals"
+    ? Math.max(0, rankedRows.length - event.confirmedParticipantCount)
+    : 0;
   const eventSummary = [
-    `${event.confirmedParticipantCount} 支${event.slug === "nationals" ? "当前已确认" : ""}队伍`,
+    `${rankedRows.length} 支队伍`,
+    event.slug === "nationals" && qualifierCount > 0
+      ? `含复活赛晋级 ${qualifierCount} 支`
+      : `${event.confirmedParticipantCount} 支已确认`,
     `${event.formalMatchCount} 场正式比赛`,
     event.advancementSlots ? `${event.advancementSlots} 张全国赛门票` : null,
   ]
@@ -165,7 +186,7 @@ function buildRankingSection(
     label: meta.label,
     eyebrow: eventSummary,
     statusLabel: event.statusLabel,
-    expectedCount: event.confirmedParticipantCount,
+    expectedCount: rankedRows.length,
     unmatchedCount: Math.max(confirmedParticipants.length - rankedRows.length, 0),
     verifiedAt: response.verifiedAt,
     generatedAt: overview.generatedAt,
@@ -259,7 +280,13 @@ function RankingRow({
         >
           {row.currentElo.toFixed(1)}
         </strong>
-        <EloSparkline current={row.currentElo} delta={row.seasonDelta} />
+        {row.eloTrajectory && row.eloTrajectory.length >= 2 ? (
+          <EloSparkline
+            points={downsampleTrajectory(row.eloTrajectory)}
+          />
+        ) : (
+          <EloSparkline points={[]} />
+        )}
         <span
           className={cn(
             "mt-1 font-mono text-[10px] tabular-nums",
@@ -368,15 +395,50 @@ export function FinalsEloRankings({
   overview,
   repechage,
   nationals,
+  finalEloByTeamKey,
+  repechageQualifierTeamKeys,
+  eloTrajectoryByTeamKey,
 }: {
   overview: OverviewResponse;
   repechage?: FinalEventResponse;
   nationals?: FinalEventResponse;
+  finalEloByTeamKey?: Readonly<Record<string, number>> | null;
+  repechageQualifierTeamKeys?: readonly string[] | null;
+  eloTrajectoryByTeamKey?: Record<string, number[]> | null;
 }) {
   const sections = useMemo(() => {
-    const teamIndex = buildTeamIndex(overview);
-    return [repechage, nationals].flatMap((response) => response ? [buildRankingSection(overview, response, teamIndex)] : []);
-  }, [nationals, overview, repechage]);
+    const teamIndex = buildTeamIndex(overview, finalEloByTeamKey);
+    const teamByKey = new Map(
+      overview.regions.flatMap((r) => r.teams).map((t) => [t.teamKey, t]),
+    );
+    return [repechage, nationals].flatMap(
+      (response) => {
+        if (!response) return [];
+        // 全国赛：补充复活赛晋级队伍
+        let participants = response.event.participants;
+        if (response.event.slug === "nationals" && repechageQualifierTeamKeys?.length) {
+          const existing = new Set(participants.map((p) => p.teamKey));
+          const extra = repechageQualifierTeamKeys
+            .filter((tk) => !existing.has(tk))
+            .map((tk, i) => {
+              const team = teamByKey.get(tk);
+              return team ? {
+                order: participants.length + i + 1,
+                schoolKey: tk,
+                teamKey: tk,
+                collegeName: team.collegeName,
+                teamName: team.teamName,
+                drawTier: "复活赛晋级",
+                status: "confirmed" as const,
+              } : null;
+            })
+            .filter((p): p is NonNullable<typeof p> => p !== null);
+          participants = [...participants, ...extra];
+        }
+        return [buildRankingSection(overview, { ...response, event: { ...response.event, participants } }, teamIndex, finalEloByTeamKey, eloTrajectoryByTeamKey)];
+      },
+    );
+  }, [nationals, overview, repechage, finalEloByTeamKey, repechageQualifierTeamKeys, eloTrajectoryByTeamKey]);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();

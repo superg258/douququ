@@ -1,12 +1,14 @@
 // frontend/components/elo-rankings-page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { FinalsEloRankings } from "@/components/finals-elo-rankings";
 import { RankingsHero } from "@/components/rankings-hero";
 import { ErrorPanel } from "@/components/ui/async-state";
 import { getFinalEvent, getOverview } from "@/lib/api";
+import { hasOfficialFinalMatchData, simulateFinalsLiveEvents } from "@/lib/finals-simulation";
+import { DEFAULT_SEED } from "@/lib/region-config";
 import { LIVE_REFRESH_INTERVAL_MS, startRealtimePolling } from "@/lib/realtime-polling";
 import { formatShortDateTimeLabel } from "@/lib/time-format";
 import type { FinalEventResponse, OverviewResponse } from "@/lib/types";
@@ -55,6 +57,27 @@ export function EloRankingsPage() {
     setReloadKey((key) => key + 1);
   };
 
+  // 实时 Elo：吸收已完成赛果后的赛事 Elo，优先于 overview 静态值
+  const liveEloByEventSlug = useMemo(() => {
+    if (!data.overview || !data.repechage || !data.nationals) return null;
+    if (!hasOfficialFinalMatchData(data.repechage.event) && !hasOfficialFinalMatchData(data.nationals.event)) return null;
+    const simulation = simulateFinalsLiveEvents(
+      data.repechage.event,
+      data.nationals.event,
+      data.overview,
+      DEFAULT_SEED,
+    );
+    return {
+      repechage: simulation.repechage.finalEloByTeamKey,
+      nationals: simulation.nationals.finalEloByTeamKey,
+      repechageQualifierTeamKeys: simulation.repechage.qualifierTeamKeys,
+      eloTrajectoryByTeamKey: {
+        ...simulation.repechage.eloTrajectoryByTeamKey,
+        ...simulation.nationals.eloTrajectoryByTeamKey,
+      } as Record<string, number[]>,
+    };
+  }, [data.overview, data.repechage, data.nationals]);
+
   const canRender = Boolean(data.overview && (data.repechage || data.nationals));
 
   return (
@@ -89,6 +112,13 @@ export function EloRankingsPage() {
             overview={data.overview!}
             repechage={data.repechage}
             nationals={data.nationals}
+            finalEloByTeamKey={
+              liveEloByEventSlug
+                ? { ...liveEloByEventSlug.repechage, ...liveEloByEventSlug.nationals }
+                : null
+            }
+            repechageQualifierTeamKeys={liveEloByEventSlug?.repechageQualifierTeamKeys}
+            eloTrajectoryByTeamKey={liveEloByEventSlug?.eloTrajectoryByTeamKey ?? null}
           />
         )}
         {canRender && errors.length ? (
