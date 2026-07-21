@@ -302,9 +302,11 @@ function simulateEvent(
     if (blueKey) eloByTeamKey.set(blueKey, prediction.blueCurrentElo);
   }
   for (const [teamKey, elo] of options.initialEloByTeamKey ?? []) eloByTeamKey.set(teamKey, elo);
-  // 轨迹：每队从当前 Elo 开始，每次真实赛果后追加更新后的 Elo
+  // 轨迹：每队从赛事入场 Elo（经历区域赛后）开始，非季前 Elo。
+  // 仅展示赛事期内的 Elo 波动，区域赛阶段的变动不反映在轨迹中。
   const trajectories = new Map<string, number[]>();
   for (const [teamKey, elo] of eloByTeamKey) {
+    if (elo == null) continue;
     trajectories.set(teamKey, [elo]);
   }
   const teamByKey = new Map<string, SimTeam>();

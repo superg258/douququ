@@ -71,6 +71,9 @@ export function EloRankingsPage() {
       repechage: simulation.repechage.finalEloByTeamKey,
       nationals: simulation.nationals.finalEloByTeamKey,
       repechageQualifierTeamKeys: simulation.repechage.qualifierTeamKeys,
+      // nationals overwrites repechage on key collision — a team can't be in both
+      // events simultaneously, and the nationals trajectory is more relevant for
+      // the nationals tab (where the composite map is primarily consumed).
       eloTrajectoryByTeamKey: {
         ...simulation.repechage.eloTrajectoryByTeamKey,
         ...simulation.nationals.eloTrajectoryByTeamKey,

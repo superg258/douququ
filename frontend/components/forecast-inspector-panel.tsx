@@ -128,7 +128,7 @@ export function ForecastInspectorPanel({
               <div className="col-span-2 mt-1 flex items-center justify-between border-y border-rm-metal-border/70 py-2">
                 <div>
                   <div className="text-rm-metal-textMuted">赛季 Elo 走势</div>
-                  <div className={teamInfo.seasonDelta && teamInfo.seasonDelta >= 0 ? "text-rm-status-safe" : "text-rm-red"}>
+                  <div className={(teamInfo.seasonDelta ?? 0) >= 0 ? "text-rm-status-safe" : "text-rm-red"}>
                     赛季 {teamInfo.seasonDelta !== null ? formatEloDelta(teamInfo.seasonDelta) : "--"}
                   </div>
                 </div>
