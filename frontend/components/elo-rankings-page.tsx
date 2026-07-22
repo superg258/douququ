@@ -71,26 +71,38 @@ export function EloRankingsPage() {
   // 实时 Elo：吸收已完成赛果后的赛事 Elo，优先于 overview 静态值
   const liveEloByEventSlug = useMemo(() => {
     if (!data.overview || !data.repechage || !data.nationals) return null;
-    if (!hasOfficialFinalMatchData(data.repechage.event) && !hasOfficialFinalMatchData(data.nationals.event)) return null;
-    const simulation = simulateFinalsLiveEvents(
-      data.repechage.event,
-      data.nationals.event,
-      data.overview,
-      DEFAULT_SEED,
-    );
 
-    // 合并复活赛与全国赛轨迹：同一队伍出现在两个赛事时，拼接而非覆盖
-    const mergedTrajectories: Record<string, number[]> = {};
-    for (const [teamKey, traj] of Object.entries(simulation.repechage.eloTrajectoryByTeamKey)) {
-      mergedTrajectories[teamKey] = traj;
-    }
-    for (const [teamKey, traj] of Object.entries(simulation.nationals.eloTrajectoryByTeamKey)) {
-      const existing = mergedTrajectories[teamKey];
-      // 两条轨迹都以 [preseasonElo, ...] 开头，跳过全国赛的首点避免重复
-      mergedTrajectories[teamKey] = existing ? [...existing, ...traj.slice(1)] : traj;
+    const hasFinalsData =
+      hasOfficialFinalMatchData(data.repechage.event) ||
+      hasOfficialFinalMatchData(data.nationals.event);
+
+    // 决赛轨迹（仅当有真实赛果时运行模拟）
+    let mergedTrajectories: Record<string, number[]> = {};
+    let repechageElo: Record<string, number> = {};
+    let nationalsElo: Record<string, number> = {};
+
+    if (hasFinalsData) {
+      const simulation = simulateFinalsLiveEvents(
+        data.repechage.event,
+        data.nationals.event,
+        data.overview,
+        DEFAULT_SEED,
+      );
+      repechageElo = simulation.repechage.finalEloByTeamKey;
+      nationalsElo = simulation.nationals.finalEloByTeamKey;
+
+      // 合并复活赛与全国赛轨迹：同一队伍出现在两个赛事时，拼接而非覆盖
+      for (const [teamKey, traj] of Object.entries(simulation.repechage.eloTrajectoryByTeamKey)) {
+        mergedTrajectories[teamKey] = traj;
+      }
+      for (const [teamKey, traj] of Object.entries(simulation.nationals.eloTrajectoryByTeamKey)) {
+        const existing = mergedTrajectories[teamKey];
+        // 两条轨迹都以 [preseasonElo, ...] 开头，跳过全国赛的首点避免重复
+        mergedTrajectories[teamKey] = existing ? [...existing, ...traj.slice(1)] : traj;
+      }
     }
 
-    // 注入区域赛逐场记录，构建完整赛季轨迹
+    // 注入区域赛逐场记录：无论决赛数据是否存在，都构建完整赛季轨迹
     const regionLedgers = (data.regionLiveStates ?? [])
       .filter((ls) => ls.available && ls.matchLedger.length > 0)
       .map((ls) => ls.matchLedger);
@@ -99,9 +111,12 @@ export function EloRankingsPage() {
         ? buildFullSeasonTrajectories(data.overview, regionLedgers, mergedTrajectories)
         : mergedTrajectories;
 
+    // 既没有决赛数据、也没有区域赛轨迹时才返回 null
+    if (!hasFinalsData && Object.keys(fullSeasonTrajectories).length === 0) return null;
+
     return {
-      repechage: simulation.repechage.finalEloByTeamKey,
-      nationals: simulation.nationals.finalEloByTeamKey,
+      repechage: repechageElo,
+      nationals: nationalsElo,
       eloTrajectoryByTeamKey: fullSeasonTrajectories,
     };
   }, [data.overview, data.repechage, data.nationals, data.regionLiveStates]);
