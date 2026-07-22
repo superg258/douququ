@@ -9,6 +9,7 @@ import { buildTeamHref } from "@/lib/team-profile";
 import { formatShortDateTimeLabel } from "@/lib/time-format";
 import type {
   FinalEventResponse,
+  FinalEventSchedule,
   FinalEventSlug,
   OverviewResponse,
   OverviewTeam,
@@ -19,6 +20,13 @@ import { cn } from "@/lib/utils";
 /** 解析 ?event= 参数；缺省或非法时回退到全国赛（移动端默认激活 tab） */
 export function resolveFinalEventParam(value: string | null): FinalEventSlug {
   return value === "repechage" || value === "nationals" ? value : "nationals";
+}
+
+/** 赛事规模优先使用正式赛制容量；名单数量只表示当前已确认队伍。 */
+export function resolveFinalEventFieldSize(
+  event: Pick<FinalEventSchedule, "fieldCapacity" | "participantCount">,
+) {
+  return event.fieldCapacity ?? event.participantCount;
 }
 
 interface FinalsEloRankingRow {
@@ -167,11 +175,12 @@ function buildRankingSection(
     eventRank: index + 1,
   }));
   const meta = EVENT_META[event.slug];
+  const fieldSize = resolveFinalEventFieldSize(event);
   const qualifierCount = event.slug === "nationals"
     ? Math.max(0, rankedRows.length - event.confirmedParticipantCount)
     : 0;
   const eventSummary = [
-    `${rankedRows.length} 支队伍`,
+    `${fieldSize} 支队伍`,
     event.slug === "nationals" && qualifierCount > 0
       ? `含复活赛晋级 ${qualifierCount} 支`
       : `${event.confirmedParticipantCount} 支已确认`,
@@ -186,7 +195,7 @@ function buildRankingSection(
     label: meta.label,
     eyebrow: eventSummary,
     statusLabel: event.statusLabel,
-    expectedCount: rankedRows.length,
+    expectedCount: fieldSize,
     unmatchedCount: Math.max(confirmedParticipants.length - rankedRows.length, 0),
     verifiedAt: response.verifiedAt,
     generatedAt: overview.generatedAt,
