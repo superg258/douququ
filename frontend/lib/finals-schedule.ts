@@ -1,8 +1,10 @@
 import type {
   FinalEventMatch,
   FinalEventParticipant,
+  FinalEventResponse,
   FinalEventSchedule,
   FinalEventSlug,
+  FinalEventsSnapshotResponse,
   FinalEventStageFilter,
   OverviewResponse,
 } from "@/lib/types";
@@ -19,6 +21,111 @@ const DRAW_TIER_ORDER = [
 const DRAW_SLOT_PATTERN = /^(?:(?:[ⅠⅡⅢⅣⅤIVX]+)\s*-\s*)?[AB]\s*-?\s*\d+$/u;
 const DERIVED_SLOT_PATTERN = /(?:胜者|败者|决赛|半决赛|待确认|待定|槽位|名额)/u;
 const NATIONALS_FIELD_CAPACITY = 32;
+
+export function hasOfficialFinalSchedule(response: FinalEventResponse) {
+  return response.liveStatus?.isSynthetic !== true
+    && response.event.matches.some((match) => Boolean(match.officialMatchId));
+}
+
+function findNextOfficialMatch(
+  events: Record<FinalEventSlug, FinalEventResponse>,
+  now: string,
+): { eventSlug: FinalEventSlug; match: FinalEventMatch } | null {
+  let bestMatch: FinalEventMatch | null = null;
+  let bestEventSlug: FinalEventSlug | null = null;
+
+  for (const eventSlug of ["repechage", "nationals"] as const) {
+    const response = events[eventSlug];
+    if (!response) continue;
+    for (const match of response.event.matches) {
+      if (!match.officialMatchId) continue;
+      if (match.startsAt < now) continue;
+      if (!bestMatch || match.startsAt < bestMatch.startsAt) {
+        bestMatch = match;
+        bestEventSlug = eventSlug;
+      }
+    }
+  }
+
+  return bestMatch && bestEventSlug
+    ? { eventSlug: bestEventSlug, match: bestMatch }
+    : null;
+}
+
+function matchToStageFilter(match: FinalEventMatch): FinalEventStageFilter | null {
+  if (match.stageKey === "swiss") {
+    const trimmed = match.stage.trimStart();
+    if (trimmed.startsWith("A组") || trimmed.startsWith("A 组")) return "swiss-a";
+    if (trimmed.startsWith("B组") || trimmed.startsWith("B 组")) return "swiss-b";
+    return null;
+  }
+  if (match.stageKey === "repechage_qualification") return "qualification";
+  if (match.stageKey === "round_of_16") return "round-of-16";
+  if (match.stageKey === "quarterfinal") return "quarterfinal";
+  if (match.stageKey === "semifinal" || match.stageKey === "third_place" || match.stageKey === "final") return "final-four";
+  return null;
+}
+
+export function buildFinalsCanvasEntry(
+  snapshot: FinalEventsSnapshotResponse | null | undefined,
+  now?: string,
+) {
+  if (snapshot === undefined) {
+    return {
+      href: "/forecast-center?event=repechage",
+      label: "进入复活赛对阵图",
+      statusLabel: "正在确认赛程",
+    };
+  }
+  if (snapshot === null) {
+    return {
+      href: "/forecast-center?event=repechage",
+      label: "进入复活赛对阵图",
+      statusLabel: "赛程状态待确认",
+    };
+  }
+
+  const effectiveNow = now ?? new Date().toISOString();
+  const next = findNextOfficialMatch(snapshot.events, effectiveNow);
+
+  if (next) {
+    const eventName = next.eventSlug === "repechage" ? "复活赛" : "全国赛";
+    const stageFilter = matchToStageFilter(next.match);
+    const stageOption = stageFilter
+      ? FINAL_STAGE_OPTIONS[next.eventSlug].find((option) => option.id === stageFilter)
+      : undefined;
+    const stageParam = stageFilter ? `&stage=${stageFilter}` : "";
+    return {
+      href: `/forecast-center?event=${next.eventSlug}&mode=live${stageParam}`,
+      label: stageOption
+        ? `进入${eventName} · ${stageOption.label}`
+        : `进入${eventName}实时对阵图`,
+      statusLabel: "下一场",
+    };
+  }
+
+  // No upcoming official match — check if any event has an official schedule at all.
+  // Nationals always follows repechage, so when both have schedules but all
+  // matches are past, prefer nationals (the more recent event).
+  for (const eventSlug of ["nationals", "repechage"] as const) {
+    const response = snapshot.events[eventSlug];
+    if (response && hasOfficialFinalSchedule(response)) {
+      const eventName = eventSlug === "repechage" ? "复活赛" : "全国总决赛";
+      return {
+        href: `/forecast-center?event=${eventSlug}&mode=live`,
+        label: `进入${eventName}实时对阵图`,
+        statusLabel: "官方赛程 · 实时",
+      };
+    }
+  }
+
+  // No official schedule anywhere — default to repechage simulation.
+  return {
+    href: "/forecast-center?event=repechage&mode=sim",
+    label: "进入复活赛模拟对阵图",
+    statusLabel: null,
+  };
+}
 
 export function isActualSchoolName(value: string | null | undefined) {
   const normalized = value?.trim() ?? "";

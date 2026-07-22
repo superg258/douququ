@@ -18,12 +18,13 @@ import { translateConfidenceLabel, translateStageLabel } from "@/lib/display";
 import { buildFinalsWorkspaceStage } from "@/lib/finals-canvas";
 import { buildFinalsMatchRow, resolveFinalsTeamRating } from "@/lib/finals-match-adapter";
 import { hasOfficialFinalMatchData, simulateFinalsEvents, simulateFinalsLiveEvents } from "@/lib/finals-simulation";
-import { DEFAULT_SEED, REGION_ORDER, buildRegionHref, getOrCreateSessionSeed, parseSeed, refreshSessionSeed } from "@/lib/region-config";
+import { DEFAULT_SEED, REGION_ORDER, buildRegionHref, getOrCreateSessionSeed, isRegionRealtimeEnabled, parseSeed, refreshSessionSeed } from "@/lib/region-config";
 import { LIVE_REFRESH_INTERVAL_MS, startRealtimePolling } from "@/lib/realtime-polling";
 import {
   FINAL_STAGE_OPTIONS,
   formatFinalsDateRange,
   getRepechageSwissMatchHint,
+  hasOfficialFinalSchedule,
   matchesForFinalStage,
   projectFinalsStageProbabilities,
   rankFinalEventParticipantsByCurrentElo,
@@ -64,10 +65,12 @@ export function ForecastCenterPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  // URL 即状态源：响应浏览器前进/后退；旧链接 view=bracket / view=matches 一律并入实时模式
+  // URL 即状态源：显式 mode 保持用户选择；未指定时先探测正式赛程，再写回首选画布。
   const requestedEvent = searchParams.get("event");
   const eventSlug: FinalEventSlug = isFinalEventSlug(requestedEvent) ? requestedEvent : "repechage";
-  const mode: ForecastMode = searchParams.get("mode") === "sim" ? "sim" : "live";
+  const requestedMode = searchParams.get("mode");
+  const explicitMode: ForecastMode | null = requestedMode === "live" || requestedMode === "sim" ? requestedMode : null;
+  const mode: ForecastMode = explicitMode ?? "live";
   const requestedStage = searchParams.get("stage") as FinalEventStageFilter | null;
   const stage: FinalEventStageFilter =
     requestedStage && FINAL_STAGE_OPTIONS[eventSlug].some((item) => item.id === requestedStage)
@@ -78,6 +81,7 @@ export function ForecastCenterPage() {
   const seed = parsedSeed ?? sessionSeed;
   const [seedDraft, setSeedDraft] = useState("");
   const [events, setEvents] = useState<Partial<Record<FinalEventSlug, FinalEventResponse>>>({});
+  const [eventsMode, setEventsMode] = useState<ForecastMode | null>(null);
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
   const [selection, setSelection] = useState<InspectorSelection | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -122,6 +126,7 @@ export function ForecastCenterPage() {
         .then((snapshot) => {
           if (canceled) return;
           setEvents(snapshot.events);
+          setEventsMode(snapshot.mode);
           setEventErrors({});
         })
         .catch((reason) => {
@@ -141,6 +146,16 @@ export function ForecastCenterPage() {
       stopPolling();
     };
   }, [eventsReloadKey, mode]);
+
+  useEffect(() => {
+    if (explicitMode || eventsMode !== "live") return;
+    const liveEvent = events[eventSlug];
+    if (!liveEvent) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("mode", hasOfficialFinalSchedule(liveEvent) ? "live" : "sim");
+    params.delete("seed");
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [eventSlug, events, eventsMode, explicitMode, pathname, router, searchParams]);
 
   // 概览数据：失败不阻塞页面，情报/概率降级为 "--"
   useEffect(() => {
@@ -351,7 +366,8 @@ export function ForecastCenterPage() {
   const chooseEvent = (nextEvent: FinalEventSlug) => {
     const nextStage = defaultStage(nextEvent);
     closeInspector();
-    updateDeepLink(nextEvent, mode, nextStage, seed);
+    const params = new URLSearchParams({ event: nextEvent, stage: nextStage });
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
   const chooseMode = (nextMode: ForecastMode) => {
     const nextSeed = nextMode === "sim" ? (seed ?? getOrCreateSessionSeed()) : seed;
@@ -384,7 +400,7 @@ export function ForecastCenterPage() {
       </div>
     );
   }
-  if (!current || !workspace || (mode === "sim" && !currentSimulation && !overviewError)) {
+  if (!explicitMode || eventsMode !== mode || !current || !workspace || (mode === "sim" && !currentSimulation && !overviewError)) {
     return (
       <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-rm-metal-canvas animate-pulse">
         <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-rm-blue/30 border-t-rm-blue" />
@@ -460,7 +476,12 @@ export function ForecastCenterPage() {
             value={eventSlug}
             onChange={(nextCompetition) => {
               if (isRegionCompetition(nextCompetition)) {
-                router.push(buildRegionHref(nextCompetition, "playoff"));
+                const liveStatus = overview?.regions.find((region) => region.regionSlug === nextCompetition)?.liveStatus;
+                const nextMode = isRegionRealtimeEnabled(nextCompetition, liveStatus) ? "live" : "sim";
+                router.push(buildRegionHref(nextCompetition, "playoff", {
+                  mode: nextMode,
+                  seed: nextMode === "sim" ? (seed ?? getOrCreateSessionSeed()) : null,
+                }));
                 return;
               }
               chooseEvent(nextCompetition);

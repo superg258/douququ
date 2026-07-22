@@ -6,16 +6,18 @@ import { buildFinalsWorkspaceStage } from "@/lib/finals-canvas";
 import { buildFinalsMatchRow } from "@/lib/finals-match-adapter";
 import {
   buildFinalEventDays,
+  buildFinalsCanvasEntry,
   buildRepechageSwissFlow,
   groupParticipantsByTier,
   getRepechageSwissMatchHint,
   hasActualFinalMatchup,
+  hasOfficialFinalSchedule,
   isActualSchoolName,
   matchesForFinalStage,
   projectFinalsStageProbabilities,
   rankFinalEventParticipantsByCurrentElo,
 } from "@/lib/finals-schedule";
-import type { FinalEventMatch, FinalEventSchedule, OverviewResponse, OverviewTeam, TeamCanvasCard } from "@/lib/types";
+import type { FinalEventMatch, FinalEventResponse, FinalEventsSnapshotResponse, FinalEventSchedule, OverviewResponse, OverviewTeam, TeamCanvasCard } from "@/lib/types";
 
 function match(number: number, startsAt: string, stage: string, overrides: Partial<FinalEventMatch> = {}): FinalEventMatch {
   return {
@@ -57,6 +59,164 @@ function event(matches: FinalEventMatch[]): FinalEventSchedule {
 }
 
 describe("finals schedule helpers", () => {
+  it("prefers the live canvas only when a non-synthetic official schedule exists", () => {
+    const base = {
+      schemaVersion: 1,
+      season: 2026,
+      timezone: "Asia/Shanghai",
+      timezoneLabel: "北京时间",
+      scheduleStatus: "official_schedule_draw_pending",
+      verifiedAt: "2026-07-22T00:00:00+08:00",
+      sources: [],
+      event: event([]),
+    } as FinalEventResponse;
+
+    expect(hasOfficialFinalSchedule(base)).toBe(false);
+    expect(hasOfficialFinalSchedule({
+      ...base,
+      liveStatus: { isSynthetic: false } as FinalEventResponse["liveStatus"],
+      event: event([match(1, "2026-07-31T10:00:00+08:00", "A组瑞士轮第一轮", { officialMatchId: "30900" })]),
+    })).toBe(true);
+    expect(hasOfficialFinalSchedule({
+      ...base,
+      liveStatus: { isSynthetic: true } as FinalEventResponse["liveStatus"],
+      event: event([match(1, "2026-07-31T10:00:00+08:00", "A组瑞士轮第一轮", { officialMatchId: "synthetic-1" })]),
+    })).toBe(false);
+  });
+  it("builds explicit homepage entries for live and simulated finals canvases", () => {
+    const baseRepechage = {
+      schemaVersion: 1,
+      season: 2026,
+      timezone: "Asia/Shanghai" as const,
+      timezoneLabel: "北京时间",
+      scheduleStatus: "official_schedule_draw_pending",
+      verifiedAt: "2026-07-22T00:00:00+08:00",
+      sources: [],
+      event: event([]),
+    } as FinalEventResponse;
+
+    const baseNationals = {
+      ...baseRepechage,
+      event: {
+        ...event([]),
+        slug: "nationals" as const,
+        name: "全国赛",
+        shortName: "全国赛",
+        eyebrow: "RMUC 2026",
+        statusLabel: "抽签待公布",
+      },
+    } as FinalEventResponse;
+
+    function snapshot(repechage: FinalEventResponse, nationals: FinalEventResponse): FinalEventsSnapshotResponse {
+      return {
+        schemaVersion: 1,
+        season: 2026,
+        mode: "live",
+        runtimeArtifactVersion: "test",
+        events: { repechage, nationals },
+      };
+    }
+
+    const testNow = "2026-07-22T12:00:00+08:00";
+
+    // No official schedule → sim mode, no status badge.
+    expect(buildFinalsCanvasEntry(snapshot(baseRepechage, baseNationals), testNow)).toEqual({
+      href: "/forecast-center?event=repechage&mode=sim",
+      label: "进入复活赛模拟对阵图",
+      statusLabel: null,
+    });
+
+    // Has official schedule with upcoming match → deep link to the stage.
+    const liveRepechage = {
+      ...baseRepechage,
+      event: event([
+        match(1, "2026-07-31T10:00:00+08:00", "B组瑞士轮第一轮（BO3）", {
+          officialMatchId: "30900",
+          stageKey: "swiss" as const,
+        }),
+      ]),
+    };
+    expect(buildFinalsCanvasEntry(snapshot(liveRepechage, baseNationals), testNow)).toEqual({
+      href: "/forecast-center?event=repechage&mode=live&stage=swiss-b",
+      label: "进入复活赛 · B 组瑞士轮",
+      statusLabel: "下一场",
+    });
+
+    // Has official schedule but all matches in the past → live mode, no stage param.
+    const pastRepechage = {
+      ...baseRepechage,
+      event: event([
+        match(1, "2026-07-20T10:00:00+08:00", "A组瑞士轮第一轮（BO3）", {
+          officialMatchId: "30901",
+          stageKey: "swiss" as const,
+        }),
+      ]),
+    };
+    expect(buildFinalsCanvasEntry(snapshot(pastRepechage, baseNationals), testNow)).toEqual({
+      href: "/forecast-center?event=repechage&mode=live",
+      label: "进入复活赛实时对阵图",
+      statusLabel: "官方赛程 · 实时",
+    });
+
+    // Nationals next match takes priority when it is the earliest.
+    const bothLive = {
+      ...baseRepechage,
+      event: event([
+        match(1, "2026-08-05T10:00:00+08:00", "A组瑞士轮第一轮（BO3）", {
+          officialMatchId: "30902",
+          stageKey: "swiss" as const,
+        }),
+      ]),
+    };
+    const liveNationals = {
+      ...baseNationals,
+      event: {
+        ...event([]),
+        slug: "nationals" as const,
+        name: "全国赛",
+        shortName: "全国赛",
+        eyebrow: "RMUC 2026",
+        statusLabel: "抽签待公布",
+        matches: [
+          match(79, "2026-08-04T09:00:00+08:00", "16 进 8 首轮（BO5）", {
+            officialMatchId: "30910",
+            stageKey: "round_of_16" as const,
+          }),
+        ],
+      },
+    };
+    expect(buildFinalsCanvasEntry(snapshot(bothLive, liveNationals), testNow)).toEqual({
+      href: "/forecast-center?event=nationals&mode=live&stage=round-of-16",
+      label: "进入全国赛 · 16 进 8",
+      statusLabel: "下一场",
+    });
+
+    // Both events have schedules but all matches are past → prefer nationals
+    // (the more recent event chronologically).
+    const pastNationals = {
+      ...baseNationals,
+      event: {
+        ...event([]),
+        slug: "nationals" as const,
+        name: "全国赛",
+        shortName: "全国赛",
+        eyebrow: "RMUC 2026",
+        statusLabel: "抽签待公布",
+        matches: [
+          match(95, "2026-08-08T10:00:00+08:00", "决赛（BO5）", {
+            officialMatchId: "30920",
+            stageKey: "final" as const,
+          }),
+        ],
+      },
+    };
+    const afterAll = "2026-08-10T12:00:00+08:00";
+    expect(buildFinalsCanvasEntry(snapshot(pastRepechage, pastNationals), afterAll)).toEqual({
+      href: "/forecast-center?event=nationals&mode=live",
+      label: "进入全国总决赛实时对阵图",
+      statusLabel: "官方赛程 · 实时",
+    });
+  });
   it("maps completed official finals matches into real result rows", () => {
     const payload = event([]);
     payload.participants = [

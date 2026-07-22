@@ -6,16 +6,12 @@ import { OverviewHero } from "@/components/overview-hero";
 
 describe("OverviewHero", () => {
   it("keeps the homepage focused on official finals content", () => {
-    const html = renderToStaticMarkup(
-      createElement(OverviewHero, {
-        nextMatchHref: "/forecast-center?event=repechage&mode=live",
-        ctaLabel: "查看复活赛赛程",
-      })
-    );
+    const html = renderToStaticMarkup(createElement(OverviewHero));
 
     expect(html).toContain("复活赛 · 全国赛 赛程与预测");
-    expect(html).toContain("/forecast-center?event=repechage&amp;mode=live");
-    expect(html).toContain("查看复活赛赛程");
+    expect(html).toContain("/forecast-center?event=repechage");
+    expect(html).toContain("进入复活赛对阵图");
+    expect(html).toContain("正在确认赛程");
     expect(html).not.toContain("系统运行正常");
     expect(html).not.toContain("服务响应");
     expect(html).not.toContain("模型产物");

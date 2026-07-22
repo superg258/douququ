@@ -480,7 +480,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
           onRegionChange(nextCompetition);
           return;
         }
-        router.push(`/forecast-center?event=${nextCompetition}&mode=live`);
+        router.push(`/forecast-center?event=${nextCompetition}`);
       }}
     />
   );

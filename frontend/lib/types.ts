@@ -850,6 +850,9 @@ export interface FinalEventMatch {
   endTime: string;
   startsAt: string;
   endsAt: string;
+  officialMatchId?: string | null;
+  sourceKind?: "official" | "synthetic" | null;
+  isSynthetic?: boolean;
   officialStatus?: string | null;
   isCompleted?: boolean;
   isConfirmedMatchup?: boolean;

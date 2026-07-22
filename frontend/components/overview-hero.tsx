@@ -1,5 +1,5 @@
 // frontend/components/overview-hero.tsx
-import Link from "next/link";
+import { FinalsCanvasEntryLink } from "@/components/finals-canvas-entry-link";
 import { NextMatchBrief } from "@/components/next-match-brief";
 
 const GOLD_PARTICLE_COLORS = [
@@ -28,13 +28,7 @@ const GOLDEN_RAIN_PARTICLES = Array.from({ length: 50 }, (_, index) => {
   };
 });
 
-export function OverviewHero({
-  nextMatchHref,
-  ctaLabel = "查看赛事赛程",
-}: {
-  nextMatchHref: string;
-  ctaLabel?: string;
-}) {
+export function OverviewHero() {
   return (
     <div>
       <div className="relative">
@@ -182,12 +176,9 @@ export function OverviewHero({
 
               <NextMatchBrief />
 
-              <Link
-                href={nextMatchHref}
+              <FinalsCanvasEntryLink
                 className="inline-flex w-full items-center justify-center border border-rm-red/60 bg-rm-red/15 px-4 py-2.5 font-mono text-sm font-bold tracking-wider text-rm-red shadow-[0_0_10px_rgba(232,48,42,0.2)] transition-all hover:bg-rm-red hover:text-white hover:shadow-[0_0_20px_rgba(232,48,42,0.4)] active:scale-[0.98]"
-              >
-                {ctaLabel}
-              </Link>
+              />
             </div>
           </div>
         </div>
