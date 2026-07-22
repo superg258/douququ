@@ -7,9 +7,22 @@ import {
 } from "@/lib/realtime";
 import type { LiveStateResponse, MiniProgramPrediction } from "@/lib/types";
 
+const activeSourceStatus = {
+  sourceKind: "official" as const,
+  isSynthetic: false,
+  sourceAgeSeconds: 0,
+  freshnessLabel: "fresh" as const,
+  validationState: "validated" as const,
+  scenarioId: null,
+  runtimeArtifactVersion: "runtime:test",
+  completedMatches: 0,
+  confirmedMatches: 0,
+};
+
 describe("realtime helpers", () => {
   it("describes active schedule shells separately from completed live results", () => {
     const liveState: LiveStateResponse = {
+      ...activeSourceStatus,
       available: true,
       reason: null,
       sourceStatus: "active",
@@ -57,9 +70,13 @@ describe("realtime helpers", () => {
 
   it("reports a Chinese inactive reason when the official source is not RMUC", () => {
     const liveState: LiveStateResponse = {
+      ...activeSourceStatus,
       available: false,
       reason: "当前官方 live_json 不是 RMUC 超级对抗赛",
       sourceStatus: "inactive",
+      sourceAgeSeconds: null,
+      freshnessLabel: "unknown",
+      validationState: "inactive",
       sourceReason: "当前官方 live_json 不是 RMUC 超级对抗赛",
       regionSlug: "south_region",
       regionName: "南部赛区",
@@ -102,6 +119,7 @@ describe("realtime helpers", () => {
 
   it("changes the live simulation refresh key when runtime artifacts change without count changes", () => {
     const liveState: LiveStateResponse = {
+      ...activeSourceStatus,
       available: true,
       reason: null,
       sourceStatus: "active",

@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { FinalsEloRankings } from "@/components/finals-elo-rankings";
 import { RankingsHero } from "@/components/rankings-hero";
 import { ErrorPanel } from "@/components/ui/async-state";
-import { getFinalEvent, getLiveState, getOverview } from "@/lib/api";
+import { getFinalEvents, getLiveState, getOverview } from "@/lib/api";
 import { buildFullSeasonTrajectories } from "@/lib/elo-trajectory";
 import { hasOfficialFinalMatchData, simulateFinalsLiveEvents } from "@/lib/finals-simulation";
 import { DEFAULT_SEED, REGION_ORDER } from "@/lib/region-config";
@@ -33,24 +33,22 @@ export function EloRankingsPage() {
     const load = () => {
       Promise.allSettled([
         getOverview(),
-        getFinalEvent("repechage"),
-        getFinalEvent("nationals"),
+        getFinalEvents("live"),
         ...REGION_ORDER.map((slug) => getLiveState(slug)),
       ]).then((results) => {
         if (signal.aborted) return;
-        const [overviewResult, repechageResult, nationalsResult, ...liveStateResults] = results;
+        const [overviewResult, finalsResult, ...liveStateResults] = results;
         const nextErrors: string[] = [];
         setData((current) => ({
           overview: overviewResult.status === "fulfilled" ? overviewResult.value : current.overview,
-          repechage: repechageResult.status === "fulfilled" ? repechageResult.value : current.repechage,
-          nationals: nationalsResult.status === "fulfilled" ? nationalsResult.value : current.nationals,
+          repechage: finalsResult.status === "fulfilled" ? finalsResult.value.events.repechage : current.repechage,
+          nationals: finalsResult.status === "fulfilled" ? finalsResult.value.events.nationals : current.nationals,
           regionLiveStates: liveStateResults
             .map((r) => (r.status === "fulfilled" ? r.value : null))
             .filter((v): v is LiveStateResponse => v !== null),
         }));
         if (overviewResult.status === "rejected") nextErrors.push("战力数据");
-        if (repechageResult.status === "rejected") nextErrors.push("复活赛名单");
-        if (nationalsResult.status === "rejected") nextErrors.push("全国赛名单");
+        if (finalsResult.status === "rejected") nextErrors.push("全国赛阶段数据");
         if (liveStateResults.every((r) => r.status === "rejected")) nextErrors.push("区域赛实时数据");
         setErrors(nextErrors);
       });

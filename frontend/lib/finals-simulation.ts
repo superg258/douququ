@@ -293,10 +293,8 @@ function simulateEvent(
   const eloByTeamKey = new Map(
     rankFinalEventParticipantsByCurrentElo(participants, overview).map((row) => [row.teamKey, row.currentElo]),
   );
-  for (const [pairKey, prediction] of Object.entries(event.predictionMatrix ?? {})) {
-    const [redKey, blueKey] = pairKey.split("|||");
-    if (redKey) eloByTeamKey.set(redKey, prediction.redCurrentElo);
-    if (blueKey) eloByTeamKey.set(blueKey, prediction.blueCurrentElo);
+  for (const [teamKey, rating] of Object.entries(event.teamRatingIndex)) {
+    eloByTeamKey.set(teamKey, rating.currentElo);
   }
   for (const [teamKey, elo] of options.initialEloByTeamKey ?? []) eloByTeamKey.set(teamKey, elo);
 

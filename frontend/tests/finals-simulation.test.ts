@@ -76,6 +76,7 @@ function buildEvent(slug: FinalEventSlug): FinalEventSchedule {
     participants,
     drawRules: raw.drawRules,
     matches,
+    teamRatingIndex: {},
   };
 }
 
@@ -300,21 +301,12 @@ describe("finals sandbox simulation", () => {
   it("uses backend current Elo as the starting point and recomputes finals probability", () => {
     const red = nationals.participants[0];
     const blue = nationals.participants[1];
-    const matrixKey = `${red.teamKey}|||${blue.teamKey}`;
     const liveEvent: FinalEventSchedule = {
       ...nationals,
       predictionBasis: "finals_sequential_elo",
-      predictionMatrix: {
-        [matrixKey]: {
-          pGameRed: 0.91,
-          pSeriesRed: 0.977,
-          predictedScoreline: "2:0",
-          deltaH2H: 0,
-          confidenceLabel: "high",
-          redCurrentElo: 1700,
-          blueCurrentElo: 1650,
-          predictionBasis: "finals_initial_elo",
-        },
+      teamRatingIndex: {
+        [red.teamKey]: { currentElo: 1700, preseasonElo: 1680, eloRankSource: "live" },
+        [blue.teamKey]: { currentElo: 1650, preseasonElo: 1640, eloRankSource: "live" },
       },
       matches: nationals.matches.map((match) => match.number === 1 ? {
         ...match,

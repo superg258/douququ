@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import csv
-import json
 import math
 import os
 import sys
@@ -9,12 +7,30 @@ from datetime import UTC, datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from functools import lru_cache
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 from urllib.parse import unquote
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-
+from .artifacts import (
+    artifact_version,
+    clear_versioned_csv_cache,
+    clear_versioned_json_cache,
+    path_signature,
+    read_versioned_csv_rows,
+    read_versioned_json,
+    read_versioned_json_if_exists,
+)
+from .competition import (
+    RequestParameterError,
+    UnknownResourceError,
+    build_live_source_status,
+    swiss_match_number,
+)
+from .team_identity import (
+    DEFAULT_TEAM_RATINGS_PATH,
+    load_rating_rows as load_shared_rating_rows,
+    resolve_team_identity,
+)
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS_DIR = ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
@@ -32,7 +48,7 @@ PREMATCH_OVERPERFORMER_ELO_DELTA_CUTOFF = 50.0
 REGION_SLUG_ORDER = ["south_region", "east_region", "north_region"]
 REGION_SLUG_ORDER_INDEX = {region_slug: index for index, region_slug in enumerate(REGION_SLUG_ORDER)}
 REGION_SLUG_TO_NAME = {config["slug"]: region for region, config in region_sim.REGION_CONFIGS.items()}
-PRESEASON_RATINGS_CSV = ts2_model.DERIVED_DIR / "preseason_ratings.csv"
+PRESEASON_RATINGS_CSV = DEFAULT_TEAM_RATINGS_PATH
 PUBLISHED_RATINGS_DIR = ts2_model.DERIVED_DIR / "published_2026"
 REGION_SIM_DIR = ts2_model.ROOT / "data" / "derived" / "2026_rmuc_region_simulations"
 RUNTIME_LIVE_DIR = ROOT / "data" / "runtime" / "rmuc_live"
@@ -43,38 +59,34 @@ RUNTIME_PUBLISHED_RATINGS_DIR = RUNTIME_LIVE_DIR / "published_2026"
 MINI_PROGRAM_CLIENT = rmuc_live.MiniProgramPredictionClient()
 
 
-def _read_csv(path: Path) -> list[dict[str, str]]:
-    with path.open(encoding="utf-8-sig", newline="") as handle:
-        return list(csv.DictReader(handle))
+class UnknownRegionError(UnknownResourceError):
+    resource_name = "region"
 
 
-def _read_json(path: Path) -> Any:
-    with path.open(encoding="utf-8") as handle:
-        return json.load(handle)
+class UnknownTeamError(UnknownResourceError):
+    resource_name = "team"
 
 
-def _path_signature(path: Path) -> tuple[str, int, int]:
-    try:
-        stat = path.stat()
-    except FileNotFoundError:
-        return (str(path), 0, -1)
-    return (str(path), stat.st_mtime_ns, stat.st_size)
-
-
-@lru_cache(maxsize=1)
 def load_ratings_rows() -> list[dict[str, str]]:
-    return _read_csv(PRESEASON_RATINGS_CSV)
+    return load_shared_rating_rows(PRESEASON_RATINGS_CSV)
+
+
+load_ratings_rows.cache_clear = load_shared_rating_rows.cache_clear  # type: ignore[attr-defined]
 
 
 def _school_key_from_rating_row(row: dict[str, str]) -> str:
     school_key = str(row.get("school_key") or "")
     if school_key:
         return school_key
-    return rmuc_live.legacy_elo.make_school_key(str(row["college_name"]))
+    return str(resolve_team_identity(row["college_name"], row.get("team_name"))["schoolKey"])
 
 
-@lru_cache(maxsize=1)
-def load_preseason_global_elo_rank_map() -> dict[str, int]:
+@lru_cache(maxsize=8)
+def _load_preseason_global_elo_rank_map_cached(
+    _ratings_path_text: str,
+    _ratings_mtime_ns: int,
+    _ratings_size: int,
+) -> dict[str, int]:
     rows = sorted(
         load_ratings_rows(),
         key=lambda row: (
@@ -86,14 +98,26 @@ def load_preseason_global_elo_rank_map() -> dict[str, int]:
     return {row["team_key"]: index for index, row in enumerate(rows, start=1)}
 
 
+def load_preseason_global_elo_rank_map() -> dict[str, int]:
+    return _load_preseason_global_elo_rank_map_cached(*path_signature(PRESEASON_RATINGS_CSV))
+
+
+load_preseason_global_elo_rank_map.cache_clear = (  # type: ignore[attr-defined]
+    _load_preseason_global_elo_rank_map_cached.cache_clear
+)
+
+
 @lru_cache(maxsize=8)
 def _load_current_rating_index_cached(
     snapshot_path_text: str,
     snapshot_mtime_ns: int,
     snapshot_size: int,
+    _ratings_path_text: str,
+    _ratings_mtime_ns: int,
+    _ratings_size: int,
 ) -> dict[str, dict[str, Any]]:
     snapshot_path = Path(snapshot_path_text)
-    snapshot_rows = _read_json_if_exists(snapshot_path)
+    snapshot_rows = read_versioned_json_if_exists(snapshot_path)
     snapshot_by_school_key: dict[str, dict[str, Any]] = {}
     if isinstance(snapshot_rows, list):
         snapshot_by_school_key = {
@@ -136,7 +160,10 @@ def _load_current_rating_index_cached(
 
 def load_current_rating_index() -> dict[str, dict[str, Any]]:
     snapshot_path = _published_current_snapshot_path_for(RUNTIME_PUBLISHED_RATINGS_DIR)
-    return _load_current_rating_index_cached(*_path_signature(snapshot_path))
+    return _load_current_rating_index_cached(
+        *path_signature(snapshot_path),
+        *path_signature(PRESEASON_RATINGS_CSV),
+    )
 
 
 load_current_rating_index.cache_clear = _load_current_rating_index_cached.cache_clear  # type: ignore[attr-defined]
@@ -147,6 +174,9 @@ def _load_global_elo_rank_map_cached(
     snapshot_path_text: str,
     snapshot_mtime_ns: int,
     snapshot_size: int,
+    _ratings_path_text: str,
+    _ratings_mtime_ns: int,
+    _ratings_size: int,
 ) -> dict[str, int]:
     current_rows = sorted(
         load_current_rating_index().values(),
@@ -160,7 +190,10 @@ def _load_global_elo_rank_map_cached(
 
 def load_global_elo_rank_map() -> dict[str, int]:
     snapshot_path = _published_current_snapshot_path_for(RUNTIME_PUBLISHED_RATINGS_DIR)
-    return _load_global_elo_rank_map_cached(*_path_signature(snapshot_path))
+    return _load_global_elo_rank_map_cached(
+        *path_signature(snapshot_path),
+        *path_signature(PRESEASON_RATINGS_CSV),
+    )
 
 
 load_global_elo_rank_map.cache_clear = _load_global_elo_rank_map_cached.cache_clear  # type: ignore[attr-defined]
@@ -206,12 +239,12 @@ def _rating_fields_for_team(
 
 
 def compute_team_key(college_name: str, team_name: str) -> str:
-    return ts2_model.make_team_key(college_name, team_name)
+    return str(resolve_team_identity(college_name, team_name)["teamKey"])
 
 
 def resolve_region_name(region_slug: str) -> str:
     if region_slug not in REGION_SLUG_TO_NAME:
-        raise KeyError(region_slug)
+        raise UnknownRegionError(region_slug)
     return REGION_SLUG_TO_NAME[region_slug]
 
 
@@ -223,14 +256,18 @@ def region_summary_path(region_slug: str) -> Path:
     return REGION_SIM_DIR / region_slug / "monte_carlo_summary.json"
 
 
-@lru_cache(maxsize=8)
 def load_region_probability_rows(region_slug: str) -> list[dict[str, str]]:
-    return _read_csv(region_probability_path(region_slug))
+    return read_versioned_csv_rows(region_probability_path(region_slug))
 
 
-@lru_cache(maxsize=8)
+load_region_probability_rows.cache_clear = clear_versioned_csv_cache  # type: ignore[attr-defined]
+
+
 def load_region_summary(region_slug: str) -> dict[str, Any]:
-    return _read_json(region_summary_path(region_slug))
+    return read_versioned_json(region_summary_path(region_slug))
+
+
+load_region_summary.cache_clear = clear_versioned_json_cache  # type: ignore[attr-defined]
 
 
 def serialize_region_monte_carlo(region_slug: str) -> dict[str, Any]:
@@ -254,18 +291,6 @@ def current_generated_at() -> str:
     if not mtimes:
         return datetime.now(tz=UTC).isoformat()
     return datetime.fromtimestamp(max(mtimes), tz=UTC).isoformat()
-
-
-def published_manifest_path() -> Path:
-    return PUBLISHED_RATINGS_DIR / "published_manifest.json"
-
-
-def published_current_snapshot_path() -> Path:
-    return PUBLISHED_RATINGS_DIR / "current_snapshot.json"
-
-
-def published_live_match_ledger_path() -> Path:
-    return PUBLISHED_RATINGS_DIR / "live_match_ledger.json"
 
 
 def _published_manifest_path_for(published_dir: Path) -> Path:
@@ -300,21 +325,14 @@ def _runtime_live_artifact_version() -> str:
         _published_current_snapshot_path_for(RUNTIME_PUBLISHED_RATINGS_DIR),
         _published_live_match_ledger_path_for(RUNTIME_PUBLISHED_RATINGS_DIR),
     ]
-    return "|".join(
-        f"{Path(path_text).name}:{mtime_ns}:{size}"
-        for path_text, mtime_ns, size in (_path_signature(path) for path in paths)
-    )
-
-
-def _read_json_if_exists(path: Path) -> Any | None:
-    if not path.exists():
-        return None
-    return _read_json(path)
+    return artifact_version(paths)
 
 
 def load_normalized_live_schedule() -> dict[str, Any] | None:
-    payload = _read_json_if_exists(NORMALIZED_LIVE_SCHEDULE_PATH)
-    return payload if isinstance(payload, dict) else None
+    payload = read_versioned_json_if_exists(NORMALIZED_LIVE_SCHEDULE_PATH)
+    if payload is None:
+        return None
+    return rmuc_live.validate_normalized_schedule_payload(payload)
 
 
 def _official_schedule_match_counts(region: Any) -> tuple[int, int]:
@@ -373,7 +391,7 @@ def _mini_program_predictions_enabled() -> bool:
 def load_mini_program_predictions() -> dict[str, dict[str, Any]]:
     if not _mini_program_predictions_enabled():
         return {}
-    payload = _read_json_if_exists(MINI_PROGRAM_PREDICTIONS_PATH)
+    payload = read_versioned_json_if_exists(MINI_PROGRAM_PREDICTIONS_PATH)
     if not isinstance(payload, dict):
         return {}
     predictions = payload.get("predictions")
@@ -386,37 +404,24 @@ def load_mini_program_predictions() -> dict[str, dict[str, Any]]:
     }
 
 
-@lru_cache(maxsize=1)
-def load_published_manifest() -> dict[str, Any]:
-    return _read_json(published_manifest_path())
-
-
-@lru_cache(maxsize=1)
-def load_published_current_snapshot_rows() -> list[dict[str, Any]]:
-    return _read_json(published_current_snapshot_path())
-
-
-@lru_cache(maxsize=1)
-def load_published_live_match_ledger_rows() -> list[dict[str, Any]]:
-    return _read_json(published_live_match_ledger_path())
-
-
 def _reset_live_state_caches() -> None:
-    load_published_manifest.cache_clear()
-    load_published_current_snapshot_rows.cache_clear()
-    load_published_live_match_ledger_rows.cache_clear()
     load_current_rating_index.cache_clear()
     load_global_elo_rank_map.cache_clear()
+    load_preseason_global_elo_rank_map.cache_clear()
     _load_prediction_form_index_cached.cache_clear()
-    _build_finals_prediction_matrix_cached.cache_clear()
 
 
-def live_state_unavailable_payload(region_slug: str, reason: str) -> dict[str, Any]:
-    live_status = summarize_live_status(region_slug)
+def live_state_unavailable_payload(
+    region_slug: str,
+    reason: str,
+    *,
+    live_status: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    resolved_live_status = live_status or summarize_live_status(region_slug)
     return {
         "available": False,
         "reason": reason,
-        **live_status,
+        **resolved_live_status,
         "regionSlug": region_slug,
         "regionName": resolve_region_name(region_slug),
         "generatedAt": None,
@@ -436,11 +441,17 @@ def summarize_live_status(region_slug: str) -> dict[str, Any]:
             confirmed_count=0,
             official_schedule_count=0,
         )
+        common_status = build_live_source_status(
+            source_status="missing",
+            source_kind=None,
+            source_updated_at=None,
+            artifact_version=_runtime_live_artifact_version(),
+            completed_matches=0,
+            confirmed_matches=0,
+            source_reason="尚未同步官方实时赛程",
+        )
         return {
-            "sourceStatus": "missing",
-            "sourceReason": "尚未同步官方实时赛程",
-            "sourceUpdatedAt": None,
-            "runtimeArtifactVersion": _runtime_live_artifact_version(),
+            **common_status,
             "completedOfficialMatches": 0,
             "confirmedOfficialMatches": 0,
             "officialScheduleMatches": 0,
@@ -453,7 +464,7 @@ def summarize_live_status(region_slug: str) -> dict[str, Any]:
     source_status = str(normalized.get("sourceStatus") or "inactive")
     region = normalized.get("regions", {}).get(region_slug) if isinstance(normalized.get("regions"), dict) else None
     context = rmuc_live.LiveRuntimeContext.from_normalized(normalized, region_slug)
-    ledger = _read_json_if_exists(_published_live_match_ledger_path_for(RUNTIME_PUBLISHED_RATINGS_DIR))
+    ledger = read_versioned_json_if_exists(_published_live_match_ledger_path_for(RUNTIME_PUBLISHED_RATINGS_DIR))
     ledger_rows = len(ledger) if isinstance(ledger, list) else 0
     effective_source_status = source_status if region or source_status != "active" else "inactive"
     official_schedule_matches, official_placeholder_matches = _official_schedule_match_counts(region)
@@ -466,11 +477,22 @@ def summarize_live_status(region_slug: str) -> dict[str, Any]:
         official_schedule_count=official_schedule_matches,
     )
     source_reason = normalized.get("reason") if source_status != "active" else (None if region else "实时源未包含当前赛区")
+    common_status = build_live_source_status(
+        source_status=source_status,
+        source_kind=str(normalized.get("sourceKind") or "official"),
+        source_updated_at=normalized.get("sourceUpdatedAt") or normalized.get("fetchedAt"),
+        artifact_version=_runtime_live_artifact_version(),
+        completed_matches=completed_count,
+        confirmed_matches=confirmed_count,
+        is_synthetic=normalized.get("isSynthetic") is True,
+        source_reason=source_reason,
+        validation_state="validated" if effective_source_status == "active" else effective_source_status,
+        scenario_id=normalized.get("scenarioId"),
+        scope_present=bool(region),
+        missing_scope_reason="实时源未包含当前赛区",
+    )
     return {
-        "sourceStatus": effective_source_status,
-        "sourceReason": source_reason,
-        "sourceUpdatedAt": normalized.get("sourceUpdatedAt") or normalized.get("fetchedAt"),
-        "runtimeArtifactVersion": _runtime_live_artifact_version(),
+        **common_status,
         "completedOfficialMatches": completed_count,
         "confirmedOfficialMatches": confirmed_count,
         "officialScheduleMatches": official_schedule_matches if effective_source_status == "active" else 0,
@@ -479,6 +501,30 @@ def summarize_live_status(region_slug: str) -> dict[str, Any]:
         "liveDataLabel": _live_data_label(live_data_level, source_reason),
         "ledgerRows": ledger_rows,
         "recentError": normalized.get("reason") if source_status != "active" else None,
+    }
+
+
+def _disabled_regional_live_status() -> dict[str, Any]:
+    reason = "模拟模式未合并实时数据"
+    return {
+        **build_live_source_status(
+            source_status="inactive",
+            source_kind=None,
+            source_updated_at=None,
+            artifact_version="disabled",
+            completed_matches=0,
+            confirmed_matches=0,
+            source_reason=reason,
+            validation_state="disabled",
+        ),
+        "completedOfficialMatches": 0,
+        "confirmedOfficialMatches": 0,
+        "officialScheduleMatches": 0,
+        "officialPlaceholderMatches": 0,
+        "liveDataLevel": "inactive",
+        "liveDataLabel": _live_data_label("inactive", reason),
+        "ledgerRows": 0,
+        "recentError": None,
     }
 
 
@@ -587,22 +633,6 @@ def _optional_float(value: Any) -> float | None:
     return float(value)
 
 
-SWISS_ROUND_START_MATCH_NUMBER = {
-    1: 1,
-    2: 17,
-    3: 33,
-    4: 49,
-    5: 61,
-}
-SWISS_GROUP_MATCH_COUNT = {
-    1: 8,
-    2: 8,
-    3: 8,
-    4: 6,
-    5: 3,
-}
-
-
 def _positive_int(value: Any) -> int | None:
     try:
         number = int(value)
@@ -618,10 +648,8 @@ def _regional_match_number_from_label(match_label: str, region_slug: str) -> int
     if len(parts) == 4 and parts[0] in {"A", "B"} and parts[1] == "SWISS":
         round_number = _positive_int(parts[2])
         index = _positive_int(parts[3])
-        start = SWISS_ROUND_START_MATCH_NUMBER.get(round_number or 0)
-        group_count = SWISS_GROUP_MATCH_COUNT.get(round_number or 0)
-        if start and group_count and index is not None and index <= group_count:
-            return start + (group_count if parts[0] == "B" else 0) + index - 1
+        if round_number is not None and index is not None:
+            return swiss_match_number(round_number, parts[0], index)
 
     if len(parts) == 2:
         stage, index_text = parts
@@ -656,6 +684,7 @@ def _serialize_simulation(
     simulation: dict[str, Any],
     *,
     include_current_ratings: bool = False,
+    live_status: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     region_name = resolve_region_name(region_slug)
     monte_carlo = serialize_region_monte_carlo(region_slug)
@@ -836,7 +865,7 @@ def _serialize_simulation(
             "nationalSlots": int(summary["configuration"]["national_slots"]),
             "repechageSlots": int(summary["configuration"]["repechage_slots"]),
             "monteCarlo": monte_carlo,
-            "liveStatus": summarize_live_status(region_slug),
+            "liveStatus": live_status or summarize_live_status(region_slug),
         },
         "slots": slots,
         "groupRankings": group_rankings,
@@ -876,6 +905,7 @@ def build_live_state_payload(region_slug: str) -> dict[str, Any]:
         return live_state_unavailable_payload(
             region_slug,
             str(live_status.get("sourceReason") or "实时赛程源未激活"),
+            live_status=live_status,
         )
 
     published_dir = RUNTIME_PUBLISHED_RATINGS_DIR
@@ -883,16 +913,24 @@ def build_live_state_payload(region_slug: str) -> dict[str, Any]:
     current_snapshot = _published_current_snapshot_path_for(published_dir)
     live_ledger = _published_live_match_ledger_path_for(published_dir)
     if not (manifest.exists() and current_snapshot.exists() and live_ledger.exists()):
-        return live_state_unavailable_payload(region_slug, "published artifacts unavailable")
+        return live_state_unavailable_payload(
+            region_slug,
+            "published artifacts unavailable",
+            live_status=live_status,
+        )
 
     region_name = resolve_region_name(region_slug)
     ratings_rows = [row for row in load_ratings_rows() if row.get("admitted_region") == region_name]
     if not ratings_rows:
-        return live_state_unavailable_payload(region_slug, "no teams found for region")
+        return live_state_unavailable_payload(
+            region_slug,
+            "no teams found for region",
+            live_status=live_status,
+        )
 
-    manifest_payload = _read_json(manifest)
-    snapshot_rows = _read_json(current_snapshot)
-    ledger_rows = _read_json(live_ledger)
+    manifest_payload = read_versioned_json(manifest)
+    snapshot_rows = read_versioned_json(current_snapshot)
+    ledger_rows = read_versioned_json(live_ledger)
     snapshot_by_school_key = {str(row["school_key"]): row for row in snapshot_rows}
     region_school_keys = {str(row["school_key"]) for row in ratings_rows if row.get("school_key")}
     region_ledger_rows = [
@@ -987,7 +1025,7 @@ def build_live_state_payload(region_slug: str) -> dict[str, Any]:
     return {
         "available": True,
         "reason": None,
-        **summarize_live_status(region_slug),
+        **live_status,
         "regionSlug": region_slug,
         "regionName": region_name,
         "generatedAt": manifest_payload.get("generated_at"),
@@ -999,32 +1037,18 @@ def build_live_state_payload(region_slug: str) -> dict[str, Any]:
     }
 
 
-def _mini_program_predictions_for_context(context: rmuc_live.LiveRuntimeContext) -> dict[str, dict[str, Any]]:
-    if not _mini_program_predictions_enabled():
-        return {}
-    persisted_predictions = load_mini_program_predictions()
-    out: dict[str, dict[str, Any]] = {}
-    for match in context.matches_by_pair.values():
-        if isinstance(match.get("miniProgramPrediction"), dict):
-            continue
-        official_id = str(match.get("officialMatchId") or "")
-        if official_id and official_id in persisted_predictions and official_id not in out:
-            out[official_id] = persisted_predictions[official_id]
-    return out
-
-
 def _load_live_runtime_context(region_slug: str) -> rmuc_live.LiveRuntimeContext:
     normalized = load_normalized_live_schedule()
     if not normalized:
         return rmuc_live.LiveRuntimeContext.inactive(region_slug, "尚未同步官方实时赛程")
-    context = rmuc_live.LiveRuntimeContext.from_normalized(normalized, region_slug)
-    if context.source_status != "active":
-        return context
-    mini_program_predictions = _mini_program_predictions_for_context(context)
     return rmuc_live.LiveRuntimeContext.from_normalized(
         normalized,
         region_slug,
-        mini_program_predictions=mini_program_predictions,
+        mini_program_predictions=(
+            load_mini_program_predictions()
+            if _mini_program_predictions_enabled()
+            else None
+        ),
     )
 
 
@@ -1343,7 +1367,7 @@ def _attach_live_schedule_metadata(
 
 
 def _published_match_rating_index(region_slug: str) -> dict[tuple[str, str], dict[str, Any]]:
-    rows = _read_json_if_exists(_published_live_match_ledger_path_for(RUNTIME_PUBLISHED_RATINGS_DIR))
+    rows = read_versioned_json_if_exists(_published_live_match_ledger_path_for(RUNTIME_PUBLISHED_RATINGS_DIR))
     if not isinstance(rows, list):
         return {}
     out: dict[tuple[str, str], dict[str, Any]] = {}
@@ -1367,7 +1391,7 @@ def _load_prediction_form_index_cached(
     size: int,
     region_slug: str,
 ) -> dict[tuple[str, str], dict[str, Any]]:
-    rows = _read_json_if_exists(Path(path_text))
+    rows = read_versioned_json_if_exists(Path(path_text))
     if not isinstance(rows, list):
         return {}
     out: dict[tuple[str, str], dict[str, Any]] = {}
@@ -1393,7 +1417,7 @@ def _load_prediction_form_index_cached(
 
 def _prediction_form_index(region_slug: str) -> dict[tuple[str, str], dict[str, Any]]:
     return _load_prediction_form_index_cached(
-        *_path_signature(PREDICTION_FORM_OBSERVATIONS_PATH),
+        *path_signature(PREDICTION_FORM_OBSERVATIONS_PATH),
         region_slug,
     )
 
@@ -1551,7 +1575,7 @@ def _collapse_live_prediction_distribution(payload: dict[str, Any], *, best_of: 
 
 
 def _live_prediction_head_config() -> dict[str, float]:
-    manifest = _read_json_if_exists(_published_manifest_path_for(_effective_published_dir()))
+    manifest = read_versioned_json_if_exists(_published_manifest_path_for(_effective_published_dir()))
     manifest_payload = manifest if isinstance(manifest, dict) else {}
     signature = manifest_payload.get("model_config_signature")
     signature_payload = signature if isinstance(signature, dict) else {}
@@ -1782,7 +1806,7 @@ def _deterministic_live_prediction_payload(
         max_delta_probability=prediction_head_config.get("h2h_max_delta_probability"),
     )
     p_game_adj_red = float(head_to_head_summary["p_game_adj"])
-    raw_distribution = region_sim._compute_scoreline_distribution(best_of, p_game_adj_red)
+    raw_distribution = region_sim.compute_scoreline_distribution(best_of, p_game_adj_red)
     p_series_red = sum(
         probability
         for scoreline, probability in raw_distribution.items()
@@ -1795,66 +1819,23 @@ def _deterministic_live_prediction_payload(
         "p_series_blue": 1.0 - p_series_red,
         "scoreline_distribution": raw_distribution,
         "head_to_head_summary": head_to_head_summary,
-        "confidence_label": region_sim._classify_confidence(red_team, blue_team),
+        "confidence_label": region_sim.classify_confidence(red_team, blue_team),
     }
 
 
-@lru_cache(maxsize=8)
-def _build_finals_prediction_matrix_cached(
-    team_keys: tuple[str, ...],
-    _snapshot_path: str,
-    _snapshot_mtime_ns: int,
-    _snapshot_size: int,
-) -> dict[str, dict[str, Any]]:
-    rating_rows = {str(row.get("team_key") or ""): row for row in load_ratings_rows()}
+def build_finals_team_rating_index(participants: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Project the shared current-rating cache for a finals roster."""
     current_rating_index = load_current_rating_index()
-    teams: dict[str, Any] = {}
-    for team_key in team_keys:
-        row = rating_rows.get(team_key)
-        if not team_key or row is None:
-            continue
-        teams[team_key] = SimpleNamespace(
-            team_key=team_key,
-            college_name=str(row.get("college_name") or ""),
-            team_name=str(row.get("team_name") or ""),
-            mu0=float(row["mu0"]),
-            sigma0=float(row["sigma0"]),
-            beta_perf=float(row.get("beta_perf") or 1.0),
-            rmuc_history_strength=float(row.get("rmuc_history_strength") or 0.0),
-        )
-
-    matrix: dict[str, dict[str, Any]] = {}
-    for red_key, red_team in teams.items():
-        for blue_key, blue_team in teams.items():
-            if red_key == blue_key:
-                continue
-            red_elo = _prediction_elo_for_team(red_team, current_rating_index)
-            blue_elo = _prediction_elo_for_team(blue_team, current_rating_index)
-            p_game_red = region_sim.legacy_elo.logistic_expectation(red_elo - blue_elo)
-            raw_distribution = region_sim._compute_scoreline_distribution(3, p_game_red)
-            p_series_red = sum(
-                probability
-                for scoreline, probability in raw_distribution.items()
-                if int(scoreline.split(":")[0]) > int(scoreline.split(":")[1])
-            )
-            matrix[f"{red_key}|||{blue_key}"] = {
-                "pGameRed": p_game_red,
-                "pSeriesRed": p_series_red,
-                "predictedScoreline": _predicted_scoreline_from_rates(p_game_red, p_series_red, 3),
-                "deltaH2H": 0.0,
-                "confidenceLabel": region_sim._classify_confidence(red_team, blue_team),
-                "redCurrentElo": red_elo,
-                "blueCurrentElo": blue_elo,
-                "predictionBasis": "finals_initial_elo",
-            }
-    return matrix
-
-
-def build_finals_prediction_matrix(participants: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    """Build deterministic repechage/nationals pair predictions with the regional live head."""
-    team_keys = tuple(sorted(str(row.get("teamKey") or "") for row in participants if row.get("teamKey")))
-    snapshot_path = _published_current_snapshot_path_for(RUNTIME_PUBLISHED_RATINGS_DIR)
-    return _build_finals_prediction_matrix_cached(team_keys, *_path_signature(snapshot_path))
+    team_keys = sorted({str(row.get("teamKey") or "") for row in participants} - {""})
+    return {
+        team_key: {
+            "currentElo": float(current_rating_index[team_key]["currentElo"]),
+            "preseasonElo": float(current_rating_index[team_key]["preseasonElo"]),
+            "eloRankSource": str(current_rating_index[team_key]["eloRankSource"]),
+        }
+        for team_key in team_keys
+        if team_key in current_rating_index
+    }
 
 
 def _live_prediction_rating_index_for_match(
@@ -2010,8 +1991,8 @@ def _target_prematch_date(date_text: str | None, timezone_name: str) -> str:
     if date_text:
         try:
             return datetime.fromisoformat(date_text).date().isoformat()
-        except ValueError:
-            return datetime.now(tz=_prematch_timezone(timezone_name)).date().isoformat()
+        except ValueError as exc:
+            raise RequestParameterError(f"Invalid prematch date: {date_text}") from exc
     return datetime.now(tz=_prematch_timezone(timezone_name)).date().isoformat()
 
 
@@ -2388,7 +2369,7 @@ def _source_updated_candidates(region_statuses: list[dict[str, Any]]) -> list[da
 
 def _live_elo_updated_at() -> str | None:
     manifest_path = _published_manifest_path_for(_effective_published_dir())
-    manifest = _read_json_if_exists(manifest_path)
+    manifest = read_versioned_json_if_exists(manifest_path)
     if not isinstance(manifest, dict):
         return None
     value = manifest.get("generated_at") or manifest.get("generatedAt")
@@ -2462,7 +2443,7 @@ def build_prematch_center_payload(
     now: datetime | None = None,
 ) -> dict[str, Any]:
     if mode not in {"live", "sim"}:
-        raise ValueError(f"Unsupported prematch mode: {mode}")
+        raise RequestParameterError(f"Unsupported prematch mode: {mode}")
     selected_region_slugs = region_slugs or REGION_SLUG_ORDER
     target_date = _target_prematch_date(date, timezone_name)
     now_dt = now or datetime.now(tz=_prematch_timezone(timezone_name))
@@ -2691,7 +2672,7 @@ def build_prediction_recap_payload(
     region_slugs: list[str] | None = None,
 ) -> dict[str, Any]:
     if mode not in {"live", "sim"}:
-        raise ValueError(f"Unsupported recap mode: {mode}")
+        raise RequestParameterError(f"Unsupported recap mode: {mode}")
     selected_region_slugs = region_slugs or REGION_SLUG_ORDER
     generated_at = datetime.now(tz=UTC).isoformat()
     summary = _empty_recap_group()
@@ -2837,7 +2818,7 @@ def build_team_profile_payload(
     mode: str = "live",
 ) -> dict[str, Any]:
     if mode not in {"live", "sim"}:
-        raise ValueError(f"Unsupported team profile mode: {mode}")
+        raise RequestParameterError(f"Unsupported team profile mode: {mode}")
     decoded_team_key = unquote(team_key)
     overview = build_overview_payload()
     overview_team: dict[str, Any] | None = None
@@ -2853,7 +2834,7 @@ def build_team_profile_payload(
         if overview_team is not None:
             break
     if overview_team is None or overview_region is None:
-        raise KeyError(decoded_team_key)
+        raise UnknownTeamError(decoded_team_key)
 
     region_slug = str(overview_region["regionSlug"])
     simulation = build_simulation_payload(region_slug, seed, mode)
@@ -3241,6 +3222,8 @@ def _replace_unofficial_live_final_rankings(payload: dict[str, Any], region_slug
 
 
 def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", samples: int = DEFAULT_SIMULATION_SAMPLES) -> dict[str, Any]:
+    if mode not in {"live", "sim"}:
+        raise RequestParameterError(f"Unsupported simulation mode: {mode}")
     region_name = resolve_region_name(region_slug)
     slot_assignments: dict[str, str] | None = None
     official_swiss_pairings: dict[str, dict[int, list[tuple[str, str]]]] | None = None
@@ -3287,6 +3270,11 @@ def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", sam
         effective_seed,
         simulation,
         include_current_ratings=mode == "live" and context.source_status == "active",
+        live_status=(
+            summarize_live_status(region_slug)
+            if mode == "live"
+            else _disabled_regional_live_status()
+        ),
     )
     if mode == "live" and context.source_status == "active":
         _attach_live_schedule_metadata(

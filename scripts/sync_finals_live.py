@@ -7,43 +7,27 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from urllib.error import HTTPError
-from urllib.request import Request, urlopen
 
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from backend.app import finals_live, rmuc_live  # noqa: E402
+from backend.app import finals_live  # noqa: E402
+from backend.app.artifacts import (  # noqa: E402
+    read_json,
+    read_versioned_json_if_exists as read_json_if_exists,
+    write_json_atomic,
+)
+from backend.app.team_identity import team_identity_key  # noqa: E402
+from scripts._live_sync_common import fetch_json  # noqa: E402
 
 
 DEFAULT_RUNTIME_DIR = ROOT / "data" / "runtime" / "rmuc_live" / "finals"
 DEFAULT_BASE_SCHEDULE = ROOT / "data" / "reference" / "2026_finals" / "schedule.json"
-LIVE_MATCH_FIELDS = (
-    "officialStatus",
-    "isCompleted",
-    "isConfirmedMatchup",
-    "hasLiveScoreline",
-    "scoreline",
-    "result",
-    "redWins",
-    "blueWins",
-    "redSchoolKey",
-    "redTeamKey",
-    "redCollegeName",
-    "redTeamName",
-    "blueSchoolKey",
-    "blueTeamKey",
-    "blueCollegeName",
-    "blueTeamName",
-)
-LIVE_EVENT_FIELDS = (
-    "fieldCapacity",
-    "drawStatus",
-    "pendingEntryCount",
-    "pendingEntrySlots",
-)
+LIVE_MATCH_FIELDS = finals_live.RUNTIME_MATCH_FIELDS
+LIVE_EVENT_FIELDS = finals_live.RUNTIME_EVENT_FIELDS
+SYNC_USER_AGENT = "douququ-rmuc-finals-live-sync/1.0"
 
 
 def parse_args() -> argparse.Namespace:
@@ -59,42 +43,8 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def read_json(path: Path) -> Any:
-    return rmuc_live.read_json(path)
-
-
-def read_json_if_exists(path: Path) -> Any | None:
-    if not path.exists():
-        return None
-    return read_json(path)
-
-
-def fetch_json(
-    url: str,
-    previous_headers: dict[str, str] | None = None,
-) -> tuple[dict[str, Any] | None, dict[str, str], bool]:
-    request_headers = {"User-Agent": "douququ-rmuc-finals-live-sync/1.0"}
-    previous_headers = previous_headers or {}
-    if previous_headers.get("etag"):
-        request_headers["If-None-Match"] = str(previous_headers["etag"])
-    if previous_headers.get("last-modified"):
-        request_headers["If-Modified-Since"] = str(previous_headers["last-modified"])
-    request = Request(url, headers=request_headers)
-    try:
-        with urlopen(request, timeout=30) as response:  # noqa: S310 - caller supplies a trusted endpoint.
-            headers = {key.lower(): value for key, value in response.headers.items()}
-            payload = json.loads(response.read().decode("utf-8"))
-            if not isinstance(payload, dict):
-                raise ValueError("Finals upstream response must be a JSON object")
-            return payload, headers, True
-    except HTTPError as exc:
-        if exc.code == 304:
-            return None, dict(previous_headers), False
-        raise
-
-
 def _participant_key(participant: dict[str, Any]) -> tuple[str, str]:
-    return str(participant.get("collegeName") or "").strip(), str(participant.get("teamName") or "").strip()
+    return team_identity_key(participant.get("collegeName"), participant.get("teamName"))
 
 
 def overlay_from_enriched_schedule(
@@ -204,7 +154,12 @@ def main() -> None:
         previous_headers = read_json_if_exists(headers_path)
         if not isinstance(previous_headers, dict):
             previous_headers = {}
-        raw, source_headers, source_changed = fetch_json(args.source_url, previous_headers)
+        raw, source_headers, source_changed = fetch_json(
+            args.source_url,
+            previous_headers,
+            user_agent=SYNC_USER_AGENT,
+            require_object=True,
+        )
         if raw is None:
             raw = read_json(raw_dir / "finals_schedule.json")
     else:
@@ -212,14 +167,14 @@ def main() -> None:
     normalized = normalize_raw_input(raw, args, fetched_at, source_headers=source_headers)
     timestamp = fetched_at.strftime("%Y%m%dT%H%M%SZ")
     if source_changed:
-        rmuc_live.write_json_atomic(raw_dir / "finals_schedule.json", raw)
-        rmuc_live.write_json_atomic(raw_dir / f"finals_schedule.{timestamp}.json", raw)
+        write_json_atomic(raw_dir / "finals_schedule.json", raw)
+        write_json_atomic(raw_dir / f"finals_schedule.{timestamp}.json", raw)
     if args.source_url:
-        rmuc_live.write_json_atomic(
+        write_json_atomic(
             headers_path,
             {**source_headers, "source-url": args.source_url, "fetched-at": fetched_at.isoformat()},
         )
-    rmuc_live.write_json_atomic(args.runtime_dir / "normalized_schedule.json", normalized)
+    write_json_atomic(args.runtime_dir / "normalized_schedule.json", normalized)
     match_count = sum(len(event.get("matches", [])) for event in normalized["events"].values())
     completed_count = sum(
         1
@@ -241,7 +196,7 @@ def main() -> None:
         "matchCount": match_count,
         "completedMatches": completed_count,
     }
-    rmuc_live.write_json_atomic(args.runtime_dir / "sync_manifest.json", manifest)
+    write_json_atomic(args.runtime_dir / "sync_manifest.json", manifest)
     print(json.dumps(manifest, ensure_ascii=False))
 
 

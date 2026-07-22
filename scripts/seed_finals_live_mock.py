@@ -23,7 +23,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from backend.app import finals_schedule, rmuc_live  # noqa: E402
+from backend.app import finals_schedule  # noqa: E402
+from backend.app.artifacts import write_json_atomic  # noqa: E402
 from scripts import sync_finals_live  # noqa: E402
 
 
@@ -1005,11 +1006,11 @@ def write_runtime_artifacts(
     )
     raw_dir = runtime_dir / "raw"
     timestamp = fetched_at.strftime("%Y%m%dT%H%M%SZ")
-    rmuc_live.write_json_atomic(raw_dir / "finals_schedule.json", enriched)
-    rmuc_live.write_json_atomic(
+    write_json_atomic(raw_dir / "finals_schedule.json", enriched)
+    write_json_atomic(
         raw_dir / f"finals_schedule.{timestamp}.json", enriched
     )
-    rmuc_live.write_json_atomic(
+    write_json_atomic(
         runtime_dir / "normalized_schedule.json", normalized
     )
 
@@ -1034,7 +1035,7 @@ def write_runtime_artifacts(
         "completedMatchesByEvent": completed_by_event,
         "description": scenario_spec(scenario_id).description,
     }
-    rmuc_live.write_json_atomic(runtime_dir / "sync_manifest.json", manifest)
+    write_json_atomic(runtime_dir / "sync_manifest.json", manifest)
     return manifest
 
 

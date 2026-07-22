@@ -12,7 +12,7 @@ import { PredictionSignalsPanel } from "@/components/prediction-signals";
 import { WorkspaceStageView } from "@/components/workspace-stage";
 import { formatMatchCardScheduleTime, predictScoreline } from "@/components/canvas-card";
 import { ErrorPanel } from "@/components/ui/async-state";
-import { getFinalEvent, getLiveState, getOverview } from "@/lib/api";
+import { getFinalEvents, getLiveState, getOverview } from "@/lib/api";
 import { buildFullSeasonTrajectories } from "@/lib/elo-trajectory";
 import { translateConfidenceLabel, translateStageLabel } from "@/lib/display";
 import { buildFinalsWorkspaceStage } from "@/lib/finals-canvas";
@@ -114,20 +114,21 @@ export function ForecastCenterPage() {
     }
   }, [mode, seed]);
 
-  // 正式赛事独立加载；一个事件失败时，另一个事件仍可浏览。
+  // 两项正式赛事从同一后端快照加载，避免运行时文件更新造成跨版本名单。
   useEffect(() => {
     let canceled = false;
     const load = () => {
-      Promise.allSettled([getFinalEvent("repechage"), getFinalEvent("nationals")]).then((results) => {
-        if (canceled) return;
-        const [repechageResult, nationalsResult] = results;
-        const nextErrors: Partial<Record<FinalEventSlug, string>> = {};
-        if (repechageResult.status === "fulfilled") setEvents((currentEvents) => ({ ...currentEvents, repechage: repechageResult.value }));
-        else nextErrors.repechage = repechageResult.reason instanceof Error ? repechageResult.reason.message : String(repechageResult.reason);
-        if (nationalsResult.status === "fulfilled") setEvents((currentEvents) => ({ ...currentEvents, nationals: nationalsResult.value }));
-        else nextErrors.nationals = nationalsResult.reason instanceof Error ? nationalsResult.reason.message : String(nationalsResult.reason);
-        setEventErrors(nextErrors);
-      });
+      getFinalEvents(mode)
+        .then((snapshot) => {
+          if (canceled) return;
+          setEvents(snapshot.events);
+          setEventErrors({});
+        })
+        .catch((reason) => {
+          if (canceled) return;
+          const message = reason instanceof Error ? reason.message : String(reason);
+          setEventErrors({ repechage: message, nationals: message });
+        });
     };
     let stopPolling = () => {};
     if (mode === "live") {

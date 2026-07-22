@@ -13,11 +13,22 @@ export type LiveDataLevel =
   | "missing";
 export type EloRankSource = "live" | "preseason";
 
-export interface LiveStatusSummary {
+export interface LiveSourceStatusContract {
   sourceStatus: LiveSourceStatus;
   sourceReason: string | null;
+  sourceKind: "official" | "synthetic" | null;
+  isSynthetic: boolean;
   sourceUpdatedAt: string | null;
-  runtimeArtifactVersion?: string | null;
+  sourceAgeSeconds: number | null;
+  freshnessLabel: "fresh" | "stale" | "synthetic" | "unknown" | "missing";
+  validationState: "validated" | "missing" | "inactive" | "disabled";
+  scenarioId: string | null;
+  runtimeArtifactVersion: string;
+  completedMatches: number;
+  confirmedMatches: number;
+}
+
+export interface LiveStatusSummary extends LiveSourceStatusContract {
   completedOfficialMatches: number;
   confirmedOfficialMatches: number;
   officialScheduleMatches?: number;
@@ -879,15 +890,10 @@ export interface FinalEventSchedule {
   participants: FinalEventParticipant[];
   drawRules: string[];
   matches: FinalEventMatch[];
-  predictionMatrix?: Record<string, {
-    pGameRed: number;
-    pSeriesRed: number;
-    predictedScoreline: string;
-    deltaH2H: number;
-    confidenceLabel: string;
-    redCurrentElo: number;
-    blueCurrentElo: number;
-    predictionBasis: string;
+  teamRatingIndex: Record<string, {
+    currentElo: number;
+    preseasonElo: number;
+    eloRankSource: EloRankSource;
   }>;
   predictionBasis?: string;
   ceremonySchedule?: Array<{ activity: string; time: string }>;
@@ -901,18 +907,14 @@ export interface FinalEventResponse {
   scheduleStatus: string;
   verifiedAt: string;
   sources: FinalsScheduleSource[];
-  liveStatus?: {
-    sourceStatus: string;
-    sourceKind: "official" | "synthetic" | null;
-    isSynthetic: boolean;
-    sourceUpdatedAt: string | null;
-    sourceAgeSeconds: number | null;
-    freshnessLabel: "fresh" | "stale" | "synthetic" | "unknown" | "missing";
-    validationState: "validated" | "missing";
-    scenarioId: string | null;
-    runtimeArtifactVersion: string;
-    completedMatches: number;
-    confirmedMatches: number;
-  };
+  liveStatus?: LiveSourceStatusContract;
   event: FinalEventSchedule;
+}
+
+export interface FinalEventsSnapshotResponse {
+  schemaVersion: number;
+  season: number;
+  mode: "live" | "sim";
+  runtimeArtifactVersion: string;
+  events: Record<FinalEventSlug, FinalEventResponse>;
 }

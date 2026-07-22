@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { getFinalEvent } from "@/lib/api";
+import { getFinalEvents } from "@/lib/api";
 import type { FinalEventMatch, FinalEventSlug } from "@/lib/types";
 
 interface NextMatchState {
@@ -40,24 +40,25 @@ export function NextMatchBrief() {
 
   useEffect(() => {
     let canceled = false;
-    Promise.allSettled([getFinalEvent("repechage"), getFinalEvent("nationals")]).then((results) => {
-      if (canceled) return;
-      const candidates = results.flatMap((result, index) => {
-        if (result.status !== "fulfilled") return [];
-        const event = index === 0 ? "repechage" : "nationals";
-        return result.value.event.matches.map((match) => ({
-          event: event as FinalEventSlug,
-          eventName: result.value.event.shortName,
-          match,
-        }));
+    getFinalEvents("live")
+      .then((snapshot) => {
+        if (canceled) return;
+        const candidates = (["repechage", "nationals"] as const)
+          .flatMap((event) => snapshot.events[event].event.matches.map((match) => ({
+            event,
+            eventName: snapshot.events[event].event.shortName,
+            match,
+          })));
+        const currentTime = Date.now();
+        const upcoming = candidates
+          .filter((candidate) => Date.parse(candidate.match.startsAt) >= currentTime)
+          .sort((left, right) => left.match.startsAt.localeCompare(right.match.startsAt))[0] ?? null;
+        setNext(upcoming);
+        setFailed(false);
+      })
+      .catch(() => {
+        if (!canceled) setFailed(true);
       });
-      const currentTime = Date.now();
-      const upcoming = candidates
-        .filter((candidate) => Date.parse(candidate.match.startsAt) >= currentTime)
-        .sort((left, right) => left.match.startsAt.localeCompare(right.match.startsAt))[0] ?? null;
-      setNext(upcoming);
-      setFailed(results.every((result) => result.status === "rejected"));
-    });
     return () => {
       canceled = true;
     };

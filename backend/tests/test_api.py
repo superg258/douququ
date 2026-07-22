@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from backend.app.main import app
 from backend.app import finals_live, finals_schedule, service
+from backend.app.team_identity import canonical_school_key
 from scripts import seed_finals_live_mock, sync_finals_live
 
 
@@ -200,13 +201,16 @@ def test_nationals_schedule_returns_only_confirmed_real_participants(monkeypatch
     first_match = event["matches"][0]
     red = next(row for row in event["participants"] if row["collegeName"] == first_match["redCollegeName"])
     blue = next(row for row in event["participants"] if row["collegeName"] == first_match["blueCollegeName"])
-    prediction_key = f"{red['teamKey']}|||{blue['teamKey']}"
-    prediction = event["predictionMatrix"][prediction_key]
-    assert 0 < prediction["pGameRed"] < 1
-    assert 0 < prediction["pSeriesRed"] < 1
-    assert prediction["predictedScoreline"] in {"2:0", "2:1", "1:2", "0:2"}
-    assert prediction["predictionBasis"] == "finals_initial_elo"
-    assert prediction["deltaH2H"] == 0.0
+    assert red["teamKey"] in event["teamRatingIndex"]
+    assert blue["teamKey"] in event["teamRatingIndex"]
+    assert event["teamRatingIndex"][red["teamKey"]]["currentElo"] > 0
+    assert event["teamRatingIndex"][red["teamKey"]]["eloRankSource"] in {"live", "preseason"}
+    assert "predictionMatrix" not in event
+
+    combined = client.get("/api/finals?mode=live")
+    assert combined.status_code == 200
+    combined_event = combined.json()["events"]["nationals"]["event"]
+    assert combined_event["teamRatingIndex"] == event["teamRatingIndex"]
 
 
 def test_nationals_schedule_expands_when_repechage_qualifiers_are_confirmed(monkeypatch) -> None:
@@ -1177,8 +1181,8 @@ def test_active_live_prediction_uses_current_elo_before_preseason_rating(tmp_pat
     (published_dir / "current_snapshot.json").write_text(
         json.dumps(
             [
-                {"school_key": weakest.get("school_key") or service.rmuc_live.legacy_elo.make_school_key(weakest["college_name"]), "published_rating": 2200.0},
-                {"school_key": strongest.get("school_key") or service.rmuc_live.legacy_elo.make_school_key(strongest["college_name"]), "published_rating": 1200.0},
+                {"school_key": weakest.get("school_key") or canonical_school_key(weakest["college_name"]), "published_rating": 2200.0},
+                {"school_key": strongest.get("school_key") or canonical_school_key(strongest["college_name"]), "published_rating": 1200.0},
             ],
             ensure_ascii=False,
         ),

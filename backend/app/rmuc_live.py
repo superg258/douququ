@@ -2,24 +2,25 @@ from __future__ import annotations
 
 import json
 import re
-import sys
 import threading
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any, Callable
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
-
-ROOT = Path(__file__).resolve().parents[2]
-SCRIPTS_DIR = ROOT / "scripts"
-if str(SCRIPTS_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS_DIR))
-
-import build_rmuc_elo as legacy_elo  # noqa: E402
-
+from .competition import (
+    SWISS_TOTAL_MATCHES,
+    normalize_match_outcome,
+    normalize_match_result,
+    normalize_match_status,
+    swiss_group_from_match_number,
+    swiss_match_label,
+    swiss_round_from_match_number,
+    validate_distinct_matchup,
+)
+from .team_identity import resolve_team_identity
 
 UPSTREAM_LIVE_URLS = {
     "schedule": "https://pro-robomasters-hz-n5i3.oss-cn-hangzhou.aliyuncs.com/live_json/schedule.json",
@@ -38,14 +39,6 @@ REGION_SLUG_TO_NAME = {
     "north_region": "北部赛区",
 }
 MP_MATCH_URL = "https://mp.robomaster.com/api/v1/match?matchID={match_id}"
-SWISS_EXPECTED_MATCHES_BY_ROUND = {
-    1: 8,
-    2: 8,
-    3: 8,
-    4: 6,
-    5: 3,
-}
-SWISS_TOTAL_MATCHES = sum(SWISS_EXPECTED_MATCHES_BY_ROUND.values()) * 2
 POST_GROUP_SOURCE_LABELS = {
     "QF-1": ("R16-1", "R16-2"),
     "QF-2": ("R16-4", "R16-3"),
@@ -96,12 +89,13 @@ def _player_team(player: dict[str, Any] | None) -> dict[str, str] | None:
     team_name = str(team.get("name") or "").strip()
     if not college_name or not team_name:
         return None
+    identity = resolve_team_identity(college_name, team_name)
     return {
-        "collegeName": legacy_elo.normalize_school(college_name),
-        "teamName": legacy_elo.normalize_team(team_name),
+        "collegeName": str(identity["collegeName"]),
+        "teamName": str(identity["teamName"]),
         "slot": str(player.get("name") or "").strip(),
-        "schoolKey": legacy_elo.make_school_key(college_name),
-        "teamKey": legacy_elo.make_team_key(college_name, team_name),
+        "schoolKey": str(identity["schoolKey"]),
+        "teamKey": str(identity["teamKey"]),
     }
 
 
@@ -297,7 +291,7 @@ def _normalize_group_rank_metric_buckets(
                 slot = _rank_team_slot(team_name)
                 record = _group_rank_metric_record(items, group_name, slot=slot)
                 if college_name:
-                    team_key = legacy_elo.make_team_key(college_name, team_name)
+                    team_key = str(resolve_team_identity(college_name, team_name)["teamKey"])
                     region_metrics["teams"][team_key] = record
                 elif slot:
                     region_metrics["slots"][slot] = record
@@ -380,51 +374,6 @@ def _slot_group_name(*slots: Any) -> str:
     if len(groups) == 1:
         return next(iter(groups))
     return ""
-
-
-def _swiss_round_from_order_number(order_number: int | None) -> int | None:
-    if order_number is None:
-        return None
-    if 1 <= order_number <= 16:
-        return 1
-    if 17 <= order_number <= 32:
-        return 2
-    if 33 <= order_number <= 48:
-        return 3
-    if 49 <= order_number <= 60:
-        return 4
-    if 61 <= order_number <= 66:
-        return 5
-    return None
-
-
-def _swiss_group_from_order_number(order_number: int | None) -> str:
-    if order_number is None:
-        return ""
-    round_number = _swiss_round_from_order_number(order_number)
-    if round_number is None:
-        return ""
-    start_by_round = {1: 1, 2: 17, 3: 33, 4: 49, 5: 61}
-    group_a_count_by_round = {1: 8, 2: 8, 3: 8, 4: 6, 5: 3}
-    start = start_by_round[round_number]
-    group_a_count = group_a_count_by_round[round_number]
-    return "A" if order_number < start + group_a_count else "B"
-
-
-def _swiss_match_label_from_order_number(order_number: int | None, group_name: str) -> str:
-    if order_number is None or group_name not in {"A", "B"}:
-        return ""
-    round_number = _swiss_round_from_order_number(order_number)
-    if round_number is None:
-        return ""
-    start_by_round = {1: 1, 2: 17, 3: 33, 4: 49, 5: 61}
-    group_match_count_by_round = {1: 8, 2: 8, 3: 8, 4: 6, 5: 3}
-    round_start = start_by_round[round_number]
-    group_offset = 0 if group_name == "A" else group_match_count_by_round[round_number]
-    group_index = order_number - round_start - group_offset + 1
-    if group_index < 1 or group_index > group_match_count_by_round[round_number]:
-        return ""
-    return f"{group_name}-SWISS-{round_number}-{group_index}"
 
 
 def _post_group_normalized_order_number(order_number: int | None) -> int | None:
@@ -568,7 +517,7 @@ def _live_match_round_number(match: dict[str, Any]) -> int | None:
     if round_number is not None:
         return round_number
     if _live_match_stage(match) == "swiss":
-        return _swiss_round_from_order_number(_optional_int(match.get("orderNumber")))
+        return swiss_round_from_match_number(_optional_int(match.get("orderNumber")))
     return 1
 
 
@@ -737,11 +686,29 @@ def _normalize_match(match: dict[str, Any], *, region_slug: str, zone_name: str)
     ):
         return None
     is_confirmed_matchup = red is not None and blue is not None
-    status = str(match.get("status") or "").strip().upper()
-    result = str(match.get("result") or "").strip().upper()
+    validate_distinct_matchup(
+        is_confirmed=is_confirmed_matchup,
+        red_identity=red["teamKey"] if red is not None else None,
+        blue_identity=blue["teamKey"] if blue is not None else None,
+        context=f"Regional match {official_match_id}",
+    )
     scoreline = _scoreline(match)
-    red_wins = int(scoreline.split(":", maxsplit=1)[0])
-    blue_wins = int(scoreline.split(":", maxsplit=1)[1])
+    best_of = int(match.get("planGameCount") or 3)
+    source_status = normalize_match_status(match.get("status"))
+    source_result = normalize_match_result(match.get("result"))
+    outcome = normalize_match_outcome(
+        status=source_status if is_confirmed_matchup else "",
+        result=source_result if is_confirmed_matchup else "",
+        scoreline=scoreline,
+        best_of=best_of,
+        is_confirmed=is_confirmed_matchup,
+        context=f"regional match {official_match_id}",
+    )
+    if outcome.score is None:
+        raise ValueError(f"Regional match {official_match_id} has no scoreline")
+    score = outcome.score
+    red_wins = score.red_wins
+    blue_wins = score.blue_wins
     stage_family = _stage_family(match, zone_name)
     order_number = int(match.get("orderNumber") or 0)
     stage = _stage_from_family(stage_family)
@@ -749,16 +716,15 @@ def _normalize_match(match: dict[str, Any], *, region_slug: str, zone_name: str)
     round_number: int | None = None
     match_label = ""
     if stage == "swiss":
-        group_name = _slot_group_name(red_slot, blue_slot) or _swiss_group_from_order_number(order_number)
-        round_number = _swiss_round_from_order_number(order_number)
-        match_label = _swiss_match_label_from_order_number(order_number, group_name)
+        group_name = _slot_group_name(red_slot, blue_slot) or swiss_group_from_match_number(order_number)
+        round_number = swiss_round_from_match_number(order_number)
+        match_label = swiss_match_label(order_number, group_name)
     elif stage_family == "post_group":
         stage = _post_group_stage_from_order_number(order_number, region_slug, match.get("slug")) or stage
         round_number = 1
         match_label = _post_group_match_label_from_order_number(order_number, stage=stage, region_slug=region_slug)
     planned_start_at = str(match.get("planStartedAt") or "").strip() or None
     match_date = planned_start_at[:10] if planned_start_at else None
-    is_completed = is_confirmed_matchup and status == "DONE" and result in {"RED", "BLUE"}
     normalized_match = {
         "officialMatchId": official_match_id,
         "matchId": f"2026RMUC:{official_match_id}",
@@ -772,14 +738,14 @@ def _normalize_match(match: dict[str, Any], *, region_slug: str, zone_name: str)
         "orderNumber": order_number,
         "roundNumber": round_number,
         "groupName": group_name,
-        "bestOf": int(match.get("planGameCount") or 3),
+        "bestOf": best_of,
         "plannedStartAt": planned_start_at,
         "matchDate": match_date,
-        "officialStatus": status,
-        "result": result,
+        "officialStatus": source_status,
+        "result": source_result,
         "scoreline": scoreline,
-        "isCompleted": is_completed,
-        "hasLiveScoreline": is_confirmed_matchup and (is_completed or red_wins + blue_wins > 0),
+        "isCompleted": outcome.is_completed,
+        "hasLiveScoreline": outcome.has_live_scoreline,
         "isConfirmedMatchup": is_confirmed_matchup,
         "redSlot": red_slot,
         "blueSlot": blue_slot,
@@ -842,7 +808,10 @@ def normalize_schedule_payload(
     title = str(event.get("title") or "")
     season = _season_from_title(title)
     base = {
+        "schemaVersion": "rmuc-regionals-live-v1",
         "sourceStatus": "inactive",
+        "sourceKind": "official",
+        "isSynthetic": False,
         "reason": None,
         "eventTitle": title,
         "season": season,
@@ -868,6 +837,12 @@ def normalize_schedule_payload(
                 normalized_match = _normalize_match(match, region_slug=region_slug, zone_name=zone_name)
                 if normalized_match is not None:
                     matches.append(normalized_match)
+        official_match_ids = [str(match["officialMatchId"]) for match in matches]
+        order_numbers = [int(match["orderNumber"]) for match in matches]
+        if len(official_match_ids) != len(set(official_match_ids)):
+            raise ValueError(f"Duplicate officialMatchId in {region_slug}")
+        if len(order_numbers) != len(set(order_numbers)):
+            raise ValueError(f"Duplicate orderNumber in {region_slug}")
         stage_family_order = {"regional_group": 0, "post_group": 1, "repechage": 2, "nationals": 3}
         matches.sort(
             key=lambda row: (
@@ -919,16 +894,77 @@ def normalize_schedule_payload(
     return base
 
 
-def read_json(path: Path) -> Any:
-    with path.open(encoding="utf-8") as handle:
-        return json.load(handle)
-
-
-def write_json_atomic(path: Path, payload: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    tmp.replace(path)
+def validate_normalized_schedule_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Validate the persisted regional runtime before any API consumes it."""
+    if not isinstance(payload, dict):
+        raise ValueError("Regional runtime payload must be an object")
+    source_status = str(payload.get("sourceStatus") or "inactive").strip().lower()
+    if source_status not in {"active", "inactive", "missing"}:
+        raise ValueError("Regional runtime sourceStatus is invalid")
+    default_source_kind = "synthetic" if isinstance(payload.get("mockSource"), dict) else "official"
+    source_kind = str(payload.get("sourceKind") or default_source_kind).strip().lower()
+    if source_kind not in {"official", "synthetic"}:
+        raise ValueError("Regional runtime sourceKind must be official or synthetic")
+    regions = payload.get("regions", {})
+    if not isinstance(regions, dict):
+        raise ValueError("Regional runtime regions must be an object")
+    schema_version = payload.get("schemaVersion")
+    if schema_version not in {None, "rmuc-regionals-live-v1"}:
+        raise ValueError("Unsupported regional runtime schemaVersion")
+    strict = schema_version == "rmuc-regionals-live-v1"
+    for region_slug, region in regions.items():
+        if region_slug not in REGION_SLUG_TO_NAME or not isinstance(region, dict):
+            raise ValueError(f"Invalid regional runtime region: {region_slug}")
+        matches = region.get("matches", [])
+        if not isinstance(matches, list):
+            raise ValueError(f"Regional runtime matches must be a list: {region_slug}")
+        seen_ids: set[str] = set()
+        seen_numbers: set[int] = set()
+        for match in matches:
+            if not isinstance(match, dict):
+                raise ValueError(f"Invalid regional runtime match: {region_slug}")
+            official_match_id = str(match.get("officialMatchId") or "").strip()
+            order_number = int(match.get("orderNumber") or 0)
+            if strict and (not official_match_id or official_match_id in seen_ids):
+                raise ValueError(f"Duplicate or missing officialMatchId in {region_slug}: {official_match_id}")
+            if strict and (order_number <= 0 or order_number in seen_numbers):
+                raise ValueError(f"Duplicate or invalid orderNumber in {region_slug}: {order_number}")
+            if official_match_id:
+                if official_match_id in seen_ids:
+                    raise ValueError(f"Duplicate officialMatchId in {region_slug}: {official_match_id}")
+                seen_ids.add(official_match_id)
+            if order_number > 0:
+                if order_number in seen_numbers:
+                    raise ValueError(f"Duplicate orderNumber in {region_slug}: {order_number}")
+                seen_numbers.add(order_number)
+            has_complete_score_contract = match.get("scoreline") is not None and match.get("bestOf") is not None
+            if not strict and not has_complete_score_contract:
+                continue
+            is_confirmed = match.get("isConfirmedMatchup") is True
+            validate_distinct_matchup(
+                is_confirmed=is_confirmed,
+                red_identity=match.get("redTeamKey"),
+                blue_identity=match.get("blueTeamKey"),
+                context=f"Regional match {official_match_id}",
+            )
+            if not is_confirmed and match.get("isCompleted") is not True:
+                continue
+            normalize_match_outcome(
+                status=match.get("officialStatus"),
+                result=match.get("result"),
+                scoreline=match.get("scoreline"),
+                best_of=int(match.get("bestOf") or 3),
+                is_confirmed=is_confirmed,
+                is_completed=match.get("isCompleted") is True,
+                has_live_scoreline=match.get("hasLiveScoreline") is True,
+                context=f"regional match {official_match_id}",
+            )
+    return {
+        **payload,
+        "sourceStatus": source_status,
+        "sourceKind": source_kind,
+        "isSynthetic": source_kind == "synthetic",
+    }
 
 
 def build_runtime_match_records(
@@ -1028,7 +1064,7 @@ class LiveRuntimeContext:
                 continue
             if isinstance(match.get("miniProgramPrediction"), dict):
                 enriched["miniProgramPrediction"] = match["miniProgramPrediction"]
-            if official_id in mini_program_predictions:
+            elif official_id in mini_program_predictions:
                 enriched["miniProgramPrediction"] = mini_program_predictions[official_id]
             red_team_key = str(match.get("redTeamKey") or "")
             blue_team_key = str(match.get("blueTeamKey") or "")

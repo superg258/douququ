@@ -52,6 +52,7 @@ function event(matches: FinalEventMatch[]): FinalEventSchedule {
     participants: [],
     drawRules: [],
     matches,
+    teamRatingIndex: {},
   };
 }
 

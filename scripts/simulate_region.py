@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import _simulate_region_core as region_core
+from _predict_match_core import compute_scoreline_distribution
 import build_rmuc_elo as legacy_elo
 import head_to_head as h2h
 
@@ -108,28 +109,7 @@ def _monte_carlo_single_game_probability(
     return total / max(samples, 1)
 
 
-def _compute_scoreline_distribution(best_of: int, p_game_red: float) -> dict[str, float]:
-    p_game_blue = 1.0 - p_game_red
-    if best_of == 3:
-        return {
-            "2:0": p_game_red**2,
-            "2:1": 2.0 * (p_game_red**2) * p_game_blue,
-            "1:2": 2.0 * p_game_red * (p_game_blue**2),
-            "0:2": p_game_blue**2,
-        }
-    if best_of == 5:
-        return {
-            "3:0": p_game_red**3,
-            "3:1": 3.0 * (p_game_red**3) * p_game_blue,
-            "3:2": 6.0 * (p_game_red**3) * (p_game_blue**2),
-            "2:3": 6.0 * (p_game_red**2) * (p_game_blue**3),
-            "1:3": 3.0 * p_game_red * (p_game_blue**3),
-            "0:3": p_game_blue**3,
-        }
-    raise ValueError(f"Unsupported best_of: {best_of}")
-
-
-def _classify_confidence(red_team: RegionTeam, blue_team: RegionTeam) -> str:
+def classify_confidence(red_team: RegionTeam, blue_team: RegionTeam) -> str:
     max_sigma = max(float(red_team.sigma0), float(blue_team.sigma0))
     min_history = min(
         float(getattr(red_team, "rmuc_history_strength", 0.0)),
@@ -170,7 +150,7 @@ def build_prediction_payload(
         head_to_head_index=head_to_head_index,
     )
     p_game_adj_red = float(head_to_head_summary["p_game_adj"])
-    raw_distribution = _compute_scoreline_distribution(best_of, p_game_adj_red)
+    raw_distribution = compute_scoreline_distribution(best_of, p_game_adj_red)
     p_series_red = sum(
         probability
         for scoreline, probability in raw_distribution.items()
@@ -183,7 +163,7 @@ def build_prediction_payload(
         "p_series_blue": 1.0 - p_series_red,
         "scoreline_distribution": raw_distribution,
         "head_to_head_summary": head_to_head_summary,
-        "confidence_label": _classify_confidence(red_team, blue_team),
+        "confidence_label": classify_confidence(red_team, blue_team),
     }
 
 

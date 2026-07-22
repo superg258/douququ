@@ -1,29 +1,27 @@
 from __future__ import annotations
 
-import csv
-import json
-from datetime import UTC, datetime
-from email.utils import parsedate_to_datetime
-from functools import lru_cache
 from pathlib import Path
-import re
 from typing import Any
-import unicodedata
 
 from . import finals_live
-from .service import build_finals_prediction_matrix
+from .artifacts import clear_versioned_json_cache, read_versioned_json
+from .competition import (
+    FINAL_EVENT_MATCH_COUNTS,
+    FINAL_EVENT_SLUGS,
+    RequestParameterError,
+    UnknownResourceError,
+    build_live_source_status,
+    is_completed_match_status,
+    is_running_match_status,
+    normalize_match_status,
+)
+from .service import build_finals_team_rating_index
+from .team_identity import resolve_team_identity, team_identity_key
 
 
 ROOT = Path(__file__).resolve().parents[2]
 FINALS_SCHEDULE_PATH = ROOT / "data" / "reference" / "2026_finals" / "schedule.json"
-TEAM_RATINGS_PATH = ROOT / "data" / "derived" / "2026_rmuc_ts2" / "preseason_ratings.csv"
-EVENT_SLUGS = {"repechage", "nationals"}
-SCHOOL_ALIASES = {
-    "北京理工大学（珠海）": "北京理工大学珠海学院",
-    "华北科技学院": "应急管理大学",
-    "合肥工业大学（宣城校区）": "合肥工业大学(宣城校区)",
-    "应急管理学院": "应急管理大学",
-}
+EVENT_SLUGS = FINAL_EVENT_SLUGS
 EVENT_RESPONSE_FIELDS = (
     "slug",
     "name",
@@ -41,19 +39,26 @@ EVENT_RESPONSE_FIELDS = (
     "pendingEntryCount",
     "pendingEntrySlots",
 )
-COMPLETED_MATCH_STATUSES = {"DONE", "FINISHED", "ENDED", "COMPLETE", "COMPLETED"}
-RUNNING_MATCH_STATUSES = {"RUNNING", "STARTED", "ONGOING", "IN_PROGRESS", "LIVE"}
 
 
-@lru_cache(maxsize=1)
+class UnknownFinalEventError(UnknownResourceError):
+    resource_name = "finals event"
+
+
 def load_finals_schedule() -> dict[str, Any]:
-    with FINALS_SCHEDULE_PATH.open(encoding="utf-8") as handle:
-        payload = json.load(handle)
+    payload = read_versioned_json(FINALS_SCHEDULE_PATH)
     _validate_payload(payload)
     return payload
 
 
+load_finals_schedule.cache_clear = clear_versioned_json_cache  # type: ignore[attr-defined]
+
+
 def _validate_payload(payload: dict[str, Any]) -> None:
+    if not isinstance(payload, dict):
+        raise ValueError("Finals schedule must be an object")
+    if int(payload.get("season") or 0) != 2026:
+        raise ValueError("Finals schedule season must be 2026")
     if payload.get("timezone") != "Asia/Shanghai":
         raise ValueError("Finals schedule must use Asia/Shanghai")
 
@@ -69,79 +74,32 @@ def _validate_payload(payload: dict[str, Any]) -> None:
 
         formal_match_count = int(event["formalMatchCount"])
         participant_count = int(event["participantCount"])
+        if formal_match_count != FINAL_EVENT_MATCH_COUNTS[event_slug]:
+            raise ValueError(f"Formal match count mismatch for {event_slug}")
         if [match.get("number") for match in matches] != list(range(1, formal_match_count + 1)):
             raise ValueError(f"Non-contiguous formal match numbers for {event_slug}")
         if len(participants) != participant_count:
             raise ValueError(f"Participant count mismatch for {event_slug}")
+        if any(match.get("kind") != "formal" for match in matches):
+            raise ValueError(f"Non-formal match in formal schedule for {event_slug}")
+        if any(int(match.get("bestOf") or 0) not in {3, 5} for match in matches):
+            raise ValueError(f"Unsupported best-of value for {event_slug}")
 
 
-def _identity_key(value: Any) -> str:
-    normalized = unicodedata.normalize("NFKC", str(value or "")).casefold()
-    return re.sub(r"\s+", "", normalized)
+def _participant_identity_key(participant: dict[str, Any]) -> tuple[str, str]:
+    return team_identity_key(
+        participant.get("collegeName"),
+        participant.get("teamName"),
+    )
 
 
-def _canonical_school_name(value: Any) -> str:
-    school_name = str(value or "").strip()
-    return SCHOOL_ALIASES.get(school_name, school_name)
-
-
-@lru_cache(maxsize=1)
-def _load_team_identity_indexes() -> dict[str, dict[Any, dict[str, str]]]:
-    by_pair: dict[tuple[str, str], dict[str, str]] = {}
-    by_school: dict[str, dict[str, str]] = {}
-    team_candidates: dict[str, list[dict[str, str]]] = {}
-
-    if not TEAM_RATINGS_PATH.exists():
-        return {"by_pair": by_pair, "by_school": by_school, "by_team": {}}
-
-    with TEAM_RATINGS_PATH.open(encoding="utf-8-sig", newline="") as handle:
-        for row in csv.DictReader(handle):
-            identity = {
-                "schoolKey": str(row.get("school_key") or row.get("college_name") or "").strip(),
-                "teamKey": str(row.get("team_key") or "").strip(),
-            }
-            school_lookup = _identity_key(row.get("college_name"))
-            team_lookup = _identity_key(row.get("team_name"))
-            if school_lookup and team_lookup:
-                by_pair[(school_lookup, team_lookup)] = identity
-            if school_lookup:
-                by_school[school_lookup] = identity
-            if team_lookup:
-                team_candidates.setdefault(team_lookup, []).append(identity)
-
-    by_team = {
-        team_lookup: candidates[0]
-        for team_lookup, candidates in team_candidates.items()
-        if len(candidates) == 1
+def resolve_final_participant_identity(participant: dict[str, Any]) -> dict[str, str]:
+    """Keep the seeder-facing adapter while sharing the canonical resolver."""
+    identity = resolve_team_identity(participant.get("collegeName"), participant.get("teamName"))
+    return {
+        "schoolKey": str(identity["schoolKey"]),
+        "teamKey": str(identity["teamKey"]),
     }
-    return {"by_pair": by_pair, "by_school": by_school, "by_team": by_team}
-
-
-def resolve_final_participant_identity(participant: dict[str, Any]) -> dict[str, str | None]:
-    """Resolve one finals participant to the canonical ratings identity.
-
-    Runtime overlays are allowed to carry a source-local match identifier, but
-    every roster and fixture consumer must use this identity for a real team.
-    The synthetic seeder imports this helper as well, so generated match sides
-    and API participants cannot silently diverge.
-    """
-    school_name = _canonical_school_name(participant.get("collegeName"))
-    team_name = str(participant.get("teamName") or "").strip()
-    school_lookup = _identity_key(school_name)
-    team_lookup = _identity_key(team_name)
-    indexes = _load_team_identity_indexes()
-
-    identity = indexes["by_pair"].get((school_lookup, team_lookup))
-    if identity is None:
-        identity = indexes["by_team"].get(team_lookup)
-    if identity is None:
-        identity = indexes["by_school"].get(school_lookup)
-    if identity is not None:
-        return {
-            "schoolKey": identity["schoolKey"],
-            "teamKey": identity["teamKey"] or None,
-        }
-    return {"schoolKey": school_name, "teamKey": None}
 
 
 def _is_confirmed_real_participant(participant: dict[str, Any]) -> bool:
@@ -149,7 +107,7 @@ def _is_confirmed_real_participant(participant: dict[str, Any]) -> bool:
 
 
 def _official_match_status(match: dict[str, Any]) -> str:
-    return str(match.get("officialStatus") or "").strip().upper()
+    return normalize_match_status(match.get("officialStatus"))
 
 
 def _event_status_label(
@@ -168,10 +126,10 @@ def _event_status_label(
     )
     total = len(matches)
     completed = sum(
-        match.get("isCompleted") is True or _official_match_status(match) in COMPLETED_MATCH_STATUSES
+        match.get("isCompleted") is True or is_completed_match_status(_official_match_status(match))
         for match in matches
     )
-    running = sum(_official_match_status(match) in RUNNING_MATCH_STATUSES for match in matches)
+    running = sum(is_running_match_status(_official_match_status(match)) for match in matches)
     if running:
         return f"{running} 场进行中 · 已完赛 {completed} / {total} 场{pending_suffix}"
     if completed:
@@ -197,6 +155,13 @@ def _build_event_payload(event: dict[str, Any]) -> dict[str, Any]:
         for participant in event.get("participants", [])
         if isinstance(participant, dict) and _is_confirmed_real_participant(participant)
     ]
+    seen_team_keys: set[str] = set()
+    for participant in participants:
+        team_key = str(participant.get("teamKey") or "")
+        if team_key and team_key in seen_team_keys:
+            raise ValueError(f"Duplicate canonical finals participant: {team_key}")
+        if team_key:
+            seen_team_keys.add(team_key)
     matches = [
         dict(match)
         for match in event.get("matches", [])
@@ -252,7 +217,7 @@ def _build_event_payload(event: dict[str, Any]) -> dict[str, Any]:
             "pendingEntrySlots": pending_slots,
         }
     )
-    response_event["predictionMatrix"] = build_finals_prediction_matrix(participants)
+    response_event["teamRatingIndex"] = build_finals_team_rating_index(participants)
     response_event["predictionBasis"] = "finals_sequential_elo"
     return response_event
 
@@ -266,13 +231,13 @@ def _merge_runtime_event(event: dict[str, Any], runtime_event: dict[str, Any] | 
             merged[field] = runtime_event[field]
     participants = [dict(row) for row in event.get("participants", []) if isinstance(row, dict)]
     participant_index = {
-        (_identity_key(row.get("collegeName")), _identity_key(row.get("teamName"))): index
+        _participant_identity_key(row): index
         for index, row in enumerate(participants)
     }
     for participant in runtime_event.get("participants", []):
         if not isinstance(participant, dict):
             continue
-        key = (_identity_key(participant.get("collegeName")), _identity_key(participant.get("teamName")))
+        key = _participant_identity_key(participant)
         if key in participant_index:
             participants[participant_index[key]].update(participant)
         else:
@@ -283,85 +248,109 @@ def _merge_runtime_event(event: dict[str, Any], runtime_event: dict[str, Any] | 
     merged["participants"] = participants
     merged["participantCount"] = len(participants)
 
+    reference_matches = {
+        int(row["number"]): row
+        for row in event.get("matches", [])
+        if isinstance(row, dict) and row.get("number") is not None
+    }
     runtime_matches = {
         int(row["number"]): row
         for row in runtime_event.get("matches", [])
         if isinstance(row, dict) and row.get("number") is not None
     }
+    unknown_numbers = sorted(set(runtime_matches) - set(reference_matches))
+    if unknown_numbers:
+        raise ValueError(f"Finals runtime contains unknown match numbers: {unknown_numbers}")
+    for number, runtime_match in runtime_matches.items():
+        reference_match = reference_matches[number]
+        if int(runtime_match.get("bestOf") or 0) != int(reference_match.get("bestOf") or 0):
+            raise ValueError(f"Finals runtime BO does not match schedule for match #{number}")
     merged["matches"] = [
-        {**match, **runtime_matches.get(int(match["number"]), {})}
+        {
+            **match,
+            **{
+                field: runtime_matches[int(match["number"])][field]
+                for field in ("officialMatchId", "sourceKind", "isSynthetic", *finals_live.RUNTIME_MATCH_FIELDS)
+                if int(match["number"]) in runtime_matches and field in runtime_matches[int(match["number"])]
+            },
+        }
         for match in event.get("matches", [])
         if isinstance(match, dict)
     ]
     return merged
 
 
-def _source_age_seconds(value: Any) -> int | None:
-    text = str(value or "").strip()
-    if not text:
-        return None
-    try:
-        parsed = parsedate_to_datetime(text) if "," in text else datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except (TypeError, ValueError):
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=UTC)
-    return max(0, int((datetime.now(tz=UTC) - parsed.astimezone(UTC)).total_seconds()))
-
-
-def _runtime_status(runtime: dict[str, Any] | None, event_slug: str) -> dict[str, Any]:
+def _runtime_status(
+    runtime: dict[str, Any] | None,
+    event_slug: str,
+    *,
+    enabled: bool = True,
+    artifact_version: str | None = None,
+) -> dict[str, Any]:
+    artifact = artifact_version or finals_live.runtime_artifact_version()
+    if not enabled:
+        return build_live_source_status(
+            source_status="inactive",
+            source_kind=None,
+            source_updated_at=None,
+            artifact_version=artifact,
+            completed_matches=0,
+            confirmed_matches=0,
+            source_reason="模拟模式未合并实时数据",
+            validation_state="disabled",
+        )
     if not runtime:
-        return {
-            "sourceStatus": "missing",
-            "sourceKind": None,
-            "isSynthetic": False,
-            "sourceUpdatedAt": None,
-            "sourceAgeSeconds": None,
-            "freshnessLabel": "missing",
-            "validationState": "missing",
-            "scenarioId": None,
-            "runtimeArtifactVersion": finals_live.runtime_artifact_version(),
-            "completedMatches": 0,
-            "confirmedMatches": 0,
-        }
+        return build_live_source_status(
+            source_status="missing",
+            source_kind=None,
+            source_updated_at=None,
+            artifact_version=artifact,
+            completed_matches=0,
+            confirmed_matches=0,
+            source_reason="尚未同步赛事实时数据",
+        )
+    runtime_events = runtime.get("events", {})
+    runtime_event = runtime_events.get(event_slug) if isinstance(runtime_events, dict) else None
+    global_status = str(runtime.get("sourceStatus") or "inactive").strip().lower()
+    source_reason = runtime.get("reason")
     matches = [
         match
-        for match in runtime.get("events", {}).get(event_slug, {}).get("matches", [])
+        for match in (runtime_event or {}).get("matches", [])
         if isinstance(match, dict)
     ]
-    source_age_seconds = _source_age_seconds(runtime.get("sourceUpdatedAt"))
-    return {
-        "sourceStatus": runtime.get("sourceStatus"),
-        "sourceKind": runtime.get("sourceKind"),
-        "isSynthetic": runtime.get("isSynthetic") is True,
-        "sourceUpdatedAt": runtime.get("sourceUpdatedAt"),
-        "sourceAgeSeconds": source_age_seconds,
-        "freshnessLabel": (
-            "synthetic"
-            if runtime.get("isSynthetic") is True
-            else "unknown"
-            if source_age_seconds is None
-            else "fresh"
-            if source_age_seconds <= 900
-            else "stale"
-        ),
-        "validationState": "validated",
-        "scenarioId": runtime.get("scenarioId"),
-        "runtimeArtifactVersion": finals_live.runtime_artifact_version(),
-        "completedMatches": sum(match.get("isCompleted") is True for match in matches),
-        "confirmedMatches": sum(match.get("isConfirmedMatchup") is True for match in matches),
-    }
+    return build_live_source_status(
+        source_status=global_status,
+        source_kind=str(runtime.get("sourceKind")) if runtime.get("sourceKind") else None,
+        source_updated_at=runtime.get("sourceUpdatedAt"),
+        artifact_version=artifact,
+        completed_matches=sum(match.get("isCompleted") is True for match in matches),
+        confirmed_matches=sum(match.get("isConfirmedMatchup") is True for match in matches),
+        is_synthetic=runtime.get("isSynthetic") is True,
+        source_reason=source_reason,
+        validation_state="validated" if global_status == "active" else global_status,
+        scenario_id=runtime.get("scenarioId"),
+        scope_present=isinstance(runtime_event, dict),
+        missing_scope_reason="实时源未包含当前赛事",
+    )
 
 
-def build_final_event_payload(event_slug: str) -> dict[str, Any]:
-    if event_slug not in EVENT_SLUGS:
-        raise KeyError(event_slug)
-    payload = load_finals_schedule()
-    runtime = finals_live.load_finals_runtime()
-    runtime_active = runtime is not None and runtime.get("sourceStatus") == "active"
+def _build_final_event_from_snapshot(
+    event_slug: str,
+    *,
+    mode: str,
+    payload: dict[str, Any],
+    runtime: dict[str, Any] | None,
+    runtime_artifact_version: str,
+) -> dict[str, Any]:
+    runtime_status = _runtime_status(
+        runtime,
+        event_slug,
+        enabled=mode == "live",
+        artifact_version=runtime_artifact_version,
+    )
+    runtime_active = runtime_status["sourceStatus"] == "active"
     runtime_event = runtime.get("events", {}).get(event_slug) if runtime_active else None
     merged_event = _merge_runtime_event(payload["events"][event_slug], runtime_event)
-    runtime_status = _runtime_status(runtime, event_slug)
     sources = list(payload["sources"])
     if runtime_active:
         sources.append(
@@ -385,8 +374,57 @@ def build_final_event_payload(event_slug: str) -> dict[str, Any]:
             if runtime_active
             else payload["scheduleStatus"]
         ),
-        "verifiedAt": runtime_status["sourceUpdatedAt"] or payload["verifiedAt"],
+        "verifiedAt": runtime_status["sourceUpdatedAt"] if runtime_active else payload["verifiedAt"],
         "sources": sources,
         "liveStatus": runtime_status,
         "event": _build_event_payload(merged_event),
+    }
+
+
+def _load_finals_snapshot(mode: str) -> tuple[dict[str, Any], dict[str, Any] | None, str]:
+    if mode not in {"live", "sim"}:
+        raise RequestParameterError(f"Unsupported finals mode: {mode}")
+    payload = load_finals_schedule()
+    if mode == "sim":
+        return payload, None, "disabled"
+    for _ in range(2):
+        version_before = finals_live.runtime_artifact_version()
+        runtime = finals_live.load_finals_runtime()
+        version_after = finals_live.runtime_artifact_version()
+        if version_before == version_after:
+            return payload, runtime, version_after
+    raise RuntimeError("Finals runtime changed repeatedly while building a snapshot")
+
+
+def build_final_event_payload(event_slug: str, *, mode: str = "live") -> dict[str, Any]:
+    if event_slug not in EVENT_SLUGS:
+        raise UnknownFinalEventError(event_slug)
+    payload, runtime, runtime_artifact_version = _load_finals_snapshot(mode)
+    return _build_final_event_from_snapshot(
+        event_slug,
+        mode=mode,
+        payload=payload,
+        runtime=runtime,
+        runtime_artifact_version=runtime_artifact_version,
+    )
+
+
+def build_finals_snapshot_payload(*, mode: str = "live") -> dict[str, Any]:
+    """Build both finals events from one reference/runtime snapshot."""
+    payload, runtime, runtime_artifact_version = _load_finals_snapshot(mode)
+    return {
+        "schemaVersion": payload["schemaVersion"],
+        "season": payload["season"],
+        "mode": mode,
+        "runtimeArtifactVersion": runtime_artifact_version,
+        "events": {
+            event_slug: _build_final_event_from_snapshot(
+                event_slug,
+                mode=mode,
+                payload=payload,
+                runtime=runtime,
+                runtime_artifact_version=runtime_artifact_version,
+            )
+            for event_slug in sorted(EVENT_SLUGS)
+        },
     }

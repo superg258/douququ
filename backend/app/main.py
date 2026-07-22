@@ -2,11 +2,16 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
+from starlette.responses import JSONResponse
 
-from .finals_schedule import build_final_event_payload
+from .competition import RequestParameterError, UnknownResourceError
+from .finals_schedule import (
+    build_final_event_payload,
+    build_finals_snapshot_payload,
+)
 from .service import (
     build_command_center_payload,
     build_live_state_payload,
@@ -29,6 +34,16 @@ app.add_middleware(
 )
 
 
+@app.exception_handler(RequestParameterError)
+def invalid_request_parameter(_request: Request, exc: RequestParameterError) -> JSONResponse:
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+
+@app.exception_handler(UnknownResourceError)
+def unknown_resource(_request: Request, exc: UnknownResourceError) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": exc.detail})
+
+
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -40,11 +55,13 @@ def overview() -> dict[str, Any]:
 
 
 @app.get("/api/finals/{event_slug}")
-def final_event(event_slug: str) -> dict[str, Any]:
-    try:
-        return build_final_event_payload(event_slug)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=f"Unknown finals event: {event_slug}") from exc
+def final_event(event_slug: str, mode: str = Query("live")) -> dict[str, Any]:
+    return build_final_event_payload(event_slug, mode=mode)
+
+
+@app.get("/api/finals")
+def finals_snapshot(mode: str = Query("live")) -> dict[str, Any]:
+    return build_finals_snapshot_payload(mode=mode)
 
 
 @app.get("/api/prematch-center")
@@ -53,10 +70,7 @@ def prematch_center(
     mode: str = Query("live"),
     date: str | None = Query(None),
 ) -> dict[str, Any]:
-    try:
-        return build_prematch_center_payload(seed=seed, mode=mode, date=date)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return build_prematch_center_payload(seed=seed, mode=mode, date=date)
 
 
 @app.get("/api/command-center")
@@ -65,41 +79,24 @@ def command_center(
     mode: str = Query("live"),
     date: str | None = Query(None),
 ) -> dict[str, Any]:
-    try:
-        return build_command_center_payload(seed=seed, mode=mode, date=date)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return build_command_center_payload(seed=seed, mode=mode, date=date)
 
 
 @app.get("/api/prediction-recap")
 def prediction_recap(seed: int = Query(20260414, ge=1), mode: str = Query("live")) -> dict[str, Any]:
-    try:
-        return build_prediction_recap_payload(seed=seed, mode=mode)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return build_prediction_recap_payload(seed=seed, mode=mode)
 
 
 @app.get("/api/teams/{team_key}")
 def team_profile(team_key: str, seed: int = Query(20260414, ge=1), mode: str = Query("live")) -> dict[str, Any]:
-    try:
-        return build_team_profile_payload(team_key, seed=seed, mode=mode)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=f"Unknown team: {team_key}") from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return build_team_profile_payload(team_key, seed=seed, mode=mode)
 
 
 @app.get("/api/regions/{region_slug}/simulation")
 def simulation(region_slug: str, seed: int = Query(20260414, ge=1), mode: str = Query("sim")) -> dict[str, Any]:
-    try:
-        return build_simulation_payload(region_slug, seed, mode)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=f"Unknown region: {region_slug}") from exc
+    return build_simulation_payload(region_slug, seed, mode)
 
 
 @app.get("/api/regions/{region_slug}/live-state")
 def live_state(region_slug: str) -> dict[str, Any]:
-    try:
-        return build_live_state_payload(region_slug)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=f"Unknown region: {region_slug}") from exc
+    return build_live_state_payload(region_slug)

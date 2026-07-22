@@ -17,12 +17,13 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from backend.app import rmuc_live, service  # noqa: E402
+from backend.app.artifacts import write_json_atomic  # noqa: E402
+from backend.app.team_identity import canonical_school_key  # noqa: E402
 from scripts.sync_rmuc_live import (  # noqa: E402
     DEFAULT_BASE_PUBLISHED_DIR,
     DEFAULT_PRESEASON_RATINGS,
     DEFAULT_RUNTIME_DIR,
     publish_runtime_artifacts,
-    write_json_atomic,
 )
 
 
@@ -104,7 +105,7 @@ def stage_family(stage: str) -> str:
 def school_key(team_key: str, college_name: str) -> str:
     if "::" in team_key:
         return team_key.split("::", maxsplit=1)[0]
-    return rmuc_live.legacy_elo.make_school_key(college_name)
+    return canonical_school_key(college_name)
 
 
 def planned_start(base: datetime, index: int, interval_minutes: int) -> str:
@@ -376,7 +377,10 @@ def build_mock_normalized(
     else:
         mock_source.update({"startAt": start_at, "intervalMinutes": interval_minutes})
     return {
+        "schemaVersion": "rmuc-regionals-live-v1",
         "sourceStatus": "active",
+        "sourceKind": "synthetic",
+        "isSynthetic": True,
         "reason": None,
         "eventTitle": "RoboMaster 2026 超级对抗赛（南部赛区模拟实时源）",
         "season": 2026,

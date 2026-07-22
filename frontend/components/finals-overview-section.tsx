@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { ErrorPanel, LoadingBlock } from "@/components/ui/async-state";
-import { getFinalEvent, getOverview } from "@/lib/api";
+import { getFinalEvents, getOverview } from "@/lib/api";
 import {
   hasActualFinalMatchup,
   projectFinalsStageProbabilities,
@@ -417,16 +417,18 @@ export function FinalsOverviewSection() {
   useEffect(() => {
     let canceled = false;
     const load = () => {
-      Promise.allSettled([getOverview(), getFinalEvent("repechage"), getFinalEvent("nationals")]).then((results) => {
+      Promise.allSettled([getOverview(), getFinalEvents("live")]).then((results) => {
         if (canceled) return;
-        const [overviewResult, repechageResult, nationalsResult] = results;
+        const [overviewResult, finalsResult] = results;
         const nextErrors: typeof errors = {};
         if (overviewResult.status === "fulfilled") setOverview(overviewResult.value);
         else nextErrors.overview = overviewResult.reason instanceof Error ? overviewResult.reason.message : String(overviewResult.reason);
-        if (repechageResult.status === "fulfilled") setEvents((current) => ({ ...current, repechage: repechageResult.value }));
-        else nextErrors.repechage = repechageResult.reason instanceof Error ? repechageResult.reason.message : String(repechageResult.reason);
-        if (nationalsResult.status === "fulfilled") setEvents((current) => ({ ...current, nationals: nationalsResult.value }));
-        else nextErrors.nationals = nationalsResult.reason instanceof Error ? nationalsResult.reason.message : String(nationalsResult.reason);
+        if (finalsResult.status === "fulfilled") setEvents(finalsResult.value.events);
+        else {
+          const message = finalsResult.reason instanceof Error ? finalsResult.reason.message : String(finalsResult.reason);
+          nextErrors.repechage = message;
+          nextErrors.nationals = message;
+        }
         setErrors(nextErrors);
         setNow(Date.now());
       });

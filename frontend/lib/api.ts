@@ -1,7 +1,6 @@
 import type {
   CommandCenterResponse,
-  FinalEventResponse,
-  FinalEventSlug,
+  FinalEventsSnapshotResponse,
   LiveStateResponse,
   OverviewResponse,
   PredictionRecapResponse,
@@ -33,8 +32,8 @@ export function getOverview(): Promise<OverviewResponse> {
   return requestJson<OverviewResponse>("/api/overview");
 }
 
-export function getFinalEvent(eventSlug: FinalEventSlug): Promise<FinalEventResponse> {
-  return requestJson<FinalEventResponse>(`/api/finals/${eventSlug}`);
+export function getFinalEvents(mode: "sim" | "live" = "live"): Promise<FinalEventsSnapshotResponse> {
+  return requestJson<FinalEventsSnapshotResponse>(`/api/finals?mode=${mode}`);
 }
 
 export function getSimulation(regionSlug: RegionSlug, seed: number, mode: "sim" | "live" = "sim"): Promise<SimulationResponse> {

@@ -200,6 +200,7 @@ def test_finals_api_exposes_runtime_provenance_without_mutating_reference(monkey
         "sourceStatus": "active",
         "sourceKind": "synthetic",
         "isSynthetic": True,
+        "sourceReason": None,
         "sourceUpdatedAt": "2026-07-21T21:00:00+08:00",
         "sourceAgeSeconds": payload["liveStatus"]["sourceAgeSeconds"],
         "freshnessLabel": "synthetic",

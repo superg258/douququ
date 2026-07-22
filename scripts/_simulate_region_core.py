@@ -202,24 +202,8 @@ PayloadBuilder = Callable[..., dict[str, Any]]
 HeadToHeadRecorder = Callable[[dict[tuple[str, str], dict[str, Any]], RegionTeam, RegionTeam, int, int], None]
 
 
-def float_field(row: dict[str, Any], key: str, default: float = 0.0) -> float:
-    value = row.get(key)
-    if value in (None, ""):
-        return default
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def int_field(row: dict[str, Any], key: str, default: int = 0) -> int:
-    value = row.get(key)
-    if value in (None, ""):
-        return default
-    try:
-        return int(float(value))
-    except (TypeError, ValueError):
-        return default
+float_field = predictor.float_field
+int_field = predictor.int_field
 
 
 def parse_args() -> argparse.Namespace:

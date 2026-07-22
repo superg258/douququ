@@ -10,14 +10,19 @@ from datetime import UTC, datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
-from urllib.error import HTTPError
-from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from backend.app import rmuc_live  # noqa: E402
+from backend.app.artifacts import (  # noqa: E402
+    read_json as load_json,
+    read_versioned_json_if_exists as load_json_if_exists,
+    write_json_atomic,
+)
+from backend.app.competition import is_completed_match_status  # noqa: E402
+from scripts._live_sync_common import fetch_json  # noqa: E402
 from research.trueskill2.fit import (  # noqa: E402
     _build_published_current_snapshot,
     _regional_pre_config,
@@ -45,9 +50,9 @@ DEFAULT_MINI_PROGRAM_REFRESH_WINDOW_SECONDS = 60
 DEFAULT_MINI_PROGRAM_LOOKBACK_HOURS = 24
 DEFAULT_MINI_PROGRAM_LOOKAHEAD_HOURS = 48
 DEFAULT_MINI_PROGRAM_MAX_MATCHES = 96
+SYNC_USER_AGENT = "douququ-rmuc-live-sync/1.0"
 BEIJING_TZ = timezone(timedelta(hours=8))
 RUNTIME_SNAPSHOT_RE = re.compile(r"^(group_rank_info|robot_data)\.(\d{8}T\d{6}Z)\.json$")
-COMPLETED_OFFICIAL_STATUSES = {"DONE", "FINISHED", "ENDED", "COMPLETE", "COMPLETED"}
 
 
 def parse_args() -> argparse.Namespace:
@@ -65,38 +70,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mini-program-lookahead-hours", type=int, default=DEFAULT_MINI_PROGRAM_LOOKAHEAD_HOURS)
     parser.add_argument("--mini-program-max-matches", type=int, default=DEFAULT_MINI_PROGRAM_MAX_MATCHES)
     return parser.parse_args()
-
-
-def fetch_json(url: str, previous_headers: dict[str, str] | None = None) -> tuple[dict[str, Any] | None, dict[str, str], bool]:
-    request_headers = {"User-Agent": "douququ-rmuc-live-sync/1.0"}
-    previous_headers = previous_headers or {}
-    if previous_headers.get("etag"):
-        request_headers["If-None-Match"] = str(previous_headers["etag"])
-    if previous_headers.get("last-modified"):
-        request_headers["If-Modified-Since"] = str(previous_headers["last-modified"])
-    request = Request(url, headers=request_headers)
-    try:
-        with urlopen(request, timeout=30) as response:  # noqa: S310 - fixed trusted URLs.
-            headers = {key.lower(): value for key, value in response.headers.items()}
-            return json.loads(response.read().decode("utf-8")), headers, True
-    except HTTPError as exc:
-        if exc.code == 304:
-            return None, dict(previous_headers), False
-        raise
-
-
-def write_json_atomic(path: Path, payload: Any) -> None:
-    rmuc_live.write_json_atomic(path, payload)
-
-
-def load_json(path: Path) -> Any:
-    return rmuc_live.read_json(path)
-
-
-def load_json_if_exists(path: Path) -> Any | None:
-    if not path.exists():
-        return None
-    return load_json(path)
 
 
 def mini_program_sync_disabled_from_env() -> bool:
@@ -226,8 +199,7 @@ def _is_pending_prediction_form_match(match: dict[str, Any]) -> bool:
         return False
     if match.get("isCompleted") or match.get("hasLiveScoreline"):
         return False
-    status = str(match.get("officialStatus") or "").strip().upper()
-    return status not in COMPLETED_OFFICIAL_STATUSES
+    return not is_completed_match_status(match.get("officialStatus"))
 
 
 def build_runtime_live_form_observations(
@@ -989,6 +961,7 @@ def main() -> None:
         schedule_payload, headers, changed = fetch_json(
             rmuc_live.UPSTREAM_LIVE_URLS["schedule"],
             upstream_headers.get("schedule") if isinstance(upstream_headers.get("schedule"), dict) else None,
+            user_agent=SYNC_USER_AGENT,
         )
         if schedule_payload is None:
             schedule_payload = load_json(raw_dir / "schedule.json")
@@ -1003,6 +976,7 @@ def main() -> None:
                 payload, aux_headers, aux_changed = fetch_json(
                     url,
                     upstream_headers.get(name) if isinstance(upstream_headers.get(name), dict) else None,
+                    user_agent=SYNC_USER_AGENT,
                 )
                 if payload is not None and aux_changed:
                     write_raw_snapshot(raw_dir, name, payload, fetched_at)
