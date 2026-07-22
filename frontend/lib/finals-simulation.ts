@@ -590,7 +590,7 @@ function simulateEvent(
 
   return {
     eventSlug: event.slug,
-    seed: 0, // 由外层统一回填
+    seed: 0, // 由外层统一设置
     drawAssignments,
     matchResults,
     swissStandings,

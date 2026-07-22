@@ -116,6 +116,35 @@ describe("finals schedule helpers", () => {
     });
   });
 
+  it("keeps the known side of a drawn matchup while the repechage side is pending", () => {
+    const blue = {
+      order: 1,
+      schoolKey: "blue-school",
+      teamKey: "blue::team",
+      collegeName: "已抽中的大学",
+      teamName: "已抽中的队",
+      drawTier: "非种子抽签池",
+      status: "confirmed" as const,
+    };
+    const payload = event([]);
+    payload.participants = [blue];
+    const row = buildFinalsMatchRow(payload, match(15, "2026-08-01T14:00:00+08:00", "B组瑞士轮第一轮（BO3）", {
+      redSlot: "Ⅰ-B15",
+      blueSlot: "Ⅰ-B7",
+      isConfirmedMatchup: false,
+      blueTeamKey: blue.teamKey,
+      blueCollegeName: blue.collegeName,
+      blueTeamName: blue.teamName,
+    }));
+
+    expect(row).toMatchObject({
+      isRealResult: false,
+      isConfirmedMatchup: false,
+      redTeam: { teamKey: "", collegeName: "Ⅰ-B15" },
+      blueTeam: { teamKey: blue.teamKey, collegeName: blue.collegeName, teamName: blue.teamName },
+    });
+  });
+
   it("recognizes real schools and rejects unresolved schedule slots", () => {
     expect(isActualSchoolName("广东工业大学")).toBe(true);
     expect(isActualSchoolName("DynamicX")).toBe(true);
@@ -125,6 +154,12 @@ describe("finals schedule helpers", () => {
 
     expect(hasActualFinalMatchup({ redSlot: "广东工业大学", blueSlot: "DynamicX" })).toBe(true);
     expect(hasActualFinalMatchup({ redSlot: "广东工业大学", blueSlot: "Ⅰ-A1" })).toBe(false);
+    expect(hasActualFinalMatchup({
+      redSlot: "Ⅰ-A1",
+      blueSlot: "Ⅰ-A9",
+      redTeamKey: "red::team",
+      blueTeamKey: "blue::team",
+    })).toBe(true);
   });
 
   it("filters each event stage and groups formal matches by Beijing date", () => {

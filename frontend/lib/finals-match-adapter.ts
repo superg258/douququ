@@ -218,9 +218,11 @@ export function buildFinalsMatchRow(
     return {
       ...base,
       isRealResult: false,
-      isConfirmedMatchup: false,
-      redTeam: placeholderTeamRef(match.redSlot),
-      blueTeam: placeholderTeamRef(match.blueSlot),
+      // 抽签已经落位但一侧仍是复活赛待确认席位时，保留另一侧的真实队伍；
+      // 不能因为整场尚未确认而把已知队伍也抹成槽位占位。
+      isConfirmedMatchup: Boolean(officialRed && officialBlue) && match.isConfirmedMatchup !== false,
+      redTeam: officialRed ?? placeholderTeamRef(match.redSlot),
+      blueTeam: officialBlue ?? placeholderTeamRef(match.blueSlot),
       scoreline: "0:0",
       winnerTeamKey: "",
       loserTeamKey: "",

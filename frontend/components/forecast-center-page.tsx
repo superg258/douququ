@@ -477,7 +477,13 @@ export function ForecastCenterPage() {
             </div>
           ) : null}
           <div className="hidden items-center gap-2 font-mono text-[10px] text-rm-metal-textMuted lg:flex">
-            <span>{current.event.participantCount} 队</span><span className="text-white/20">/</span>
+            <span>{current.event.fieldCapacity ?? current.event.participantCount} 席</span>
+            {current.event.pendingEntryCount ? (
+              <span className="text-rm-status-warn">
+                {current.event.pendingEntryCount} 席待确认
+              </span>
+            ) : null}
+            <span className="text-white/20">/</span>
             <span>{current.event.formalMatchCount} 场</span><span className="text-white/20">/</span>
             <span className="text-rm-status-scheduled">{formatFinalsDateRange(current.event.competitionRange.start, current.event.competitionRange.end)}</span>
           </div>

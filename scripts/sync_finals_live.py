@@ -29,12 +29,20 @@ LIVE_MATCH_FIELDS = (
     "result",
     "redWins",
     "blueWins",
+    "redSchoolKey",
     "redTeamKey",
     "redCollegeName",
     "redTeamName",
+    "blueSchoolKey",
     "blueTeamKey",
     "blueCollegeName",
     "blueTeamName",
+)
+LIVE_EVENT_FIELDS = (
+    "fieldCapacity",
+    "drawStatus",
+    "pendingEntryCount",
+    "pendingEntrySlots",
 )
 
 
@@ -126,8 +134,12 @@ def overlay_from_enriched_schedule(
                 **{field: match[field] for field in LIVE_MATCH_FIELDS if field in match},
             }
             matches.append(runtime_match)
-        if participants or matches:
-            events[event_slug] = {"participants": participants, "matches": matches}
+        event_overlay: dict[str, Any] = {"participants": participants, "matches": matches}
+        for field in LIVE_EVENT_FIELDS:
+            if field in enriched_event:
+                event_overlay[field] = enriched_event[field]
+        if participants or matches or any(field in event_overlay for field in LIVE_EVENT_FIELDS):
+            events[event_slug] = event_overlay
     return {
         "schemaVersion": "rmuc-finals-live-v1",
         "season": int(base.get("season") or enriched.get("season") or 2026),

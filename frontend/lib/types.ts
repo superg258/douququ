@@ -817,6 +817,14 @@ export interface FinalEventParticipant {
   status: "confirmed";
 }
 
+export interface FinalEventPendingEntrySlot {
+  slot: string;
+  label: string;
+  sourceEvent: FinalEventSlug;
+  sourceRank: number;
+  status: "pending";
+}
+
 export interface FinalEventMatch {
   number: number;
   stageKey: "swiss" | "repechage_qualification" | "round_of_16" | "quarterfinal" | "semifinal" | "third_place" | "final";
@@ -858,6 +866,12 @@ export interface FinalEventSchedule {
   competitionRange: { start: string; end: string };
   participantCount: number;
   confirmedParticipantCount: number;
+  /** 正式赛制容量；participantCount 只统计已确认真实队伍。 */
+  fieldCapacity?: number;
+  /** 全国赛抽签已完成但复活赛席位尚未确认时的待定名额数。 */
+  pendingEntryCount?: number;
+  pendingEntrySlots?: FinalEventPendingEntrySlot[];
+  drawStatus?: "pending" | "completed";
   advancementSlots: number | null;
   formalMatchCount: number;
   groups: Array<{ name: string; teamCount: number; swissRounds: number }>;

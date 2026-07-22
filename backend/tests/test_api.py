@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from backend.app.main import app
 from backend.app import finals_live, finals_schedule, service
+from scripts import seed_finals_live_mock, sync_finals_live
 
 
 client = TestClient(app)
@@ -130,15 +131,16 @@ def test_finals_status_reports_completed_draw_before_play(monkeypatch) -> None:
         })
 
     monkeypatch.setattr(finals_schedule, "load_finals_schedule", lambda: payload)
+    monkeypatch.setattr(finals_schedule.finals_live, "load_finals_runtime", lambda: None)
     event = finals_schedule.build_final_event_payload("nationals")["event"]
 
-    assert event["statusLabel"] == f"{event['participantCount']} 队抽签已完成 · 等待开赛"
+    assert event["statusLabel"] == "抽签已完成 · 28 / 32 队已确认 · 4 个席位待确认"
 
 
 def test_nationals_schedule_returns_only_confirmed_real_participants(monkeypatch) -> None:
     reference = finals_schedule.load_finals_schedule()
     extra_participants = [
-        {**participant, "drawTier": "复活赛晋级"}
+        {**participant, "drawTier": "非种子抽签池", "status": "confirmed", "entrySource": "repechage"}
         for participant in reference["events"]["repechage"]["participants"][:4]
     ]
     all_participants = [*reference["events"]["nationals"]["participants"], *extra_participants]
@@ -177,7 +179,8 @@ def test_nationals_schedule_returns_only_confirmed_real_participants(monkeypatch
 
     assert event["participantCount"] == 32
     assert event["confirmedParticipantCount"] == 32
-    assert "pendingParticipantCount" not in event
+    assert event["fieldCapacity"] == 32
+    assert event["pendingEntryCount"] == 0
     assert event["statusLabel"] == "32 队抽签已完成 · 等待开赛"
     assert event["formalMatchCount"] == 96
     assert len(event["participants"]) == 32
@@ -216,7 +219,8 @@ def test_nationals_schedule_expands_when_repechage_qualifiers_are_confirmed(monk
             {
                 **qualifier,
                 "order": len(nationals["participants"]) + 1,
-                "drawTier": "复活赛晋级",
+                "drawTier": "非种子抽签池",
+                "entrySource": "repechage",
             }
         )
     nationals["participantCount"] = 32
@@ -233,11 +237,54 @@ def test_nationals_schedule_expands_when_repechage_qualifiers_are_confirmed(monk
 
     assert event["participantCount"] == 32
     assert event["confirmedParticipantCount"] == 32
-    assert "pendingParticipantCount" not in event
+    assert event["fieldCapacity"] == 32
+    assert event["pendingEntryCount"] == 0
     assert event["statusLabel"] == "32 队名单已确认 · 抽签待定"
     assert len(event["participants"]) == 32
     assert all(participant["schoolKey"] for participant in event["participants"])
     assert all(participant["teamKey"] for participant in event["participants"])
+
+
+def test_nationals_api_keeps_drawn_known_sides_when_repechage_has_two_pending_slots(monkeypatch) -> None:
+    base = finals_schedule.load_finals_schedule()
+    enriched, _ = seed_finals_live_mock.build_scenario_schedule(
+        base,
+        "synthetic-finals-repechage-two-qualifiers-national-draw",
+    )
+    runtime = sync_finals_live.normalize_raw_input(
+        enriched,
+        SimpleNamespace(
+            input=None,
+            source_url=None,
+            base_schedule=seed_finals_live_mock.DEFAULT_BASE_SCHEDULE,
+            source_kind="synthetic",
+            scenario_id="synthetic-finals-repechage-two-qualifiers-national-draw",
+            source_updated_at="2026-07-22T15:00:00+08:00",
+        ),
+        datetime(2026, 7, 22, tzinfo=UTC),
+    )
+    monkeypatch.setattr(finals_schedule.finals_live, "load_finals_runtime", lambda: runtime)
+    monkeypatch.setattr(finals_schedule.finals_live, "runtime_artifact_version", lambda: "test-runtime-partial-draw")
+
+    response = client.get("/api/finals/nationals")
+    assert response.status_code == 200
+    payload = response.json()
+    event = payload["event"]
+
+    assert event["participantCount"] == 30
+    assert event["confirmedParticipantCount"] == 30
+    assert event["fieldCapacity"] == 32
+    assert event["drawStatus"] == "completed"
+    assert event["pendingEntryCount"] == 2
+    assert [slot["label"] for slot in event["pendingEntrySlots"]] == ["复活赛晋级 3", "复活赛晋级 4"]
+    assert event["statusLabel"] == "抽签已完成 · 30 / 32 队已确认 · 2 个席位待确认"
+
+    mixed_match = next(match for match in event["matches"] if match["number"] == 15)
+    assert mixed_match["isConfirmedMatchup"] is False
+    assert mixed_match["redTeamKey"]
+    assert mixed_match["redCollegeName"]
+    assert not mixed_match.get("blueTeamKey")
+    assert mixed_match["blueCollegeName"] == "复活赛晋级 3"
 
 
 def test_unknown_finals_event_returns_404() -> None:

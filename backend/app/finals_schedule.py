@@ -36,6 +36,10 @@ EVENT_RESPONSE_FIELDS = (
     "groups",
     "drawRules",
     "ceremonySchedule",
+    "fieldCapacity",
+    "drawStatus",
+    "pendingEntryCount",
+    "pendingEntrySlots",
 )
 COMPLETED_MATCH_STATUSES = {"DONE", "FINISHED", "ENDED", "COMPLETE", "COMPLETED"}
 RUNNING_MATCH_STATUSES = {"RUNNING", "STARTED", "ONGOING", "IN_PROGRESS", "LIVE"}
@@ -113,7 +117,14 @@ def _load_team_identity_indexes() -> dict[str, dict[Any, dict[str, str]]]:
     return {"by_pair": by_pair, "by_school": by_school, "by_team": by_team}
 
 
-def _participant_identity(participant: dict[str, Any]) -> dict[str, str | None]:
+def resolve_final_participant_identity(participant: dict[str, Any]) -> dict[str, str | None]:
+    """Resolve one finals participant to the canonical ratings identity.
+
+    Runtime overlays are allowed to carry a source-local match identifier, but
+    every roster and fixture consumer must use this identity for a real team.
+    The synthetic seeder imports this helper as well, so generated match sides
+    and API participants cannot silently diverge.
+    """
     school_name = _canonical_school_name(participant.get("collegeName"))
     team_name = str(participant.get("teamName") or "").strip()
     school_lookup = _identity_key(school_name)
@@ -141,7 +152,20 @@ def _official_match_status(match: dict[str, Any]) -> str:
     return str(match.get("officialStatus") or "").strip().upper()
 
 
-def _event_status_label(participant_count: int, matches: list[dict[str, Any]]) -> str:
+def _event_status_label(
+    participant_count: int,
+    matches: list[dict[str, Any]],
+    *,
+    field_capacity: int | None = None,
+    pending_entry_count: int = 0,
+    draw_status: str = "pending",
+) -> str:
+    field_capacity = max(participant_count, int(field_capacity or participant_count))
+    pending_suffix = (
+        f" · {pending_entry_count} 个席位待确认"
+        if pending_entry_count > 0
+        else ""
+    )
     total = len(matches)
     completed = sum(
         match.get("isCompleted") is True or _official_match_status(match) in COMPLETED_MATCH_STATUSES
@@ -149,9 +173,9 @@ def _event_status_label(participant_count: int, matches: list[dict[str, Any]]) -
     )
     running = sum(_official_match_status(match) in RUNNING_MATCH_STATUSES for match in matches)
     if running:
-        return f"{running} 场进行中 · 已完赛 {completed} / {total} 场"
+        return f"{running} 场进行中 · 已完赛 {completed} / {total} 场{pending_suffix}"
     if completed:
-        return f"已完赛 {completed} / {total} 场"
+        return f"已完赛 {completed} / {total} 场{pending_suffix}"
     confirmed_matchups = sum(
         match.get("isConfirmedMatchup") is True
         and bool(match.get("redCollegeName") or match.get("redTeamKey"))
@@ -159,13 +183,17 @@ def _event_status_label(participant_count: int, matches: list[dict[str, Any]]) -
         for match in matches
     )
     if confirmed_matchups:
+        if pending_entry_count > 0:
+            return f"抽签已完成 · {participant_count} / {field_capacity} 队已确认 · {pending_entry_count} 个席位待确认"
         return f"{participant_count} 队抽签已完成 · 等待开赛"
+    if draw_status == "completed":
+        return f"抽签已完成 · {participant_count} / {field_capacity} 队已确认 · {pending_entry_count} 个席位待确认"
     return f"{participant_count} 队名单已确认 · 抽签待定"
 
 
 def _build_event_payload(event: dict[str, Any]) -> dict[str, Any]:
     participants = [
-        {**participant, **_participant_identity(participant)}
+        {**participant, **resolve_final_participant_identity(participant)}
         for participant in event.get("participants", [])
         if isinstance(participant, dict) and _is_confirmed_real_participant(participant)
     ]
@@ -174,6 +202,31 @@ def _build_event_payload(event: dict[str, Any]) -> dict[str, Any]:
         for match in event.get("matches", [])
         if isinstance(match, dict) and match.get("kind") == "formal"
     ]
+    group_capacity = sum(
+        int(group.get("teamCount") or 0)
+        for group in event.get("groups", [])
+        if isinstance(group, dict)
+    )
+    declared_capacity = int(event.get("fieldCapacity") or 0)
+    field_capacity = max(len(participants), group_capacity, declared_capacity)
+    pending_slots = [
+        dict(slot)
+        for slot in event.get("pendingEntrySlots", [])
+        if isinstance(slot, dict)
+    ]
+    pending_entry_count = max(
+        0,
+        int(event.get("pendingEntryCount") or len(pending_slots) or field_capacity - len(participants)),
+    )
+    confirmed_matchups = sum(
+        match.get("isConfirmedMatchup") is True
+        and bool(match.get("redCollegeName") or match.get("redTeamKey"))
+        and bool(match.get("blueCollegeName") or match.get("blueTeamKey"))
+        for match in matches
+    )
+    draw_status = str(event.get("drawStatus") or "").strip().lower()
+    if draw_status not in {"pending", "completed"}:
+        draw_status = "completed" if confirmed_matchups else "pending"
     response_event = {
         field: event[field]
         for field in EVENT_RESPONSE_FIELDS
@@ -183,10 +236,20 @@ def _build_event_payload(event: dict[str, Any]) -> dict[str, Any]:
         {
             "participantCount": len(participants),
             "confirmedParticipantCount": len(participants),
-            "statusLabel": _event_status_label(len(participants), matches),
+            "statusLabel": _event_status_label(
+                len(participants),
+                matches,
+                field_capacity=field_capacity,
+                pending_entry_count=pending_entry_count,
+                draw_status=draw_status,
+            ),
             "formalMatchCount": len(matches),
             "participants": participants,
             "matches": matches,
+            "fieldCapacity": field_capacity,
+            "drawStatus": draw_status,
+            "pendingEntryCount": pending_entry_count,
+            "pendingEntrySlots": pending_slots,
         }
     )
     response_event["predictionMatrix"] = build_finals_prediction_matrix(participants)
@@ -198,6 +261,9 @@ def _merge_runtime_event(event: dict[str, Any], runtime_event: dict[str, Any] | 
     if not runtime_event:
         return dict(event)
     merged = dict(event)
+    for field in ("fieldCapacity", "drawStatus", "pendingEntryCount", "pendingEntrySlots"):
+        if field in runtime_event:
+            merged[field] = runtime_event[field]
     participants = [dict(row) for row in event.get("participants", []) if isinstance(row, dict)]
     participant_index = {
         (_identity_key(row.get("collegeName")), _identity_key(row.get("teamName"))): index
