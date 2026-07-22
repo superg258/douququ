@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { ErrorPanel, LoadingBlock } from "@/components/ui/async-state";
 import { getFinalEvent, getOverview } from "@/lib/api";
@@ -11,6 +11,8 @@ import {
   rankFinalEventParticipantsByCurrentElo,
 } from "@/lib/finals-schedule";
 import type { FinalsStageProbabilityProjection } from "@/lib/finals-schedule";
+import { hasOfficialFinalMatchData, simulateFinalsLiveEvents } from "@/lib/finals-simulation";
+import { DEFAULT_SEED } from "@/lib/region-config";
 import type { FinalEventResponse, FinalEventSlug, OverviewResponse } from "@/lib/types";
 import { LIVE_REFRESH_INTERVAL_MS, startRealtimePolling } from "@/lib/realtime-polling";
 import { cn } from "@/lib/utils";
@@ -85,13 +87,28 @@ function formatProbability(value: number | undefined) {
   return value === undefined ? "—" : `${(value * 100).toFixed(1)}%`;
 }
 
-function buildStageFlow(event: EventSchedule) {
-  const labels: string[] = [];
+interface StageFlowItem {
+  label: string;
+  completed: number;
+  total: number;
+}
+
+function buildStageFlowWithProgress(event: EventSchedule): StageFlowItem[] {
+  const flow: StageFlowItem[] = [];
+  const indexByLabel = new Map<string, number>();
   for (const match of event.matches) {
     const label = STAGE_LABELS[match.stageKey] ?? match.stage;
-    if (!labels.includes(label)) labels.push(label);
+    let stageIndex = indexByLabel.get(label);
+    if (stageIndex === undefined) {
+      stageIndex = flow.length;
+      indexByLabel.set(label, stageIndex);
+      flow.push({ label, completed: 0, total: 0 });
+    }
+    const entry = flow[stageIndex];
+    entry.total += 1;
+    if (match.isCompleted === true) entry.completed += 1;
   }
-  return labels;
+  return flow;
 }
 
 function selectSchedulePreview(event: EventSchedule, now: number) {
@@ -109,23 +126,34 @@ function EventPanel({
   overview,
   probabilities,
   now,
+  finalEloByTeamKey,
 }: {
   eventSlug: FinalEventSlug;
   event: EventSchedule;
   overview: OverviewResponse;
   probabilities: FinalsStageProbabilityProjection | null;
   now: number;
+  finalEloByTeamKey?: Readonly<Record<string, number>> | null;
 }) {
   const tone = EVENT_TONES[eventSlug];
-  const confirmedParticipants = rankFinalEventParticipantsByCurrentElo(event.participants, overview);
+  const confirmedParticipants = rankFinalEventParticipantsByCurrentElo(
+    event.participants,
+    overview,
+    finalEloByTeamKey,
+  );
   const schedulePreview = selectSchedulePreview(event, now);
-  const stageFlow = buildStageFlow(event);
+  const stageFlow = buildStageFlowWithProgress(event);
   const thirdMetric = eventSlug === "repechage"
     ? { label: "晋级名额", value: `${event.advancementSlots ?? 0} 席` }
     : { label: "赛事阶段", value: `${stageFlow.length} 段` };
 
+  // 队伍数：全国赛用分组总容量（含复活赛晋级名额），复活赛用已确认数
+  const teamCount = eventSlug === "nationals"
+    ? event.groups.reduce((sum, group) => sum + group.teamCount, 0)
+    : confirmedParticipants.length;
+
   return (
-    <article className={cn("relative min-w-0 overflow-hidden border bg-rm-metal-card", tone.border)}>
+    <article className={cn("relative min-w-0 border bg-rm-metal-card", tone.border)}>
       <div className={cn("pointer-events-none absolute inset-0", tone.wash)} />
       <div className={cn("absolute inset-x-0 top-0 h-0.5", tone.glow)} />
 
@@ -143,19 +171,72 @@ function EventPanel({
           <span className={cn("border px-2.5 py-1 font-mono text-[10px]", tone.badge)}>{event.statusLabel}</span>
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto border-b border-rm-metal-border/70 py-3 no-scrollbar" aria-label="赛事阶段进度">
-          {stageFlow.map((label, index) => (
-            <div key={label} className="flex min-w-0 items-center gap-1.5">
-              <span className={cn("h-2 w-2 shrink-0 rotate-45 border", index === 0 ? tone.badge : "border-rm-metal-border bg-rm-metal-raised")} />
-              <span className="whitespace-nowrap font-mono text-[10px] text-rm-metal-textMuted">{label}</span>
-              {index < stageFlow.length - 1 ? <span className="h-px w-4 shrink-0 bg-rm-metal-border" aria-hidden="true" /> : null}
-            </div>
-          ))}
+        {/* 阶段进度条：左侧留出呼吸空间，防止首个菱形因 rotate-45 + boxShadow 被 overflow-x-auto 裁切 */}
+        <div className="flex items-center gap-1.5 overflow-x-auto border-b border-rm-metal-border/70 py-3 pl-3 no-scrollbar" aria-label="赛事阶段进度">
+          {stageFlow.map((stage, index) => {
+            const allCompleted = stage.total > 0 && stage.completed === stage.total;
+            const someCompleted = stage.completed > 0;
+            const isCurrent = someCompleted && !allCompleted;
+            // 按赛事色调选择菱形颜色；repechage → 蓝，nationals → 琥珀
+            const fillColor = eventSlug === "repechage" ? "rgba(42,159,255," : "rgba(255,176,0,";
+            const borderColor = eventSlug === "repechage" ? "rgb(42,159,255)" : "rgb(255,176,0)";
+            const diamondStyle: React.CSSProperties = allCompleted
+              ? { backgroundColor: `${fillColor}0.55)`, borderColor, boxShadow: `0 0 8px ${fillColor}0.4)` }
+              : isCurrent
+                ? { backgroundColor: `${fillColor}0.30)`, borderColor, boxShadow: `0 0 6px ${fillColor}0.25)` }
+                : someCompleted
+                  ? { backgroundColor: `${fillColor}0.15)`, borderColor: `${fillColor}0.35)` }
+                  : {};
+
+            return (
+              <div key={stage.label} className="flex min-w-0 items-center gap-1.5">
+                <span
+                  className={cn(
+                    "inline-block h-2.5 w-2.5 shrink-0 rotate-45 border transition-all duration-500",
+                    isCurrent && "animate-pulse",
+                    !allCompleted && !someCompleted && "border-rm-metal-border bg-rm-metal-raised",
+                  )}
+                  style={allCompleted || someCompleted ? diamondStyle : undefined}
+                  title={
+                    stage.total > 0
+                      ? `${stage.label} · ${stage.completed}/${stage.total} 场已完成`
+                      : `${stage.label} · 暂无比赛`
+                  }
+                />
+                <span className={cn(
+                  "whitespace-nowrap font-mono text-[10px] transition-colors duration-500",
+                  allCompleted
+                    ? `${tone.accent} font-bold`
+                    : isCurrent
+                      ? tone.accent
+                      : "text-rm-metal-textMuted",
+                )}>
+                  {stage.label}
+                  {stage.total > 0 && (
+                    <span className="ml-1 text-[9px] opacity-60 tabular-nums">
+                      {stage.completed}/{stage.total}
+                    </span>
+                  )}
+                </span>
+                {/* 连接线：已完成/当前阶段的连线使用色调，后续阶段保持暗色 */}
+                {index < stageFlow.length - 1 ? (
+                  <span
+                    className={cn(
+                      "h-px w-4 shrink-0 transition-colors duration-500",
+                      allCompleted || isCurrent ? "" : "bg-rm-metal-border",
+                    )}
+                    style={allCompleted || isCurrent ? { backgroundColor: `${fillColor}0.30)` } : undefined}
+                    aria-hidden="true"
+                  />
+                ) : null}
+              </div>
+            );
+          })}
         </div>
 
         <div className="grid grid-cols-3 gap-2 border-b border-rm-metal-border/70 py-4">
           {[
-            { label: "参赛队伍", value: `${confirmedParticipants.length} 支` },
+            { label: "参赛队伍", value: `${teamCount} 支` },
             { label: "比赛场次", value: `${event.matches.length} 场` },
             thirdMetric,
           ].map((metric) => (
@@ -177,10 +258,10 @@ function EventPanel({
                 <div key={`${match.number}-${match.startsAt}`} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 border border-rm-metal-border/80 bg-rm-metal-panel/65 px-3 py-2.5">
                   <span className={cn("font-mono text-[10px] font-bold", tone.accent)}>#{String(match.number).padStart(2, "0")}</span>
                   <div className="min-w-0">
-                    <p className="truncate text-xs font-semibold text-rm-metal-textLight" title={`${match.redSlot} 对阵 ${match.blueSlot}`}>
-                      <span className="text-rm-red">{match.redSlot}</span>
+                    <p className="truncate text-xs font-semibold text-rm-metal-textLight" title={`${match.redCollegeName ?? match.redSlot} 对阵 ${match.blueCollegeName ?? match.blueSlot}`}>
+                      <span className="text-rm-red">{match.redCollegeName ?? match.redSlot}</span>
                       <span className="mx-2 font-mono text-[10px] text-rm-metal-textFaint">对阵</span>
-                      <span className="text-rm-blue">{match.blueSlot}</span>
+                      <span className="text-rm-blue">{match.blueCollegeName ?? match.blueSlot}</span>
                     </p>
                     <p className="mt-0.5 truncate font-mono text-[10px] text-rm-metal-textFaint" title={match.stage}>{match.stage}</p>
                   </div>
@@ -372,6 +453,22 @@ export function FinalsOverviewSection() {
     return () => window.clearTimeout(timer);
   }, [events.nationals, events.repechage, overview]);
 
+  // 实时 Elo：模拟吸收已完成赛果后的赛事 Elo，优先于 overview 静态值
+  const liveEloByEventSlug = useMemo(() => {
+    if (!events.repechage || !events.nationals || !overview) return null;
+    if (!hasOfficialFinalMatchData(events.repechage.event) && !hasOfficialFinalMatchData(events.nationals.event)) return null;
+    const simulation = simulateFinalsLiveEvents(
+      events.repechage.event,
+      events.nationals.event,
+      overview,
+      DEFAULT_SEED,
+    );
+    return {
+      repechage: simulation.repechage.finalEloByTeamKey,
+      nationals: simulation.nationals.finalEloByTeamKey,
+    };
+  }, [events, overview]);
+
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(timer);
@@ -428,6 +525,7 @@ export function FinalsOverviewSection() {
                   overview={displayOverview}
                   probabilities={probabilities}
                   now={now}
+                  finalEloByTeamKey={liveEloByEventSlug?.[eventSlug]}
                 />
               );
             }

@@ -294,6 +294,28 @@ describe("finals schedule helpers", () => {
       && probability.topFourRate <= probability.topEightRate
       && probability.topEightRate <= probability.groupAdvancementRate
     ))).toBe(true);
+
+    // Once the API has already materialized all four repechage entrants, the
+    // probability field must remain 32 teams rather than appending another 4.
+    const confirmedNationals = [
+      ...nationals,
+      ...repechage.slice(0, 4).map((participant) => ({
+        ...participant,
+        drawTier: "非种子抽签池",
+      })),
+    ];
+    const confirmedProjection = projectFinalsStageProbabilities(
+      repechage,
+      confirmedNationals,
+      overview,
+      2_000,
+    );
+    const confirmedValues = [...confirmedProjection.nationals.values()];
+    expect(confirmedProjection.nationals.size).toBe(32);
+    expect(confirmedValues.reduce((sum, probability) => sum + probability.groupAdvancementRate, 0)).toBeCloseTo(16, 8);
+    expect(confirmedValues.reduce((sum, probability) => sum + probability.topEightRate, 0)).toBeCloseTo(8, 8);
+    expect(confirmedValues.reduce((sum, probability) => sum + probability.topFourRate, 0)).toBeCloseTo(4, 8);
+    expect(confirmedValues.reduce((sum, probability) => sum + probability.championRate, 0)).toBeCloseTo(1, 8);
   });
 
   it("builds winner and loser routes without inventing matchup probabilities", () => {
@@ -320,14 +342,16 @@ describe("finals schedule helpers", () => {
     const canvas = buildFinalsWorkspaceStage(payload, "qualification");
     expect(canvas.cards).toHaveLength(3);
     expect(canvas.cards.every((card) => card.kind === "match")).toBe(true);
-    expect(canvas.connectors.map((connector) => connector.tone)).toEqual(["steel", "emerald"]);
-    expect(canvas.connectors.every((connector) => connector.kind === "merge")).toBe(true);
-    // Grouped connectors no longer force "subtle" — they inherit default rendering
-    // so appearance is undefined (same visual effect as "default").
-    expect(canvas.connectors.every((connector) => !connector.appearance)).toBe(true);
-    expect(canvas.connectors.every((connector) => (connector.branchY?.length ?? 0) >= 1)).toBe(true);
-    // Winner routes (emerald) upgraded to strong; loser routes (steel) stay normal.
-    expect(canvas.connectors.map((connector) => connector.weight)).toEqual(["normal", "strong"]);
+    // Flow lines fork at the round headers (regional style), not per match.
+    // Here only 首轮→[直通战(胜)、生死战(败)] has both targets present, so one bracket fork.
+    expect(canvas.connectors).toHaveLength(1);
+    const fork = canvas.connectors[0];
+    expect(fork.kind).toBe("bracket");
+    expect(fork.tone).toBe("emerald");
+    expect(fork.id).toContain(":qualification-fork:round1");
+    expect(fork.branchY?.length).toBe(2);
+    expect(fork.branchLabels?.map((label) => label.text)).toEqual(["胜者直通战", "败者生死战"]);
+    expect(fork.appearance).toBeUndefined();
     expect(canvas.showProbability).toBe(false);
   });
 
@@ -450,13 +474,11 @@ describe("finals schedule helpers", () => {
     expect(canvas.cards.some((card) => card.id.includes(":outcome:"))).toBe(false);
     expect(canvas.headers.some((header) => header.id.endsWith(":outcome-header"))).toBe(false);
 
+    // Destination cards remain, but are no longer wired per-card — the flow is
+    // shown by header-level forks (see fork assertions below).
     for (const spec of flowSpecs) {
       const groupCards = flowCards.filter((card) => card.id.includes(`:qualification-flow:${spec.id}:`));
       const header = canvas.headers.find((candidate) => candidate.id.endsWith(`:qualification-flow:${spec.id}:header`));
-      const connector = canvas.connectors.find((candidate) => candidate.id.endsWith(`:qualification-flow:${spec.id}:connector`));
-      const sourceCards = scheduleCards.filter((card) => (
-        spec.sourceNumbers.some((number) => number === card.match.regionalMatchNumber)
-      ));
 
       expect(header).toMatchObject({
         title: spec.title,
@@ -473,14 +495,25 @@ describe("finals schedule helpers", () => {
       ))).toBe(true);
       expect(groupCards.map((card) => card.orderLabel)).toEqual(["1", "2"]);
       expect(groupCards[1].y).toBeGreaterThan(groupCards[0].y + groupCards[0].height);
-      expect(connector).toMatchObject({
-        kind: "merge-split",
-        tone: spec.tone,
-        weight: spec.weight,
-        branchY: sourceCards.map((card) => card.y + card.height / 2),
-        targetBranchY: groupCards.map((card) => card.y + card.height / 2),
-      });
-      expect(connector?.branchLabels).toBeUndefined();
+      expect(canvas.connectors.some((connector) => connector.id.endsWith(`:qualification-flow:${spec.id}:connector`))).toBe(false);
+    }
+
+    // Round-header forks (regional style): one bracket per round, splitting into
+    // 胜者去向 / 败者去向 anchored at the next round or outcome header.
+    const forkSpecs = [
+      { fromId: "round1", tone: "emerald", labels: ["胜者直通战", "败者生死战"] },
+      { fromId: "round3", tone: "amber", labels: ["胜者晋级全国赛", "败者生死战"] },
+      { fromId: "round2", tone: "emerald", labels: ["胜者进末轮", "两败出局"] },
+      { fromId: "round4", tone: "amber", labels: ["胜者晋级全国赛", "两败出局"] },
+    ] as const;
+    expect(canvas.connectors).toHaveLength(forkSpecs.length);
+    expect(canvas.connectors.every((connector) => connector.kind === "bracket")).toBe(true);
+    for (const spec of forkSpecs) {
+      const forkConnector = canvas.connectors.find((connector) => connector.id.endsWith(`:qualification-fork:${spec.fromId}`));
+      expect(forkConnector).toBeDefined();
+      expect(forkConnector?.tone).toBe(spec.tone);
+      expect(forkConnector?.branchY?.length).toBe(2);
+      expect(forkConnector?.branchLabels?.map((label) => label.text)).toEqual(spec.labels);
     }
 
     const overlaps = (
@@ -547,17 +580,20 @@ describe("finals schedule helpers", () => {
     const upperCard = scheduleCards.find((card) => card.match.regionalMatchNumber === 79);
     const lowerFirstCard = scheduleCards.find((card) => card.match.regionalMatchNumber === 75);
     expect(upperCard?.y).toBeLessThan(lowerFirstCard?.y ?? 0);
-    expect(canvas.connectors.find((connector) => connector.id.endsWith("78:winner:83"))).toMatchObject({
-      tone: "emerald",
-      weight: "strong",
-    });
-    expect(canvas.connectors.find((connector) => connector.id.endsWith("79:loser:83"))).toMatchObject({
-      tone: "steel",
-      weight: "normal",
-    });
     expect(upperCard?.match.loserNext).toBe("败者I");
-    expect(canvas.connectors.filter((connector) => connector.id.includes("-seats:"))).toHaveLength(8);
-    expect(canvas.connectors.filter((connector) => connector.id.includes("-eliminated:connector"))).toHaveLength(2);
+    // Flow lines fork at section headers, not per match: four brackets
+    // (首轮 / 直通战 / 生死战首轮 / 生死战末轮), no per-seat or per-elimination lines.
+    expect(canvas.connectors).toHaveLength(4);
+    expect(canvas.connectors.every((connector) => connector.kind === "bracket")).toBe(true);
+    for (const fromId of ["opening", "upper", "lower-first", "lower-final"]) {
+      expect(canvas.connectors.some((connector) => connector.id.endsWith(`:elim-fork:${fromId}`))).toBe(true);
+    }
+    const upperFork = canvas.connectors.find((connector) => connector.id.endsWith(":elim-fork:upper"));
+    expect(upperFork?.tone).toBe("amber");
+    expect(upperFork?.branchLabels?.map((label) => label.text)).toEqual(["胜者锁八强", "败者生死战"]);
+    expect(canvas.connectors.find((connector) => connector.id.endsWith(":elim-fork:opening"))?.tone).toBe("emerald");
+    expect(canvas.connectors.filter((connector) => connector.id.includes("-seats:"))).toHaveLength(0);
+    expect(canvas.connectors.filter((connector) => connector.id.includes("-eliminated:connector"))).toHaveLength(0);
     expect(canvas.description).toContain("生死战负者出局");
   });
 
@@ -590,17 +626,18 @@ describe("finals schedule helpers", () => {
     const upperCard = scheduleCards.find((card) => card.match.regionalMatchNumber === 87);
     const lowerFirstCard = scheduleCards.find((card) => card.match.regionalMatchNumber === 89);
     expect(upperCard?.y).toBeLessThan(lowerFirstCard?.y ?? 0);
-    expect(canvas.connectors.find((connector) => connector.id.endsWith("89:winner:91"))).toMatchObject({
-      tone: "emerald",
-      weight: "strong",
-    });
-    expect(canvas.connectors.find((connector) => connector.id.endsWith("88:loser:91"))).toMatchObject({
-      tone: "steel",
-      weight: "normal",
-    });
     expect(upperCard?.match.loserNext).toBe("败者一");
-    expect(canvas.connectors.filter((connector) => connector.id.includes("-seats:"))).toHaveLength(4);
-    expect(canvas.connectors.filter((connector) => connector.id.includes("-eliminated:connector"))).toHaveLength(2);
+    // 8→4 has no opening column, so three header forks (直通战 / 生死战首轮 / 生死战末轮).
+    expect(canvas.connectors).toHaveLength(3);
+    expect(canvas.connectors.every((connector) => connector.kind === "bracket")).toBe(true);
+    for (const fromId of ["upper", "lower-first", "lower-final"]) {
+      expect(canvas.connectors.some((connector) => connector.id.endsWith(`:elim-fork:${fromId}`))).toBe(true);
+    }
+    const upperForkQf = canvas.connectors.find((connector) => connector.id.endsWith(":elim-fork:upper"));
+    expect(upperForkQf?.tone).toBe("amber");
+    expect(upperForkQf?.branchLabels?.map((label) => label.text)).toEqual(["胜者锁四强", "败者生死战"]);
+    expect(canvas.connectors.filter((connector) => connector.id.includes("-seats:"))).toHaveLength(0);
+    expect(canvas.connectors.filter((connector) => connector.id.includes("-eliminated:connector"))).toHaveLength(0);
   });
 
   it("reuses the regional Swiss record funnel for both nationals groups", () => {

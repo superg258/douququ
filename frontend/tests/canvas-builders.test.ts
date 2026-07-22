@@ -397,7 +397,11 @@ describe("buildWorkspaceStage live outcome certainty", () => {
     const firstRoundRepechageCard = stage.cards.find((card) => card.kind === "team" && card.id === "qualification-q1-repechage-beta");
 
     expect(nationalCard).toMatchObject({ isSimulated: true });
-    expect(firstRoundRepechageCard).toMatchObject({ isSimulated: false });
+    expect(firstRoundRepechageCard).toMatchObject({
+      isSimulated: false,
+      tone: "cyan",
+      outcome: "qualified",
+    });
   });
 
   it("keeps official placeholder qualification outcomes visible before real teams are known", () => {

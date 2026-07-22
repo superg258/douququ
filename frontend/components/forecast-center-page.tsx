@@ -12,12 +12,13 @@ import { PredictionSignalsPanel } from "@/components/prediction-signals";
 import { WorkspaceStageView } from "@/components/workspace-stage";
 import { formatMatchCardScheduleTime, predictScoreline } from "@/components/canvas-card";
 import { ErrorPanel } from "@/components/ui/async-state";
-import { getFinalEvent, getOverview } from "@/lib/api";
+import { getFinalEvent, getLiveState, getOverview } from "@/lib/api";
+import { buildFullSeasonTrajectories } from "@/lib/elo-trajectory";
 import { translateConfidenceLabel, translateStageLabel } from "@/lib/display";
 import { buildFinalsWorkspaceStage } from "@/lib/finals-canvas";
 import { buildFinalsMatchRow, resolveFinalsTeamRating } from "@/lib/finals-match-adapter";
 import { hasOfficialFinalMatchData, simulateFinalsEvents, simulateFinalsLiveEvents } from "@/lib/finals-simulation";
-import { DEFAULT_SEED, buildRegionHref, getOrCreateSessionSeed, parseSeed, refreshSessionSeed } from "@/lib/region-config";
+import { DEFAULT_SEED, REGION_ORDER, buildRegionHref, getOrCreateSessionSeed, parseSeed, refreshSessionSeed } from "@/lib/region-config";
 import { LIVE_REFRESH_INTERVAL_MS, startRealtimePolling } from "@/lib/realtime-polling";
 import {
   FINAL_STAGE_OPTIONS,
@@ -38,6 +39,7 @@ import type {
   FinalEventSlug,
   FinalEventStageFilter,
   InspectorSelection,
+  LiveStateResponse,
   MatchRow,
   OverviewResponse,
   OverviewTeam,
@@ -86,6 +88,7 @@ export function ForecastCenterPage() {
   const [overviewWarnDismissed, setOverviewWarnDismissed] = useState(false);
   const [eventsReloadKey, setEventsReloadKey] = useState(0);
   const [overviewReloadKey, setOverviewReloadKey] = useState(0);
+  const [regionLiveStates, setRegionLiveStates] = useState<LiveStateResponse[]>([]);
 
   const updateDeepLink = useCallback(
     (nextEvent: FinalEventSlug, nextMode: ForecastMode, nextStage: FinalEventStageFilter, nextSeed: number | null) => {
@@ -157,6 +160,23 @@ export function ForecastCenterPage() {
     };
   }, [overview, overviewReloadKey]);
 
+  // 区域赛实时数据：用于构建完整赛季 Elo 轨迹（注入区域赛逐场记录）
+  useEffect(() => {
+    if (mode !== "live" || regionLiveStates.length > 0) return;
+    let canceled = false;
+    Promise.allSettled(REGION_ORDER.map((slug) => getLiveState(slug))).then((results) => {
+      if (canceled) return;
+      setRegionLiveStates(
+        results
+          .map((r) => (r.status === "fulfilled" ? r.value : null))
+          .filter((v): v is LiveStateResponse => v !== null && v.available),
+      );
+    });
+    return () => {
+      canceled = true;
+    };
+  }, [mode, regionLiveStates.length]);
+
   const retryEvents = useCallback(() => {
     setEventErrors({});
     setEventsReloadKey((key) => key + 1);
@@ -182,7 +202,9 @@ export function ForecastCenterPage() {
   const liveFinalsProjection = useMemo(
     () => {
       if (mode !== "live" || !current || !overview || !events.repechage || !events.nationals) return null;
-      if (!hasOfficialFinalMatchData(current.event)) return null;
+      // 全国赛首轮尚未开赛时，只要复活赛已有真实赛果，仍需建立继承 Elo 的
+      // 全国赛 field；后端会决定名单是否已完整，前端不自行补预测晋级者。
+      if (!hasOfficialFinalMatchData(events.repechage.event) && !hasOfficialFinalMatchData(events.nationals.event)) return null;
       return simulateFinalsLiveEvents(
         events.repechage.event,
         events.nationals.event,
@@ -195,6 +217,21 @@ export function ForecastCenterPage() {
   const currentSimulation = mode === "sim"
     ? simulation?.[eventSlug] ?? null
     : liveFinalsProjection;
+
+  // 给当前赛事的轨迹注入区域赛逐场记录，构建完整赛季轨迹
+  const enrichedTrajectories = useMemo<Record<string, number[]> | null>(() => {
+    if (!overview || !currentSimulation) return null;
+    const regionLedgers = regionLiveStates
+      .filter((ls) => ls.available && ls.matchLedger.length > 0)
+      .map((ls) => ls.matchLedger);
+    if (regionLedgers.length === 0) return null;
+    return buildFullSeasonTrajectories(
+      overview,
+      regionLedgers,
+      currentSimulation.eloTrajectoryByTeamKey,
+    );
+  }, [overview, currentSimulation, regionLiveStates]);
+
   const workspace = useMemo(
     () => current ? buildFinalsWorkspaceStage(current.event, stage, currentSimulation ?? undefined) : null,
     [current, stage, currentSimulation],
@@ -252,16 +289,20 @@ export function ForecastCenterPage() {
       seasonDelta: rating.seasonDelta,
       globalRank: rating.globalRank,
       probabilities: overviewTeam?.probabilities ?? null,
-      eloTrajectory: currentSimulation?.eloTrajectoryByTeamKey?.[selectedTeamKey],
+      eloTrajectory: enrichedTrajectories?.[selectedTeamKey]
+        ?? currentSimulation?.eloTrajectoryByTeamKey?.[selectedTeamKey],
     };
-  }, [selectedTeamKey, current, allTeams, currentSimulation]);
+  }, [selectedTeamKey, current, allTeams, currentSimulation, enrichedTrajectories]);
 
   const selectedTeamPath = useMemo<MatchRow[]>(() => {
     if (!selectedTeamKey || !current || !currentSimulation) return [];
     return current.event.matches
       .filter((match) => {
         const result = currentSimulation.matchResults.get(match.number);
-        return result?.red?.teamKey === selectedTeamKey || result?.blue?.teamKey === selectedTeamKey;
+        if (!result) return false;
+        // 仅展示官方已确认的赛程：已有真实赛果，或对阵双方已官方落位
+        if (!result.isRealResult && !result.isConfirmedMatchup) return false;
+        return result.red?.teamKey === selectedTeamKey || result.blue?.teamKey === selectedTeamKey;
       })
       .sort((left, right) => left.number - right.number)
       .map((match) => buildFinalsMatchRow(current.event, match, currentSimulation.matchResults.get(match.number)));
@@ -555,7 +596,7 @@ export function ForecastCenterPage() {
               stage={workspace}
               mode={mode}
               selectedTeamKey={selectedTeamKey}
-              highlightedTeamKey={null}
+              highlightedTeamKey={selectedTeamKey}
               selectedMatchLabel={selectedMatchLabel}
               onTeamSelect={openTeam}
               onMatchSelect={openMatch}

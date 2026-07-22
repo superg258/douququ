@@ -1,4 +1,5 @@
 import { createSeededRandom, rankFinalEventParticipantsByCurrentElo } from "@/lib/finals-schedule";
+import { findParticipantForMatchSide } from "@/lib/finals-identity";
 import { predictDisplayScoreline } from "@/lib/scoreline";
 import type {
   FinalEventMatch,
@@ -257,16 +258,12 @@ export function hasOfficialFinalMatchData(event: FinalEventSchedule) {
 function officialParticipantForSide(
   match: FinalEventMatch,
   side: "red" | "blue",
-  participantByKey: Map<string, FinalEventParticipant>,
-  participantByIdentity: Map<string, FinalEventParticipant>,
+  participants: readonly FinalEventParticipant[],
 ) {
   const teamKey = String(match[`${side}TeamKey`] ?? "").trim();
-  if (teamKey && participantByKey.has(teamKey)) return participantByKey.get(teamKey) ?? null;
   const collegeName = String(match[`${side}CollegeName`] ?? "").trim();
   const teamName = String(match[`${side}TeamName`] ?? "").trim();
-  return participantByIdentity.get(`${collegeName}\u0000${teamName}`)
-    ?? [...participantByIdentity.values()].find((participant) => participant.collegeName === collegeName)
-    ?? null;
+  return findParticipantForMatchSide(participants, teamKey, collegeName, teamName);
 }
 
 function officialWinnerSide(match: FinalEventMatch, redScore: number, blueScore: number): "red" | "blue" | null {
@@ -302,18 +299,32 @@ function simulateEvent(
     if (blueKey) eloByTeamKey.set(blueKey, prediction.blueCurrentElo);
   }
   for (const [teamKey, elo] of options.initialEloByTeamKey ?? []) eloByTeamKey.set(teamKey, elo);
-  // 轨迹：每队从赛事入场 Elo（经历区域赛后）开始，非季前 Elo。
-  // 仅展示赛事期内的 Elo 波动，区域赛阶段的变动不反映在轨迹中。
+
+  // 季前 Elo 查找表：用于轨迹起点统一为整个 2026 赛季的起始点。
+  const preseasonByTeamKey = new Map<string, number>();
+  for (const region of overview.regions) {
+    for (const team of region.teams) {
+      const key = team.teamKey.trim();
+      if (!key) continue;
+      const preseason = team.preseasonElo ?? team.mu0;
+      if (preseason != null) preseasonByTeamKey.set(key, preseason);
+    }
+  }
+
+  // 轨迹：每队从季前 Elo 开始，展示整个 2026 赛季的完整 Elo 变化。
   const trajectories = new Map<string, number[]>();
   for (const [teamKey, elo] of eloByTeamKey) {
     if (elo == null) continue;
-    trajectories.set(teamKey, [elo]);
+    const preseason = preseasonByTeamKey.get(teamKey);
+    // 如果找到季前 Elo 且与赛事入场 Elo 不同，则以季前 Elo 为起点；
+    // 这样 sparkline 的首尾 delta 与 seasonDelta 使用相同的时间窗口。
+    const startPoints = preseason != null && Math.abs(preseason - elo) > 0.005
+      ? [preseason, elo]
+      : [elo];
+    trajectories.set(teamKey, startPoints);
   }
   const teamByKey = new Map<string, SimTeam>();
   const participantByKey = new Map(participants.map((participant) => [participant.teamKey, participant]));
-  const participantByIdentity = new Map(
-    participants.map((participant) => [`${participant.collegeName}\u0000${participant.teamName}`, participant]),
-  );
 
   // ── 抽签：梯队内洗牌后按 drawRules 顺序填入槽位组 ──
   const drawAssignments: Record<string, string> = {};
@@ -322,11 +333,11 @@ function simulateEvent(
       const redSlot = parseSwissPoolSlot(match.redSlot);
       const blueSlot = parseSwissPoolSlot(match.blueSlot);
       if (redSlot?.round === 1) {
-        const participant = officialParticipantForSide(match, "red", participantByKey, participantByIdentity);
+        const participant = officialParticipantForSide(match, "red", participants);
         if (participant) drawAssignments[`${redSlot.group}${redSlot.index}`] = participant.teamKey;
       }
       if (blueSlot?.round === 1) {
-        const participant = officialParticipantForSide(match, "blue", participantByKey, participantByIdentity);
+        const participant = officialParticipantForSide(match, "blue", participants);
         if (participant) drawAssignments[`${blueSlot.group}${blueSlot.index}`] = participant.teamKey;
       }
     }
@@ -368,17 +379,28 @@ function simulateEvent(
 
   const playMatch = (match: FinalEventMatch, red: SimulatedFinalTeam | null, blue: SimulatedFinalTeam | null) => {
     const officialRedParticipant = options.replayOfficialResults
-      ? officialParticipantForSide(match, "red", participantByKey, participantByIdentity)
+      ? officialParticipantForSide(match, "red", participants)
       : null;
     const officialBlueParticipant = options.replayOfficialResults
-      ? officialParticipantForSide(match, "blue", participantByKey, participantByIdentity)
+      ? officialParticipantForSide(match, "blue", participants)
       : null;
     const officialRed = officialRedParticipant ? teamByKey.get(officialRedParticipant.teamKey) ?? null : null;
     const officialBlue = officialBlueParticipant ? teamByKey.get(officialBlueParticipant.teamKey) ?? null : null;
     const hasOfficialMatchup = Boolean(officialRed && officialBlue);
+    const result = emptyResult(match.number);
+    const requiresResolvedOfficialMatchup = Boolean(
+      options.replayOfficialResults
+      && (isOfficiallyCompleted(match) || match.isConfirmedMatchup === true),
+    );
+    if (requiresResolvedOfficialMatchup && !hasOfficialMatchup) {
+      // A completed/confirmed fixture whose identities are not in the field is
+      // corrupt source data. Do not silently replace it with a tier fallback.
+      result.isConfirmedMatchup = false;
+      matchResults.set(match.number, result);
+      return result;
+    }
     const resolvedRed = officialRed ?? red;
     const resolvedBlue = officialBlue ?? blue;
-    const result = emptyResult(match.number);
     result.red = resolvedRed ? { teamKey: resolvedRed.teamKey, collegeName: resolvedRed.collegeName, teamName: resolvedRed.teamName } : null;
     result.blue = resolvedBlue ? { teamKey: resolvedBlue.teamKey, collegeName: resolvedBlue.collegeName, teamName: resolvedBlue.teamName } : null;
     result.isConfirmedMatchup = options.replayOfficialResults ? hasOfficialMatchup : true;

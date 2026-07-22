@@ -391,6 +391,80 @@ describe("finals sandbox simulation", () => {
     expect(nationalsMatch.redEloDelta).toBeUndefined();
   });
 
+  it("replays a canonical 32-team national round one without synthetic identities", () => {
+    const promoted = repechage.participants.slice(0, 4).map((participant, index) => ({
+      ...participant,
+      order: nationals.participants.length + index + 1,
+      drawTier: "非种子抽签池",
+    }));
+    const participants = [...nationals.participants, ...promoted];
+    const liveNationals: FinalEventSchedule = {
+      ...nationals,
+      participantCount: 32,
+      confirmedParticipantCount: 32,
+      participants,
+      matches: nationals.matches.map((match, index) => {
+        if (index >= 16) return match;
+        const red = participants[index * 2];
+        const blue = participants[index * 2 + 1];
+        const redWins = match.number % 2 === 1 ? 2 : 1;
+        const blueWins = match.number % 2 === 1 ? 1 : 2;
+        return {
+          ...match,
+          officialStatus: "DONE",
+          isCompleted: true,
+          isConfirmedMatchup: true,
+          scoreline: `${redWins}:${blueWins}`,
+          result: redWins > blueWins ? "red" : "blue",
+          redWins,
+          blueWins,
+          redTeamKey: red.teamKey,
+          redCollegeName: red.collegeName,
+          redTeamName: red.teamName,
+          blueTeamKey: blue.teamKey,
+          blueCollegeName: blue.collegeName,
+          blueTeamName: blue.teamName,
+        };
+      }),
+    };
+
+    const simulation = simulateFinalEventHybrid(liveNationals, overview, 7);
+    const firstRoundKeys = [...Array(16)].flatMap((_, index) => {
+      const result = simulation.matchResults.get(index + 1)!;
+      expect(result.isRealResult).toBe(true);
+      expect(result.red?.teamKey).toBe(liveNationals.matches[index].redTeamKey);
+      expect(result.blue?.teamKey).toBe(liveNationals.matches[index].blueTeamKey);
+      return [result.red?.teamKey, result.blue?.teamKey];
+    });
+    expect(new Set(firstRoundKeys).size).toBe(32);
+    expect(firstRoundKeys.every((teamKey) => teamKey && !teamKey.startsWith("SYNTH-"))).toBe(true);
+  });
+
+  it("does not replace an unresolved completed fixture with a simulated tier fallback", () => {
+    const invalidNationals: FinalEventSchedule = {
+      ...nationals,
+      matches: nationals.matches.map((match) => match.number === 1 ? {
+        ...match,
+        officialStatus: "DONE",
+        isCompleted: true,
+        isConfirmedMatchup: true,
+        scoreline: "2:1",
+        result: "red",
+        redWins: 2,
+        blueWins: 1,
+        redTeamKey: "unknown::red",
+        redCollegeName: "不存在的红方",
+        redTeamName: "Red",
+        blueTeamKey: "unknown::blue",
+        blueCollegeName: "不存在的蓝方",
+        blueTeamName: "Blue",
+      } : match),
+    };
+
+    const result = simulateFinalEventHybrid(invalidNationals, overview, 7).matchResults.get(1)!;
+    expect(result).toMatchObject({ red: null, blue: null, winnerSide: null, isConfirmedMatchup: false });
+  });
+
   it("keeps an official in-progress score visible without treating the projection as a result", () => {
     const red = nationals.participants[0];
     const blue = nationals.participants[1];

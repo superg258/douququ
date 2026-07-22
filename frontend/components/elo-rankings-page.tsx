@@ -6,17 +6,19 @@ import { useEffect, useMemo, useState } from "react";
 import { FinalsEloRankings } from "@/components/finals-elo-rankings";
 import { RankingsHero } from "@/components/rankings-hero";
 import { ErrorPanel } from "@/components/ui/async-state";
-import { getFinalEvent, getOverview } from "@/lib/api";
+import { getFinalEvent, getLiveState, getOverview } from "@/lib/api";
+import { buildFullSeasonTrajectories } from "@/lib/elo-trajectory";
 import { hasOfficialFinalMatchData, simulateFinalsLiveEvents } from "@/lib/finals-simulation";
-import { DEFAULT_SEED } from "@/lib/region-config";
+import { DEFAULT_SEED, REGION_ORDER } from "@/lib/region-config";
 import { LIVE_REFRESH_INTERVAL_MS, startRealtimePolling } from "@/lib/realtime-polling";
 import { formatShortDateTimeLabel } from "@/lib/time-format";
-import type { FinalEventResponse, OverviewResponse } from "@/lib/types";
+import type { FinalEventResponse, LiveStateResponse, OverviewResponse } from "@/lib/types";
 
 interface EloPageData {
   overview: OverviewResponse | null;
   repechage?: FinalEventResponse;
   nationals?: FinalEventResponse;
+  regionLiveStates?: LiveStateResponse[];
 }
 
 export function EloRankingsPage() {
@@ -29,18 +31,27 @@ export function EloRankingsPage() {
     const { signal } = controller;
 
     const load = () => {
-      Promise.allSettled([getOverview(), getFinalEvent("repechage"), getFinalEvent("nationals")]).then((results) => {
+      Promise.allSettled([
+        getOverview(),
+        getFinalEvent("repechage"),
+        getFinalEvent("nationals"),
+        ...REGION_ORDER.map((slug) => getLiveState(slug)),
+      ]).then((results) => {
         if (signal.aborted) return;
-        const [overviewResult, repechageResult, nationalsResult] = results;
+        const [overviewResult, repechageResult, nationalsResult, ...liveStateResults] = results;
         const nextErrors: string[] = [];
         setData((current) => ({
           overview: overviewResult.status === "fulfilled" ? overviewResult.value : current.overview,
           repechage: repechageResult.status === "fulfilled" ? repechageResult.value : current.repechage,
           nationals: nationalsResult.status === "fulfilled" ? nationalsResult.value : current.nationals,
+          regionLiveStates: liveStateResults
+            .map((r) => (r.status === "fulfilled" ? r.value : null))
+            .filter((v): v is LiveStateResponse => v !== null),
         }));
         if (overviewResult.status === "rejected") nextErrors.push("战力数据");
         if (repechageResult.status === "rejected") nextErrors.push("复活赛名单");
         if (nationalsResult.status === "rejected") nextErrors.push("全国赛名单");
+        if (liveStateResults.every((r) => r.status === "rejected")) nextErrors.push("区域赛实时数据");
         setErrors(nextErrors);
       });
     };
@@ -67,19 +78,33 @@ export function EloRankingsPage() {
       data.overview,
       DEFAULT_SEED,
     );
+
+    // 合并复活赛与全国赛轨迹：同一队伍出现在两个赛事时，拼接而非覆盖
+    const mergedTrajectories: Record<string, number[]> = {};
+    for (const [teamKey, traj] of Object.entries(simulation.repechage.eloTrajectoryByTeamKey)) {
+      mergedTrajectories[teamKey] = traj;
+    }
+    for (const [teamKey, traj] of Object.entries(simulation.nationals.eloTrajectoryByTeamKey)) {
+      const existing = mergedTrajectories[teamKey];
+      // 两条轨迹都以 [preseasonElo, ...] 开头，跳过全国赛的首点避免重复
+      mergedTrajectories[teamKey] = existing ? [...existing, ...traj.slice(1)] : traj;
+    }
+
+    // 注入区域赛逐场记录，构建完整赛季轨迹
+    const regionLedgers = (data.regionLiveStates ?? [])
+      .filter((ls) => ls.available && ls.matchLedger.length > 0)
+      .map((ls) => ls.matchLedger);
+    const fullSeasonTrajectories =
+      regionLedgers.length > 0
+        ? buildFullSeasonTrajectories(data.overview, regionLedgers, mergedTrajectories)
+        : mergedTrajectories;
+
     return {
       repechage: simulation.repechage.finalEloByTeamKey,
       nationals: simulation.nationals.finalEloByTeamKey,
-      repechageQualifierTeamKeys: simulation.repechage.qualifierTeamKeys,
-      // nationals overwrites repechage on key collision — a team can't be in both
-      // events simultaneously, and the nationals trajectory is more relevant for
-      // the nationals tab (where the composite map is primarily consumed).
-      eloTrajectoryByTeamKey: {
-        ...simulation.repechage.eloTrajectoryByTeamKey,
-        ...simulation.nationals.eloTrajectoryByTeamKey,
-      } as Record<string, number[]>,
+      eloTrajectoryByTeamKey: fullSeasonTrajectories,
     };
-  }, [data.overview, data.repechage, data.nationals]);
+  }, [data.overview, data.repechage, data.nationals, data.regionLiveStates]);
 
   const canRender = Boolean(data.overview && (data.repechage || data.nationals));
 
@@ -120,7 +145,6 @@ export function EloRankingsPage() {
                 ? { ...liveEloByEventSlug.repechage, ...liveEloByEventSlug.nationals }
                 : null
             }
-            repechageQualifierTeamKeys={liveEloByEventSlug?.repechageQualifierTeamKeys}
             eloTrajectoryByTeamKey={liveEloByEventSlug?.eloTrajectoryByTeamKey ?? null}
           />
         )}

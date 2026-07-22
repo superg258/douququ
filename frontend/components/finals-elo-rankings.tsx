@@ -396,49 +396,23 @@ export function FinalsEloRankings({
   repechage,
   nationals,
   finalEloByTeamKey,
-  repechageQualifierTeamKeys,
   eloTrajectoryByTeamKey,
 }: {
   overview: OverviewResponse;
   repechage?: FinalEventResponse;
   nationals?: FinalEventResponse;
   finalEloByTeamKey?: Readonly<Record<string, number>> | null;
-  repechageQualifierTeamKeys?: readonly string[] | null;
   eloTrajectoryByTeamKey?: Record<string, number[]> | null;
 }) {
   const sections = useMemo(() => {
     const teamIndex = buildTeamIndex(overview, finalEloByTeamKey);
-    const teamByKey = new Map(
-      overview.regions.flatMap((r) => r.teams).map((t) => [t.teamKey, t]),
-    );
     return [repechage, nationals].flatMap(
       (response) => {
         if (!response) return [];
-        // 全国赛：补充复活赛晋级队伍
-        let participants = response.event.participants;
-        if (response.event.slug === "nationals" && repechageQualifierTeamKeys?.length) {
-          const existing = new Set(participants.map((p) => p.teamKey));
-          const extra = repechageQualifierTeamKeys
-            .filter((tk) => !existing.has(tk))
-            .map((tk, i) => {
-              const team = teamByKey.get(tk);
-              return team ? {
-                order: participants.length + i + 1,
-                schoolKey: tk,
-                teamKey: tk,
-                collegeName: team.collegeName,
-                teamName: team.teamName,
-                drawTier: "复活赛晋级",
-                status: "confirmed" as const,
-              } : null;
-            })
-            .filter((p): p is NonNullable<typeof p> => p !== null);
-          participants = [...participants, ...extra];
-        }
-        return [buildRankingSection(overview, { ...response, event: { ...response.event, participants } }, teamIndex, finalEloByTeamKey, eloTrajectoryByTeamKey)];
+        return [buildRankingSection(overview, response, teamIndex, finalEloByTeamKey, eloTrajectoryByTeamKey)];
       },
     );
-  }, [nationals, overview, repechage, finalEloByTeamKey, repechageQualifierTeamKeys, eloTrajectoryByTeamKey]);
+  }, [nationals, overview, repechage, finalEloByTeamKey, eloTrajectoryByTeamKey]);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();

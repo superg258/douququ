@@ -15,6 +15,14 @@ import type {
   WorkspaceView,
 } from "@/lib/types";
 import {
+  CANVAS_LAYOUT,
+  connectCardGroupToCard,
+  connectCardGroupToCards,
+  connectHeaderBands,
+  createMatchCanvasCard,
+  createTeamCanvasCard,
+} from "@/lib/canvas-primitives";
+import {
   formatMatchLabel,
   formatSeedTierLabel,
   formatSwissRecordLabel,
@@ -22,8 +30,14 @@ import {
   translateFinalBucket,
   translateStageLabel,
 } from "@/lib/display";
-
-export type SwissBucketKey = `${number}-${number}`;
+import {
+  officialPlaceholderSwissBucket,
+  SWISS_OFFICIAL_PLACEHOLDER_SUMMARY_COUNTS,
+  SWISS_STAGE_COLUMNS,
+  SWISS_STAGE_FLOWS,
+  type SwissBucketKey,
+  type SwissSummaryId,
+} from "@/lib/swiss-canvas";
 
 interface SwissReplayArtifacts {
   matchBuckets: Record<string, string[]>;
@@ -31,136 +45,20 @@ interface SwissReplayArtifacts {
   summaryIsSimulated: Record<string, Record<string, boolean>>;
 }
 
-const MATCH_CARD_WIDTH = 400;
-const MATCH_CARD_HEIGHT = 188;
-const TEAM_CARD_WIDTH = 400;
-const TEAM_CARD_HEIGHT = 108;
-const DETAIL_TEAM_CARD_WIDTH = 400;
-const DETAIL_TEAM_CARD_HEIGHT = 128;
-const SWISS_MATCH_CARD_HEIGHT = 188;
+const MATCH_CARD_WIDTH = CANVAS_LAYOUT.match.width;
+const MATCH_CARD_HEIGHT = CANVAS_LAYOUT.match.height;
+const TEAM_CARD_WIDTH = CANVAS_LAYOUT.team.width;
+const TEAM_CARD_HEIGHT = CANVAS_LAYOUT.team.height;
+const DETAIL_TEAM_CARD_WIDTH = CANVAS_LAYOUT.detailTeam.width;
+const DETAIL_TEAM_CARD_HEIGHT = CANVAS_LAYOUT.detailTeam.height;
+const SWISS_MATCH_CARD_HEIGHT = MATCH_CARD_HEIGHT;
 const SWISS_MATCH_STEP = 215;
-const SUMMARY_TEAM_STEP = 148;
-const STAGE_HEADER_TO_CARD_OFFSET = 52;
-const SWISS_SECTION_GAP = 88;
+const SUMMARY_TEAM_STEP = CANVAS_LAYOUT.flow.teamStep;
+const STAGE_HEADER_TO_CARD_OFFSET = CANVAS_LAYOUT.flow.headerToCardOffset;
+const SWISS_SECTION_GAP = CANVAS_LAYOUT.flow.sectionGap;
 const PLAYOFF_MATCH_CARD_WIDTH = 440;
-const PLAYOFF_MATCH_CARD_HEIGHT = 188;
+const PLAYOFF_MATCH_CARD_HEIGHT = MATCH_CARD_HEIGHT;
 const PLAYOFF_MATCH_STEP = 215;
-const HEADER_CONNECTOR_ANCHOR_Y = 24;
-
-export type SwissSummaryId =
-  | "qualified-3-0"
-  | "qualified-3-1"
-  | "qualified-3-2"
-  | "eliminated-0-3"
-  | "eliminated-1-3"
-  | "eliminated-2-3";
-
-export type SwissStageColumnId = "round1" | "round2" | "round3" | "round4-band" | "round5-band" | "final-band";
-
-export type SwissStageSection =
-  | {
-      kind: "matches";
-      id: string;
-      round: number;
-      bucket: SwissBucketKey;
-      title: string;
-      y: number;
-      tone: CanvasTone;
-    }
-  | {
-      kind: "summary";
-      id: string;
-      summaryId: SwissSummaryId;
-      title: string;
-      y: number;
-      tone: CanvasTone;
-    };
-
-export const SWISS_STAGE_COLUMNS: Array<{ id: SwissStageColumnId; x: number; sections: SwissStageSection[] }> = [
-  {
-    id: "round1",
-    x: 64,
-    sections: [{ kind: "matches", id: "r1-0-0", round: 1, bucket: "0-0", title: "第 1 轮 · 0-0 组", y: 184, tone: "cyan" }],
-  },
-  {
-    id: "round2",
-    x: 510,
-    sections: [
-      { kind: "matches", id: "r2-1-0", round: 2, bucket: "1-0", title: "第 2 轮 · 1-0 组", y: 92, tone: "cyan" },
-      { kind: "matches", id: "r2-0-1", round: 2, bucket: "0-1", title: "第 2 轮 · 0-1 组", y: 720, tone: "cyan" },
-    ],
-  },
-  {
-    id: "round3",
-    x: 956,
-    sections: [
-      { kind: "matches", id: "r3-2-0", round: 3, bucket: "2-0", title: "第 3 轮 · 2-0 组", y: 44, tone: "cyan" },
-      { kind: "matches", id: "r3-1-1", round: 3, bucket: "1-1", title: "第 3 轮 · 1-1 组", y: 480, tone: "cyan" },
-      { kind: "matches", id: "r3-0-2", round: 3, bucket: "0-2", title: "第 3 轮 · 0-2 组", y: 1052, tone: "cyan" },
-    ],
-  },
-  {
-    id: "round4-band",
-    x: 1402,
-    sections: [
-      { kind: "summary", id: "qualified-3-0", summaryId: "qualified-3-0", title: "3-0 晋级", y: 44, tone: "amber" },
-      { kind: "matches", id: "r4-2-1", round: 4, bucket: "2-1", title: "第 4 轮 · 2-1 组", y: 340, tone: "cyan" },
-      { kind: "matches", id: "r4-1-2", round: 4, bucket: "1-2", title: "第 4 轮 · 1-2 组", y: 790, tone: "cyan" },
-      { kind: "summary", id: "eliminated-0-3", summaryId: "eliminated-0-3", title: "0-3 淘汰", y: 1250, tone: "steel" },
-    ],
-  },
-  {
-    id: "round5-band",
-    x: 1848,
-    sections: [
-      { kind: "summary", id: "qualified-3-1", summaryId: "qualified-3-1", title: "3-1 晋级", y: 132, tone: "amber" },
-      { kind: "matches", id: "r5-2-2", round: 5, bucket: "2-2", title: "第 5 轮 · 2-2 组", y: 560, tone: "cyan" },
-      { kind: "summary", id: "eliminated-1-3", summaryId: "eliminated-1-3", title: "1-3 淘汰", y: 1038, tone: "steel" },
-    ],
-  },
-  {
-    id: "final-band",
-    x: 2294,
-    sections: [
-      { kind: "summary", id: "qualified-3-2", summaryId: "qualified-3-2", title: "3-2 晋级", y: 300, tone: "amber" },
-      { kind: "summary", id: "eliminated-2-3", summaryId: "eliminated-2-3", title: "2-3 淘汰", y: 800, tone: "steel" },
-    ],
-  },
-];
-
-export const SWISS_STAGE_FLOWS: Array<{ sourceId: string; targetIds: string[]; tone: CanvasTone }> = [
-  { sourceId: "r1-0-0", targetIds: ["r2-1-0", "r2-0-1"], tone: "cyan" },
-  { sourceId: "r2-1-0", targetIds: ["r3-2-0", "r3-1-1"], tone: "cyan" },
-  { sourceId: "r2-0-1", targetIds: ["r3-1-1", "r3-0-2"], tone: "cyan" },
-  { sourceId: "r3-2-0", targetIds: ["qualified-3-0", "r4-2-1"], tone: "amber" },
-  { sourceId: "r3-1-1", targetIds: ["r4-2-1", "r4-1-2"], tone: "cyan" },
-  { sourceId: "r3-0-2", targetIds: ["r4-1-2", "eliminated-0-3"], tone: "steel" },
-  { sourceId: "r4-2-1", targetIds: ["qualified-3-1", "r5-2-2"], tone: "amber" },
-  { sourceId: "r4-1-2", targetIds: ["r5-2-2", "eliminated-1-3"], tone: "steel" },
-  { sourceId: "r5-2-2", targetIds: ["qualified-3-2", "eliminated-2-3"], tone: "amber" },
-];
-
-export const SWISS_OFFICIAL_PLACEHOLDER_BUCKETS: Record<number, SwissBucketKey[]> = {
-  1: ["0-0", "0-0", "0-0", "0-0", "0-0", "0-0", "0-0", "0-0"],
-  2: ["1-0", "1-0", "1-0", "1-0", "0-1", "0-1", "0-1", "0-1"],
-  3: ["2-0", "2-0", "1-1", "1-1", "1-1", "1-1", "0-2", "0-2"],
-  4: ["2-1", "2-1", "2-1", "1-2", "1-2", "1-2"],
-  5: ["2-2", "2-2", "2-2"],
-};
-
-export const SWISS_OFFICIAL_PLACEHOLDER_SUMMARY_COUNTS: Record<SwissSummaryId, number> = {
-  "qualified-3-0": 2,
-  "qualified-3-1": 3,
-  "qualified-3-2": 3,
-  "eliminated-0-3": 2,
-  "eliminated-1-3": 3,
-  "eliminated-2-3": 3,
-};
-
-function splitScoreline(scoreline: string) {
-  const [left = "0", right = "0"] = scoreline.split(":");
-  return [left, right] as const;
-}
 
 function stageTone(stage: string): CanvasTone {
   if (stage === "final" || stage === "third_place") {
@@ -312,10 +210,7 @@ function buildMatchCard(
     regionSlug?: RegionSlug;
   }
 ): MatchCanvasCard {
-  const [redScore, blueScore] = splitScoreline(match.scoreline);
-  return {
-    id: match.matchLabel,
-    kind: "match",
+  return createMatchCanvasCard(match, {
     x,
     y,
     width: options?.width ?? MATCH_CARD_WIDTH,
@@ -326,26 +221,7 @@ function buildMatchCard(
     metaLabel: options?.metaLabel ?? stageMeta(match),
     variant: options?.variant ?? "standard",
     showProbability: options?.showProbability ?? false,
-    match,
-    redSide: {
-      teamKey: match.redTeam.teamKey,
-      collegeName: match.redTeam.collegeName,
-      teamName: match.redTeam.teamName,
-      score: redScore,
-      probability: match.pSeriesRed,
-      side: "red",
-      isWinner: match.winnerTeamKey === match.redTeam.teamKey,
-    },
-    blueSide: {
-      teamKey: match.blueTeam.teamKey,
-      collegeName: match.blueTeam.collegeName,
-      teamName: match.blueTeam.teamName,
-      score: blueScore,
-      probability: match.pSeriesBlue,
-      side: "blue",
-      isWinner: match.winnerTeamKey === match.blueTeam.teamKey,
-    },
-  };
+  });
 }
 
 function buildTeamCard({
@@ -356,6 +232,7 @@ function buildTeamCard({
   x,
   y,
   tone = "steel",
+  outcome,
   variant = "team",
   orderLabel,
   subtitle,
@@ -372,6 +249,7 @@ function buildTeamCard({
   x: number;
   y: number;
   tone?: CanvasTone;
+  outcome?: TeamCanvasCard["outcome"];
   variant?: TeamCanvasCard["variant"];
   orderLabel?: string;
   subtitle?: string;
@@ -381,10 +259,8 @@ function buildTeamCard({
   height?: number;
   isSimulated?: boolean;
 }): TeamCanvasCard {
-  return {
+  return createTeamCanvasCard({
     id,
-    kind: "team",
-    variant,
     teamKey,
     collegeName,
     teamName,
@@ -393,119 +269,14 @@ function buildTeamCard({
     width: width ?? TEAM_CARD_WIDTH,
     height: height ?? TEAM_CARD_HEIGHT,
     tone,
+    variant,
+    outcome,
     orderLabel,
     subtitle,
     statLine,
     meta,
     isSimulated,
-  };
-}
-
-function cardLeftMid(card: CanvasCard) {
-  return { x: card.x - 6, y: card.y + card.height / 2 };
-}
-
-export function connectHeaderBands(
-  sourceHeaders: WorkspaceStageHeader[],
-  targetHeaders: WorkspaceStageHeader[],
-  id: string,
-  tone: CanvasTone = "steel",
-  branchLabelTexts?: string[]
-): CanvasConnector | null {
-  if (!sourceHeaders.length || !targetHeaders.length) {
-    return null;
-  }
-
-  const sourceRight = Math.max(...sourceHeaders.map((header) => header.x + header.width));
-  const sourceY =
-    sourceHeaders.reduce((sum, header) => sum + header.y + HEADER_CONNECTOR_ANCHOR_Y, 0) /
-    sourceHeaders.length;
-  const targetLeft = Math.min(...targetHeaders.map((header) => header.x));
-  const targetY =
-    targetHeaders.reduce((sum, header) => sum + header.y + HEADER_CONNECTOR_ANCHOR_Y, 0) /
-    targetHeaders.length;
-  const branchY = targetHeaders.map((header) => header.y + HEADER_CONNECTOR_ANCHOR_Y);
-  const gap = Math.max(18, targetLeft - sourceRight);
-
-  return {
-    id,
-    kind: "bracket",
-    fromX: sourceRight + 6,
-    fromY: sourceY,
-    toX: targetLeft - 12,
-    toY: targetY,
-    viaX: sourceRight + Math.max(18, Math.min(36, gap * 0.5)),
-    branchY,
-    branchLabels: branchLabelTexts?.map((text, index) => {
-      const targetHeader = targetHeaders[index];
-      return { text, y: targetHeader ? targetHeader.y - 12 : targetY - 30 };
-    }),
-    tone,
-    weight: tone === "amber" ? "strong" : "normal",
-  };
-}
-
-export function connectCardGroupToCard(
-  sourceCards: Array<CanvasCard | undefined>,
-  targetCard: CanvasCard | undefined,
-  id: string,
-  tone: CanvasTone = "steel"
-): CanvasConnector | null {
-  const resolvedSources = sourceCards.filter((card): card is CanvasCard => Boolean(card));
-  if (!resolvedSources.length || !targetCard) {
-    return null;
-  }
-
-  const fromX = Math.max(...resolvedSources.map((card) => card.x + card.width)) + 6;
-  const branchY = resolvedSources.map((card) => card.y + card.height / 2);
-  const to = cardLeftMid(targetCard);
-  const gap = Math.max(24, to.x - fromX);
-
-  return {
-    id,
-    kind: "merge",
-    fromX,
-    fromY: branchY.reduce((sum, y) => sum + y, 0) / branchY.length,
-    toX: to.x,
-    toY: to.y,
-    viaX: fromX + Math.max(24, Math.min(88, gap * 0.42)),
-    branchY,
-    tone,
-    weight: tone === "amber" ? "strong" : "normal",
-  };
-}
-
-export function connectCardGroupToCards(
-  sourceCards: Array<CanvasCard | undefined>,
-  targetCards: Array<CanvasCard | undefined>,
-  id: string,
-  tone: CanvasTone = "steel"
-): CanvasConnector | null {
-  const resolvedSources = sourceCards.filter((card): card is CanvasCard => Boolean(card));
-  const resolvedTargets = targetCards.filter((card): card is CanvasCard => Boolean(card));
-  if (!resolvedSources.length || !resolvedTargets.length) {
-    return null;
-  }
-
-  const fromX = Math.max(...resolvedSources.map((card) => card.x + card.width)) + 6;
-  const branchY = resolvedSources.map((card) => card.y + card.height / 2);
-  const targetBranchY = resolvedTargets.map((card) => card.y + card.height / 2);
-  const toX = Math.min(...resolvedTargets.map((card) => card.x)) - 6;
-  const gap = Math.max(24, toX - fromX);
-
-  return {
-    id,
-    kind: "merge-split",
-    fromX,
-    fromY: branchY.reduce((sum, y) => sum + y, 0) / branchY.length,
-    toX,
-    toY: targetBranchY.reduce((sum, y) => sum + y, 0) / targetBranchY.length,
-    viaX: fromX + Math.max(24, Math.min(88, gap * 0.42)),
-    branchY,
-    targetBranchY,
-    tone,
-    weight: tone === "amber" ? "strong" : "normal",
-  };
+  });
 }
 
 function isOfficialPlaceholderMatch(match: MatchRow) {
@@ -514,10 +285,6 @@ function isOfficialPlaceholderMatch(match: MatchRow) {
 
 function isOfficialPlaceholderSwissMatch(match: MatchRow) {
   return match.stage === "swiss" && isOfficialPlaceholderMatch(match);
-}
-
-export function officialPlaceholderSwissBucket(roundNumber: number, indexInRound: number) {
-  return SWISS_OFFICIAL_PLACEHOLDER_BUCKETS[roundNumber]?.[indexInRound] ?? null;
 }
 
 function replaySwissBuckets(simulation: SimulationResponse, groupName: "A" | "B"): SwissReplayArtifacts {
@@ -1286,6 +1053,7 @@ function buildQualificationStage(regionSlug: RegionSlug, simulation: SimulationR
           subtitle: row.teamName,
           statLine: statLine ?? `${sourceLabel} / ${formatSwissRecordLabel(row.swissWins, row.swissLosses)}`,
           tone,
+          outcome: row.advancement === "group_eliminated" ? "eliminated" : "qualified",
           variant: "summary",
           width: DETAIL_TEAM_CARD_WIDTH,
           height: DETAIL_TEAM_CARD_HEIGHT,

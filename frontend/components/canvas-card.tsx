@@ -84,7 +84,9 @@ export function deriveMatchCardState(row: MatchRow, mode?: "sim" | "live") {
 export function deriveTeamCardState(card: TeamCanvasCard, mode?: "sim" | "live") {
   const isSimulated = mode === "sim" ? false : (card.isSimulated ?? card.variant === "summary");
   const isPendingPlaceholder = mode === "live" && card.variant === "summary" && !card.teamKey;
-  const isSafe = card.tone === "emerald" || card.tone === "amber";
+  // Event color and result semantics are independent: repechage cards stay
+  // cyan, while their explicit outcome still renders as qualification.
+  const isSafe = card.outcome ? card.outcome === "qualified" : card.tone === "emerald" || card.tone === "amber";
   const isSummary = card.variant === "summary";
   const certaintyLabel = isPendingPlaceholder ? "待确认" : isSimulated ? "预期" : "实际";
   const outcomeLabel = isPendingPlaceholder ? "" : isSafe ? "晋级" : "淘汰";

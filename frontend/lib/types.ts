@@ -432,6 +432,7 @@ export interface TeamCanvasCard extends CanvasCardBase {
   heroSlot?: string;
   kind: "team";
   variant: "team" | "summary" | "ranking";
+  outcome?: "qualified" | "eliminated";
   teamKey: string;
   collegeName: string;
   teamName: string;

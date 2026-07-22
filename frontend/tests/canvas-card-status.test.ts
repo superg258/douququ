@@ -330,6 +330,13 @@ describe("deriveTeamCardState", () => {
     });
   });
 
+  it("keeps cyan repechage cards visually blue while labeling them as qualified", () => {
+    expect(deriveTeamCardState(teamCard({ tone: "cyan", outcome: "qualified", isSimulated: true }), "live")).toMatchObject({
+      summaryLabel: "预期晋级",
+      visualTier: "predicted-safe",
+    });
+  });
+
   it("labels placeholder summary outcomes as pending in live mode", () => {
     expect(
       deriveTeamCardState(

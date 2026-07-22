@@ -1,4 +1,6 @@
 import { gameWinProbability, seriesWinProbability } from "@/lib/finals-simulation";
+import { findParticipantForMatchSide } from "@/lib/finals-identity";
+import { createMatchCanvasCard } from "@/lib/canvas-primitives";
 import type {
   FinalEventMatch,
   FinalEventSchedule,
@@ -107,6 +109,9 @@ function normalizedStatus(match: FinalEventMatch) {
   return String(match.officialStatus ?? "").trim().toUpperCase();
 }
 
+// 队伍身份匹配统一入口见 @/lib/finals-identity（findParticipantForMatchSide），
+// officialTeamRef 与 finals-simulation 中的 officialParticipantForSide 共用。
+
 function officialTeamRef(
   event: FinalEventSchedule,
   match: FinalEventMatch,
@@ -115,11 +120,10 @@ function officialTeamRef(
   const teamKey = match[`${side}TeamKey`]?.trim() ?? "";
   const collegeName = match[`${side}CollegeName`]?.trim() ?? "";
   const teamName = match[`${side}TeamName`]?.trim() ?? "";
-  const participant = event.participants.find((candidate) => (
-    (teamKey && candidate.teamKey === teamKey)
-    || (collegeName && candidate.collegeName === collegeName && (!teamName || candidate.teamName === teamName))
-  ));
-  const resolvedTeamKey = teamKey || participant?.teamKey || "";
+  const participant = findParticipantForMatchSide(event.participants, teamKey, collegeName, teamName);
+  // 优先使用参赛名单中的 teamKey（来自身份索引的权威 key），
+  // 仅在未找到参赛队伍时才回退到赛程数据中的 teamKey（可能是合成 key）。
+  const resolvedTeamKey = (participant?.teamKey) || teamKey || "";
   const resolvedCollegeName = collegeName || participant?.collegeName || "";
   const resolvedTeamName = teamName || participant?.teamName || "";
   if (!resolvedTeamKey && !resolvedCollegeName && !resolvedTeamName) return null;
@@ -279,10 +283,7 @@ export function buildFinalsMatchRow(
   };
 }
 
-const FINALS_MATCH_CARD_WIDTH = 400;
-const FINALS_MATCH_CARD_HEIGHT = 188;
-
-/** 与 canvas-builders.buildMatchCard 同形构造 MatchCanvasCard（区域赛赛程卡片）。 */
+/** 将 finals 适配出的 MatchRow 交给区域赛也使用的画布卡片工厂。 */
 export function buildFinalsMatchCard(
   event: FinalEventSchedule,
   match: FinalEventMatch,
@@ -291,14 +292,9 @@ export function buildFinalsMatchCard(
   simulation?: SimulatedFinalMatch | null,
 ): MatchCanvasCard {
   const row = buildFinalsMatchRow(event, match, simulation);
-  const [redScore, blueScore] = row.scoreline.split(":");
-  return {
-    id: row.matchLabel,
-    kind: "match",
+  return createMatchCanvasCard(row, {
     x,
     y,
-    width: FINALS_MATCH_CARD_WIDTH,
-    height: FINALS_MATCH_CARD_HEIGHT,
     tone: match.stageKey === "final" || match.stageKey === "third_place"
       ? "amber"
       : match.stageKey === "swiss"
@@ -309,24 +305,5 @@ export function buildFinalsMatchCard(
     metaLabel: `${match.stage} / BO${match.bestOf}`,
     variant: "standard",
     showProbability: false,
-    match: row,
-    redSide: {
-      teamKey: row.redTeam.teamKey,
-      collegeName: row.redTeam.collegeName,
-      teamName: row.redTeam.teamName,
-      score: redScore ?? "-",
-      probability: row.pSeriesRed,
-      side: "red",
-      isWinner: row.winnerTeamKey !== "" && row.winnerTeamKey === row.redTeam.teamKey,
-    },
-    blueSide: {
-      teamKey: row.blueTeam.teamKey,
-      collegeName: row.blueTeam.collegeName,
-      teamName: row.blueTeam.teamName,
-      score: blueScore ?? "-",
-      probability: row.pSeriesBlue,
-      side: "blue",
-      isWinner: row.winnerTeamKey !== "" && row.winnerTeamKey === row.blueTeam.teamKey,
-    },
-  };
+  });
 }

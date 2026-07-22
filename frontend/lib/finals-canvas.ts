@@ -1,12 +1,16 @@
 import {
+  CANVAS_LAYOUT,
   connectCardGroupToCard,
   connectCardGroupToCards,
   connectHeaderBands,
+  createTeamCanvasCard,
+} from "@/lib/canvas-primitives";
+import {
   officialPlaceholderSwissBucket,
   SWISS_OFFICIAL_PLACEHOLDER_SUMMARY_COUNTS,
   SWISS_STAGE_COLUMNS,
   SWISS_STAGE_FLOWS,
-} from "@/lib/canvas-builders";
+} from "@/lib/swiss-canvas";
 import {
   buildRepechageSwissFlow,
   matchesForFinalStage,
@@ -28,18 +32,19 @@ import type {
   WorkspaceStageHeader,
 } from "@/lib/types";
 
-const CARD_WIDTH = 400;
-const CARD_HEIGHT = 188;
+const CARD_WIDTH = CANVAS_LAYOUT.match.width;
+const CARD_HEIGHT = CANVAS_LAYOUT.match.height;
 const COLUMN_GAP = 46;
 const ROW_GAP = 27;
 const START_X = 64;
 const START_Y = 120;
-const HEADER_TO_CARD_GAP = 20;
-const HEADER_HEIGHT = 48;
-const FLOW_TEAM_CARD_HEIGHT = 128;
-const FLOW_TEAM_STEP = 148;
-const FLOW_HEADER_TO_CARD_OFFSET = 52;
-const FLOW_SECTION_GAP = 88;
+const HEADER_TO_CARD_GAP = CANVAS_LAYOUT.header.toCardGap;
+const HEADER_HEIGHT = CANVAS_LAYOUT.header.height;
+const TEAM_CARD_HEIGHT = CANVAS_LAYOUT.team.height;
+const FLOW_TEAM_CARD_HEIGHT = CANVAS_LAYOUT.detailTeam.height;
+const FLOW_TEAM_STEP = CANVAS_LAYOUT.flow.teamStep;
+const FLOW_HEADER_TO_CARD_OFFSET = CANVAS_LAYOUT.flow.headerToCardOffset;
+const FLOW_SECTION_GAP = CANVAS_LAYOUT.flow.sectionGap;
 
 type MatchRelation = {
   parent: FinalEventMatch;
@@ -120,53 +125,6 @@ function cardForMatch(
   return buildFinalsMatchCard(event, match, x, y, simulation?.matchResults.get(match.number) ?? null);
 }
 
-function buildOutcomeAwareEliminationConnectors(
-  matches: FinalEventMatch[],
-  cardByMatch: Map<number, MatchCanvasCard>,
-) {
-  const connectors: CanvasConnector[] = [];
-
-  for (const match of matches) {
-    const target = cardByMatch.get(match.number);
-    if (!target) continue;
-
-    const relations = [
-      relationForSlot(matches, match, match.redSlot),
-      relationForSlot(matches, match, match.blueSlot),
-    ].filter((relation): relation is MatchRelation => relation !== null);
-
-    for (const outcome of ["winner", "loser"] as const) {
-      const sources = relations
-        .filter((relation) => relation.outcome === outcome)
-        .map((relation) => cardByMatch.get(relation.parent.number))
-        .filter((card): card is MatchCanvasCard => Boolean(card));
-      if (!sources.length) continue;
-
-      const tone: CanvasConnector["tone"] = outcome === "winner" ? "emerald" : "steel";
-      const connector = connectCardGroupToCard(
-        sources,
-        target,
-        `${sources.map((source) => source.match.regionalMatchNumber).join("+")}:${outcome}:${match.number}`,
-        tone,
-      );
-      if (!connector) continue;
-
-      connectors.push({
-        ...connector,
-        // When one match receives both a winner and a loser, offset the
-        // loser trunk so the two route meanings stay visibly distinct.
-        viaX: (connector.viaX ?? connector.fromX) + (outcome === "loser" ? 18 : 0),
-        // Regional canvas language keeps every route solid: winner routes
-        // stay emerald/strong, loser drops stay steel/normal — the same
-        // style as the elimination-terminal connectors.
-        weight: outcome === "winner" ? "strong" : "normal",
-      });
-    }
-  }
-
-  return connectors;
-}
-
 function destinationOrderLabel(destination: string, fallback: number) {
   const normalized = destination.replace(/（[^）]+）$/g, "").replace(/^胜者/, "").trim();
   return normalized && normalized !== destination ? normalized : `${fallback}`;
@@ -183,6 +141,9 @@ function buildRepechageQualificationStage(
   const cards: CanvasCard[] = [];
   const connectors: CanvasConnector[] = [];
   const cardByMatch = new Map<number, MatchCanvasCard>();
+  // 区域赛资格赛的连线风格：流程线在「轮次表头」之间分叉，不逐场对齐。
+  // 这里按短 id 记录每个区块表头，最后统一生成表头分叉连线。
+  const sectionHeaders: Record<string, WorkspaceStageHeader> = {};
   const columnStep = CARD_WIDTH + COLUMN_GAP;
   const matchStep = CARD_HEIGHT + ROW_GAP;
   const topHeaderY = Math.max(32, START_Y - HEADER_HEIGHT - HEADER_TO_CARD_GAP);
@@ -214,8 +175,10 @@ function buildRepechageQualificationStage(
     title: string,
     subtitle: string,
     tone: CanvasConnector["tone"],
-  ) => {
-    headers.push({ id, x, y, width: CARD_WIDTH, title, subtitle, tone });
+  ): WorkspaceStageHeader => {
+    const header: WorkspaceStageHeader = { id, x, y, width: CARD_WIDTH, title, subtitle, tone };
+    headers.push(header);
+    return header;
   };
 
   const addMatchSection = (
@@ -229,7 +192,7 @@ function buildRepechageQualificationStage(
   ) => {
     const rows = sortByNumber(sectionMatches);
     if (!rows.length) return { bottom: y, cards: [] as MatchCanvasCard[] };
-    addHeader(
+    sectionHeaders[id] = addHeader(
       `${event.slug}:${stage}:qualification:${id}:header`,
       x,
       y,
@@ -288,7 +251,7 @@ function buildRepechageQualificationStage(
       .filter((card): card is MatchCanvasCard => Boolean(card));
     if (!sourceCards.length) return { bottom: y, cards: [] as TeamCanvasCard[] };
 
-    addHeader(
+    sectionHeaders[id] = addHeader(
       `${event.slug}:${stage}:qualification-flow:${id}:header`,
       x,
       y,
@@ -297,9 +260,8 @@ function buildRepechageQualificationStage(
       tone,
     );
     const outcomeCards = sourceCards.map((sourceCard, index): TeamCanvasCard => {
-      const card: TeamCanvasCard = {
+      const card = createTeamCanvasCard({
         id: `${event.slug}:${stage}:qualification-flow:${id}:${index + 1}`,
-        kind: "team",
         variant: "summary",
         teamKey: "",
         collegeName: "待确认",
@@ -315,22 +277,12 @@ function buildRepechageQualificationStage(
         meta: [`第 ${sourceCard.match.regionalMatchNumber} 场赛果确认后显示学校队伍`],
         isSimulated: true,
         simulationKey: { kind: "matchOutcome", matchNumber: sourceCard.match.regionalMatchNumber!, outcome: sourceOutcome },
-      };
+      });
       cards.push(card);
       return card;
     });
-    const connector = connectCardGroupToCards(
-      sourceCards,
-      outcomeCards,
-      `${event.slug}:${stage}:qualification-flow:${id}:connector`,
-      tone,
-    );
-    if (connector) {
-      connectors.push({
-        ...connector,
-        weight: tone === "amber" ? "strong" : "normal",
-      });
-    }
+    // 去向卡片不再逐场牵线：连线在表头层分叉（见文末 fork），去向卡片仅罗列名单，
+    // 与区域赛资格赛完全一致，避免绿/黄/虚线与卡片错位。
     return {
       bottom: outcomeCards.at(-1)!.y + FLOW_TEAM_CARD_HEIGHT,
       cards: outcomeCards,
@@ -430,7 +382,31 @@ function buildRepechageQualificationStage(
     tone: "steel",
   });
 
-  connectors.push(...buildOutcomeAwareEliminationConnectors(orderedMatches, cardByMatch));
+  // 表头分叉连线：每一轮只从自己的表头分出「胜者去向 / 败者去向」两支，
+  // 连到下一轮或去向区块的表头顶部，不逐场对齐（对齐区域赛资格赛风格）。
+  const addFork = (
+    fromId: string,
+    branches: Array<[targetId: string, label: string]>,
+    tone: CanvasConnector["tone"],
+  ) => {
+    const source = sectionHeaders[fromId];
+    if (!source) return;
+    const present = branches.filter(([targetId]) => sectionHeaders[targetId]);
+    if (!present.length) return;
+    const connector = connectHeaderBands(
+      [source],
+      present.map(([targetId]) => sectionHeaders[targetId]),
+      `${event.slug}:${stage}:qualification-fork:${fromId}`,
+      tone,
+      present.map(([, label]) => label),
+    );
+    if (connector) connectors.push(connector);
+  };
+
+  addFork("round1", [["round3", "胜者直通战"], ["round2", "败者生死战"]], "emerald");
+  addFork("round3", [["round3-national", "胜者晋级全国赛"], ["round4", "败者生死战"]], "amber");
+  addFork("round2", [["round4", "胜者进末轮"], ["round2-eliminated", "两败出局"]], "emerald");
+  addFork("round4", [["round4-national", "胜者晋级全国赛"], ["round4-eliminated", "两败出局"]], "amber");
 
   const contentBottom = cards.reduce(
     (bottom, card) => Math.max(bottom, card.y + card.height),
@@ -535,9 +511,8 @@ function buildNationalsSwissStage(
       const qualified = section.summaryId.startsWith("qualified-");
       const record = section.summaryId.replace(/^qualified-|^eliminated-/, "");
       Array.from({ length: placeholderCount }, (_, index) => {
-        const destinationCard: TeamCanvasCard = {
+        const destinationCard = createTeamCanvasCard({
           id: `${event.slug}:${stage}:swiss-result:${section.id}:${index + 1}`,
-          kind: "team",
           variant: "summary",
           teamKey: "",
           collegeName: "待确认",
@@ -553,7 +528,7 @@ function buildNationalsSwissStage(
           meta: ["赛果确认后显示学校队伍"],
           isSimulated: true,
           simulationKey: { kind: "recordBucket", bucket: section.summaryId, index },
-        };
+        });
         cards.push(destinationCard);
       });
       nextSectionBottom =
@@ -607,6 +582,8 @@ function buildNationalsDoubleEliminationStage(
   const cards: CanvasCard[] = [];
   const connectors: CanvasConnector[] = [];
   const cardByMatch = new Map<number, MatchCanvasCard>();
+  // 表头分叉连线：按短 id 记录每个区块表头，最后统一在表头层生成分叉线。
+  const sectionHeaders: Record<string, WorkspaceStageHeader> = {};
   const columnStep = CARD_WIDTH + COLUMN_GAP;
   const matchStep = CARD_HEIGHT + ROW_GAP;
   const topHeaderY = Math.max(32, START_Y - HEADER_HEIGHT - HEADER_TO_CARD_GAP);
@@ -632,8 +609,10 @@ function buildNationalsDoubleEliminationStage(
     title: string,
     subtitle: string,
     tone: CanvasConnector["tone"],
-  ) => {
-    headers.push({ id, x, y, width: CARD_WIDTH, title, subtitle, tone });
+  ): WorkspaceStageHeader => {
+    const header: WorkspaceStageHeader = { id, x, y, width: CARD_WIDTH, title, subtitle, tone };
+    headers.push(header);
+    return header;
   };
 
   const addMatchSection = ({
@@ -655,7 +634,7 @@ function buildNationalsDoubleEliminationStage(
   }) => {
     const rows = sortByNumber(sectionMatches);
     if (!rows.length) return { bottom: y, cards: [] as MatchCanvasCard[] };
-    addHeader(`${event.slug}:${stage}:${id}:header`, x, y, title, subtitle, tone);
+    sectionHeaders[id] = addHeader(`${event.slug}:${stage}:${id}:header`, x, y, title, subtitle, tone);
     const sectionCards = rows.map((match, index) => {
       const card = cardForMatch(
         event,
@@ -696,12 +675,11 @@ function buildNationalsDoubleEliminationStage(
       .filter((entry): entry is { match: FinalEventMatch; card: MatchCanvasCard } => Boolean(entry.card));
     if (!sources.length) return { bottom: y, cards: [] as TeamCanvasCard[] };
 
-    addHeader(`${event.slug}:${stage}:${id}:header`, x, y, title, subtitle, "amber");
-    const seatCards = sources.map(({ match, card: sourceCard }, index): TeamCanvasCard => {
+    sectionHeaders[id] = addHeader(`${event.slug}:${stage}:${id}:header`, x, y, title, subtitle, "amber");
+    const seatCards = sources.map(({ match }, index): TeamCanvasCard => {
       const destination = match.winnerTo ?? seatName;
-      const seatCard: TeamCanvasCard = {
+      const seatCard = createTeamCanvasCard({
         id: `${event.slug}:${stage}:${id}:${match.number}`,
-        kind: "team",
         variant: "summary",
         teamKey: "",
         collegeName: "待确认",
@@ -717,16 +695,9 @@ function buildNationalsDoubleEliminationStage(
         meta: ["赛果确认后显示学校队伍"],
         isSimulated: true,
         simulationKey: { kind: "matchOutcome", matchNumber: match.number, outcome: "winner" },
-      };
+      });
       cards.push(seatCard);
-
-      const connector = connectCardGroupToCard(
-        [sourceCard],
-        seatCard,
-        `${event.slug}:${stage}:${id}:${match.number}:connector`,
-        "amber",
-      );
-      if (connector) connectors.push({ ...connector, weight: "strong" });
+      // 席位卡片不再逐场牵线：连线在表头层分叉（见文末 fork）。
       return seatCard;
     });
     return {
@@ -756,7 +727,7 @@ function buildNationalsDoubleEliminationStage(
       .filter((entry): entry is { match: FinalEventMatch; card: MatchCanvasCard } => Boolean(entry.card));
     if (!sources.length) return { bottom: y, cards: [] as TeamCanvasCard[] };
 
-    addHeader(
+    sectionHeaders[id] = addHeader(
       `${event.slug}:${stage}:${id}:header`,
       x,
       y,
@@ -765,9 +736,8 @@ function buildNationalsDoubleEliminationStage(
       "steel",
     );
     const eliminatedCards = sources.map(({ match }, index): TeamCanvasCard => {
-      const eliminatedCard: TeamCanvasCard = {
+      const eliminatedCard = createTeamCanvasCard({
         id: `${event.slug}:${stage}:${id}:${match.number}`,
-        kind: "team",
         variant: "summary",
         teamKey: "",
         collegeName: "待确认",
@@ -783,17 +753,11 @@ function buildNationalsDoubleEliminationStage(
         meta: ["赛果确认后显示学校队伍"],
         isSimulated: true,
         simulationKey: { kind: "matchOutcome", matchNumber: match.number, outcome: "loser" },
-      };
+      });
       cards.push(eliminatedCard);
+      // 出局卡片不再逐场牵线：连线在表头层分叉（见文末 fork）。
       return eliminatedCard;
     });
-    const connector = connectCardGroupToCards(
-      sources.map(({ card }) => card),
-      eliminatedCards,
-      `${event.slug}:${stage}:${id}:connector`,
-      "steel",
-    );
-    if (connector) connectors.push(connector);
 
     return {
       bottom: eliminatedCards.at(-1)!.y + FLOW_TEAM_CARD_HEIGHT,
@@ -940,7 +904,33 @@ function buildNationalsDoubleEliminationStage(
     });
   }
 
-  connectors.unshift(...buildOutcomeAwareEliminationConnectors(orderedMatches, cardByMatch));
+  // 表头分叉连线：胜者链（amber）与败者链（emerald→steel）只在表头层分叉，
+  // 连到下一区块表头顶部，不逐场对齐（对齐区域赛淘汰赛/资格赛风格）。
+  const seatWord = stage === "round-of-16" ? "八强" : "四强";
+  const addFork = (
+    fromId: string,
+    branches: Array<[targetId: string, label: string]>,
+    tone: CanvasConnector["tone"],
+  ) => {
+    const source = sectionHeaders[fromId];
+    if (!source) return;
+    const present = branches.filter(([targetId]) => sectionHeaders[targetId]);
+    if (!present.length) return;
+    const connector = connectHeaderBands(
+      [source],
+      present.map(([targetId]) => sectionHeaders[targetId]),
+      `${event.slug}:${stage}:elim-fork:${fromId}`,
+      tone,
+      present.map(([, label]) => label),
+    );
+    if (connector) connectors.push(connector);
+  };
+
+  addFork("opening", [["upper", `胜者直通${seatWord}`], ["lower-first", "败者生死战"]], "emerald");
+  addFork("upper", [["upper-seats", `胜者锁${seatWord}`], ["lower-final", "败者生死战"]], "amber");
+  addFork("lower-first", [["lower-final", "胜者进末轮"], ["lower-first-eliminated", "两败出局"]], "emerald");
+  addFork("lower-final", [["lower-seats", `胜者锁${seatWord}`], ["lower-final-eliminated", "两败出局"]], "amber");
+
   const contentBottom = cards.reduce(
     (bottom, card) => Math.max(bottom, card.y + card.height),
     START_Y,
@@ -1186,7 +1176,7 @@ function buildFinalsWorkspaceStageBase(
     outcomeColumnCount = 1;
     const outcomeColX =
       START_X + labels.length * (CARD_WIDTH + COLUMN_GAP);
-    const outcomeHeight = terminalGroups.size * 108 + Math.max(0, terminalGroups.size - 1) * ROW_GAP;
+    const outcomeHeight = terminalGroups.size * TEAM_CARD_HEIGHT + Math.max(0, terminalGroups.size - 1) * ROW_GAP;
     let outcomeY = START_Y + Math.max(0, (maxColumnHeight - outcomeHeight) / 2);
 
     const finalRankByDestination: Record<string, number> = {
@@ -1213,9 +1203,8 @@ function buildFinalsWorkspaceStageBase(
       const label =
         TERMINAL_LABEL_MAP[group.destination] ?? group.destination;
 
-      const outcomeCard: TeamCanvasCard = {
+      const outcomeCard = createTeamCanvasCard({
         id: `${event.slug}:${stage}:outcome:${group.destination}`,
-        kind: "team",
         variant: isFinalRanking ? "ranking" : "summary",
         teamKey: isFinalRanking ? "" : `outcome:${group.kind}:${group.destination}`,
         collegeName: label,
@@ -1223,7 +1212,7 @@ function buildFinalsWorkspaceStageBase(
         x: outcomeColX,
         y: outcomeY,
         width: CARD_WIDTH,
-        height: 108,
+        height: TEAM_CARD_HEIGHT,
         tone,
         orderLabel: isFinalRanking ? `${finalRank}` : `${count}`,
         subtitle: isFinalRanking ? `最终第 ${finalRank} 名` : `${count} 支队伍`,
@@ -1234,7 +1223,7 @@ function buildFinalsWorkspaceStageBase(
             : `败者淘汰 · ${group.destination}`,
         isSimulated: false,
         simulationKey: { kind: "destination", destination: group.destination },
-      };
+      });
       cards.push(outcomeCard);
       destinationCards.push(outcomeCard);
 
@@ -1251,7 +1240,7 @@ function buildFinalsWorkspaceStageBase(
         });
       }
 
-      outcomeY += 108 + ROW_GAP;
+      outcomeY += TEAM_CARD_HEIGHT + ROW_GAP;
     }
   }
 
@@ -1307,9 +1296,8 @@ function buildFinalsWorkspaceStageBase(
       subtitle: string;
       statLine: string;
       tone: TeamCanvasCard["tone"];
-    }): TeamCanvasCard => ({
+    }): TeamCanvasCard => createTeamCanvasCard({
       id,
-      kind: "team",
       variant: "summary",
       teamKey: "",
       collegeName: "待确认",
@@ -1443,7 +1431,7 @@ function buildFinalsWorkspaceStageBase(
     headers.push({
       id: `${event.slug}:${stage}:outcome-header`,
       x: START_X + labels.length * (CARD_WIDTH + COLUMN_GAP),
-      y: Math.max(32, (outcomeCard?.y ?? START_Y) - 48 - HEADER_TO_CARD_GAP),
+      y: Math.max(32, (outcomeCard?.y ?? START_Y) - HEADER_HEIGHT - HEADER_TO_CARD_GAP),
       width: CARD_WIDTH,
       title: stage === "final-four" ? "最终名次 · 1–4" : "最终去向",
       subtitle: stage === "final-four" ? "" : `${terminalGroups.size} 个去向`,

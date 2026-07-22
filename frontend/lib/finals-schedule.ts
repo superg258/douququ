@@ -18,6 +18,7 @@ const DRAW_TIER_ORDER = [
 
 const DRAW_SLOT_PATTERN = /^(?:(?:[ⅠⅡⅢⅣⅤIVX]+)\s*-\s*)?[AB]\s*-?\s*\d+$/u;
 const DERIVED_SLOT_PATTERN = /(?:胜者|败者|决赛|半决赛|待确认|待定|槽位|名额)/u;
+const NATIONALS_FIELD_CAPACITY = 32;
 
 export function isActualSchoolName(value: string | null | undefined) {
   const normalized = value?.trim() ?? "";
@@ -26,8 +27,13 @@ export function isActualSchoolName(value: string | null | undefined) {
     && !DERIVED_SLOT_PATTERN.test(normalized);
 }
 
-export function hasActualFinalMatchup(match: Pick<FinalEventMatch, "redSlot" | "blueSlot">) {
-  return isActualSchoolName(match.redSlot) && isActualSchoolName(match.blueSlot);
+export function hasActualFinalMatchup(match: Pick<
+  FinalEventMatch,
+  "redSlot" | "blueSlot" | "redTeamKey" | "blueTeamKey" | "redCollegeName" | "blueCollegeName"
+>) {
+  return Boolean(match.redTeamKey && match.blueTeamKey)
+    || (isActualSchoolName(match.redCollegeName) && isActualSchoolName(match.blueCollegeName))
+    || (isActualSchoolName(match.redSlot) && isActualSchoolName(match.blueSlot));
 }
 
 export const FINAL_STAGE_OPTIONS: Record<
@@ -264,6 +270,7 @@ function incrementCounter(counter: Map<string, number>, teamKey: string) {
 export function rankFinalEventParticipantsByCurrentElo(
   participants: FinalEventParticipant[],
   overview: OverviewResponse,
+  finalEloByTeamKey?: Readonly<Record<string, number>> | null,
 ): RankedFinalEventParticipant[] {
   const teamIndex = new Map(
     overview.regions.flatMap((region) => region.teams).map((team) => [team.teamKey, team]),
@@ -273,9 +280,15 @@ export function rankFinalEventParticipantsByCurrentElo(
     .filter((participant) => participant.status === "confirmed")
     .map((participant) => {
       const team = teamIndex.get(participant.teamKey);
+      const liveElo = finalEloByTeamKey?.[participant.teamKey];
+      const currentElo = typeof liveElo === "number" && Number.isFinite(liveElo)
+        ? liveElo
+        : team
+          ? (team.currentElo ?? team.mu0)
+          : null;
       return {
         ...participant,
-        currentElo: team ? (team.currentElo ?? team.mu0) : null,
+        currentElo,
         eloGlobalRank: team?.eloGlobalRank ?? null,
       };
     })
@@ -300,8 +313,20 @@ export function projectFinalsStageProbabilities(
 ): FinalsStageProbabilityProjection {
   const repechage = rankFinalEventParticipantsByCurrentElo(repechageParticipants, overview)
     .filter((participant) => participant.currentElo !== null);
-  const nationals = rankFinalEventParticipantsByCurrentElo(nationalsParticipants, overview)
+  const rankedNationals = rankFinalEventParticipantsByCurrentElo(nationalsParticipants, overview)
     .filter((participant) => participant.currentElo !== null);
+  const nationalsByTeamKey = new Map<string, (typeof rankedNationals)[number]>();
+  for (const participant of rankedNationals) {
+    if (!nationalsByTeamKey.has(participant.teamKey)) {
+      nationalsByTeamKey.set(participant.teamKey, participant);
+    }
+  }
+  const nationals = [...nationalsByTeamKey.values()];
+  const openNationalsSlots = Math.max(0, NATIONALS_FIELD_CAPACITY - nationals.length);
+  const confirmedNationalsTeamKeys = new Set(nationals.map((participant) => participant.teamKey));
+  const nationalProbabilityParticipants = openNationalsSlots > 0
+    ? [...nationals, ...repechage.filter((participant) => !confirmedNationalsTeamKeys.has(participant.teamKey))]
+    : nationals;
   const advancementCounts = new Map<string, number>();
   const groupAdvancementCounts = new Map<string, number>();
   const topEightCounts = new Map<string, number>();
@@ -324,7 +349,10 @@ export function projectFinalsStageProbabilities(
       incrementCounter(advancementCounts, participant.teamKey);
     }
 
-    const projectedNationalsField = [...nationals, ...projectedRepechageQualifiers]
+    const projectedNationalQualifiers = projectedRepechageQualifiers
+      .filter((participant) => !confirmedNationalsTeamKeys.has(participant.teamKey))
+      .slice(0, openNationalsSlots);
+    const projectedNationalsField = [...nationals, ...projectedNationalQualifiers]
       .map((participant) => ({
         participant,
         performance: sampleEloPerformance(participant.currentElo as number, random),
@@ -355,7 +383,7 @@ export function projectFinalsStageProbabilities(
       { advancementRate: (advancementCounts.get(participant.teamKey) ?? 0) / safeIterations },
     ])),
     nationals: new Map(
-      [...nationals, ...repechage].map((participant) => [
+      nationalProbabilityParticipants.map((participant) => [
         participant.teamKey,
         {
           groupAdvancementRate: (groupAdvancementCounts.get(participant.teamKey) ?? 0) / safeIterations,
