@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 from functools import lru_cache
 from pathlib import Path
@@ -8,6 +9,51 @@ from typing import Any, Iterable
 
 
 PathSignature = tuple[str, int, int]
+DEFAULT_VOLATILE_KEYS = frozenset(
+    {
+        "checkedAt",
+        "fetchedAt",
+        "fetched-at",
+        "expiresAt",
+        "expires_at",
+        "generatedAt",
+        "generated_at",
+        "lastCheckedAt",
+        "sourceAgeSeconds",
+    }
+)
+
+
+def semantic_payload(
+    payload: Any,
+    *,
+    volatile_keys: frozenset[str] = DEFAULT_VOLATILE_KEYS,
+) -> Any:
+    """Return a JSON-compatible payload without operational freshness fields."""
+    if isinstance(payload, dict):
+        return {
+            key: semantic_payload(value, volatile_keys=volatile_keys)
+            for key, value in sorted(payload.items())
+            if key not in volatile_keys
+        }
+    if isinstance(payload, list):
+        return [semantic_payload(value, volatile_keys=volatile_keys) for value in payload]
+    return payload
+
+
+def semantic_digest(
+    payload: Any,
+    *,
+    volatile_keys: frozenset[str] = DEFAULT_VOLATILE_KEYS,
+) -> str:
+    """Build a stable sha256 revision from the semantic JSON content."""
+    canonical = json.dumps(
+        semantic_payload(payload, volatile_keys=volatile_keys),
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return f"sha256:{hashlib.sha256(canonical).hexdigest()}"
 
 
 def path_signature(path: Path) -> PathSignature:

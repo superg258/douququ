@@ -17,9 +17,46 @@ from backend.app.competition import (
     swiss_match_number,
     swiss_round_from_match_number,
 )
+from backend.app.singleflight_cache import SingleflightTTLCache
 
 
 client = TestClient(main.app)
+
+
+def test_semantic_revision_ignores_operational_freshness_fields() -> None:
+    before = {
+        "fetchedAt": "2026-07-29T01:00:00Z",
+        "generatedAt": "2026-07-29T01:00:00Z",
+        "sourceAgeSeconds": 10,
+        "matches": [{"id": "m1", "score": "2:0"}],
+    }
+    after = {
+        **before,
+        "fetchedAt": "2026-07-29T01:01:00Z",
+        "generatedAt": "2026-07-29T01:01:00Z",
+        "sourceAgeSeconds": 70,
+        "matches": [{"id": "m1", "score": "2:0"}],
+    }
+    assert artifacts.semantic_digest(before) == artifacts.semantic_digest(after)
+    after["matches"][0]["score"] = "2:1"
+    assert artifacts.semantic_digest(before) != artifacts.semantic_digest(after)
+
+
+def test_singleflight_cache_reuses_success_and_returns_independent_values() -> None:
+    cache = SingleflightTTLCache()
+    calls = 0
+
+    def compute() -> dict[str, list[int]]:
+        nonlocal calls
+        calls += 1
+        return {"values": [1]}
+
+    first = cache.get_or_compute("key", compute, success_ttl_seconds=60)
+    first["values"].append(2)
+    second = cache.get_or_compute("key", compute, success_ttl_seconds=60)
+
+    assert calls == 1
+    assert second == {"values": [1]}
 
 
 def _finals_runtime(*, events: dict[str, Any]) -> dict[str, Any]:

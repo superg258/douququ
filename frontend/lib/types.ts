@@ -82,6 +82,9 @@ export interface LiveStateLedgerRow {
 }
 
 export interface LiveStateResponse extends LiveStatusSummary {
+  scheduleRevision?: string;
+  ratingRevision?: string;
+  dataRevision?: string;
   available: boolean;
   reason: string | null;
   regionSlug: RegionSlug;
@@ -101,6 +104,26 @@ export interface LiveStateResponse extends LiveStatusSummary {
       regionName: string;
     }
   >;
+}
+
+export interface LiveRevisionResource {
+  scheduleRevision: string;
+  ratingRevision: string;
+  dataRevision: string;
+  sourceStatus: string;
+  sourceKind: "official" | "synthetic" | null;
+  isSynthetic: boolean;
+  sourceUpdatedAt: string | null;
+  syncMode: "automatic-30s" | "manual";
+  completedOfficialMatches?: number;
+  confirmedOfficialMatches?: number;
+}
+
+export interface LiveRevisionsResponse {
+  schemaVersion: "rmuc-live-revisions-v1";
+  etag: string;
+  regions: Record<RegionSlug, LiveRevisionResource>;
+  finals: LiveRevisionResource;
 }
 
 export type MiniProgramPrediction =
@@ -294,6 +317,9 @@ export interface SimulationResponse {
     repechageSlots: number;
     monteCarlo?: OverviewRegion["monteCarlo"];
     liveStatus?: LiveStatusSummary;
+    scheduleRevision?: string;
+    ratingRevision?: string;
+    dataRevision?: string;
   };
   slots: SlotRow[];
   groupRankings: Record<string, GroupRankingRow[]>;
@@ -918,6 +944,9 @@ export interface FinalEventsSnapshotResponse {
   schemaVersion: number;
   season: number;
   mode: "live" | "sim";
+  scheduleRevision?: string;
+  ratingRevision?: string;
+  dataRevision?: string;
   runtimeArtifactVersion: string;
   events: Record<FinalEventSlug, FinalEventResponse>;
 }

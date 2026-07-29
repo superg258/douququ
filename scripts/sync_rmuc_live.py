@@ -19,6 +19,7 @@ from backend.app import rmuc_live  # noqa: E402
 from backend.app.artifacts import (  # noqa: E402
     read_json as load_json,
     read_versioned_json_if_exists as load_json_if_exists,
+    semantic_digest,
     write_json_atomic,
 )
 from backend.app.competition import is_completed_match_status  # noqa: E402
@@ -987,13 +988,24 @@ def main() -> None:
                 write_json_atomic(raw_dir / f"{name}.error.json", {"error": str(exc), "fetchedAt": fetched_at.isoformat()})
         write_json_atomic(headers_path, upstream_headers)
 
+    normalized_path = args.runtime_dir / "normalized_schedule.json"
+    previous_normalized = load_json_if_exists(normalized_path)
+    previous_mini_program = load_json_if_exists(
+        args.runtime_dir / MINI_PROGRAM_PREDICTIONS_FILENAME
+    )
     normalized = rmuc_live.normalize_schedule_payload(
         schedule_payload,
         fetched_at=fetched_at,
         source_headers=headers,
         group_rank_payload=group_rank_payload if isinstance(group_rank_payload, dict) else None,
     )
-    write_json_atomic(args.runtime_dir / "normalized_schedule.json", normalized)
+    schedule_changed = semantic_digest(normalized) != semantic_digest(previous_normalized)
+    if schedule_changed:
+        write_json_atomic(normalized_path, normalized)
+    elif isinstance(previous_normalized, dict):
+        # Keep the previously published operational timestamps when the event
+        # content is identical, so a 304 cannot manufacture a new artifact.
+        normalized = previous_normalized
     mini_program_disabled = args.skip_mini_program or mini_program_sync_disabled_from_env()
     if mini_program_disabled:
         mini_program_status = disabled_mini_program_status("mini-program sync disabled", fetched_at=fetched_at)
@@ -1008,33 +1020,53 @@ def main() -> None:
             lookahead_hours=args.mini_program_lookahead_hours,
             max_matches=args.mini_program_max_matches,
         )
+    current_mini_program = load_json_if_exists(
+        args.runtime_dir / MINI_PROGRAM_PREDICTIONS_FILENAME
+    )
+    prediction_changed = semantic_digest(current_mini_program) != semantic_digest(
+        previous_mini_program
+    )
     completed_matches = completed_official_match_count(normalized)
-    if normalized.get("sourceStatus") == "active" and completed_matches > 0:
-        publish_runtime_artifacts(
-            normalized=normalized,
-            runtime_dir=args.runtime_dir,
-            base_published_dir=args.base_published_dir,
-            preseason_ratings=args.preseason_ratings,
-            snapshot_date=args.snapshot_date,
-            config_path=args.config,
-        )
-    else:
-        clear_stale_runtime_published_artifacts(args.runtime_dir)
+    published_manifest_path = args.runtime_dir / "published_2026" / "published_manifest.json"
+    semantic_changed = schedule_changed or prediction_changed
+    if semantic_changed or not published_manifest_path.exists():
+        if normalized.get("sourceStatus") == "active" and completed_matches > 0:
+            publish_runtime_artifacts(
+                normalized=normalized,
+                runtime_dir=args.runtime_dir,
+                base_published_dir=args.base_published_dir,
+                preseason_ratings=args.preseason_ratings,
+                snapshot_date=args.snapshot_date,
+                config_path=args.config,
+            )
+        else:
+            clear_stale_runtime_published_artifacts(args.runtime_dir)
+            write_json_atomic(
+                published_manifest_path,
+                {
+                    "season": normalized.get("season"),
+                    "snapshot_date": args.snapshot_date,
+                    "generated_at": datetime.now(tz=UTC).isoformat(),
+                    "source_status": normalized.get("sourceStatus"),
+                    "source_reason": normalized.get("reason"),
+                    "source_updated_at": normalized.get("sourceUpdatedAt"),
+                    "completed_official_matches": completed_matches,
+                },
+            )
+    sync_manifest_path = args.runtime_dir / SYNC_MANIFEST_FILENAME
+    if semantic_changed or not sync_manifest_path.exists():
         write_json_atomic(
-            args.runtime_dir / "published_2026" / "published_manifest.json",
-            {
-                "season": normalized.get("season"),
-                "snapshot_date": args.snapshot_date,
-                "generated_at": datetime.now(tz=UTC).isoformat(),
-                "source_status": normalized.get("sourceStatus"),
-                "source_reason": normalized.get("reason"),
-                "source_updated_at": normalized.get("sourceUpdatedAt"),
-                "completed_official_matches": completed_matches,
-            },
+            sync_manifest_path,
+            build_sync_manifest(normalized, mini_program_status=mini_program_status, fetched_at=fetched_at),
         )
     write_json_atomic(
-        args.runtime_dir / SYNC_MANIFEST_FILENAME,
-        build_sync_manifest(normalized, mini_program_status=mini_program_status, fetched_at=fetched_at),
+        args.runtime_dir / "check_status.json",
+        {
+            "checkedAt": fetched_at.isoformat(),
+            "scheduleChanged": schedule_changed,
+            "predictionChanged": prediction_changed,
+            "semanticChanged": semantic_changed,
+        },
     )
     print(
         json.dumps(

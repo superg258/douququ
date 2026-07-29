@@ -14,7 +14,7 @@ import { RegionLegendPopover } from "@/components/region-legend-popover";
 import { RegionWorkspaceToolbar } from "@/components/region-workspace-toolbar";
 import { WorkspaceSearchModal } from "@/components/workspace-search-modal";
 import { ErrorPanel } from "@/components/ui/async-state";
-import { getLiveState, getOverview, getSimulation } from "@/lib/api";
+import { getLiveRevisions, getLiveState, getOverview, getSimulation } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { buildWorkspaceStage } from "@/lib/canvas-builders";
 import { formatMatchLabel, formatRankingResultLabel, percent, translateConfidenceLabel, translateOfficialStatusLabel, translateStageLabel } from "@/lib/display";
@@ -133,6 +133,9 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   const [liveState, setLiveState] = useState<LiveStateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [simulationRetryToken, setSimulationRetryToken] = useState(0);
+  const simulationRequestRef = useRef({ identity: "", generation: 0 });
+  const revisionEtagRef = useRef("");
+  const liveStateRef = useRef<LiveStateResponse | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [stageFullscreen, setStageFullscreen] = useState(false);
@@ -196,6 +199,10 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   }, [selection, inspectorOpen]);
 
   useEffect(() => {
+    liveStateRef.current = liveState;
+  }, [liveState]);
+
+  useEffect(() => {
     setSeedDraft(seed ? String(seed) : "");
   }, [regionSlug, seed, dataMode]);
 
@@ -221,22 +228,42 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
       return;
     }
     let canceled = false;
-    const loadLiveState = () => {
-      getLiveState(regionSlug)
-        .then((payload) => {
-          if (!canceled) {
-            setLiveState(payload);
-          }
-        })
-        .catch((err: Error) => {
-          if (!canceled) {
-            setLiveState(unavailableLiveState(regionSlug, err.message));
-          }
-        });
+    const loadFullLiveState = async () => {
+      const payload = await getLiveState(regionSlug);
+      if (!canceled) {
+        liveStateRef.current = payload;
+        setLiveState(payload);
+      }
+    };
+    const checkLiveRevision = async () => {
+      try {
+        if (!liveStateRef.current) {
+          await loadFullLiveState();
+          return;
+        }
+        const revision = await getLiveRevisions(revisionEtagRef.current || undefined);
+        if (revision.etag) revisionEtagRef.current = revision.etag;
+        const nextRevision = revision.payload?.regions[regionSlug]?.dataRevision;
+        if (revision.changed && nextRevision && nextRevision !== liveStateRef.current.dataRevision) {
+          await loadFullLiveState();
+        }
+        if (!canceled) setError(null);
+      } catch (err) {
+        if (!canceled) {
+          const message = err instanceof Error ? err.message : String(err);
+          setLiveState((current) => current ?? unavailableLiveState(regionSlug, message));
+          setError(message);
+        }
+        throw err;
+      }
     };
 
+    revisionEtagRef.current = "";
     setLiveState(null);
-    const stopPolling = startRealtimePolling(loadLiveState, LIVE_REFRESH_INTERVAL_MS, { pauseWhenHidden: true });
+    liveStateRef.current = null;
+    const stopPolling = startRealtimePolling(checkLiveRevision, LIVE_REFRESH_INTERVAL_MS, {
+      pauseWhenHidden: true,
+    });
     return () => {
       canceled = true;
       stopPolling();
@@ -248,11 +275,31 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
       return;
     }
     const requestSeed = dataMode === "sim" ? seed! : (seed ?? DEFAULT_SEED);
+    const identity = `${regionSlug}:${requestSeed}:${dataMode}`;
+    const generation = simulationRequestRef.current.generation + 1;
+    const isNavigation = simulationRequestRef.current.identity !== identity;
+    simulationRequestRef.current = { identity, generation };
     setError(null);
-    setSimulation(null);
+    if (isNavigation) {
+      setSimulation(null);
+    }
     getSimulation(regionSlug, requestSeed, dataMode)
-      .then(setSimulation)
-      .catch((err: Error) => setError(err.message));
+      .then((payload) => {
+        if (
+          simulationRequestRef.current.identity === identity
+          && simulationRequestRef.current.generation === generation
+        ) {
+          setSimulation(payload);
+        }
+      })
+      .catch((err: Error) => {
+        if (
+          simulationRequestRef.current.identity === identity
+          && simulationRequestRef.current.generation === generation
+        ) {
+          setError(err.message);
+        }
+      });
   }, [regionSlug, seed, dataMode, liveSimulationRefreshKey, simulationRetryToken]);
 
   const updateQuery = useCallback(
@@ -605,13 +652,19 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
           aria-labelledby={`region-${view}-tab`}
           className="flex-1 min-w-0 relative bg-transparent"
         >
-          {error ? (
+          {error && !stage ? (
             <div className="absolute inset-0 flex items-center justify-center z-50 bg-black/60 backdrop-blur-sm">
               <ErrorPanel
                 title="系统错误"
                 message={error}
                 onRetry={() => setSimulationRetryToken((token) => token + 1)}
               />
+            </div>
+          ) : null}
+
+          {error && stage ? (
+            <div className="absolute right-3 top-3 z-40 border border-rm-status-warn/50 bg-black/85 px-3 py-2 font-mono text-[11px] text-rm-status-warn">
+              更新失败，当前展示上一次成功数据
             </div>
           ) : null}
           
@@ -628,6 +681,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
             <div className="absolute inset-0">
               <WorkspaceStageView
                 stage={stage}
+                layoutKey={`${regionSlug}:${view}:${dataMode}:regional-v1`}
                 mode={dataMode}
                 selectedTeamKey={selectedTeamKey}
                 highlightedTeamKey={highlightedTeamKey}

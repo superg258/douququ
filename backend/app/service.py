@@ -31,6 +31,7 @@ from .team_identity import (
     load_rating_rows as load_shared_rating_rows,
     resolve_team_identity,
 )
+from .singleflight_cache import SingleflightTTLCache
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS_DIR = ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
@@ -57,6 +58,7 @@ MINI_PROGRAM_PREDICTIONS_PATH = RUNTIME_LIVE_DIR / "mini_program_predictions.jso
 PREDICTION_FORM_OBSERVATIONS_PATH = RUNTIME_LIVE_DIR / "prediction_form_observations.json"
 RUNTIME_PUBLISHED_RATINGS_DIR = RUNTIME_LIVE_DIR / "published_2026"
 MINI_PROGRAM_CLIENT = rmuc_live.MiniProgramPredictionClient()
+SIMULATION_CACHE = SingleflightTTLCache()
 
 
 class UnknownRegionError(UnknownResourceError):
@@ -409,6 +411,7 @@ def _reset_live_state_caches() -> None:
     load_global_elo_rank_map.cache_clear()
     load_preseason_global_elo_rank_map.cache_clear()
     _load_prediction_form_index_cached.cache_clear()
+    SIMULATION_CACHE.clear()
 
 
 def live_state_unavailable_payload(
@@ -417,10 +420,13 @@ def live_state_unavailable_payload(
     *,
     live_status: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    from .revisions import region_revisions
+
     resolved_live_status = live_status or summarize_live_status(region_slug)
     return {
         "available": False,
         "reason": reason,
+        **region_revisions(region_slug),
         **resolved_live_status,
         "regionSlug": region_slug,
         "regionName": resolve_region_name(region_slug),
@@ -900,6 +906,8 @@ def _serialize_simulation(
 
 
 def build_live_state_payload(region_slug: str) -> dict[str, Any]:
+    from .revisions import region_revisions
+
     live_status = summarize_live_status(region_slug)
     if live_status["sourceStatus"] != "active":
         return live_state_unavailable_payload(
@@ -1025,6 +1033,7 @@ def build_live_state_payload(region_slug: str) -> dict[str, Any]:
     return {
         "available": True,
         "reason": None,
+        **region_revisions(region_slug),
         **live_status,
         "regionSlug": region_slug,
         "regionName": region_name,
@@ -3221,7 +3230,14 @@ def _replace_unofficial_live_final_rankings(payload: dict[str, Any], region_slug
     summary["repechageQualifiers"] = []
 
 
-def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", samples: int = DEFAULT_SIMULATION_SAMPLES) -> dict[str, Any]:
+def _build_simulation_payload_uncached(
+    region_slug: str,
+    seed: int,
+    mode: str = "sim",
+    samples: int = DEFAULT_SIMULATION_SAMPLES,
+) -> dict[str, Any]:
+    from .revisions import region_revisions
+
     if mode not in {"live", "sim"}:
         raise RequestParameterError(f"Unsupported simulation mode: {mode}")
     region_name = resolve_region_name(region_slug)
@@ -3276,6 +3292,7 @@ def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", sam
             else _disabled_regional_live_status()
         ),
     )
+    payload["meta"].update(region_revisions(region_slug))
     if mode == "live" and context.source_status == "active":
         _attach_live_schedule_metadata(
             payload,
@@ -3306,3 +3323,27 @@ def build_simulation_payload(region_slug: str, seed: int, mode: str = "sim", sam
             else "seeded_simulation_fallback"
         )
     return payload
+
+
+def build_simulation_payload(
+    region_slug: str,
+    seed: int,
+    mode: str = "sim",
+    samples: int = DEFAULT_SIMULATION_SAMPLES,
+) -> dict[str, Any]:
+    from .revisions import region_revisions
+
+    revisions = region_revisions(region_slug)
+    cache_key = (
+        region_slug,
+        mode,
+        int(seed),
+        int(samples),
+        revisions["dataRevision"],
+    )
+    return SIMULATION_CACHE.get_or_compute(
+        cache_key,
+        lambda: _build_simulation_payload_uncached(region_slug, seed, mode, samples),
+        success_ttl_seconds=300.0 if mode == "live" else 600.0,
+        failure_ttl_seconds=5.0,
+    )

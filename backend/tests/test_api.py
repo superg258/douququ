@@ -68,6 +68,23 @@ def test_health() -> None:
     assert response.json() == {"status": "ok"}
 
 
+def test_live_revisions_is_small_and_supports_conditional_requests() -> None:
+    response = client.get("/api/live-revisions")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["schemaVersion"] == "rmuc-live-revisions-v1"
+    assert set(payload["regions"]) == {"south_region", "east_region", "north_region"}
+    assert payload["finals"]["syncMode"] == "manual"
+    assert "currentSnapshot" not in response.text
+    assert "matchLedger" not in response.text
+
+    etag = response.headers["etag"]
+    unchanged = client.get("/api/live-revisions", headers={"If-None-Match": etag})
+    assert unchanged.status_code == 304
+    assert unchanged.content == b""
+    assert unchanged.headers["cache-control"] == "no-cache"
+
+
 def test_repechage_schedule_matches_official_contract() -> None:
     response = client.get("/api/finals/repechage")
     assert response.status_code == 200

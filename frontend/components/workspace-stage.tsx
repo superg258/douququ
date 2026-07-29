@@ -66,6 +66,7 @@ function headerToneClass(tone: WorkspaceStage["headers"][number]["tone"]) {
 
 export function WorkspaceStageView({
   stage,
+  layoutKey,
   mode,
   selectedTeamKey,
   highlightedTeamKey,
@@ -77,6 +78,7 @@ export function WorkspaceStageView({
   background = "regional",
 }: {
   stage: WorkspaceStage;
+  layoutKey: string;
   mode?: "sim" | "live";
   selectedTeamKey: string | null;
   highlightedTeamKey: string | null;
@@ -97,7 +99,7 @@ export function WorkspaceStageView({
   const [panning, setPanning] = useState(false);
   const frameSizeRef = useRef(frameSize);
   const layoutFrameRef = useRef<FrameSize | null>(null);
-  const layoutStageRef = useRef<WorkspaceStage | null>(null);
+  const layoutKeyRef = useRef<string | null>(null);
   const viewportRef = useRef(viewport);
   const pendingViewportRef = useRef(viewport);
   const viewportFrameRef = useRef<number | null>(null);
@@ -181,17 +183,17 @@ export function WorkspaceStageView({
   useEffect(() => {
     if (!frameSize.width || !frameSize.height) return;
     const previousFrame = layoutFrameRef.current;
-    const previousStage = layoutStageRef.current;
+    const previousLayoutKey = layoutKeyRef.current;
 
-    const nextViewport = !previousFrame || previousStage !== stage
+    const nextViewport = !previousFrame || previousLayoutKey !== layoutKey
       ? fitWorkspaceViewport(stage, frameSize.width, frameSize.height)
       : resizeWorkspaceViewport(stage, frameSize, viewportRef.current);
 
     viewportRef.current = nextViewport;
     setViewport(nextViewport);
     layoutFrameRef.current = frameSize;
-    layoutStageRef.current = stage;
-  }, [stage, frameSize.height, frameSize.width]);
+    layoutKeyRef.current = layoutKey;
+  }, [layoutKey, stage, frameSize.height, frameSize.width]);
 
   // Auto-pan to highlighted team card (skip if triggered by canvas click)
   useEffect(() => {
@@ -231,7 +233,7 @@ export function WorkspaceStageView({
     setViewport(nextViewport);
     if (panTimerRef.current) clearTimeout(panTimerRef.current);
     panTimerRef.current = setTimeout(() => setPanning(false), 700);
-  }, [highlightedTeamKey, selectedTeamKey, stage, frameSize]);
+  }, [highlightedTeamKey, layoutKey, selectedTeamKey, frameSize]);
 
   const resetViewport = () => {
     if (!frameSize.width || !frameSize.height) return;

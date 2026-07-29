@@ -17,6 +17,7 @@ from backend.app import finals_live  # noqa: E402
 from backend.app.artifacts import (  # noqa: E402
     read_json,
     read_versioned_json_if_exists as read_json_if_exists,
+    semantic_digest,
     write_json_atomic,
 )
 from backend.app.team_identity import team_identity_key  # noqa: E402
@@ -164,7 +165,10 @@ def main() -> None:
             raw = read_json(raw_dir / "finals_schedule.json")
     else:
         raw = read_json(args.input)
+    normalized_path = args.runtime_dir / "normalized_schedule.json"
+    previous_normalized = read_json_if_exists(normalized_path)
     normalized = normalize_raw_input(raw, args, fetched_at, source_headers=source_headers)
+    semantic_changed = semantic_digest(normalized) != semantic_digest(previous_normalized)
     timestamp = fetched_at.strftime("%Y%m%dT%H%M%SZ")
     if source_changed:
         write_json_atomic(raw_dir / "finals_schedule.json", raw)
@@ -174,7 +178,10 @@ def main() -> None:
             headers_path,
             {**source_headers, "source-url": args.source_url, "fetched-at": fetched_at.isoformat()},
         )
-    write_json_atomic(args.runtime_dir / "normalized_schedule.json", normalized)
+    if semantic_changed:
+        write_json_atomic(normalized_path, normalized)
+    elif isinstance(previous_normalized, dict):
+        normalized = previous_normalized
     match_count = sum(len(event.get("matches", [])) for event in normalized["events"].values())
     completed_count = sum(
         1
@@ -196,7 +203,17 @@ def main() -> None:
         "matchCount": match_count,
         "completedMatches": completed_count,
     }
-    write_json_atomic(args.runtime_dir / "sync_manifest.json", manifest)
+    manifest_path = args.runtime_dir / "sync_manifest.json"
+    if semantic_changed or not manifest_path.exists():
+        write_json_atomic(manifest_path, manifest)
+    write_json_atomic(
+        args.runtime_dir / "check_status.json",
+        {
+            "checkedAt": fetched_at.isoformat(),
+            "sourceChanged": source_changed,
+            "semanticChanged": semantic_changed,
+        },
+    )
     print(json.dumps(manifest, ensure_ascii=False))
 
 

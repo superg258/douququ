@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import FastAPI, Query, Request
+from fastapi import FastAPI, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.responses import JSONResponse
@@ -12,6 +12,7 @@ from .finals_schedule import (
     build_final_event_payload,
     build_finals_snapshot_payload,
 )
+from .revisions import build_live_revisions_payload
 from .service import (
     build_command_center_payload,
     build_live_state_payload,
@@ -47,6 +48,20 @@ def unknown_resource(_request: Request, exc: UnknownResourceError) -> JSONRespon
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/api/live-revisions")
+def live_revisions(request: Request, response: Response) -> Any:
+    payload = build_live_revisions_payload()
+    etag = f'"{payload["etag"]}"'
+    if request.headers.get("if-none-match") == etag:
+        return Response(
+            status_code=304,
+            headers={"ETag": etag, "Cache-Control": "no-cache"},
+        )
+    response.headers["ETag"] = etag
+    response.headers["Cache-Control"] = "no-cache"
+    return payload
 
 
 @app.get("/api/overview")

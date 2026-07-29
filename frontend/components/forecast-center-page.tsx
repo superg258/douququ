@@ -609,6 +609,7 @@ export function ForecastCenterPage() {
           <div className="absolute inset-0">
             <WorkspaceStageView
               stage={workspace}
+              layoutKey={`${eventSlug}:${stage}:${mode}:finals-v1`}
               mode={mode}
               background="nationals"
               selectedTeamKey={selectedTeamKey}

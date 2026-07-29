@@ -84,6 +84,9 @@ export function liveStateRefreshKey(state: LiveStateResponse | null | undefined)
   if (!state) {
     return "";
   }
+  if (state.dataRevision) {
+    return state.dataRevision;
+  }
   return [
     state.runtimeArtifactVersion ?? "",
     state.generatedAt ?? "",
