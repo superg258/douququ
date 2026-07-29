@@ -9,6 +9,7 @@ import { CompetitionSelector, isRegionCompetition } from "@/components/competiti
 import { ForecastInspectorPanel, type InspectorTeamInfo } from "@/components/forecast-inspector-panel";
 import { PredictionExplanationCard } from "@/components/prediction-explanation-card";
 import { PredictionSignalsPanel } from "@/components/prediction-signals";
+import { ShareScheduleButton } from "@/components/share-schedule-button";
 import { WorkspaceStageView } from "@/components/workspace-stage";
 import { WorkspaceSearchModal } from "@/components/workspace-search-modal";
 import { formatMatchCardScheduleTime, predictScoreline } from "@/components/canvas-card";
@@ -34,6 +35,7 @@ import {
 } from "@/lib/finals-schedule";
 import { buildTeamHref } from "@/lib/team-profile";
 import { isOfficialPlaceholderMatch } from "@/lib/workspace-selection";
+import { buildScheduleShareUrl } from "@/lib/share-link";
 import { sortTeamsForWorkspaceSearch } from "@/lib/workspace-search";
 import { handleHorizontalTabKeyDown } from "@/lib/keyboard-navigation";
 import type {
@@ -76,14 +78,17 @@ export function ForecastCenterPage() {
       ? requestedStage
       : defaultStage(eventSlug);
   const parsedSeed = parseSeed(searchParams.get("seed"));
+  const sharedHighlight = searchParams.get("highlight");
   const [sessionSeed, setSessionSeed] = useState<number | null>(null);
   const seed = parsedSeed ?? sessionSeed;
   const [seedDraft, setSeedDraft] = useState("");
   const [events, setEvents] = useState<Partial<Record<FinalEventSlug, FinalEventResponse>>>({});
   const [eventsMode, setEventsMode] = useState<ForecastMode | null>(null);
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
-  const [selection, setSelection] = useState<InspectorSelection | null>(null);
-  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [selection, setSelection] = useState<InspectorSelection | null>(
+    sharedHighlight ? { kind: "team", teamKey: sharedHighlight } : null,
+  );
+  const [inspectorOpen, setInspectorOpen] = useState(Boolean(sharedHighlight));
   const [stageFullscreen, setStageFullscreen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
@@ -112,6 +117,12 @@ export function ForecastCenterPage() {
       document.body.classList.remove("canvas-fullscreen-page");
     };
   }, []);
+
+  useEffect(() => {
+    if (!sharedHighlight) return;
+    setSelection({ kind: "team", teamKey: sharedHighlight });
+    setInspectorOpen(true);
+  }, [sharedHighlight]);
 
   // 模拟模式缺种子时补一个会话种子（不写回 URL，与原行为一致）
   useEffect(() => {
@@ -572,6 +583,20 @@ export function ForecastCenterPage() {
           >
             搜索
           </button>
+          <ShareScheduleButton
+            title={`${eventSlug === "repechage" ? "复活赛" : "全国赛"}赛程`}
+            buildUrl={() => buildScheduleShareUrl({
+              origin: window.location.origin,
+              pathname,
+              mode,
+              seed: mode === "sim" ? (seed ?? getOrCreateSessionSeed()) : null,
+              state: {
+                event: eventSlug,
+                stage,
+                highlight: selection?.kind === "team" ? selection.teamKey : null,
+              },
+            })}
+          />
           <span className="hidden shrink-0 font-mono text-[10px] text-rm-metal-textFaint sm:inline">{current.event.statusLabel}</span>
         </div>
         <div role="tablist" aria-label="赛事阶段" onKeyDown={handleHorizontalTabKeyDown} className="flex items-center gap-1 overflow-x-auto no-scrollbar">

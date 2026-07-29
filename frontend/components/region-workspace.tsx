@@ -12,6 +12,7 @@ import { CompetitionSelector, isRegionCompetition } from "@/components/competiti
 import { RegionInspectorPanel } from "@/components/region-inspector-panel";
 import { RegionLegendPopover } from "@/components/region-legend-popover";
 import { RegionWorkspaceToolbar } from "@/components/region-workspace-toolbar";
+import { ShareScheduleButton } from "@/components/share-schedule-button";
 import { WorkspaceSearchModal } from "@/components/workspace-search-modal";
 import { ErrorPanel } from "@/components/ui/async-state";
 import { getLiveState, getOverview, getSimulation } from "@/lib/api";
@@ -45,6 +46,7 @@ import {
   type WorkspaceInspectorTeam,
 } from "@/lib/workspace-selection";
 import { deriveRealtimeAvailability, liveStateRefreshKey } from "@/lib/realtime";
+import { buildScheduleShareUrl } from "@/lib/share-link";
 import { useRevisionPolling } from "@/lib/use-revision-polling";
 import { deriveMatchRatingBreakdown, formatSignedRatingDelta, ratingDeltaTone, type MatchRatingBreakdown } from "@/lib/live-rating";
 import type {
@@ -552,6 +554,22 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
     </button>
   );
 
+  const renderShareButton = () => (
+    <ShareScheduleButton
+      title={`${REGION_LABELS[regionSlug]}赛程`}
+      buildUrl={() => buildScheduleShareUrl({
+        origin: window.location.origin,
+        pathname,
+        mode: dataMode,
+        seed: dataMode === "sim" ? resolveSeed() : null,
+        state: {
+          view,
+          highlight: selection?.kind === "team" ? selection.teamKey : highlightedTeamKey,
+        },
+      })}
+    />
+  );
+
   const renderLegendButton = () => (
     <button
       type="button"
@@ -588,6 +606,7 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
         modeToggle={renderModeToggle()}
         seedControl={renderSeedControl()}
         searchButton={renderSearchButton()}
+        shareButton={renderShareButton()}
         legendButton={renderLegendButton()}
         inspectorButton={renderInspectorButton()}
         desktopSeedLabel={dataMode === "sim" && seed !== null ? (

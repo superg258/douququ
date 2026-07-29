@@ -14,6 +14,7 @@ export function RegionWorkspaceToolbar({
   modeToggle,
   seedControl,
   searchButton,
+  shareButton,
   legendButton,
   inspectorButton,
   desktopSeedLabel,
@@ -25,6 +26,7 @@ export function RegionWorkspaceToolbar({
   modeToggle: ReactNode;
   seedControl: ReactNode;
   searchButton: ReactNode;
+  shareButton: ReactNode;
   legendButton: ReactNode;
   inspectorButton: ReactNode;
   desktopSeedLabel: ReactNode;
@@ -39,6 +41,7 @@ export function RegionWorkspaceToolbar({
         {seedControl}
         <div className="hidden flex-1 md:block" />
         {searchButton}
+        {shareButton}
         {legendButton}
         {inspectorButton}
         {desktopSeedLabel}
@@ -53,6 +56,7 @@ export function RegionWorkspaceToolbar({
       <div className="flex items-center gap-2 overflow-x-auto pb-0.5 no-scrollbar md:hidden">
         {seedControl}
         {searchButton}
+        {shareButton}
         {legendButton}
         {inspectorButton}
       </div>
