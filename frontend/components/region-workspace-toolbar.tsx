@@ -15,6 +15,7 @@ export function RegionWorkspaceToolbar({
   seedControl,
   searchButton,
   shareButton,
+  exportButton,
   legendButton,
   inspectorButton,
   desktopSeedLabel,
@@ -27,6 +28,7 @@ export function RegionWorkspaceToolbar({
   seedControl: ReactNode;
   searchButton: ReactNode;
   shareButton: ReactNode;
+  exportButton: ReactNode;
   legendButton: ReactNode;
   inspectorButton: ReactNode;
   desktopSeedLabel: ReactNode;
@@ -42,6 +44,7 @@ export function RegionWorkspaceToolbar({
         <div className="hidden flex-1 md:block" />
         {searchButton}
         {shareButton}
+        {exportButton}
         {legendButton}
         {inspectorButton}
         {desktopSeedLabel}
@@ -57,6 +60,7 @@ export function RegionWorkspaceToolbar({
         {seedControl}
         {searchButton}
         {shareButton}
+        {exportButton}
         {legendButton}
         {inspectorButton}
       </div>

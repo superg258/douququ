@@ -14,6 +14,19 @@ def _list(payload: Any) -> list[Any]:
     return payload if isinstance(payload, list) else []
 
 
+def current_model_version() -> str:
+    published_dir = service._effective_published_dir()
+    manifest = _dict(
+        read_versioned_json_if_exists(service._published_manifest_path_for(published_dir))
+    )
+    return str(
+        manifest.get("model_version")
+        or manifest.get("source_model_dir")
+        or manifest.get("schema_version")
+        or "ts2-elo-simulation-v1"
+    )
+
+
 def _region_school_keys(region_slug: str) -> set[str]:
     return {
         str(row.get("school_key"))
@@ -61,7 +74,7 @@ def _regional_revision_inputs(region_slug: str) -> tuple[dict[str, Any], dict[st
         )
     ]
     rating_input = {
-        "modelVersion": manifest.get("model_version") or manifest.get("schema_version"),
+        "modelVersion": current_model_version(),
         "modelConfigSignature": manifest.get("model_config_signature"),
         "ratingScale": manifest.get("rating_scale"),
         "snapshot": snapshot,
@@ -104,7 +117,7 @@ def _finals_revision_inputs(
     )
     rating_input = {
         "runtime": runtime,
-        "modelVersion": manifest.get("model_version") or manifest.get("schema_version"),
+        "modelVersion": current_model_version(),
         "modelConfigSignature": manifest.get("model_config_signature"),
         "ratingScale": manifest.get("rating_scale"),
         "snapshot": read_versioned_json_if_exists(

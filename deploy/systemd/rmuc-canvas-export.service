@@ -1,0 +1,23 @@
+[Unit]
+Description=RMUC bounded canvas PNG export worker
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=douququ
+Group=douququ
+WorkingDirectory=/opt/douququ
+Environment=RMUC_EXPORT_FRONTEND_ORIGIN=http://127.0.0.1:3005
+Environment=RMUC_EXPORT_BACKEND_ORIGIN=http://127.0.0.1:8001
+Environment=RMUC_EXPORT_WORKER_PORT=3010
+ExecStart=/usr/bin/node /opt/douququ/scripts/export_canvas_worker.mjs
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/tmp
+
+[Install]
+WantedBy=multi-user.target

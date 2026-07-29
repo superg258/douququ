@@ -16,7 +16,12 @@ export function RootNav() {
   const pathname = usePathname();
 
   // Canvas workspaces own their compact navigation and need the full viewport.
-  if (pathname.startsWith("/regions/") || pathname.startsWith("/forecast-center") || pathname.startsWith("/elo-rankings")) {
+  if (
+    pathname.startsWith("/regions/")
+    || pathname.startsWith("/forecast-center")
+    || pathname.startsWith("/elo-rankings")
+    || pathname.startsWith("/export/")
+  ) {
     return null;
   }
 

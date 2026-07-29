@@ -12,6 +12,13 @@ from .finals_schedule import (
     build_final_event_payload,
     build_finals_snapshot_payload,
 )
+from .export_service import (
+    ExportBusyError,
+    ExportRequestError,
+    ExportTimeoutError,
+    ExportVersionConflict,
+    render_canvas_png,
+)
 from .revisions import build_live_revisions_payload
 from .service import (
     build_command_center_payload,
@@ -62,6 +69,45 @@ def live_revisions(request: Request, response: Response) -> Any:
     response.headers["ETag"] = etag
     response.headers["Cache-Control"] = "no-cache"
     return payload
+
+
+@app.get("/api/exports/canvas.png")
+def export_canvas_png(
+    competition: str,
+    stage: str,
+    mode: str = Query("live"),
+    seed: int | None = Query(None, ge=1),
+    highlight: str | None = Query(None, max_length=256),
+    revision: str | None = Query(None, max_length=128),
+) -> Response:
+    try:
+        png, rendered_revision = render_canvas_png(
+            competition=competition,
+            stage=stage,
+            mode=mode,
+            seed=seed,
+            highlight=highlight,
+            requested_revision=revision,
+        )
+    except ExportRequestError as exc:
+        return JSONResponse(status_code=400, content={"detail": str(exc)})
+    except ExportVersionConflict as exc:
+        return JSONResponse(status_code=409, content={"detail": str(exc)})
+    except ExportBusyError as exc:
+        return JSONResponse(status_code=429, content={"detail": str(exc)})
+    except ExportTimeoutError as exc:
+        return JSONResponse(status_code=504, content={"detail": str(exc)})
+    except RuntimeError as exc:
+        return JSONResponse(status_code=502, content={"detail": str(exc)})
+    return Response(
+        content=png,
+        media_type="image/png",
+        headers={
+            "Cache-Control": "no-store",
+            "X-Data-Revision": rendered_revision,
+            "Content-Disposition": 'attachment; filename="rmuc-schedule.png"',
+        },
+    )
 
 
 @app.get("/api/overview")

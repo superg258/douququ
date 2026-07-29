@@ -320,6 +320,7 @@ export interface SimulationResponse {
     scheduleRevision?: string;
     ratingRevision?: string;
     dataRevision?: string;
+    modelVersion?: string;
   };
   slots: SlotRow[];
   groupRankings: Record<string, GroupRankingRow[]>;
@@ -947,6 +948,7 @@ export interface FinalEventsSnapshotResponse {
   scheduleRevision?: string;
   ratingRevision?: string;
   dataRevision?: string;
+  modelVersion?: string;
   runtimeArtifactVersion: string;
   events: Record<FinalEventSlug, FinalEventResponse>;
 }

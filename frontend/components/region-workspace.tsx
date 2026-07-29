@@ -15,6 +15,7 @@ import { RegionWorkspaceToolbar } from "@/components/region-workspace-toolbar";
 import { ShareScheduleButton } from "@/components/share-schedule-button";
 import { WorkspaceSearchModal } from "@/components/workspace-search-modal";
 import { ErrorPanel } from "@/components/ui/async-state";
+import { ExportCanvasButton } from "@/components/export-canvas-button";
 import { getLiveState, getOverview, getSimulation } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { buildWorkspaceStage } from "@/lib/canvas-builders";
@@ -607,6 +608,16 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
         seedControl={renderSeedControl()}
         searchButton={renderSearchButton()}
         shareButton={renderShareButton()}
+        exportButton={(
+          <ExportCanvasButton
+            competition={regionSlug}
+            stage={view}
+            mode={dataMode}
+            seed={dataMode === "sim" ? seed : null}
+            highlight={selection?.kind === "team" ? selection.teamKey : highlightedTeamKey}
+            revision={simulation?.meta.dataRevision}
+          />
+        )}
         legendButton={renderLegendButton()}
         inspectorButton={renderInspectorButton()}
         desktopSeedLabel={dataMode === "sim" && seed !== null ? (

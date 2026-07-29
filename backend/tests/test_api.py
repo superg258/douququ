@@ -11,7 +11,8 @@ from urllib.parse import quote
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
-from backend.app import finals_live, finals_schedule, service
+from backend.app import finals_live, finals_schedule, main, service
+from backend.app.export_service import ExportVersionConflict
 from backend.app.team_identity import canonical_school_key
 from scripts import seed_finals_live_mock, sync_finals_live
 
@@ -83,6 +84,56 @@ def test_live_revisions_is_small_and_supports_conditional_requests() -> None:
     assert unchanged.status_code == 304
     assert unchanged.content == b""
     assert unchanged.headers["cache-control"] == "no-cache"
+
+
+def test_canvas_export_validates_parameters_and_returns_png(monkeypatch) -> None:
+    invalid = client.get(
+        "/api/exports/canvas.png",
+        params={"competition": "unknown", "stage": "playoff", "mode": "live"},
+    )
+    assert invalid.status_code == 400
+
+    monkeypatch.setattr(
+        main,
+        "render_canvas_png",
+        lambda **_kwargs: (b"\x89PNG\r\n\x1a\nmock", "sha256:test"),
+    )
+    response = client.get(
+        "/api/exports/canvas.png",
+        params={"competition": "south_region", "stage": "playoff", "mode": "live"},
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.headers["x-data-revision"] == "sha256:test"
+
+
+def test_canvas_export_reports_revision_conflict(monkeypatch) -> None:
+    def conflict(**_kwargs):
+        raise ExportVersionConflict("changed")
+
+    monkeypatch.setattr(main, "render_canvas_png", conflict)
+    response = client.get(
+        "/api/exports/canvas.png",
+        params={
+            "competition": "nationals",
+            "stage": "final-four",
+            "mode": "live",
+            "revision": "sha256:old",
+        },
+    )
+    assert response.status_code == 409
+
+
+def test_canvas_export_reports_worker_failure(monkeypatch) -> None:
+    def failed(**_kwargs):
+        raise RuntimeError("export worker unavailable")
+
+    monkeypatch.setattr(main, "render_canvas_png", failed)
+    response = client.get(
+        "/api/exports/canvas.png",
+        params={"competition": "nationals", "stage": "final-four", "mode": "live"},
+    )
+    assert response.status_code == 502
 
 
 def test_repechage_schedule_matches_official_contract() -> None:

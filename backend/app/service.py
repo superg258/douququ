@@ -3236,7 +3236,7 @@ def _build_simulation_payload_uncached(
     mode: str = "sim",
     samples: int = DEFAULT_SIMULATION_SAMPLES,
 ) -> dict[str, Any]:
-    from .revisions import region_revisions
+    from .revisions import current_model_version, region_revisions
 
     if mode not in {"live", "sim"}:
         raise RequestParameterError(f"Unsupported simulation mode: {mode}")
@@ -3293,6 +3293,7 @@ def _build_simulation_payload_uncached(
         ),
     )
     payload["meta"].update(region_revisions(region_slug))
+    payload["meta"]["modelVersion"] = current_model_version()
     if mode == "live" and context.source_status == "active":
         _attach_live_schedule_metadata(
             payload,

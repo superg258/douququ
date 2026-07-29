@@ -14,6 +14,7 @@ import { WorkspaceStageView } from "@/components/workspace-stage";
 import { WorkspaceSearchModal } from "@/components/workspace-search-modal";
 import { formatMatchCardScheduleTime, predictScoreline } from "@/components/canvas-card";
 import { ErrorPanel } from "@/components/ui/async-state";
+import { ExportCanvasButton } from "@/components/export-canvas-button";
 import { getFinalEvents, getLiveState, getOverview } from "@/lib/api";
 import { buildFullSeasonTrajectories } from "@/lib/elo-trajectory";
 import { percent, translateConfidenceLabel, translateStageLabel } from "@/lib/display";
@@ -596,6 +597,14 @@ export function ForecastCenterPage() {
                 highlight: selection?.kind === "team" ? selection.teamKey : null,
               },
             })}
+          />
+          <ExportCanvasButton
+            competition={eventSlug}
+            stage={stage}
+            mode={mode}
+            seed={mode === "sim" ? (seed ?? getOrCreateSessionSeed()) : null}
+            highlight={selection?.kind === "team" ? selection.teamKey : null}
+            revision={eventsRevision}
           />
           <span className="hidden shrink-0 font-mono text-[10px] text-rm-metal-textFaint sm:inline">{current.event.statusLabel}</span>
         </div>

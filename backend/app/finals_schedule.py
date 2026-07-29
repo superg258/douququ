@@ -411,13 +411,14 @@ def build_final_event_payload(event_slug: str, *, mode: str = "live") -> dict[st
 
 def build_finals_snapshot_payload(*, mode: str = "live") -> dict[str, Any]:
     """Build both finals events from one reference/runtime snapshot."""
-    from .revisions import finals_revisions
+    from .revisions import current_model_version, finals_revisions
 
     payload, runtime, runtime_artifact_version = _load_finals_snapshot(mode)
     return {
         "schemaVersion": payload["schemaVersion"],
         "season": payload["season"],
         "mode": mode,
+        "modelVersion": current_model_version(),
         **finals_revisions(reference=payload, runtime=runtime, runtime_loaded=True),
         "runtimeArtifactVersion": runtime_artifact_version,
         "events": {
