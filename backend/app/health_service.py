@@ -88,4 +88,3 @@ def build_readiness_payload() -> tuple[dict[str, Any], bool]:
         "revisions": revisions,
         "sync": sync,
     }, ready
-

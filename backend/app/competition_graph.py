@@ -113,4 +113,3 @@ def build_competition_graph(competition: str) -> dict[str, object]:
         "nodes": [node.__dict__ for node in nodes],
         "edges": [edge.__dict__ for edge in edges],
     }
-

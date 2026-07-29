@@ -45,4 +45,3 @@ def attach_school_display_names(
         "schoolAbbreviation4": str(override.get("abbreviation4") or "") or None,
         "schoolAbbreviation2": str(override.get("abbreviation2") or "") or None,
     }
-

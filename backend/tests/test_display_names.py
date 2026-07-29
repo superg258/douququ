@@ -24,4 +24,3 @@ def test_display_override_is_attached_after_and_cannot_replace_identity() -> Non
     assert displayed["displaySchoolName"] == "展示名称"
     assert displayed["schoolAbbreviation4"] == "四字简称"
     assert displayed["schoolAbbreviation2"] == "简称"
-
