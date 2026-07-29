@@ -380,7 +380,7 @@ function RankingSectionCard({
         </div>
       </header>
 
-      <div className="sticky top-0 z-20 grid grid-cols-[2.4rem_minmax(0,1fr)_5rem] gap-2 border-b border-rm-metal-border/70 bg-rm-metal-abyss/95 px-2.5 py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-rm-metal-textMuted backdrop-blur-md">
+      <div className="sticky top-0 z-20 grid grid-cols-[2.4rem_minmax(0,1fr)_5rem] gap-2 border-b border-rm-metal-border/70 bg-rm-metal-abyss/95 py-2 pl-2.5 pr-[1.125rem] font-mono text-[10px] uppercase tracking-[0.16em] text-rm-metal-textMuted backdrop-blur-md">
         <span className="whitespace-nowrap">赛事排名</span>
         <span className="whitespace-nowrap">队伍 · 全局排名 · 梯队/来源</span>
         <span className="whitespace-nowrap text-right">Elo · 赛季变化</span>
