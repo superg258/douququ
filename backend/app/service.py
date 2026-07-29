@@ -3236,6 +3236,7 @@ def _build_simulation_payload_uncached(
     mode: str = "sim",
     samples: int = DEFAULT_SIMULATION_SAMPLES,
 ) -> dict[str, Any]:
+    from .competition_graph import COMPETITION_GRAPH_VERSION
     from .revisions import current_model_version, region_revisions
 
     if mode not in {"live", "sim"}:
@@ -3294,6 +3295,7 @@ def _build_simulation_payload_uncached(
     )
     payload["meta"].update(region_revisions(region_slug))
     payload["meta"]["modelVersion"] = current_model_version()
+    payload["meta"]["topologyVersion"] = COMPETITION_GRAPH_VERSION
     if mode == "live" and context.source_status == "active":
         _attach_live_schedule_metadata(
             payload,
@@ -3332,7 +3334,8 @@ def build_simulation_payload(
     mode: str = "sim",
     samples: int = DEFAULT_SIMULATION_SAMPLES,
 ) -> dict[str, Any]:
-    from .revisions import region_revisions
+    from .competition_graph import COMPETITION_GRAPH_VERSION
+    from .revisions import current_model_version, region_revisions
 
     revisions = region_revisions(region_slug)
     cache_key = (
@@ -3341,6 +3344,8 @@ def build_simulation_payload(
         int(seed),
         int(samples),
         revisions["dataRevision"],
+        current_model_version(),
+        COMPETITION_GRAPH_VERSION,
     )
     return SIMULATION_CACHE.get_or_compute(
         cache_key,

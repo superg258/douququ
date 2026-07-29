@@ -1,0 +1,1396 @@
+{
+  "components": {
+    "schemas": {
+      "CommandCenterResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "generatedAt": {
+            "title": "Generatedat",
+            "type": "string"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "source": {
+            "additionalProperties": true,
+            "title": "Source",
+            "type": "object"
+          },
+          "targetDate": {
+            "title": "Targetdate",
+            "type": "string"
+          },
+          "timelineBuckets": {
+            "additionalProperties": true,
+            "title": "Timelinebuckets",
+            "type": "object"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "seed",
+          "generatedAt",
+          "timezone",
+          "targetDate",
+          "source",
+          "timelineBuckets"
+        ],
+        "title": "CommandCenterResponse",
+        "type": "object"
+      },
+      "CompetitionGraphEdge": {
+        "additionalProperties": true,
+        "properties": {
+          "advancement": {
+            "title": "Advancement",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "target",
+          "advancement"
+        ],
+        "title": "CompetitionGraphEdge",
+        "type": "object"
+      },
+      "CompetitionGraphNode": {
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "entry",
+              "stage",
+              "ranking",
+              "exit"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "label"
+        ],
+        "title": "CompetitionGraphNode",
+        "type": "object"
+      },
+      "CompetitionGraphResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "competition": {
+            "title": "Competition",
+            "type": "string"
+          },
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/CompetitionGraphEdge"
+            },
+            "title": "Edges",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/CompetitionGraphNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "schemaVersion": {
+            "const": "competition-graph-v1",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "topologyVersion": {
+            "title": "Topologyversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "topologyVersion",
+          "competition",
+          "nodes",
+          "edges"
+        ],
+        "title": "CompetitionGraphResponse",
+        "type": "object"
+      },
+      "FinalEventResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "event": {
+            "additionalProperties": true,
+            "title": "Event",
+            "type": "object"
+          },
+          "schemaVersion": {
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "season": {
+            "title": "Season",
+            "type": "integer"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          },
+          "timezoneLabel": {
+            "title": "Timezonelabel",
+            "type": "string"
+          },
+          "verifiedAt": {
+            "title": "Verifiedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "season",
+          "timezone",
+          "timezoneLabel",
+          "verifiedAt",
+          "event"
+        ],
+        "title": "FinalEventResponse",
+        "type": "object"
+      },
+      "FinalsSnapshotResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "dataRevision": {
+            "title": "Datarevision",
+            "type": "string"
+          },
+          "events": {
+            "additionalProperties": true,
+            "title": "Events",
+            "type": "object"
+          },
+          "mode": {
+            "enum": [
+              "live",
+              "sim"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "modelVersion": {
+            "title": "Modelversion",
+            "type": "string"
+          },
+          "ratingRevision": {
+            "title": "Ratingrevision",
+            "type": "string"
+          },
+          "runtimeArtifactVersion": {
+            "title": "Runtimeartifactversion",
+            "type": "string"
+          },
+          "scheduleRevision": {
+            "title": "Schedulerevision",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "season": {
+            "title": "Season",
+            "type": "integer"
+          },
+          "topologyVersion": {
+            "title": "Topologyversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "season",
+          "mode",
+          "scheduleRevision",
+          "ratingRevision",
+          "dataRevision",
+          "modelVersion",
+          "topologyVersion",
+          "runtimeArtifactVersion",
+          "events"
+        ],
+        "title": "FinalsSnapshotResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "LiveRevisionsResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "etag": {
+            "title": "Etag",
+            "type": "string"
+          },
+          "finals": {
+            "$ref": "#/components/schemas/RevisionEntry"
+          },
+          "regions": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RevisionEntry"
+            },
+            "title": "Regions",
+            "type": "object"
+          },
+          "schemaVersion": {
+            "const": "rmuc-live-revisions-v1",
+            "title": "Schemaversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "regions",
+          "finals",
+          "etag"
+        ],
+        "title": "LiveRevisionsResponse",
+        "type": "object"
+      },
+      "OverviewResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "generatedAt": {
+            "title": "Generatedat",
+            "type": "string"
+          },
+          "regions": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            ],
+            "title": "Regions"
+          }
+        },
+        "required": [
+          "generatedAt",
+          "regions"
+        ],
+        "title": "OverviewResponse",
+        "type": "object"
+      },
+      "PrematchCenterResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "generatedAt": {
+            "title": "Generatedat",
+            "type": "string"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "source": {
+            "additionalProperties": true,
+            "title": "Source",
+            "type": "object"
+          },
+          "targetDate": {
+            "title": "Targetdate",
+            "type": "string"
+          },
+          "timelineBuckets": {
+            "additionalProperties": true,
+            "title": "Timelinebuckets",
+            "type": "object"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "seed",
+          "generatedAt",
+          "timezone",
+          "targetDate",
+          "source",
+          "timelineBuckets"
+        ],
+        "title": "PrematchCenterResponse",
+        "type": "object"
+      },
+      "ReadinessCheck": {
+        "additionalProperties": true,
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "required": {
+            "default": true,
+            "title": "Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "detail"
+        ],
+        "title": "ReadinessCheck",
+        "type": "object"
+      },
+      "ReadinessResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "checks": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ReadinessCheck"
+            },
+            "title": "Checks",
+            "type": "object"
+          },
+          "revisions": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revisions"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "not-ready"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "sync": {
+            "additionalProperties": true,
+            "title": "Sync",
+            "type": "object"
+          }
+        },
+        "required": [
+          "status",
+          "checks",
+          "sync"
+        ],
+        "title": "ReadinessResponse",
+        "type": "object"
+      },
+      "RevisionEntry": {
+        "additionalProperties": true,
+        "properties": {
+          "dataRevision": {
+            "title": "Datarevision",
+            "type": "string"
+          },
+          "isSynthetic": {
+            "title": "Issynthetic",
+            "type": "boolean"
+          },
+          "ratingRevision": {
+            "title": "Ratingrevision",
+            "type": "string"
+          },
+          "scheduleRevision": {
+            "title": "Schedulerevision",
+            "type": "string"
+          },
+          "sourceKind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcekind"
+          },
+          "sourceStatus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcestatus"
+          },
+          "sourceUpdatedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourceupdatedat"
+          },
+          "syncMode": {
+            "title": "Syncmode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scheduleRevision",
+          "ratingRevision",
+          "dataRevision",
+          "isSynthetic",
+          "syncMode"
+        ],
+        "title": "RevisionEntry",
+        "type": "object"
+      },
+      "SimulationMeta": {
+        "additionalProperties": true,
+        "properties": {
+          "dataRevision": {
+            "title": "Datarevision",
+            "type": "string"
+          },
+          "generatedAt": {
+            "title": "Generatedat",
+            "type": "string"
+          },
+          "modelVersion": {
+            "title": "Modelversion",
+            "type": "string"
+          },
+          "nationalSlots": {
+            "title": "Nationalslots",
+            "type": "integer"
+          },
+          "ratingRevision": {
+            "title": "Ratingrevision",
+            "type": "string"
+          },
+          "regionName": {
+            "title": "Regionname",
+            "type": "string"
+          },
+          "regionSlug": {
+            "title": "Regionslug",
+            "type": "string"
+          },
+          "repechageSlots": {
+            "title": "Repechageslots",
+            "type": "integer"
+          },
+          "samplesPerMatch": {
+            "title": "Samplespermatch",
+            "type": "integer"
+          },
+          "scheduleRevision": {
+            "title": "Schedulerevision",
+            "type": "string"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "topologyVersion": {
+            "title": "Topologyversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "regionSlug",
+          "regionName",
+          "seed",
+          "generatedAt",
+          "samplesPerMatch",
+          "nationalSlots",
+          "repechageSlots",
+          "scheduleRevision",
+          "ratingRevision",
+          "dataRevision",
+          "modelVersion",
+          "topologyVersion"
+        ],
+        "title": "SimulationMeta",
+        "type": "object"
+      },
+      "SimulationResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "finalRankings": {
+            "items": {},
+            "title": "Finalrankings",
+            "type": "array"
+          },
+          "groupRankings": {
+            "additionalProperties": {
+              "items": {},
+              "type": "array"
+            },
+            "title": "Grouprankings",
+            "type": "object"
+          },
+          "matches": {
+            "items": {},
+            "title": "Matches",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/SimulationMeta"
+          },
+          "slots": {
+            "items": {},
+            "title": "Slots",
+            "type": "array"
+          },
+          "summary": {
+            "additionalProperties": true,
+            "title": "Summary",
+            "type": "object"
+          }
+        },
+        "required": [
+          "meta",
+          "slots",
+          "groupRankings",
+          "matches",
+          "finalRankings",
+          "summary"
+        ],
+        "title": "SimulationResponse",
+        "type": "object"
+      },
+      "TeamProfileResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "generatedAt": {
+            "title": "Generatedat",
+            "type": "string"
+          },
+          "matchPath": {
+            "items": {},
+            "title": "Matchpath",
+            "type": "array"
+          },
+          "mode": {
+            "enum": [
+              "live",
+              "sim"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "region": {
+            "additionalProperties": true,
+            "title": "Region",
+            "type": "object"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "team": {
+            "additionalProperties": true,
+            "title": "Team",
+            "type": "object"
+          }
+        },
+        "required": [
+          "seed",
+          "mode",
+          "generatedAt",
+          "team",
+          "region",
+          "matchPath"
+        ],
+        "title": "TeamProfileResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "RMUC Results API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/command-center": {
+      "get": {
+        "operationId": "command_center_api_command_center_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "seed",
+            "required": false,
+            "schema": {
+              "default": 20260414,
+              "minimum": 1,
+              "title": "Seed",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "live",
+              "title": "Mode",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommandCenterResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Command Center"
+      }
+    },
+    "/api/competition-graphs/{competition}": {
+      "get": {
+        "operationId": "competition_graph_api_competition_graphs__competition__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "competition",
+            "required": true,
+            "schema": {
+              "title": "Competition",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompetitionGraphResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Competition Graph"
+      }
+    },
+    "/api/exports/canvas.png": {
+      "get": {
+        "operationId": "export_canvas_png_api_exports_canvas_png_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "competition",
+            "required": true,
+            "schema": {
+              "title": "Competition",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "stage",
+            "required": true,
+            "schema": {
+              "title": "Stage",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "live",
+              "title": "Mode",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "seed",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Seed"
+            }
+          },
+          {
+            "in": "query",
+            "name": "highlight",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Highlight"
+            }
+          },
+          {
+            "in": "query",
+            "name": "revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Revision"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Canvas Png"
+      }
+    },
+    "/api/finals": {
+      "get": {
+        "operationId": "finals_snapshot_api_finals_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "live",
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinalsSnapshotResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finals Snapshot"
+      }
+    },
+    "/api/finals/{event_slug}": {
+      "get": {
+        "operationId": "final_event_api_finals__event_slug__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_slug",
+            "required": true,
+            "schema": {
+              "title": "Event Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "live",
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinalEventResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Final Event"
+      }
+    },
+    "/api/health": {
+      "get": {
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/api/health/live": {
+      "get": {
+        "operationId": "health_api_health_live_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/api/health/ready": {
+      "get": {
+        "operationId": "readiness_api_health_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Readiness"
+      }
+    },
+    "/api/live-revisions": {
+      "get": {
+        "operationId": "live_revisions_api_live_revisions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveRevisionsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Live Revisions"
+      }
+    },
+    "/api/overview": {
+      "get": {
+        "operationId": "overview_api_overview_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Overview"
+      }
+    },
+    "/api/prediction-recap": {
+      "get": {
+        "operationId": "prediction_recap_api_prediction_recap_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "seed",
+            "required": false,
+            "schema": {
+              "default": 20260414,
+              "minimum": 1,
+              "title": "Seed",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "live",
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Prediction Recap Api Prediction Recap Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prediction Recap"
+      }
+    },
+    "/api/prematch-center": {
+      "get": {
+        "operationId": "prematch_center_api_prematch_center_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "seed",
+            "required": false,
+            "schema": {
+              "default": 20260414,
+              "minimum": 1,
+              "title": "Seed",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "live",
+              "title": "Mode",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrematchCenterResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prematch Center"
+      }
+    },
+    "/api/regions/{region_slug}/live-state": {
+      "get": {
+        "operationId": "live_state_api_regions__region_slug__live_state_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "region_slug",
+            "required": true,
+            "schema": {
+              "title": "Region Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Live State Api Regions  Region Slug  Live State Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Live State"
+      }
+    },
+    "/api/regions/{region_slug}/simulation": {
+      "get": {
+        "operationId": "simulation_api_regions__region_slug__simulation_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "region_slug",
+            "required": true,
+            "schema": {
+              "title": "Region Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "seed",
+            "required": false,
+            "schema": {
+              "default": 20260414,
+              "minimum": 1,
+              "title": "Seed",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "sim",
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Simulation"
+      }
+    },
+    "/api/teams/{team_key}": {
+      "get": {
+        "operationId": "team_profile_api_teams__team_key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team_key",
+            "required": true,
+            "schema": {
+              "title": "Team Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "seed",
+            "required": false,
+            "schema": {
+              "default": 20260414,
+              "minimum": 1,
+              "title": "Seed",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "live",
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamProfileResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Team Profile"
+      }
+    }
+  }
+}

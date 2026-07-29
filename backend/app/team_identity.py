@@ -99,7 +99,9 @@ def resolve_team_identity(
     team_name: Any,
     *,
     ratings_path: Path = DEFAULT_TEAM_RATINGS_PATH,
-) -> dict[str, str | bool]:
+) -> dict[str, Any]:
+    from .display_names import attach_school_display_names
+
     school_name = legacy_elo.normalize_school(str(college_name or ""))
     normalized_team_name = legacy_elo.normalize_team(str(team_name or ""))
     school_lookup, team_lookup = team_identity_key(school_name, normalized_team_name)
@@ -110,16 +112,16 @@ def resolve_team_identity(
         or indexes["by_school"].get(school_lookup)
     )
     if identity is not None:
-        return {
+        return attach_school_display_names({
             **identity,
             "collegeName": school_name,
             "teamName": normalized_team_name,
             "matched": True,
-        }
-    return {
+        })
+    return attach_school_display_names({
         "schoolKey": legacy_elo.make_school_key(school_name),
         "teamKey": legacy_elo.make_team_key(school_name, normalized_team_name),
         "collegeName": school_name,
         "teamName": normalized_team_name,
         "matched": False,
-    }
+    })

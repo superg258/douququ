@@ -7,6 +7,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.responses import JSONResponse
 
+from .api_models import (
+    CommandCenterResponse,
+    CompetitionGraphResponse,
+    FinalEventResponse,
+    FinalsSnapshotResponse,
+    HealthResponse,
+    LiveRevisionsResponse,
+    OverviewResponse,
+    PrematchCenterResponse,
+    ReadinessResponse,
+    SimulationResponse,
+    TeamProfileResponse,
+)
+from .competition_graph import build_competition_graph
 from .competition import RequestParameterError, UnknownResourceError
 from .finals_schedule import (
     build_final_event_payload,
@@ -20,6 +34,7 @@ from .export_service import (
     render_canvas_png,
 )
 from .revisions import build_live_revisions_payload
+from .health_service import build_readiness_payload
 from .service import (
     build_command_center_payload,
     build_live_state_payload,
@@ -52,12 +67,21 @@ def unknown_resource(_request: Request, exc: UnknownResourceError) -> JSONRespon
     return JSONResponse(status_code=404, content={"detail": exc.detail})
 
 
-@app.get("/api/health")
-def health() -> dict[str, str]:
+@app.get("/api/health", response_model=HealthResponse)
+@app.get("/api/health/live", response_model=HealthResponse)
+def health() -> HealthResponse:
     return {"status": "ok"}
 
 
-@app.get("/api/live-revisions")
+@app.get("/api/health/ready", response_model=ReadinessResponse)
+def readiness() -> Response | dict[str, Any]:
+    payload, ready = build_readiness_payload()
+    if not ready:
+        return JSONResponse(status_code=503, content=payload)
+    return payload
+
+
+@app.get("/api/live-revisions", response_model=LiveRevisionsResponse)
 def live_revisions(request: Request, response: Response) -> Any:
     payload = build_live_revisions_payload()
     etag = f'"{payload["etag"]}"'
@@ -110,22 +134,22 @@ def export_canvas_png(
     )
 
 
-@app.get("/api/overview")
+@app.get("/api/overview", response_model=OverviewResponse)
 def overview() -> dict[str, Any]:
     return build_overview_payload()
 
 
-@app.get("/api/finals/{event_slug}")
+@app.get("/api/finals/{event_slug}", response_model=FinalEventResponse)
 def final_event(event_slug: str, mode: str = Query("live")) -> dict[str, Any]:
     return build_final_event_payload(event_slug, mode=mode)
 
 
-@app.get("/api/finals")
+@app.get("/api/finals", response_model=FinalsSnapshotResponse)
 def finals_snapshot(mode: str = Query("live")) -> dict[str, Any]:
     return build_finals_snapshot_payload(mode=mode)
 
 
-@app.get("/api/prematch-center")
+@app.get("/api/prematch-center", response_model=PrematchCenterResponse)
 def prematch_center(
     seed: int = Query(20260414, ge=1),
     mode: str = Query("live"),
@@ -134,7 +158,7 @@ def prematch_center(
     return build_prematch_center_payload(seed=seed, mode=mode, date=date)
 
 
-@app.get("/api/command-center")
+@app.get("/api/command-center", response_model=CommandCenterResponse)
 def command_center(
     seed: int = Query(20260414, ge=1),
     mode: str = Query("live"),
@@ -148,14 +172,19 @@ def prediction_recap(seed: int = Query(20260414, ge=1), mode: str = Query("live"
     return build_prediction_recap_payload(seed=seed, mode=mode)
 
 
-@app.get("/api/teams/{team_key}")
+@app.get("/api/teams/{team_key}", response_model=TeamProfileResponse)
 def team_profile(team_key: str, seed: int = Query(20260414, ge=1), mode: str = Query("live")) -> dict[str, Any]:
     return build_team_profile_payload(team_key, seed=seed, mode=mode)
 
 
-@app.get("/api/regions/{region_slug}/simulation")
+@app.get("/api/regions/{region_slug}/simulation", response_model=SimulationResponse)
 def simulation(region_slug: str, seed: int = Query(20260414, ge=1), mode: str = Query("sim")) -> dict[str, Any]:
     return build_simulation_payload(region_slug, seed, mode)
+
+
+@app.get("/api/competition-graphs/{competition}", response_model=CompetitionGraphResponse)
+def competition_graph(competition: str) -> dict[str, object]:
+    return build_competition_graph(competition)
 
 
 @app.get("/api/regions/{region_slug}/live-state")

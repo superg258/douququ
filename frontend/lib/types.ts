@@ -321,6 +321,7 @@ export interface SimulationResponse {
     ratingRevision?: string;
     dataRevision?: string;
     modelVersion?: string;
+    topologyVersion?: string;
   };
   slots: SlotRow[];
   groupRankings: Record<string, GroupRankingRow[]>;
@@ -949,6 +950,7 @@ export interface FinalEventsSnapshotResponse {
   ratingRevision?: string;
   dataRevision?: string;
   modelVersion?: string;
+  topologyVersion?: string;
   runtimeArtifactVersion: string;
   events: Record<FinalEventSlug, FinalEventResponse>;
 }

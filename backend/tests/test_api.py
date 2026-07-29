@@ -67,6 +67,64 @@ def test_health() -> None:
     response = client.get("/api/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+    assert client.get("/api/health/live").json() == {"status": "ok"}
+
+
+def test_readiness_reports_required_artifacts_revisions_and_sync_modes() -> None:
+    response = client.get("/api/health/ready")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ready"
+    assert all(
+        check["ok"]
+        for check in payload["checks"].values()
+        if check["required"]
+    )
+    assert payload["revisions"]["etag"].startswith("sha256:")
+    assert payload["sync"]["regions"]["mode"] == "automatic-30s"
+    assert payload["sync"]["finals"]["mode"] == "manual"
+
+
+def test_competition_graph_contract_has_stable_non_dangling_ids() -> None:
+    for competition in (
+        "south_region",
+        "east_region",
+        "north_region",
+        "repechage",
+        "nationals",
+    ):
+        response = client.get(f"/api/competition-graphs/{competition}")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["schemaVersion"] == "competition-graph-v1"
+        assert payload["topologyVersion"] == "competition-graph-v1.0.0"
+        node_ids = {node["id"] for node in payload["nodes"]}
+        edge_ids = {edge["id"] for edge in payload["edges"]}
+        assert len(node_ids) == len(payload["nodes"])
+        assert len(edge_ids) == len(payload["edges"])
+        assert all(
+            edge["source"] in node_ids and edge["target"] in node_ids
+            for edge in payload["edges"]
+        )
+    assert client.get("/api/competition-graphs/unknown").status_code == 400
+
+
+def test_openapi_uses_explicit_models_for_core_endpoints() -> None:
+    schema = app.openapi()
+    expected_models = {
+        "/api/live-revisions": "LiveRevisionsResponse",
+        "/api/regions/{region_slug}/simulation": "SimulationResponse",
+        "/api/finals": "FinalsSnapshotResponse",
+        "/api/overview": "OverviewResponse",
+        "/api/prematch-center": "PrematchCenterResponse",
+        "/api/command-center": "CommandCenterResponse",
+        "/api/teams/{team_key}": "TeamProfileResponse",
+    }
+    for path, model_name in expected_models.items():
+        response_schema = schema["paths"][path]["get"]["responses"]["200"]["content"][
+            "application/json"
+        ]["schema"]
+        assert response_schema["$ref"].endswith(f"/{model_name}")
 
 
 def test_live_revisions_is_small_and_supports_conditional_requests() -> None:
