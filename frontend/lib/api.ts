@@ -110,23 +110,40 @@ export async function getLiveRevisions(
   previousEtag?: string,
   signal?: AbortSignal,
 ): Promise<{ changed: boolean; etag: string; payload: LiveRevisionsResponse | null }> {
-  const response = await fetch(`${API_BASE_URL}/api/live-revisions`, {
-    cache: "no-cache",
-    headers: previousEtag
-      ? { Accept: "application/json", "If-None-Match": `"${previousEtag}"` }
-      : { Accept: "application/json" },
-    signal,
-  });
-  const etag = (response.headers.get("etag") ?? "").replace(/^"|"$/g, "");
-  if (response.status === 304) {
-    return { changed: false, etag: previousEtag ?? etag, payload: null };
+  const key = `GET /api/live-revisions if-none-match:${previousEtag ?? ""}`;
+  let entry = inFlightRequests.get(key);
+  if (!entry) {
+    const controller = new AbortController();
+    entry = {
+      controller,
+      subscribers: 0,
+      settled: false,
+      promise: Promise.resolve(),
+    };
+    entry.promise = fetch(`${API_BASE_URL}/api/live-revisions`, {
+      cache: "no-cache",
+      headers: previousEtag
+        ? { Accept: "application/json", "If-None-Match": `"${previousEtag}"` }
+        : { Accept: "application/json" },
+      signal: controller.signal,
+    }).then(async (response) => {
+      const etag = (response.headers.get("etag") ?? "").replace(/^"|"$/g, "");
+      if (response.status === 304) {
+        return { changed: false, etag: previousEtag ?? etag, payload: null };
+      }
+      if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+      return {
+        changed: true,
+        etag,
+        payload: (await response.json()) as LiveRevisionsResponse,
+      };
+    }).finally(() => {
+      entry!.settled = true;
+      inFlightRequests.delete(key);
+    });
+    inFlightRequests.set(key, entry);
   }
-  if (!response.ok) throw new Error(`Request failed: ${response.status}`);
-  return {
-    changed: true,
-    etag,
-    payload: (await response.json()) as LiveRevisionsResponse,
-  };
+  return subscribeToRequest(entry, signal);
 }
 
 export function getPrematchCenter(seed = 20260414, mode: "live" | "sim" = "live") {

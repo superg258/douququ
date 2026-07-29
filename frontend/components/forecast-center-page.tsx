@@ -21,7 +21,7 @@ import { buildFinalsMatchRow, resolveFinalsTeamRating } from "@/lib/finals-match
 import { buildFinalsTeamPath, resolveFinalsTeamOutcome } from "@/lib/finals-team";
 import { hasOfficialFinalMatchData, simulateFinalsEvents, simulateFinalsLiveEvents } from "@/lib/finals-simulation";
 import { DEFAULT_SEED, REGION_ORDER, buildRegionHref, getOrCreateSessionSeed, isRegionRealtimeEnabled, parseSeed, refreshSessionSeed } from "@/lib/region-config";
-import { LIVE_REFRESH_INTERVAL_MS, startRealtimePolling } from "@/lib/realtime-polling";
+import { useRevisionPolling } from "@/lib/use-revision-polling";
 import {
   FINAL_STAGE_OPTIONS,
   formatFinalsDateRange,
@@ -92,6 +92,7 @@ export function ForecastCenterPage() {
   const [overviewError, setOverviewError] = useState<string | null>(null);
   const [overviewWarnDismissed, setOverviewWarnDismissed] = useState(false);
   const [eventsReloadKey, setEventsReloadKey] = useState(0);
+  const [eventsRevision, setEventsRevision] = useState<string | null>(null);
   const [overviewReloadKey, setOverviewReloadKey] = useState(0);
   const [regionLiveStates, setRegionLiveStates] = useState<LiveStateResponse[]>([]);
 
@@ -119,34 +120,31 @@ export function ForecastCenterPage() {
     }
   }, [mode, seed]);
 
-  // 两项正式赛事从同一后端快照加载，避免运行时文件更新造成跨版本名单。
-  useEffect(() => {
-    let canceled = false;
-    const load = () => {
-      getFinalEvents(mode)
-        .then((snapshot) => {
-          if (canceled) return;
-          setEvents(snapshot.events);
-          setEventsMode(snapshot.mode);
-          setEventErrors({});
-        })
-        .catch((reason) => {
-          if (canceled) return;
-          const message = reason instanceof Error ? reason.message : String(reason);
-          setEventErrors({ repechage: message, nationals: message });
-        });
-    };
-    let stopPolling = () => {};
-    if (mode === "live") {
-      stopPolling = startRealtimePolling(load, LIVE_REFRESH_INTERVAL_MS, { pauseWhenHidden: true });
-    } else {
-      load();
+  const loadEvents = useCallback(async () => {
+    try {
+      const snapshot = await getFinalEvents(mode);
+      setEvents(snapshot.events);
+      setEventsMode(snapshot.mode);
+      setEventsRevision(snapshot.dataRevision ?? snapshot.runtimeArtifactVersion);
+      setEventErrors({});
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : String(reason);
+      setEventErrors({ repechage: message, nationals: message });
+      throw reason;
     }
-    return () => {
-      canceled = true;
-      stopPolling();
-    };
-  }, [eventsReloadKey, mode]);
+  }, [mode]);
+
+  useEffect(() => {
+    if (mode === "sim") void loadEvents();
+  }, [eventsReloadKey, loadEvents, mode]);
+
+  useRevisionPolling({
+    enabled: mode === "live",
+    resourceIdentity: `finals:${mode}:${eventsReloadKey}`,
+    currentRevision: eventsRevision,
+    selectRevision: (payload) => payload.finals.dataRevision,
+    loadFull: loadEvents,
+  });
 
   useEffect(() => {
     if (explicitMode || eventsMode !== "live") return;
@@ -158,41 +156,48 @@ export function ForecastCenterPage() {
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }, [eventSlug, events, eventsMode, explicitMode, pathname, router, searchParams]);
 
-  // 概览数据：失败不阻塞页面，情报/概率降级为 "--"
-  useEffect(() => {
-    if (overview) return;
-    let canceled = false;
-    getOverview()
-      .then((payload) => {
-        if (!canceled) setOverview(payload);
-      })
-      .catch((reason) => {
-        if (!canceled) {
-          setOverviewError(reason instanceof Error ? reason.message : String(reason));
-          setOverviewWarnDismissed(false);
-        }
-      });
-    return () => {
-      canceled = true;
-    };
-  }, [overview, overviewReloadKey]);
+  const loadRegionalContext = useCallback(async () => {
+    const results = await Promise.allSettled([
+      getOverview(),
+      ...REGION_ORDER.map((slug) => getLiveState(slug)),
+    ]);
+    const [overviewResult, ...liveStateResults] = results;
+    if (overviewResult.status === "fulfilled") {
+      setOverview(overviewResult.value);
+      setOverviewError(null);
+    } else {
+      const message = overviewResult.reason instanceof Error
+        ? overviewResult.reason.message
+        : String(overviewResult.reason);
+      setOverviewError(message);
+      setOverviewWarnDismissed(false);
+    }
+    const successfulLiveStates = liveStateResults
+      .map((result) => result.status === "fulfilled" ? result.value : null)
+      .filter((value): value is LiveStateResponse => value !== null && value.available);
+    if (successfulLiveStates.length > 0) setRegionLiveStates(successfulLiveStates);
+    if (overviewResult.status === "rejected") throw overviewResult.reason;
+  }, []);
 
-  // 区域赛实时数据：用于构建完整赛季 Elo 轨迹（注入区域赛逐场记录）
+  const regionalRevision = regionLiveStates.length === REGION_ORDER.length
+    ? REGION_ORDER.map(
+      (slug) => regionLiveStates.find((state) => state.regionSlug === slug)?.dataRevision ?? "",
+    ).join("|")
+    : null;
+
   useEffect(() => {
-    if (mode !== "live" || regionLiveStates.length > 0) return;
-    let canceled = false;
-    Promise.allSettled(REGION_ORDER.map((slug) => getLiveState(slug))).then((results) => {
-      if (canceled) return;
-      setRegionLiveStates(
-        results
-          .map((r) => (r.status === "fulfilled" ? r.value : null))
-          .filter((v): v is LiveStateResponse => v !== null && v.available),
-      );
-    });
-    return () => {
-      canceled = true;
-    };
-  }, [mode, regionLiveStates.length]);
+    if (mode === "sim") void loadRegionalContext();
+  }, [loadRegionalContext, mode, overviewReloadKey]);
+
+  useRevisionPolling({
+    enabled: mode === "live",
+    resourceIdentity: `regional-context:${overviewReloadKey}`,
+    currentRevision: regionalRevision,
+    selectRevision: (payload) => REGION_ORDER.map(
+      (slug) => payload.regions[slug].dataRevision,
+    ).join("|"),
+    loadFull: loadRegionalContext,
+  });
 
   const retryEvents = useCallback(() => {
     setEventErrors({});
@@ -403,7 +408,7 @@ export function ForecastCenterPage() {
 
   const selectedEventError = eventErrors[eventSlug];
 
-  if (selectedEventError) {
+  if (selectedEventError && !current) {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-rm-metal-canvas p-6">
         <ErrorPanel title={`${eventSlug === "repechage" ? "复活赛" : "全国赛"}加载失败`} message={selectedEventError} onRetry={retryEvents} />
@@ -579,6 +584,13 @@ export function ForecastCenterPage() {
           </span>
         </div>
       </header>
+
+      {selectedEventError ? (
+        <div className="border-b border-rm-status-warn/40 bg-rm-status-warn/5 px-4 py-2 font-mono text-[11px] text-rm-status-warn">
+          更新失败，当前展示上一次成功的正式赛程。
+          <button type="button" onClick={retryEvents} className="ml-3 underline underline-offset-2">重试</button>
+        </div>
+      ) : null}
 
       {overviewError && !overviewWarnDismissed ? (
         <div className="z-30 flex items-center gap-2 border-b border-rm-status-warn/40 bg-rm-status-warn/10 px-3 py-1.5 font-mono text-[10px] text-rm-status-warn md:px-4">

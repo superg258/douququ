@@ -32,6 +32,52 @@ describe("realtime polling", () => {
     expect(clearTimeout).toHaveBeenCalledWith(101);
   });
 
+  it("does not schedule an overlapping request while the current load is pending", async () => {
+    let resolveLoad!: () => void;
+    const load = vi.fn(() => new Promise<void>((resolve) => {
+      resolveLoad = resolve;
+    }));
+    const setTimeout = vi.fn<(callback: () => void, timeout: number) => number>(() => 101);
+    const clearTimeout = vi.fn();
+    vi.stubGlobal("window", { setTimeout, clearTimeout });
+
+    const stop = startRealtimePolling(load);
+
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(setTimeout).not.toHaveBeenCalled();
+
+    resolveLoad();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(setTimeout).toHaveBeenCalledTimes(1);
+
+    stop();
+  });
+
+  it("uses bounded retry delays after failures", async () => {
+    const load = vi.fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockRejectedValueOnce(new Error("still offline"))
+      .mockResolvedValue(undefined);
+    const setTimeout = vi.fn<(callback: () => void, timeout: number) => number>(() => 101);
+    const clearTimeout = vi.fn();
+    vi.stubGlobal("window", { setTimeout, clearTimeout });
+
+    const stop = startRealtimePolling(load, 30_000, {
+      retryDelaysMs: [30_000, 60_000, 120_000],
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(setTimeout.mock.calls[0][1]).toBe(30_000);
+
+    setTimeout.mock.calls[0][0]();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(setTimeout.mock.calls[1][1]).toBe(60_000);
+
+    stop();
+  });
+
   it("pauses while hidden and reloads immediately when visible again", async () => {
     const load = vi.fn();
     const setTimeout = vi.fn<(callback: () => void, timeout: number) => number>(() => 101);

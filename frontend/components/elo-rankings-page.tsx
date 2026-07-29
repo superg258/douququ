@@ -1,7 +1,7 @@
 // frontend/components/elo-rankings-page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { FinalsEloRankings } from "@/components/finals-elo-rankings";
 import { RankingsHero } from "@/components/rankings-hero";
@@ -10,7 +10,7 @@ import { getFinalEvents, getLiveState, getOverview } from "@/lib/api";
 import { buildFullSeasonTrajectories } from "@/lib/elo-trajectory";
 import { hasOfficialFinalMatchData, simulateFinalsLiveEvents } from "@/lib/finals-simulation";
 import { DEFAULT_SEED, REGION_ORDER } from "@/lib/region-config";
-import { LIVE_REFRESH_INTERVAL_MS, startRealtimePolling } from "@/lib/realtime-polling";
+import { useRevisionPolling } from "@/lib/use-revision-polling";
 import { formatShortDateTimeLabel } from "@/lib/time-format";
 import type { FinalEventResponse, LiveStateResponse, OverviewResponse } from "@/lib/types";
 
@@ -25,41 +25,53 @@ export function EloRankingsPage() {
   const [data, setData] = useState<EloPageData>({ overview: null });
   const [errors, setErrors] = useState<string[]>([]);
   const [reloadKey, setReloadKey] = useState(0);
+  const [dataRevision, setDataRevision] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     const controller = new AbortController();
     const { signal } = controller;
+    const results = await Promise.allSettled([
+      getOverview(signal),
+      getFinalEvents("live", signal),
+      ...REGION_ORDER.map((slug) => getLiveState(slug, signal)),
+    ]);
+    const [overviewResult, finalsResult, ...liveStateResults] = results;
+    const nextErrors: string[] = [];
+    setData((current) => ({
+      overview: overviewResult.status === "fulfilled" ? overviewResult.value as OverviewResponse : current.overview,
+      repechage: finalsResult.status === "fulfilled"
+        ? (finalsResult.value as Awaited<ReturnType<typeof getFinalEvents>>).events.repechage
+        : current.repechage,
+      nationals: finalsResult.status === "fulfilled"
+        ? (finalsResult.value as Awaited<ReturnType<typeof getFinalEvents>>).events.nationals
+        : current.nationals,
+      regionLiveStates: liveStateResults
+        .map((result) => result.status === "fulfilled" ? result.value as LiveStateResponse : null)
+        .filter((value): value is LiveStateResponse => value !== null),
+    }));
+    if (overviewResult.status === "rejected") nextErrors.push("战力数据");
+    if (finalsResult.status === "rejected") nextErrors.push("全国赛阶段数据");
+    if (liveStateResults.every((result) => result.status === "rejected")) nextErrors.push("区域赛实时数据");
+    if (finalsResult.status === "fulfilled") {
+      const finals = finalsResult.value as Awaited<ReturnType<typeof getFinalEvents>>;
+      const regionRevisions = liveStateResults
+        .map((result) => result.status === "fulfilled"
+          ? (result.value as LiveStateResponse).dataRevision ?? ""
+          : "")
+        .join("|");
+      setDataRevision(`${finals.dataRevision ?? finals.runtimeArtifactVersion}|${regionRevisions}`);
+    }
+    setErrors(nextErrors);
+    if (nextErrors.length > 0) throw new Error(`刷新失败：${nextErrors.join("、")}`);
+  }, []);
 
-    const load = () => {
-      Promise.allSettled([
-        getOverview(signal),
-        getFinalEvents("live", signal),
-        ...REGION_ORDER.map((slug) => getLiveState(slug, signal)),
-      ]).then((results) => {
-        if (signal.aborted) return;
-        const [overviewResult, finalsResult, ...liveStateResults] = results;
-        const nextErrors: string[] = [];
-        setData((current) => ({
-          overview: overviewResult.status === "fulfilled" ? overviewResult.value : current.overview,
-          repechage: finalsResult.status === "fulfilled" ? finalsResult.value.events.repechage : current.repechage,
-          nationals: finalsResult.status === "fulfilled" ? finalsResult.value.events.nationals : current.nationals,
-          regionLiveStates: liveStateResults
-            .map((r) => (r.status === "fulfilled" ? r.value : null))
-            .filter((v): v is LiveStateResponse => v !== null),
-        }));
-        if (overviewResult.status === "rejected") nextErrors.push("战力数据");
-        if (finalsResult.status === "rejected") nextErrors.push("全国赛阶段数据");
-        if (liveStateResults.every((r) => r.status === "rejected")) nextErrors.push("区域赛实时数据");
-        setErrors(nextErrors);
-      });
-    };
-    const stopPolling = startRealtimePolling(load, LIVE_REFRESH_INTERVAL_MS, { pauseWhenHidden: true });
-
-    return () => {
-      controller.abort();
-      stopPolling();
-    };
-  }, [reloadKey]);
+  useRevisionPolling({
+    enabled: true,
+    resourceIdentity: `elo-rankings:${reloadKey}`,
+    currentRevision: dataRevision,
+    selectRevision: (payload) => payload.etag,
+    loadFull: load,
+  });
 
   const handleRetry = () => {
     setErrors([]);

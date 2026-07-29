@@ -1,10 +1,10 @@
 // frontend/components/prematch-center.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import { getPrematchCenter } from "@/lib/api";
-import { startRealtimePolling } from "@/lib/realtime-polling";
+import { useRevisionPolling } from "@/lib/use-revision-polling";
 import {
   formatEmptyStateCount,
   EMPTY_STATE_REGION_LINKS,
@@ -56,29 +56,27 @@ export function PrematchCenter() {
   const [data, setData] = useState<PrematchCenterResponse | null>(null);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    let canceled = false;
-    const loadPrematch = () => {
-      getPrematchCenter()
-        .then((res) => {
-          if (!canceled) {
-            setError("");
-            setData(res);
-          }
-        })
-        .catch((err) => {
-          if (!canceled) setError(err instanceof Error ? err.message : String(err));
-        });
-    };
-    const stopPolling = startRealtimePolling(loadPrematch);
-    return () => {
-      canceled = true;
-      stopPolling();
-    };
+  const loadPrematch = useCallback(async () => {
+    try {
+      const response = await getPrematchCenter();
+      setError("");
+      setData(response);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      throw err;
+    }
   }, []);
 
+  useRevisionPolling({
+    enabled: true,
+    resourceIdentity: "prematch-center",
+    currentRevision: data ? "loaded" : null,
+    selectRevision: (payload) => payload.etag,
+    loadFull: loadPrematch,
+  });
+
   /* ── Error ── */
-  if (error) {
+  if (error && !data) {
     return (
       <section>
         <div className="text-rm-red p-4 bg-rm-red/5 border border-rm-red/30 font-mono text-xs">
@@ -87,6 +85,12 @@ export function PrematchCenter() {
       </section>
     );
   }
+
+  const staleWarning = error ? (
+    <div className="mb-3 border border-rm-status-warn/40 bg-rm-status-warn/5 px-3 py-2 font-mono text-[11px] text-rm-status-warn">
+      更新失败，当前展示上一次成功数据
+    </div>
+  ) : null;
 
   /* ── Loading ── */
   if (!data) {
@@ -134,6 +138,7 @@ export function PrematchCenter() {
 
   return (
     <section>
+      {staleWarning}
       {/* ── Section title ── */}
       <div className="flex items-center gap-3 mb-4">
         <div className="flex items-center gap-1">

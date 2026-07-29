@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ErrorPanel, LoadingBlock } from "@/components/ui/async-state";
 import { getFinalEvents, getOverview } from "@/lib/api";
@@ -14,7 +14,7 @@ import type { FinalsStageProbabilityProjection } from "@/lib/finals-schedule";
 import { hasOfficialFinalMatchData, simulateFinalsLiveEvents } from "@/lib/finals-simulation";
 import { DEFAULT_SEED } from "@/lib/region-config";
 import type { FinalEventResponse, FinalEventSlug, OverviewResponse } from "@/lib/types";
-import { LIVE_REFRESH_INTERVAL_MS, startRealtimePolling } from "@/lib/realtime-polling";
+import { useRevisionPolling } from "@/lib/use-revision-polling";
 import { cn } from "@/lib/utils";
 
 type EventSchedule = FinalEventResponse["event"];
@@ -413,32 +413,42 @@ export function FinalsOverviewSection() {
   const [probabilities, setProbabilities] = useState<FinalsStageProbabilityProjection | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [reloadKey, setReloadKey] = useState(0);
+  const [dataRevision, setDataRevision] = useState<string | null>(null);
 
-  useEffect(() => {
-    let canceled = false;
-    const load = () => {
-      Promise.allSettled([getOverview(), getFinalEvents("live")]).then((results) => {
-        if (canceled) return;
-        const [overviewResult, finalsResult] = results;
-        const nextErrors: typeof errors = {};
-        if (overviewResult.status === "fulfilled") setOverview(overviewResult.value);
-        else nextErrors.overview = overviewResult.reason instanceof Error ? overviewResult.reason.message : String(overviewResult.reason);
-        if (finalsResult.status === "fulfilled") setEvents(finalsResult.value.events);
-        else {
-          const message = finalsResult.reason instanceof Error ? finalsResult.reason.message : String(finalsResult.reason);
-          nextErrors.repechage = message;
-          nextErrors.nationals = message;
-        }
-        setErrors(nextErrors);
-        setNow(Date.now());
-      });
-    };
-    const stopPolling = startRealtimePolling(load, LIVE_REFRESH_INTERVAL_MS, { pauseWhenHidden: true });
-    return () => {
-      canceled = true;
-      stopPolling();
-    };
-  }, [reloadKey]);
+  const load = useCallback(async () => {
+    const [overviewResult, finalsResult] = await Promise.allSettled([
+      getOverview(),
+      getFinalEvents("live"),
+    ]);
+    const nextErrors: typeof errors = {};
+    if (overviewResult.status === "fulfilled") setOverview(overviewResult.value);
+    else nextErrors.overview = overviewResult.reason instanceof Error
+      ? overviewResult.reason.message
+      : String(overviewResult.reason);
+    if (finalsResult.status === "fulfilled") {
+      setEvents(finalsResult.value.events);
+      setDataRevision(finalsResult.value.dataRevision ?? finalsResult.value.runtimeArtifactVersion);
+    } else {
+      const message = finalsResult.reason instanceof Error
+        ? finalsResult.reason.message
+        : String(finalsResult.reason);
+      nextErrors.repechage = message;
+      nextErrors.nationals = message;
+    }
+    setErrors(nextErrors);
+    setNow(Date.now());
+    if (Object.keys(nextErrors).length > 0) {
+      throw new Error("部分赛事数据刷新失败");
+    }
+  }, []);
+
+  useRevisionPolling({
+    enabled: true,
+    resourceIdentity: `finals-overview:${reloadKey}`,
+    currentRevision: dataRevision,
+    selectRevision: (payload) => payload.etag,
+    loadFull: load,
+  });
 
   useEffect(() => {
     if (!events.repechage || !events.nationals || !overview) {

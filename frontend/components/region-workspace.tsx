@@ -14,7 +14,7 @@ import { RegionLegendPopover } from "@/components/region-legend-popover";
 import { RegionWorkspaceToolbar } from "@/components/region-workspace-toolbar";
 import { WorkspaceSearchModal } from "@/components/workspace-search-modal";
 import { ErrorPanel } from "@/components/ui/async-state";
-import { getLiveRevisions, getLiveState, getOverview, getSimulation } from "@/lib/api";
+import { getLiveState, getOverview, getSimulation } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { buildWorkspaceStage } from "@/lib/canvas-builders";
 import { formatMatchLabel, formatRankingResultLabel, percent, translateConfidenceLabel, translateOfficialStatusLabel, translateStageLabel } from "@/lib/display";
@@ -32,7 +32,6 @@ import {
   REGION_VIEWS,
   resolveWorkspaceDataMode,
 } from "@/lib/region-config";
-import { LIVE_REFRESH_INTERVAL_MS, startRealtimePolling } from "@/lib/realtime-polling";
 import { buildTeamHref } from "@/lib/team-profile";
 import { sortTeamsForWorkspaceSearch } from "@/lib/workspace-search";
 import {
@@ -46,6 +45,7 @@ import {
   type WorkspaceInspectorTeam,
 } from "@/lib/workspace-selection";
 import { deriveRealtimeAvailability, liveStateRefreshKey } from "@/lib/realtime";
+import { useRevisionPolling } from "@/lib/use-revision-polling";
 import { deriveMatchRatingBreakdown, formatSignedRatingDelta, ratingDeltaTone, type MatchRatingBreakdown } from "@/lib/live-rating";
 import type {
   FinalRankingRow,
@@ -134,8 +134,6 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   const [error, setError] = useState<string | null>(null);
   const [simulationRetryToken, setSimulationRetryToken] = useState(0);
   const simulationRequestRef = useRef({ identity: "", generation: 0 });
-  const revisionEtagRef = useRef("");
-  const liveStateRef = useRef<LiveStateResponse | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [stageFullscreen, setStageFullscreen] = useState(false);
@@ -199,10 +197,6 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   }, [selection, inspectorOpen]);
 
   useEffect(() => {
-    liveStateRef.current = liveState;
-  }, [liveState]);
-
-  useEffect(() => {
     setSeedDraft(seed ? String(seed) : "");
   }, [regionSlug, seed, dataMode]);
 
@@ -222,53 +216,27 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
       .catch((err: Error) => setError(err.message));
   }, []);
 
-  useEffect(() => {
-    // 仅实时模式需要轮询 live state；模拟模式下赛区可用性由 overview.liveStatus 提供。
-    if (requestedMode !== "live") {
-      return;
-    }
-    let canceled = false;
-    const loadFullLiveState = async () => {
-      const payload = await getLiveState(regionSlug);
-      if (!canceled) {
-        liveStateRef.current = payload;
-        setLiveState(payload);
-      }
-    };
-    const checkLiveRevision = async () => {
-      try {
-        if (!liveStateRef.current) {
-          await loadFullLiveState();
-          return;
-        }
-        const revision = await getLiveRevisions(revisionEtagRef.current || undefined);
-        if (revision.etag) revisionEtagRef.current = revision.etag;
-        const nextRevision = revision.payload?.regions[regionSlug]?.dataRevision;
-        if (revision.changed && nextRevision && nextRevision !== liveStateRef.current.dataRevision) {
-          await loadFullLiveState();
-        }
-        if (!canceled) setError(null);
-      } catch (err) {
-        if (!canceled) {
-          const message = err instanceof Error ? err.message : String(err);
-          setLiveState((current) => current ?? unavailableLiveState(regionSlug, message));
-          setError(message);
-        }
-        throw err;
-      }
-    };
+  const loadFullLiveState = useCallback(async () => {
+    const payload = await getLiveState(regionSlug);
+    setLiveState(payload);
+    setError(null);
+  }, [regionSlug]);
 
-    revisionEtagRef.current = "";
+  useEffect(() => {
     setLiveState(null);
-    liveStateRef.current = null;
-    const stopPolling = startRealtimePolling(checkLiveRevision, LIVE_REFRESH_INTERVAL_MS, {
-      pauseWhenHidden: true,
-    });
-    return () => {
-      canceled = true;
-      stopPolling();
-    };
   }, [regionSlug, requestedMode]);
+
+  useRevisionPolling({
+    enabled: requestedMode === "live",
+    resourceIdentity: `region:${regionSlug}`,
+    currentRevision: liveState?.dataRevision,
+    selectRevision: (payload) => payload.regions[regionSlug]?.dataRevision,
+    loadFull: loadFullLiveState,
+    onError: (err) => {
+      setLiveState((current) => current ?? unavailableLiveState(regionSlug, err.message));
+      setError(err.message);
+    },
+  });
 
   useEffect(() => {
     if (dataMode === "sim" && seed === null) {
