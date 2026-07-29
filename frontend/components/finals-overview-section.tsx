@@ -415,11 +415,12 @@ export function FinalsOverviewSection() {
   const [reloadKey, setReloadKey] = useState(0);
   const [dataRevision, setDataRevision] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal: AbortSignal) => {
     const [overviewResult, finalsResult] = await Promise.allSettled([
-      getOverview(),
-      getFinalEvents("live"),
+      getOverview(signal),
+      getFinalEvents("live", signal),
     ]);
+    if (signal.aborted) throw new DOMException("The operation was aborted.", "AbortError");
     const nextErrors: typeof errors = {};
     if (overviewResult.status === "fulfilled") setOverview(overviewResult.value);
     else nextErrors.overview = overviewResult.reason instanceof Error
@@ -446,7 +447,7 @@ export function FinalsOverviewSection() {
     enabled: true,
     resourceIdentity: `finals-overview:${reloadKey}`,
     currentRevision: dataRevision,
-    selectRevision: (payload) => payload.etag,
+    selectRevision: (payload) => payload.finals.dataRevision,
     loadFull: load,
   });
 

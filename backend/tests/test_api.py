@@ -6,12 +6,13 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 from urllib.parse import quote
 
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
-from backend.app import finals_live, finals_schedule, main, service
+from backend.app import finals_live, finals_schedule, health_service, main, service
 from backend.app.export_service import ExportVersionConflict
 from backend.app.team_identity import canonical_school_key
 from scripts import seed_finals_live_mock, sync_finals_live
@@ -20,6 +21,11 @@ from scripts import seed_finals_live_mock, sync_finals_live
 client = TestClient(app)
 ROOT = Path(__file__).resolve().parents[2]
 TS2_DERIVED_DIR = ROOT / "data" / "derived" / "2026_rmuc_ts2"
+
+
+def _write_json(path: Path, payload: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 
 
 def teardown_function() -> None:
@@ -70,6 +76,54 @@ def test_health() -> None:
     assert client.get("/api/health/live").json() == {"status": "ok"}
 
 
+def test_simulation_seed_is_bounded_before_expensive_work() -> None:
+    response = client.get(
+        "/api/regions/south_region/simulation",
+        params={"seed": main.MAX_SEED + 1},
+    )
+
+    assert response.status_code == 422
+
+
+def test_live_api_fails_closed_while_regional_generation_is_pending(tmp_path, monkeypatch) -> None:
+    pending_path = tmp_path / "publish_pending.json"
+    pending_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(main, "REGIONAL_PUBLICATION_PENDING_PATH", pending_path)
+
+    blocked = client.get("/api/live-revisions")
+
+    assert blocked.status_code == 503
+    assert blocked.headers["retry-after"] == "30"
+    assert client.get("/api/health/live").status_code == 200
+
+
+def test_live_api_rejects_response_if_publication_changes_during_request(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    pending_path = tmp_path / "publish_pending.json"
+    generation_path = tmp_path / "publish_generation.json"
+    monkeypatch.setattr(main, "REGIONAL_PUBLICATION_PENDING_PATH", pending_path)
+    monkeypatch.setattr(main, "REGIONAL_PUBLICATION_GENERATION_PATH", generation_path)
+    original_builder = main.build_live_revisions_payload
+
+    def build_while_generation_changes() -> dict[str, Any]:
+        payload = original_builder()
+        _write_json(generation_path, {"generation": "next"})
+        return payload
+
+    monkeypatch.setattr(
+        main,
+        "build_live_revisions_payload",
+        build_while_generation_changes,
+    )
+
+    blocked = client.get("/api/live-revisions")
+
+    assert blocked.status_code == 503
+    assert blocked.headers["retry-after"] == "1"
+
+
 def test_readiness_reports_required_artifacts_revisions_and_sync_modes() -> None:
     response = client.get("/api/health/ready")
     assert response.status_code == 200
@@ -82,7 +136,398 @@ def test_readiness_reports_required_artifacts_revisions_and_sync_modes() -> None
     )
     assert payload["revisions"]["etag"].startswith("sha256:")
     assert payload["sync"]["regions"]["mode"] == "automatic-30s"
-    assert payload["sync"]["finals"]["mode"] == "manual"
+    assert payload["sync"]["finals"]["mode"] == "automatic-30s"
+
+
+def test_readiness_parses_iso_and_http_date_source_timestamps() -> None:
+    now = datetime(2026, 6, 2, 9, 30, 37, tzinfo=UTC)
+
+    assert health_service._source_age_seconds(
+        "2026-06-02T09:29:37Z",
+        now=now,
+    ) == 60
+    assert health_service._source_age_seconds(
+        "Tue, 02 Jun 2026 09:29:37 GMT",
+        now=now,
+    ) == 60
+
+
+def test_readiness_does_not_gate_stale_sync_after_regionals_completed(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    normalized_path = tmp_path / "normalized_schedule.json"
+    _write_json(
+        normalized_path,
+        {
+            "sourceStatus": "active",
+            "sourceUpdatedAt": "Tue, 02 Jun 2026 09:29:37 GMT",
+            "regions": {
+                "north_region": {
+                    "matches": [
+                        {
+                            "isCompleted": True,
+                            "plannedStartAt": "2026-06-02T08:20:00Z",
+                        }
+                    ]
+                }
+            },
+        },
+    )
+    monkeypatch.setattr(service, "NORMALIZED_LIVE_SCHEDULE_PATH", normalized_path)
+    monkeypatch.setattr(
+        health_service,
+        "build_live_revisions_payload",
+        lambda: {"etag": "sha256:test", "regions": {}},
+    )
+    monkeypatch.setattr(finals_live, "load_finals_runtime", lambda: None)
+
+    payload, ready = health_service.build_readiness_payload(
+        now=datetime(2026, 7, 29, tzinfo=UTC)
+    )
+
+    assert ready is True
+    assert payload["checks"]["regionalRealtime"]["ok"] is True
+    assert payload["checks"]["regionalRealtime"]["required"] is False
+    assert payload["sync"]["regions"]["sourceAgeSeconds"] is not None
+    assert payload["sync"]["regions"]["checkStatus"]["status"] == "missing"
+    assert payload["sync"]["regions"]["event"]["eventComplete"] is True
+
+
+def test_readiness_gates_stale_regional_sync_during_live_window(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    normalized_path = tmp_path / "normalized_schedule.json"
+    now = datetime(2026, 8, 1, 8, 0, tzinfo=UTC)
+    _write_json(
+        normalized_path,
+        {
+            "sourceStatus": "active",
+            "sourceUpdatedAt": "2026-08-01T07:00:00Z",
+            "regions": {
+                "south_region": {
+                    "matches": [
+                        {
+                            "isCompleted": False,
+                            "officialStatus": "LIVE",
+                            "hasLiveScoreline": True,
+                            "plannedStartAt": "2026-08-01T08:00:00Z",
+                        }
+                    ]
+                }
+            },
+        },
+    )
+    _write_json(
+        normalized_path.with_name("check_status.json"),
+        {
+            "status": "failed",
+            "checkedAt": "2026-08-01T07:59:30Z",
+            "lastSuccessAt": "2026-08-01T07:00:00Z",
+            "error": "upstream timeout",
+        },
+    )
+    monkeypatch.setattr(service, "NORMALIZED_LIVE_SCHEDULE_PATH", normalized_path)
+    monkeypatch.setattr(
+        health_service,
+        "build_live_revisions_payload",
+        lambda: {"etag": "sha256:test", "regions": {}},
+    )
+    monkeypatch.setattr(finals_live, "load_finals_runtime", lambda: None)
+
+    payload, ready = health_service.build_readiness_payload(now=now)
+
+    assert ready is False
+    assert payload["checks"]["regionalRealtime"]["required"] is True
+    assert payload["checks"]["regionalRealtime"]["ok"] is False
+    assert payload["sync"]["regions"]["freshnessLabel"] == "stale"
+    assert payload["sync"]["regions"]["checkStatus"]["status"] == "failed"
+
+
+def test_readiness_accepts_fresh_304_lease_when_source_content_is_unchanged(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    normalized_path = tmp_path / "normalized_schedule.json"
+    now = datetime(2026, 8, 1, 8, 0, tzinfo=UTC)
+    _write_json(
+        normalized_path,
+        {
+            "sourceStatus": "active",
+            "sourceUpdatedAt": "2026-08-01T07:00:00Z",
+            "regions": {
+                "south_region": {
+                    "matches": [
+                        {
+                            "isCompleted": False,
+                            "officialStatus": "LIVE",
+                            "hasLiveScoreline": True,
+                            "plannedStartAt": "2026-08-01T08:00:00Z",
+                        }
+                    ]
+                }
+            },
+        },
+    )
+    _write_json(
+        normalized_path.with_name("check_status.json"),
+        {
+            "status": "ok",
+            "checkedAt": "2026-08-01T07:59:30Z",
+            "lastSuccessAt": "2026-08-01T07:59:30Z",
+        },
+    )
+    monkeypatch.setattr(service, "NORMALIZED_LIVE_SCHEDULE_PATH", normalized_path)
+    monkeypatch.setattr(
+        health_service,
+        "build_live_revisions_payload",
+        lambda: {"etag": "sha256:test", "regions": {}},
+    )
+    monkeypatch.setattr(finals_live, "load_finals_runtime", lambda: None)
+
+    payload, ready = health_service.build_readiness_payload(now=now)
+
+    assert ready is True
+    assert payload["checks"]["regionalRealtime"]["required"] is True
+    assert payload["checks"]["regionalRealtime"]["ok"] is True
+    assert payload["sync"]["regions"]["freshnessLabel"] == "stale"
+    assert payload["sync"]["regions"]["checkStatus"]["status"] == "ok"
+
+
+def test_readiness_final_live_gate_is_explicitly_opt_in(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("RMUC_FINALS_LIVE_REQUIRED", "1")
+    monkeypatch.setattr(
+        health_service,
+        "build_live_revisions_payload",
+        lambda: {"etag": "sha256:test", "regions": {}},
+    )
+    monkeypatch.setattr(finals_live, "load_finals_runtime", lambda: None)
+
+    payload, ready = health_service.build_readiness_payload(
+        now=datetime(2026, 8, 1, tzinfo=UTC)
+    )
+
+    assert ready is False
+    assert payload["checks"]["finalsRealtime"]["required"] is True
+    assert payload["checks"]["finalsRealtime"]["ok"] is False
+
+
+def test_readiness_requires_complete_official_finals_runtime(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    now = datetime(2026, 8, 1, 8, 0, tzinfo=UTC)
+    runtime_path = tmp_path / "finals" / "normalized_schedule.json"
+    _write_json(
+        runtime_path.with_name("check_status.json"),
+        {
+            "status": "ok",
+            "checkedAt": "2026-08-01T07:59:30Z",
+            "lastSuccessAt": "2026-08-01T07:59:30Z",
+        },
+    )
+    monkeypatch.setenv("RMUC_FINALS_LIVE_REQUIRED", "1")
+    monkeypatch.setattr(finals_live, "FINALS_RUNTIME_PATH", runtime_path)
+    monkeypatch.setattr(
+        health_service,
+        "build_live_revisions_payload",
+        lambda: {"etag": "sha256:test", "regions": {}},
+    )
+
+    def runtime(
+        source_kind: str,
+        nationals_count: int,
+        *,
+        completed: bool = False,
+    ) -> dict[str, Any]:
+        return {
+            "sourceStatus": "active",
+            "sourceKind": source_kind,
+            "isSynthetic": source_kind == "synthetic",
+            "sourceUpdatedAt": "2026-08-01T07:59:00Z",
+            "events": {
+                "repechage": {
+                    "matches": [
+                        {"number": number, "isCompleted": completed}
+                        for number in range(1, 33)
+                    ]
+                },
+                "nationals": {
+                    "matches": [
+                        {"number": number, "isCompleted": completed}
+                        for number in range(1, nationals_count + 1)
+                    ]
+                },
+            },
+        }
+
+    monkeypatch.setattr(finals_live, "load_finals_runtime", lambda: runtime("synthetic", 96))
+    synthetic_payload, synthetic_ready = health_service.build_readiness_payload(now=now)
+    assert synthetic_ready is False
+    assert synthetic_payload["sync"]["finals"]["fullCoverage"] is True
+    assert synthetic_payload["checks"]["finalsRealtime"]["ok"] is False
+
+    monkeypatch.setattr(
+        finals_live,
+        "load_finals_runtime",
+        lambda: runtime("synthetic", 96, completed=True),
+    )
+    completed_synthetic_payload, completed_synthetic_ready = (
+        health_service.build_readiness_payload(now=now)
+    )
+    assert completed_synthetic_ready is False
+    assert completed_synthetic_payload["sync"]["finals"]["eventComplete"] is False
+    assert completed_synthetic_payload["checks"]["finalsRealtime"]["required"] is True
+
+    monkeypatch.setattr(finals_live, "load_finals_runtime", lambda: runtime("official", 95))
+    partial_payload, partial_ready = health_service.build_readiness_payload(now=now)
+    assert partial_ready is False
+    assert partial_payload["sync"]["finals"]["fullCoverage"] is False
+    assert partial_payload["checks"]["finalsRealtime"]["ok"] is False
+
+    monkeypatch.setattr(finals_live, "load_finals_runtime", lambda: runtime("official", 96))
+    official_payload, official_ready = health_service.build_readiness_payload(now=now)
+    assert official_ready is True
+    assert official_payload["sync"]["finals"]["matchCount"] == 128
+    assert official_payload["checks"]["finalsRealtime"]["ok"] is True
+
+
+def test_readiness_stops_gating_finals_after_full_event_completion(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    now = datetime(2026, 8, 30, 8, 0, tzinfo=UTC)
+    runtime_path = tmp_path / "finals" / "normalized_schedule.json"
+    _write_json(
+        runtime_path.with_name("check_status.json"),
+        {
+            "status": "failed",
+            "checkedAt": "2026-08-30T07:59:30Z",
+            "lastSuccessAt": "2026-08-29T07:59:30Z",
+            "error": "official source rotated after event",
+        },
+    )
+    monkeypatch.setenv("RMUC_FINALS_LIVE_REQUIRED", "1")
+    monkeypatch.setattr(finals_live, "FINALS_RUNTIME_PATH", runtime_path)
+    monkeypatch.setattr(
+        health_service,
+        "build_live_revisions_payload",
+        lambda: {"etag": "sha256:test", "regions": {}},
+    )
+    monkeypatch.setattr(
+        finals_live,
+        "load_finals_runtime",
+        lambda: {
+            "sourceStatus": "active",
+            "sourceKind": "official",
+            "isSynthetic": False,
+            "events": {
+                event_slug: {
+                    "matches": [
+                        {"number": number, "isCompleted": True}
+                        for number in range(1, expected_count + 1)
+                    ]
+                }
+                for event_slug, expected_count in finals_live.EVENT_MATCH_COUNTS.items()
+            },
+        },
+    )
+
+    payload, ready = health_service.build_readiness_payload(now=now)
+
+    assert ready is True
+    assert payload["checks"]["finalsRealtime"]["required"] is False
+    assert payload["sync"]["finals"]["configuredRequired"] is True
+    assert payload["sync"]["finals"]["eventComplete"] is True
+    assert payload["sync"]["finals"]["completedMatches"] == 128
+
+
+def test_readiness_returns_structured_not_ready_for_corrupt_runtime_json(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    normalized_path = tmp_path / "normalized_schedule.json"
+    normalized_path.write_text("{not-json", encoding="utf-8")
+    normalized_path.with_name("check_status.json").write_text(
+        "{also-not-json",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(service, "NORMALIZED_LIVE_SCHEDULE_PATH", normalized_path)
+
+    def invalid_revisions() -> dict[str, Any]:
+        raise ValueError("invalid normalized runtime")
+
+    monkeypatch.setattr(
+        health_service,
+        "build_live_revisions_payload",
+        invalid_revisions,
+    )
+    monkeypatch.setattr(finals_live, "load_finals_runtime", lambda: None)
+
+    response = client.get("/api/health/ready")
+
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["status"] == "not-ready"
+    assert payload["checks"]["regionalRealtime"]["required"] is True
+    assert payload["sync"]["regions"]["checkStatus"]["status"] == "invalid"
+    assert "JSONDecodeError" in payload["sync"]["regions"]["checkStatus"]["error"]
+
+
+def test_readiness_returns_structured_not_ready_for_corrupt_finals_runtime(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("RMUC_FINALS_LIVE_REQUIRED", "1")
+    monkeypatch.setattr(
+        health_service,
+        "build_live_revisions_payload",
+        lambda: {"etag": "sha256:test", "regions": {}},
+    )
+
+    def invalid_finals_runtime() -> dict[str, Any]:
+        raise ValueError("invalid finals runtime")
+
+    monkeypatch.setattr(finals_live, "load_finals_runtime", invalid_finals_runtime)
+
+    response = client.get("/api/health/ready")
+
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["status"] == "not-ready"
+    assert payload["checks"]["finalsRealtime"]["required"] is True
+    assert "ValueError" in payload["sync"]["finals"]["runtimeError"]
+
+
+def test_readiness_canvas_export_gate_is_explicitly_opt_in(monkeypatch) -> None:
+    monkeypatch.setattr(
+        health_service,
+        "build_live_revisions_payload",
+        lambda: {"etag": "sha256:test", "regions": {}},
+    )
+    monkeypatch.setattr(finals_live, "load_finals_runtime", lambda: None)
+    monkeypatch.setattr(
+        health_service,
+        "_worker_endpoint_check",
+        lambda _url, *, required: {
+            "ok": not required,
+            "required": required,
+            "available": False,
+            "detail": "test worker unavailable",
+        },
+    )
+
+    optional_payload, optional_ready = health_service.build_readiness_payload()
+    assert optional_ready is True
+    assert optional_payload["checks"]["canvasExportWorker"]["required"] is False
+
+    monkeypatch.setenv("RMUC_CANVAS_EXPORT_REQUIRED", "1")
+    required_payload, required_ready = health_service.build_readiness_payload()
+    assert required_ready is False
+    assert required_payload["checks"]["canvasExportWorker"]["required"] is True
+    assert required_payload["checks"]["canvasExportWorker"]["ok"] is False
 
 
 def test_openapi_uses_explicit_models_for_core_endpoints() -> None:
@@ -109,7 +554,7 @@ def test_live_revisions_is_small_and_supports_conditional_requests() -> None:
     payload = response.json()
     assert payload["schemaVersion"] == "rmuc-live-revisions-v1"
     assert set(payload["regions"]) == {"south_region", "east_region", "north_region"}
-    assert payload["finals"]["syncMode"] == "manual"
+    assert payload["finals"]["syncMode"] == "automatic-30s"
     assert "currentSnapshot" not in response.text
     assert "matchLedger" not in response.text
 

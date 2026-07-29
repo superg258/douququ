@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -14,7 +15,6 @@ from .competition import (
     validate_distinct_matchup,
 )
 from .team_identity import resolve_team_identity
-
 
 ROOT = Path(__file__).resolve().parents[2]
 FINALS_RUNTIME_PATH = ROOT / "data" / "runtime" / "rmuc_live" / "finals" / "normalized_schedule.json"
@@ -38,6 +38,8 @@ RUNTIME_MATCH_FIELDS = (
     "blueTeamKey",
     "blueCollegeName",
     "blueTeamName",
+    "startsAt",
+    "endsAt",
 )
 RUNTIME_EVENT_FIELDS = (
     "fieldCapacity",
@@ -74,6 +76,19 @@ def _side_is_present(match: dict[str, Any], side: str) -> bool:
     return bool(match.get(f"{side}TeamKey") or match.get(f"{side}CollegeName"))
 
 
+def _runtime_timestamp(value: Any, *, context: str) -> datetime:
+    text = str(value or "").strip()
+    if not text:
+        raise ValueError(f"{context} is missing")
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"{context} is invalid: {text}") from exc
+    if parsed.tzinfo is None:
+        raise ValueError(f"{context} must include a timezone")
+    return parsed
+
+
 def normalize_runtime_match(raw_match: dict[str, Any], *, source_kind: str) -> dict[str, Any]:
     unsupported_fields = sorted(set(raw_match) - _RUNTIME_MATCH_INPUT_FIELDS)
     if unsupported_fields:
@@ -91,6 +106,24 @@ def normalize_runtime_match(raw_match: dict[str, Any], *, source_kind: str) -> d
     match["bestOf"] = int(match.get("bestOf") or 3)
     if match["bestOf"] not in SUPPORTED_BEST_OF:
         raise ValueError(f"Unsupported finals best-of value: {match['bestOf']}")
+    has_starts_at = bool(str(match.get("startsAt") or "").strip())
+    has_ends_at = bool(str(match.get("endsAt") or "").strip())
+    if has_starts_at != has_ends_at:
+        raise ValueError(f"Finals match {official_match_id} must provide startsAt and endsAt together")
+    if has_starts_at:
+        starts_at = _runtime_timestamp(
+            match["startsAt"],
+            context=f"Finals match {official_match_id} startsAt",
+        )
+        ends_at = _runtime_timestamp(
+            match["endsAt"],
+            context=f"Finals match {official_match_id} endsAt",
+        )
+        duration_seconds = (ends_at - starts_at).total_seconds()
+        if duration_seconds <= 0 or duration_seconds > 2 * 60 * 60:
+            raise ValueError(f"Finals match {official_match_id} has an invalid runtime duration")
+        match["startsAt"] = starts_at.isoformat(timespec="seconds")
+        match["endsAt"] = ends_at.isoformat(timespec="seconds")
     match["sourceKind"] = source_kind
     match["isSynthetic"] = source_kind == "synthetic"
 

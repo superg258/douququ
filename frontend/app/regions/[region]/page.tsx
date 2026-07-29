@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { PageLoadingFallback } from "@/components/page-loading-fallback";
 import { RegionWorkspace } from "@/components/region-workspace";
 import { isRegionSlug, REGION_LABELS } from "@/lib/region-config";
 import type { RegionSlug } from "@/lib/types";
@@ -26,7 +27,7 @@ export default async function RegionPage(props: PageProps) {
   const regionSlug: RegionSlug = params.region;
 
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PageLoadingFallback label="正在加载赛区工作区..." />}>
       <RegionWorkspace
         regionSlug={regionSlug}
       />

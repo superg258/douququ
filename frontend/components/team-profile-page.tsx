@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { getFinalEvents, getOverview, getTeamProfile } from "@/lib/api";
+import { getFinalEvents, getLiveRevisions, getOverview, getTeamProfile } from "@/lib/api";
 import { formatMatchLabel, formatRankingResultLabel, translateStageLabel } from "@/lib/display";
 import { EloSparkline, downsampleTrajectory } from "@/components/elo-sparkline";
 import { buildFullSeasonTrajectories } from "@/lib/elo-trajectory";
@@ -41,6 +41,7 @@ import { ErrorPanel, EmptyState } from "@/components/ui/async-state";
 import { MechCard } from "@/components/ui/mech-card";
 import { cn } from "@/lib/utils";
 import { formatBeijingMonthDayTime } from "@/lib/time-format";
+import { useRevisionPolling } from "@/lib/use-revision-polling";
 
 function pct(value: number | undefined) {
   if (typeof value !== "number") return "暂无";
@@ -613,47 +614,73 @@ export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) 
   const [finalsWarning, setFinalsWarning] = useState<string | null>(null);
   const [finalsWarnDismissed, setFinalsWarnDismissed] = useState(false);
   const [projection, setProjection] = useState<FinalsStageProbabilityProjection | null>(null);
+  const [dataRevision, setDataRevision] = useState<string | null>(null);
   const teamKey = decodeURIComponent(encodedTeamKey);
 
-  // 队伍档案（区域赛载荷）：失败 → 整页 ErrorPanel
-  useEffect(() => {
-    const controller = new AbortController();
-    getTeamProfile(teamKey, DEFAULT_SEED, "live", controller.signal)
-      .then((payload) => {
-        if (!controller.signal.aborted) setProfile(payload);
-      })
-      .catch((err) => {
-        if (!controller.signal.aborted) setError(err instanceof Error ? err.message : String(err));
-      });
-    return () => {
-      controller.abort();
-    };
-  }, [teamKey, reloadKey]);
+  const load = useCallback(async (signal: AbortSignal) => {
+    const [profileResult, finalsResult, overviewResult, revisionResult] = await Promise.allSettled([
+      getTeamProfile(teamKey, DEFAULT_SEED, "live", signal),
+      getFinalEvents("live", signal),
+      getOverview(signal),
+      getLiveRevisions(undefined, signal),
+    ]);
+    if (signal.aborted) throw new DOMException("The operation was aborted.", "AbortError");
 
-  // 决赛快照 + 总览：失败不整页报错，决赛区块整体降级隐藏 + 可关闭警告条
-  useEffect(() => {
-    const controller = new AbortController();
-    Promise.allSettled([getFinalEvents("live", controller.signal), getOverview(controller.signal)])
-      .then(([finalsResult, overviewResult]) => {
-        if (controller.signal.aborted) return;
-        let warning: string | null = null;
-        if (finalsResult.status === "fulfilled") {
-          setFinalsEvents(finalsResult.value.events);
-        } else {
-          warning = finalsResult.reason instanceof Error ? finalsResult.reason.message : String(finalsResult.reason);
-        }
-        if (overviewResult.status === "fulfilled") {
-          setOverview(overviewResult.value);
-        } else if (warning === null) {
-          warning = overviewResult.reason instanceof Error ? overviewResult.reason.message : String(overviewResult.reason);
-        }
-        setFinalsWarning(warning);
-        if (warning !== null) setFinalsWarnDismissed(false);
-      });
-    return () => {
-      controller.abort();
-    };
-  }, [reloadKey]);
+    const failures: string[] = [];
+    const warnings: string[] = [];
+    if (profileResult.status === "fulfilled") {
+      setProfile(profileResult.value);
+      setError("");
+    } else {
+      const message = profileResult.reason instanceof Error
+        ? profileResult.reason.message
+        : String(profileResult.reason);
+      setError(message);
+      failures.push(`队伍档案：${message}`);
+    }
+    if (finalsResult.status === "fulfilled") {
+      setFinalsEvents(finalsResult.value.events);
+    } else {
+      const message = finalsResult.reason instanceof Error
+        ? finalsResult.reason.message
+        : String(finalsResult.reason);
+      warnings.push(`决赛数据：${message}`);
+      failures.push(`决赛数据：${message}`);
+    }
+    if (overviewResult.status === "fulfilled") {
+      setOverview(overviewResult.value);
+    } else {
+      const message = overviewResult.reason instanceof Error
+        ? overviewResult.reason.message
+        : String(overviewResult.reason);
+      warnings.push(`概览数据：${message}`);
+      failures.push(`概览数据：${message}`);
+    }
+    if (revisionResult.status === "fulfilled") {
+      setDataRevision(revisionResult.value.etag);
+    } else {
+      const message = revisionResult.reason instanceof Error
+        ? revisionResult.reason.message
+        : String(revisionResult.reason);
+      warnings.push(`实时刷新状态：${message}`);
+      failures.push(`实时刷新状态：${message}`);
+    }
+    setFinalsWarning(warnings.length > 0 ? warnings.join("；") : null);
+    if (warnings.length > 0) setFinalsWarnDismissed(false);
+    if (failures.length > 0) throw new Error(failures.join("；"));
+  }, [teamKey]);
+
+  useRevisionPolling({
+    enabled: true,
+    resourceIdentity: `team-profile:${teamKey}:${reloadKey}`,
+    currentRevision: dataRevision,
+    selectRevision: (payload) => payload.etag,
+    loadFull: load,
+    onError: (refreshError) => {
+      setFinalsWarning((current) => current ?? `实时刷新状态：${refreshError.message}`);
+      setFinalsWarnDismissed(false);
+    },
+  });
 
   const finalsReady = hasFinalsStageData(finalsEvents, overview);
 
@@ -718,13 +745,13 @@ export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) 
   }, [overview, simulation, primarySlug, profile]);
 
   const handleRetry = () => {
-    setProfile(null);
     setError("");
+    setFinalsWarning(null);
     setReloadKey((key) => key + 1);
   };
 
   /* ── 错误态 ── */
-  if (error) {
+  if (error && !profile) {
     return (
       <div className="min-h-screen">
         <div className="mx-auto max-w-screen-xl px-4 py-8">
@@ -1007,11 +1034,22 @@ export function TeamProfilePage({ encodedTeamKey }: { encodedTeamKey: string }) 
         {/* ═══ 数据源新鲜度 ═══ */}
         <SourceFreshnessStrip freshness={profile.sourceFreshness} />
 
+        {error ? (
+          <div className="clip-chamfer-tr-bl flex items-center gap-2 border border-rm-status-warn/40 bg-rm-status-warn/10 px-3 py-2 font-mono text-[10px] text-rm-status-warn">
+            <span className="min-w-0 flex-1 truncate" title={error}>
+              队伍档案实时刷新失败（{error}）：当前保留上一次成功数据。
+            </span>
+            <button type="button" onClick={handleRetry} className="shrink-0 underline underline-offset-2">
+              重试
+            </button>
+          </div>
+        ) : null}
+
         {/* ═══ 决赛数据降级警告条（可关闭） ═══ */}
         {finalsWarning && !finalsWarnDismissed ? (
           <div className="clip-chamfer-tr-bl flex items-center gap-2 border border-rm-status-warn/40 bg-rm-status-warn/10 px-3 py-2 font-mono text-[10px] text-rm-status-warn">
             <span className="min-w-0 flex-1 truncate" title={finalsWarning}>
-              决赛阶段数据加载失败（{finalsWarning}）：决赛区块已隐藏，区域赛档案不受影响。
+              实时附加数据刷新失败（{finalsWarning}）：已保留上一次成功数据。
             </span>
             <button
               type="button"

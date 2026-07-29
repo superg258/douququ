@@ -962,36 +962,41 @@ def validate_normalized_schedule_payload(payload: dict[str, Any]) -> dict[str, A
 
 def build_runtime_match_records(
     normalized: dict[str, Any],
-    *,
-    existing_match_school_pairs: set[tuple[str, str]] | None = None,
 ) -> list[dict[str, Any]]:
-    existing_match_school_pairs = existing_match_school_pairs or set()
     if normalized.get("sourceStatus") != "active":
         return []
+    completed_matches = [
+        match
+        for region in normalized.get("regions", {}).values()
+        for match in region.get("matches", [])
+        if match.get("isCompleted")
+    ]
+    completed_matches.sort(
+        key=lambda match: (
+            str(match.get("plannedStartAt") or match.get("matchDate") or normalized.get("fetchedAt") or ""),
+            str(match.get("regionSlug") or ""),
+            int(match.get("orderNumber") or 0),
+            str(match.get("officialMatchId") or match.get("matchId") or ""),
+        )
+    )
     records: list[dict[str, Any]] = []
-    for region in normalized.get("regions", {}).values():
-        for match in region.get("matches", []):
-            if not match.get("isCompleted"):
-                continue
-            match_id = str(match["matchId"])
-            red_school = str(match["redSchoolKey"])
-            blue_school = str(match["blueSchoolKey"])
-            if (match_id, red_school) in existing_match_school_pairs or (match_id, blue_school) in existing_match_school_pairs:
-                continue
-            records.append(
-                {
-                    "match_id": match_id,
-                    "match_date": match.get("matchDate") or normalized.get("fetchedAt", "")[:10],
-                    "season": int(normalized.get("season") or 0),
-                    "ruleset_id": "RMUC",
-                    "stage_family": match["stageFamily"],
-                    "red_school_key": red_school,
-                    "blue_school_key": blue_school,
-                    "red_wins": int(match["redWins"]),
-                    "blue_wins": int(match["blueWins"]),
-                    "region_slug": match["regionSlug"],
-                }
-            )
+    for authoritative_order, match in enumerate(completed_matches):
+        records.append(
+            {
+                "match_id": str(match["matchId"]),
+                "match_date": match.get("matchDate") or normalized.get("fetchedAt", "")[:10],
+                "planned_start_at": str(match.get("plannedStartAt") or ""),
+                "authoritative_order": authoritative_order,
+                "season": int(normalized.get("season") or 0),
+                "ruleset_id": "RMUC",
+                "stage_family": match["stageFamily"],
+                "red_school_key": str(match["redSchoolKey"]),
+                "blue_school_key": str(match["blueSchoolKey"]),
+                "red_wins": int(match["redWins"]),
+                "blue_wins": int(match["blueWins"]),
+                "region_slug": match["regionSlug"],
+            }
+        )
     return records
 
 

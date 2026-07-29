@@ -41,6 +41,7 @@ from research.trueskill2.fit import (
     _split_recent_season_values,
     _build_rmuc_long_term_base_snapshot,
     _build_published_current_snapshot,
+    _sort_published_live_matches,
     build_published_preseason_snapshot,
     compute_published_rating,
     build_published_live_state_updates,
@@ -62,18 +63,42 @@ def run_cli(*args: str) -> subprocess.CompletedProcess[str]:
 
 
 class TrueSkill2ResearchTests(unittest.TestCase):
+    def test_live_replay_prefers_authoritative_order_over_same_day_match_id(self) -> None:
+        matches = pd.DataFrame(
+            [
+                {
+                    "match_id": "100",
+                    "match_date": "2026-05-11",
+                    "authoritative_order": 1,
+                },
+                {
+                    "match_id": "900",
+                    "match_date": "2026-05-11",
+                    "authoritative_order": 0,
+                },
+            ]
+        )
+
+        ordered = _sort_published_live_matches(matches)
+
+        self.assertEqual(ordered["match_id"].tolist(), ["900", "100"])
+
     def test_cli_exposes_runtime_guard(self) -> None:
         self.assertTrue(callable(getattr(trueskill2_cli, "ensure_supported_runtime", None)))
 
     def test_cli_runtime_guard_recommends_repo_venv_for_old_python(self) -> None:
         guard = getattr(trueskill2_cli, "ensure_supported_runtime", None)
         self.assertTrue(callable(guard))
-        with self.assertRaises(RuntimeError) as ctx:
-            guard(version_info=(3, 10, 12), executable="/usr/bin/python3")
+        with tempfile.TemporaryDirectory() as temp_dir, self.assertRaises(RuntimeError) as ctx:
+            guard(
+                version_info=(3, 10, 12),
+                executable="/usr/bin/python3",
+                root=Path(temp_dir),
+            )
 
         message = str(ctx.exception)
         self.assertIn("Python 3.11+", message)
-        self.assertIn(".venv312/bin/python", message)
+        self.assertIn("python3.12", message)
         self.assertIn("research.trueskill2.cli", message)
 
     def test_cli_normalizes_rocm_platforms_for_nvidia_gpu(self) -> None:

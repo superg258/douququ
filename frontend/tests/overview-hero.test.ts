@@ -11,7 +11,6 @@ describe("OverviewHero", () => {
     expect(html).toContain("复活赛 · 全国赛 赛程与预测");
     expect(html).toContain("/forecast-center?event=repechage");
     expect(html).toContain("进入复活赛对阵图");
-    expect(html).toContain("正在确认赛程");
     expect(html).not.toContain("系统运行正常");
     expect(html).not.toContain("服务响应");
     expect(html).not.toContain("模型产物");

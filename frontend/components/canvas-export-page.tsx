@@ -8,8 +8,8 @@ import { getFinalEvents, getOverview, getSimulation } from "@/lib/api";
 import { buildWorkspaceStage } from "@/lib/canvas-builders";
 import { buildFinalsWorkspaceStage } from "@/lib/finals-canvas";
 import { simulateFinalsEvents } from "@/lib/finals-simulation";
-import { FINAL_STAGE_OPTIONS } from "@/lib/finals-schedule";
-import { isRegionSlug, REGION_LABELS, REGION_VIEWS } from "@/lib/region-config";
+import { FINAL_STAGE_OPTIONS, hasOfficialFinalSchedule } from "@/lib/finals-schedule";
+import { DEFAULT_SEED, isRegionSlug, parseSeed, REGION_LABELS, REGION_VIEWS } from "@/lib/region-config";
 import type {
   FinalEventSlug,
   FinalEventStageFilter,
@@ -36,7 +36,7 @@ export function CanvasExportPage() {
   const competition = searchParams.get("competition");
   const requestedStage = searchParams.get("stage");
   const mode = searchParams.get("mode") === "sim" ? "sim" : "live";
-  const seed = Number(searchParams.get("seed") || "20260414");
+  const seed = parseSeed(searchParams.get("seed")) ?? DEFAULT_SEED;
   const requestedRevision = searchParams.get("revision");
   const highlight = searchParams.get("highlight");
   const [state, setState] = useState<ExportState | null>(null);
@@ -84,7 +84,11 @@ export function CanvasExportPage() {
       return {
         stage: buildFinalsWorkspaceStage(event.event, stage, simulation),
         title: `${competition === "repechage" ? "复活赛" : "全国赛"} · ${FINAL_STAGE_OPTIONS[competition].find((item) => item.id === stage)?.label ?? stage}`,
-        modeLabel: event.liveStatus?.isSynthetic ? "合成测试" : mode === "live" ? "实时" : "模拟",
+        modeLabel: event.liveStatus?.isSynthetic
+          ? "合成测试"
+          : mode === "live"
+            ? hasOfficialFinalSchedule(event) ? "官方实时" : "参考赛程 · 实时源未就绪"
+            : "模拟",
         sourceUpdatedAt: event.liveStatus?.sourceUpdatedAt ?? event.verifiedAt,
         dataRevision: revision,
         modelVersion: snapshot.modelVersion ?? null,

@@ -37,11 +37,12 @@ export function FinalsRecapSection() {
   const [recap, setRecap] = useState<FinalsPredictionRecap | null>(null);
   const [dataRevision, setDataRevision] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal: AbortSignal) => {
     const [overviewResult, finalsResult] = await Promise.allSettled([
-      getOverview(),
-      getFinalEvents("live"),
+      getOverview(signal),
+      getFinalEvents("live", signal),
     ]);
+    if (signal.aborted) throw new DOMException("The operation was aborted.", "AbortError");
     if (overviewResult.status !== "fulfilled") throw overviewResult.reason;
     if (finalsResult.status !== "fulfilled") throw finalsResult.reason;
     const overview: OverviewResponse = overviewResult.value;

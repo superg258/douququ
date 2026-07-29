@@ -9,7 +9,8 @@ import { ErrorPanel } from "@/components/ui/async-state";
 import { getFinalEvents, getLiveState, getOverview } from "@/lib/api";
 import { buildFullSeasonTrajectories } from "@/lib/elo-trajectory";
 import { hasOfficialFinalMatchData, simulateFinalsLiveEvents } from "@/lib/finals-simulation";
-import { DEFAULT_SEED, REGION_ORDER } from "@/lib/region-config";
+import { mergeRegionLiveStates } from "@/lib/live-state-merge";
+import { DEFAULT_SEED, REGION_LABELS, REGION_ORDER } from "@/lib/region-config";
 import { useRevisionPolling } from "@/lib/use-revision-polling";
 import { formatShortDateTimeLabel } from "@/lib/time-format";
 import type { FinalEventResponse, LiveStateResponse, OverviewResponse } from "@/lib/types";
@@ -27,16 +28,18 @@ export function EloRankingsPage() {
   const [reloadKey, setReloadKey] = useState(0);
   const [dataRevision, setDataRevision] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    const controller = new AbortController();
-    const { signal } = controller;
+  const load = useCallback(async (signal: AbortSignal) => {
     const results = await Promise.allSettled([
       getOverview(signal),
       getFinalEvents("live", signal),
       ...REGION_ORDER.map((slug) => getLiveState(slug, signal)),
     ]);
+    if (signal.aborted) throw new DOMException("The operation was aborted.", "AbortError");
     const [overviewResult, finalsResult, ...liveStateResults] = results;
     const nextErrors: string[] = [];
+    const successfulLiveStates = liveStateResults
+      .map((result) => result.status === "fulfilled" ? result.value as LiveStateResponse : null)
+      .filter((value): value is LiveStateResponse => value !== null);
     setData((current) => ({
       overview: overviewResult.status === "fulfilled" ? overviewResult.value as OverviewResponse : current.overview,
       repechage: finalsResult.status === "fulfilled"
@@ -45,19 +48,19 @@ export function EloRankingsPage() {
       nationals: finalsResult.status === "fulfilled"
         ? (finalsResult.value as Awaited<ReturnType<typeof getFinalEvents>>).events.nationals
         : current.nationals,
-      regionLiveStates: liveStateResults
-        .map((result) => result.status === "fulfilled" ? result.value as LiveStateResponse : null)
-        .filter((value): value is LiveStateResponse => value !== null),
+      regionLiveStates: mergeRegionLiveStates(current.regionLiveStates ?? [], successfulLiveStates),
     }));
     if (overviewResult.status === "rejected") nextErrors.push("战力数据");
     if (finalsResult.status === "rejected") nextErrors.push("全国赛阶段数据");
-    if (liveStateResults.every((result) => result.status === "rejected")) nextErrors.push("区域赛实时数据");
-    if (finalsResult.status === "fulfilled") {
+    liveStateResults.forEach((result, index) => {
+      if (result.status === "rejected") {
+        nextErrors.push(`${REGION_LABELS[REGION_ORDER[index]]}实时数据`);
+      }
+    });
+    if (nextErrors.length === 0 && finalsResult.status === "fulfilled") {
       const finals = finalsResult.value as Awaited<ReturnType<typeof getFinalEvents>>;
       const regionRevisions = liveStateResults
-        .map((result) => result.status === "fulfilled"
-          ? (result.value as LiveStateResponse).dataRevision ?? ""
-          : "")
+        .map((result) => (result as PromiseFulfilledResult<LiveStateResponse>).value.dataRevision ?? "")
         .join("|");
       setDataRevision(`${finals.dataRevision ?? finals.runtimeArtifactVersion}|${regionRevisions}`);
     }
@@ -69,7 +72,9 @@ export function EloRankingsPage() {
     enabled: true,
     resourceIdentity: `elo-rankings:${reloadKey}`,
     currentRevision: dataRevision,
-    selectRevision: (payload) => payload.etag,
+    selectRevision: (payload) => `${payload.finals.dataRevision}|${REGION_ORDER.map(
+      (slug) => payload.regions[slug].dataRevision,
+    ).join("|")}`,
     loadFull: load,
   });
 

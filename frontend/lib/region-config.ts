@@ -47,6 +47,7 @@ export const REGION_VIEWS: RegionViewConfig[] = [
 ];
 
 export const DEFAULT_SEED = 20260414;
+export const MAX_SEED = 999_999_999_999;
 const SESSION_SEED_STORAGE_KEY = "rmuc-live-seed";
 
 export const REGION_ORDER: RegionSlug[] = ["south_region", "east_region", "north_region"];
@@ -83,7 +84,10 @@ export function resolveWorkspaceDataMode(
 }
 
 export function isValidSeed(value: number | null | undefined) {
-  return typeof value === "number" && Number.isFinite(value) && value > 0;
+  return typeof value === "number"
+    && Number.isSafeInteger(value)
+    && value > 0
+    && value <= MAX_SEED;
 }
 
 export function parseSeed(seedText: string | null) {

@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
+
+import pytest
 
 from backend.app import service
 from scripts import sync_rmuc_live
@@ -12,6 +16,38 @@ from scripts import sync_rmuc_live
 def _write_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+
+def _completed_normalized() -> dict[str, Any]:
+    return {
+        "schemaVersion": "rmuc-regionals-live-v1",
+        "sourceStatus": "active",
+        "sourceKind": "official",
+        "eventTitle": "RoboMaster 2026 超级对抗赛",
+        "season": 2026,
+        "fetchedAt": "2026-05-11T08:00:00+00:00",
+        "sourceUpdatedAt": "Mon, 11 May 2026 08:00:00 GMT",
+        "regions": {
+            "south_region": {
+                "matches": [
+                    {
+                        "matchId": "2026RMUC:30900",
+                        "officialMatchId": "30900",
+                        "regionSlug": "south_region",
+                        "orderNumber": 1,
+                        "plannedStartAt": "2026-05-11T08:10:00+00:00",
+                        "matchDate": "2026-05-11",
+                        "stageFamily": "regional_group",
+                        "isCompleted": True,
+                        "redSchoolKey": "红方大学",
+                        "blueSchoolKey": "蓝方大学",
+                        "redWins": 2,
+                        "blueWins": 0,
+                    }
+                ]
+            }
+        },
+    }
 
 
 def test_clear_stale_runtime_published_artifacts_removes_live_outputs(tmp_path: Path) -> None:
@@ -26,6 +62,234 @@ def test_clear_stale_runtime_published_artifacts_removes_live_outputs(tmp_path: 
     assert not (published_dir / "live_match_ledger.json").exists()
     assert not (published_dir / "current_snapshot.json").exists()
     assert (published_dir / "published_manifest.json").exists()
+
+
+def test_model_config_signature_change_requires_runtime_republish(tmp_path: Path) -> None:
+    runtime_dir = tmp_path / "rmuc_live"
+    _write_json(
+        runtime_dir / "published_2026" / "published_manifest.json",
+        {"model_config_signature": {"live_update_strategy": "obsolete"}},
+    )
+
+    decision = sync_rmuc_live.runtime_publication_decision(
+        normalized=_completed_normalized(),
+        runtime_dir=runtime_dir,
+        config_path=None,
+        schedule_changed=False,
+        prediction_changed=False,
+    )
+
+    assert decision["modelConfigChanged"] is True
+    assert decision["publicationRequired"] is True
+
+
+def test_regional_schedule_digest_ignores_shared_upstream_header_rotation() -> None:
+    previous = _completed_normalized()
+    previous.update(
+        {
+            "fetchedAt": "2026-05-11T08:00:00+00:00",
+            "sourceUpdatedAt": "Mon, 11 May 2026 08:00:00 GMT",
+            "etag": '"regional-before"',
+        }
+    )
+    current = deepcopy(previous)
+    current.update(
+        {
+            "fetchedAt": "2026-05-11T08:00:30+00:00",
+            "sourceUpdatedAt": "Mon, 11 May 2026 08:00:30 GMT",
+            "etag": '"global-finals-changed"',
+        }
+    )
+
+    assert sync_rmuc_live.regional_schedule_digest(current) == (
+        sync_rmuc_live.regional_schedule_digest(previous)
+    )
+
+
+def test_runtime_match_records_sort_late_backfill_by_authoritative_time() -> None:
+    normalized = _completed_normalized()
+    later = normalized["regions"]["south_region"]["matches"][0]
+    later["matchId"] = "2026RMUC:30902"
+    later["officialMatchId"] = "30902"
+    later["orderNumber"] = 2
+    later["plannedStartAt"] = "2026-05-12T09:00:00+00:00"
+    later["matchDate"] = "2026-05-12"
+    earlier = deepcopy(later)
+    earlier["matchId"] = "2026RMUC:30901"
+    earlier["officialMatchId"] = "30901"
+    earlier["orderNumber"] = 1
+    earlier["plannedStartAt"] = "2026-05-11T09:00:00+00:00"
+    earlier["matchDate"] = "2026-05-11"
+    normalized["regions"]["south_region"]["matches"] = [later, earlier]
+
+    records = sync_rmuc_live.rmuc_live.build_runtime_match_records(normalized)
+
+    assert [row["match_id"] for row in records] == [
+        "2026RMUC:30901",
+        "2026RMUC:30902",
+    ]
+    assert [row["authoritative_order"] for row in records] == [0, 1]
+    assert [row["planned_start_at"] for row in records] == [
+        "2026-05-11T09:00:00+00:00",
+        "2026-05-12T09:00:00+00:00",
+    ]
+
+
+def test_publish_runtime_artifacts_replays_from_empty_authoritative_state(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import pandas as pd
+
+    runtime_dir = tmp_path / "rmuc_live"
+    _write_json(
+        runtime_dir / "published_2026" / "live_state_updates.json",
+        [{"match_id": "stale-result"}],
+    )
+    captured: dict[str, Any] = {}
+
+    monkeypatch.setattr(
+        sync_rmuc_live,
+        "load_manifest",
+        lambda _path: {
+            "season": 2026,
+            "rating_scale": 135.0,
+            "beta_perf": 1.8,
+            "online_live_update_scale": 0.33,
+        },
+    )
+    monkeypatch.setattr(
+        sync_rmuc_live,
+        "build_preseason_snapshot",
+        lambda *_args, **_kwargs: pd.DataFrame(),
+    )
+    monkeypatch.setattr(
+        sync_rmuc_live,
+        "build_runtime_live_form_observations",
+        lambda **_kwargs: pd.DataFrame(),
+    )
+    monkeypatch.setattr(
+        sync_rmuc_live,
+        "build_runtime_prediction_form_observations",
+        lambda **_kwargs: pd.DataFrame(),
+    )
+
+    def build_updates(**kwargs: Any) -> Any:
+        captured["existing_empty"] = kwargs["live_state_store"].empty
+        captured["match_ids"] = kwargs["new_matches"]["match_id"].tolist()
+        return pd.DataFrame()
+
+    monkeypatch.setattr(sync_rmuc_live, "build_published_live_state_updates", build_updates)
+    monkeypatch.setattr(
+        sync_rmuc_live,
+        "_build_published_current_snapshot",
+        lambda **_kwargs: pd.DataFrame(),
+    )
+
+    sync_rmuc_live.publish_runtime_artifacts(
+        normalized=_completed_normalized(),
+        runtime_dir=runtime_dir,
+        base_published_dir=tmp_path / "base",
+        preseason_ratings=tmp_path / "preseason.csv",
+        snapshot_date="2026-05-11",
+        config_path=None,
+    )
+
+    assert captured == {
+        "existing_empty": True,
+        "match_ids": ["2026RMUC:30900"],
+    }
+
+
+def test_failed_publish_keeps_pending_marker_and_next_run_forces_retry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime_dir = tmp_path / "rmuc_live"
+    _write_json(runtime_dir / "raw" / "schedule.json", {})
+    regional_cfg = sync_rmuc_live.load_regional_config(None)
+    _write_json(
+        runtime_dir / "published_2026" / "published_manifest.json",
+        {
+            "model_config_signature": sync_rmuc_live.runtime_model_config_signature(
+                regional_cfg
+            )
+        },
+    )
+    args = SimpleNamespace(
+        runtime_dir=runtime_dir,
+        base_published_dir=tmp_path / "base",
+        preseason_ratings=tmp_path / "preseason.csv",
+        config=None,
+        snapshot_date="2026-05-11",
+        skip_fetch=True,
+        skip_mini_program=True,
+        mini_program_ttl_seconds=60,
+        mini_program_refresh_window_seconds=10,
+        mini_program_lookback_hours=1,
+        mini_program_lookahead_hours=1,
+        mini_program_max_matches=1,
+    )
+    monkeypatch.setattr(sync_rmuc_live, "parse_args", lambda: args)
+    monkeypatch.setattr(
+        sync_rmuc_live.rmuc_live,
+        "normalize_schedule_payload",
+        lambda *_args, **_kwargs: _completed_normalized(),
+    )
+    attempts = 0
+
+    def publish(**_kwargs: Any) -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise RuntimeError("injected publish failure")
+
+    monkeypatch.setattr(sync_rmuc_live, "publish_runtime_artifacts", publish)
+    monkeypatch.setattr(sync_rmuc_live, "runtime_generation_complete", lambda *_args, **_kwargs: True)
+
+    with pytest.raises(RuntimeError, match="injected publish failure"):
+        sync_rmuc_live.main()
+
+    assert (runtime_dir / sync_rmuc_live.PUBLISH_PENDING_FILENAME).is_file()
+    failed = json.loads(
+        (runtime_dir / sync_rmuc_live.CHECK_STATUS_FILENAME).read_text(encoding="utf-8")
+    )
+    assert failed["status"] == "failed"
+    assert failed["publishPending"] is True
+
+    sync_rmuc_live.main()
+
+    assert attempts == 2
+    assert not (runtime_dir / sync_rmuc_live.PUBLISH_PENDING_FILENAME).exists()
+    recovered = json.loads(
+        (runtime_dir / sync_rmuc_live.CHECK_STATUS_FILENAME).read_text(encoding="utf-8")
+    )
+    assert recovered["status"] == "ok"
+    assert recovered["recoveryPending"] is True
+    assert recovered["publishPending"] is False
+
+
+def test_raw_snapshot_capacity_status_warns_without_deleting_originals(
+    tmp_path: Path,
+) -> None:
+    raw_dir = tmp_path / "raw"
+    first = raw_dir / "schedule.20260729T010000Z.json"
+    second = raw_dir / "robot_data.20260729T010030Z.json"
+    _write_json(first, {"payload": "a"})
+    _write_json(second, {"payload": "b"})
+
+    status = sync_rmuc_live.raw_snapshot_capacity_status(
+        raw_dir,
+        warning_bytes=10**9,
+        warning_files=2,
+    )
+
+    assert status["retentionMode"] == "retain-originals"
+    assert status["automaticDeletion"] is False
+    assert status["timestampedFileCount"] == 2
+    assert status["overWarningThreshold"] is True
+    assert status["warningReasons"] == ["files"]
+    assert first.exists() and second.exists()
 
 
 def test_sync_mini_program_predictions_reuses_fresh_cache_and_fetches_windowed_matches(tmp_path: Path) -> None:

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from . import finals_live
 from .artifacts import clear_versioned_json_cache, read_versioned_json
@@ -21,6 +23,7 @@ from .team_identity import resolve_team_identity, team_identity_key
 
 ROOT = Path(__file__).resolve().parents[2]
 FINALS_SCHEDULE_PATH = ROOT / "data" / "reference" / "2026_finals" / "schedule.json"
+BEIJING_TZ = ZoneInfo("Asia/Shanghai")
 EVENT_SLUGS = FINAL_EVENT_SLUGS
 EVENT_RESPONSE_FIELDS = (
     "slug",
@@ -265,7 +268,7 @@ def _merge_runtime_event(event: dict[str, Any], runtime_event: dict[str, Any] | 
         reference_match = reference_matches[number]
         if int(runtime_match.get("bestOf") or 0) != int(reference_match.get("bestOf") or 0):
             raise ValueError(f"Finals runtime BO does not match schedule for match #{number}")
-    merged["matches"] = [
+    merged_matches = [
         {
             **match,
             **{
@@ -277,6 +280,15 @@ def _merge_runtime_event(event: dict[str, Any], runtime_event: dict[str, Any] | 
         for match in event.get("matches", [])
         if isinstance(match, dict)
     ]
+    for match in merged_matches:
+        runtime_match = runtime_matches.get(int(match["number"]))
+        if not runtime_match:
+            continue
+        for timestamp_field, clock_field in (("startsAt", "startTime"), ("endsAt", "endTime")):
+            if timestamp_field in runtime_match:
+                parsed = datetime.fromisoformat(str(match[timestamp_field]).replace("Z", "+00:00"))
+                match[clock_field] = parsed.astimezone(BEIJING_TZ).strftime("%H:%M")
+    merged["matches"] = merged_matches
     return merged
 
 

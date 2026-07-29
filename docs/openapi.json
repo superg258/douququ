@@ -619,6 +619,7 @@
             "required": false,
             "schema": {
               "default": 20260414,
+              "maximum": 999999999999,
               "minimum": 1,
               "title": "Seed",
               "type": "integer"
@@ -715,6 +716,7 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 999999999999,
                   "minimum": 1,
                   "type": "integer"
                 },
@@ -972,6 +974,7 @@
             "required": false,
             "schema": {
               "default": 20260414,
+              "maximum": 999999999999,
               "minimum": 1,
               "title": "Seed",
               "type": "integer"
@@ -1025,6 +1028,7 @@
             "required": false,
             "schema": {
               "default": 20260414,
+              "maximum": 999999999999,
               "minimum": 1,
               "title": "Seed",
               "type": "integer"
@@ -1142,6 +1146,7 @@
             "required": false,
             "schema": {
               "default": 20260414,
+              "maximum": 999999999999,
               "minimum": 1,
               "title": "Seed",
               "type": "integer"
@@ -1202,6 +1207,7 @@
             "required": false,
             "schema": {
               "default": 20260414,
+              "maximum": 999999999999,
               "minimum": 1,
               "title": "Seed",
               "type": "integer"

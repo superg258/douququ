@@ -117,7 +117,7 @@ function toStripItem(
 }
 
 export function buildScheduleStrip(
-  events: Record<FinalEventSlug, Pick<FinalEventSchedule, "shortName" | "matches">>,
+  events: Partial<Record<FinalEventSlug, Pick<FinalEventSchedule, "shortName" | "matches">>>,
   now: Date,
 ): ScheduleStripModel | null {
   const nowMs = now.getTime();

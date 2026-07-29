@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { PageLoadingFallback } from "@/components/page-loading-fallback";
 import { TeamProfilePage } from "@/components/team-profile-page";
 
 interface PageProps {
@@ -17,7 +18,7 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
 export default async function TeamProfileRoute(props: PageProps) {
   const params = await props.params;
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PageLoadingFallback label="正在加载队伍档案..." />}>
       <TeamProfilePage encodedTeamKey={params.teamKey} />
     </Suspense>
   );

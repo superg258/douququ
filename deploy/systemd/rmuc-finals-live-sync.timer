@@ -1,0 +1,15 @@
+[Unit]
+Description=Run RMUC official finals live sync periodically
+
+[Timer]
+# Pin the competition cadence to China Standard Time regardless of host timezone.
+# A successful conditional request is cheap and refreshes the production
+# readiness lease, so keep this below RMUC_LIVE_MAX_AGE_SECONDS at all hours.
+OnCalendar=*-*-* *:*:0/30 Asia/Shanghai
+AccuracySec=5s
+RandomizedDelaySec=5s
+Persistent=true
+Unit=rmuc-finals-live-sync.service
+
+[Install]
+WantedBy=timers.target

@@ -14,7 +14,7 @@ import { ShareScheduleButton } from "@/components/share-schedule-button";
 import { WorkspaceSearchModal } from "@/components/workspace-search-modal";
 import { ErrorPanel } from "@/components/ui/async-state";
 import { ExportCanvasButton } from "@/components/export-canvas-button";
-import { getLiveState, getOverview, getSimulation } from "@/lib/api";
+import { getLiveRevisions, getLiveState, getOverview, getSimulation } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { buildWorkspaceStage } from "@/lib/canvas-builders";
 import { percent } from "@/lib/display";
@@ -124,6 +124,9 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
   const [simulation, setSimulation] = useState<SimulationResponse | null>(null);
   const [liveState, setLiveState] = useState<LiveStateResponse | null>(null);
+  const [liveContextRevision, setLiveContextRevision] = useState<string | null>(null);
+  const [liveContextReloadKey, setLiveContextReloadKey] = useState(0);
+  const [liveRefreshWarning, setLiveRefreshWarning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [simulationRetryToken, setSimulationRetryToken] = useState(0);
   const simulationRequestRef = useRef({ identity: "", generation: 0 });
@@ -201,33 +204,65 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
   }, [sessionSeed]);
 
   useEffect(() => {
-    getOverview()
+    if (requestedMode === "live") return;
+    const controller = new AbortController();
+    getOverview(controller.signal)
       .then((payload) => {
+        if (controller.signal.aborted) return;
         setOverview(payload);
         setError(null);
       })
-      .catch((err: Error) => setError(err.message));
-  }, []);
+      .catch((err: Error) => {
+        if (!controller.signal.aborted) setError(err.message);
+      });
+    return () => controller.abort();
+  }, [requestedMode]);
 
-  const loadFullLiveState = useCallback(async () => {
-    const payload = await getLiveState(regionSlug);
-    setLiveState(payload);
-    setError(null);
+  const loadFullLiveContext = useCallback(async (signal: AbortSignal) => {
+    const [liveResult, overviewResult, revisionResult] = await Promise.allSettled([
+      getLiveState(regionSlug, signal),
+      getOverview(signal),
+      getLiveRevisions(undefined, signal),
+    ]);
+    if (signal.aborted) throw new DOMException("The operation was aborted.", "AbortError");
+    const failures: string[] = [];
+    if (liveResult.status === "fulfilled") {
+      setLiveState(liveResult.value);
+    } else {
+      failures.push(`赛区实时数据：${liveResult.reason instanceof Error ? liveResult.reason.message : String(liveResult.reason)}`);
+    }
+    if (overviewResult.status === "fulfilled") {
+      setOverview(overviewResult.value);
+    } else {
+      failures.push(`战力概览：${overviewResult.reason instanceof Error ? overviewResult.reason.message : String(overviewResult.reason)}`);
+    }
+    if (revisionResult.status === "fulfilled") {
+      setLiveContextRevision(revisionResult.value.etag);
+    } else {
+      failures.push(`刷新状态：${revisionResult.reason instanceof Error ? revisionResult.reason.message : String(revisionResult.reason)}`);
+    }
+    if (failures.length > 0) {
+      const message = failures.join("；");
+      setLiveRefreshWarning(message);
+      throw new Error(message);
+    }
+    setLiveRefreshWarning(null);
   }, [regionSlug]);
 
   useEffect(() => {
     setLiveState(null);
+    setLiveRefreshWarning(null);
   }, [regionSlug, requestedMode]);
 
   useRevisionPolling({
     enabled: requestedMode === "live",
-    resourceIdentity: `region:${regionSlug}`,
-    currentRevision: liveState?.dataRevision,
-    selectRevision: (payload) => payload.regions[regionSlug]?.dataRevision,
-    loadFull: loadFullLiveState,
+    resourceIdentity: `region:${regionSlug}:${liveContextReloadKey}`,
+    currentRevision: liveContextRevision,
+    selectRevision: (payload) => payload.etag,
+    loadFull: loadFullLiveContext,
     onError: (err) => {
       setLiveState((current) => current ?? unavailableLiveState(regionSlug, err.message));
-      setError(err.message);
+      setLiveRefreshWarning(err.message);
     },
   });
 
@@ -650,9 +685,19 @@ export function RegionWorkspace({ regionSlug: rawRegionSlug }: { regionSlug: str
             </div>
           ) : null}
 
-          {error && stage ? (
+          {(error || liveRefreshWarning) && stage ? (
             <div className="absolute right-3 top-3 z-40 border border-rm-status-warn/50 bg-black/85 px-3 py-2 font-mono text-[11px] text-rm-status-warn">
               更新失败，当前展示上一次成功数据
+              <button
+                type="button"
+                onClick={() => {
+                  setSimulationRetryToken((token) => token + 1);
+                  setLiveContextReloadKey((key) => key + 1);
+                }}
+                className="ml-2 underline underline-offset-2"
+              >
+                重试
+              </button>
             </div>
           ) : null}
           

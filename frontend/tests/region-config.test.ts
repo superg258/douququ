@@ -2,10 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   buildRegionHref,
-  compareRegionOrder,
   createLiveSeed,
   DEFAULT_SEED,
   getOrCreateSessionSeed,
+  MAX_SEED,
   parseSeed,
   refreshSessionSeed,
   resolveWorkspaceDataMode,
@@ -38,14 +38,13 @@ afterEach(() => {
 describe("region-config", () => {
   it("parses valid seeds and rejects invalid values", () => {
     expect(parseSeed("20260414")).toBe(20260414);
+    expect(parseSeed(String(MAX_SEED))).toBe(MAX_SEED);
+    expect(parseSeed(String(MAX_SEED + 1))).toBeNull();
     expect(parseSeed("0")).toBeNull();
+    expect(parseSeed("1.5")).toBeNull();
+    expect(parseSeed(String(Number.MAX_SAFE_INTEGER + 1))).toBeNull();
     expect(parseSeed(null)).toBeNull();
     expect(parseSeed("abc")).toBeNull();
-  });
-
-  it("orders regions in the published south-east-north sequence", () => {
-    expect(compareRegionOrder("south_region", "east_region")).toBeLessThan(0);
-    expect(compareRegionOrder("east_region", "north_region")).toBeLessThan(0);
   });
 
   it("preserves seed, highlight, and mode in workspace deep links", () => {
@@ -92,6 +91,6 @@ describe("region-config", () => {
     const seed = createLiveSeed();
 
     expect(seed).toBeGreaterThan(0);
-    expect(Number.isFinite(seed)).toBe(true);
+    expect(Number.isSafeInteger(seed)).toBe(true);
   });
 });

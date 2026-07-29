@@ -19,6 +19,7 @@ import {
   ratingDeltaTone,
 } from "@/lib/live-rating";
 import { buildTeamHref } from "@/lib/team-profile";
+import { formatShortDateTimeLabel } from "@/lib/time-format";
 import { isOfficialPlaceholderMatch } from "@/lib/workspace-selection";
 import type {
   FinalEventMatch,
@@ -312,7 +313,7 @@ export function ForecastInspectorPanel({
             <MatchRoute match={match} eventSlug={eventSlug} />
           </div>
           <div className="flex items-center justify-between border-t border-rm-metal-border pt-3 text-rm-metal-textMuted font-mono text-[10px]">
-            <span>{match.startsAt.slice(0, 10)} {match.startTime}</span>
+            <span>{formatShortDateTimeLabel(match.startsAt)}</span>
             <span className="text-rm-status-scheduled">BO{match.bestOf}</span>
           </div>
         </div>

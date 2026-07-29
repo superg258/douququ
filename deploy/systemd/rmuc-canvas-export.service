@@ -8,6 +8,8 @@ Type=simple
 User=douququ
 Group=douququ
 WorkingDirectory=/opt/douququ
+Environment=HOME=/opt/douququ
+Environment=PLAYWRIGHT_BROWSERS_PATH=/opt/douququ/.cache/ms-playwright
 Environment=RMUC_EXPORT_FRONTEND_ORIGIN=http://127.0.0.1:3005
 Environment=RMUC_EXPORT_BACKEND_ORIGIN=http://127.0.0.1:8001
 Environment=RMUC_EXPORT_WORKER_PORT=3010

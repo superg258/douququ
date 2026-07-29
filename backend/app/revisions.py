@@ -3,8 +3,13 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Any
 
-from .artifacts import PathSignature, path_signature, read_versioned_json_if_exists, semantic_digest
 from . import finals_live, finals_schedule, service
+from .artifacts import (
+    PathSignature,
+    path_signature,
+    read_versioned_json_if_exists,
+    semantic_digest,
+)
 
 
 def _dict(payload: Any) -> dict[str, Any]:
@@ -155,7 +160,15 @@ def _finals_revision_inputs(
             service._published_current_snapshot_path_for(published_dir)
         ),
     }
-    return reference, rating_input
+    schedule_input = {
+        "reference": reference,
+        # Runtime match times, official IDs, assignments, statuses and scores
+        # are part of the served finals schedule.  In particular, an official
+        # reschedule must invalidate scheduleRevision/dataRevision even though
+        # the immutable reference file did not change.
+        "runtime": runtime,
+    }
+    return schedule_input, rating_input
 
 
 def finals_revisions(
@@ -233,7 +246,7 @@ def _build_live_revisions_payload() -> dict[str, Any]:
             "sourceKind": finals_status.get("sourceKind"),
             "isSynthetic": finals_status.get("isSynthetic") is True,
             "sourceUpdatedAt": finals_status.get("sourceUpdatedAt"),
-            "syncMode": "manual",
+            "syncMode": "automatic-30s",
         },
     }
     payload["etag"] = semantic_digest(payload)

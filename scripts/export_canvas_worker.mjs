@@ -36,6 +36,8 @@ const ALLOWED_STAGES = new Set([
 ]);
 
 let browserPromise;
+let browserInstance;
+let shuttingDown = false;
 let active = 0;
 const queue = [];
 
@@ -62,8 +64,28 @@ function validatePayload(payload) {
 }
 
 async function browser() {
-  browserPromise ||= chromium.launch({ headless: true });
-  return browserPromise;
+  browserPromise ||= chromium.launch({ headless: true }).then(
+    (instance) => {
+      browserInstance = instance;
+      instance.once("disconnected", () => {
+        browserInstance = undefined;
+        browserPromise = undefined;
+        if (!shuttingDown) {
+          process.stderr.write("canvas export Chromium disconnected; exiting for systemd restart\n");
+          process.exit(1);
+        }
+      });
+      return instance;
+    },
+    (error) => {
+      browserInstance = undefined;
+      browserPromise = undefined;
+      throw error;
+    },
+  );
+  const instance = await browserPromise;
+  if (!instance.isConnected()) throw new Error("canvas export Chromium is disconnected");
+  return instance;
 }
 
 async function render(payload) {
@@ -138,6 +160,15 @@ function drain() {
 }
 
 const server = http.createServer((request, response) => {
+  if (request.method === "GET" && request.url === "/health/ready") {
+    const ready = Boolean(browserInstance?.isConnected());
+    jsonResponse(response, ready ? 200 : 503, {
+      ready,
+      status: ready ? "ready" : "not-ready",
+      browser: ready ? "connected" : "disconnected",
+    });
+    return;
+  }
   if (request.method !== "POST" || request.url !== "/render") {
     jsonResponse(response, 404, { detail: "not found" });
     return;
@@ -171,14 +202,26 @@ const server = http.createServer((request, response) => {
   });
 });
 
-server.listen(PORT, HOST, () => {
-  process.stdout.write(`canvas export worker listening on http://${HOST}:${PORT}\n`);
-});
+async function start() {
+  // Do not expose a healthy TCP listener until Chromium has actually launched.
+  await browser();
+  server.listen(PORT, HOST, () => {
+    process.stdout.write(`canvas export worker listening on http://${HOST}:${PORT}\n`);
+  });
+}
 
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, async () => {
-    server.close();
-    if (browserPromise) await (await browserPromise).close();
+    if (shuttingDown) return;
+    shuttingDown = true;
+    if (server.listening) server.close();
+    if (browserInstance?.isConnected()) await browserInstance.close();
     process.exit(0);
   });
 }
+
+start().catch((error) => {
+  const message = error instanceof Error ? error.stack || error.message : String(error);
+  process.stderr.write(`canvas export worker startup failed: ${message}\n`);
+  process.exit(1);
+});

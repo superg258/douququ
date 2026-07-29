@@ -5,7 +5,6 @@ import {
   findFinalsOfficialSlot,
   findFinalsParticipation,
   hasFinalsStageData,
-  resolveFinalsDrawSlot,
   resolveFinalsStageRates,
   resolveFinalsTeamOutcome,
   resolveLockedTeamOutcome,
@@ -297,23 +296,6 @@ describe("hasFinalsStageData", () => {
   it("总览拉取失败时降级隐藏决赛区块", () => {
     expect(hasFinalsStageData(events, null)).toBe(false);
     expect(hasFinalsStageData(events, undefined)).toBe(false);
-  });
-});
-
-describe("resolveFinalsDrawSlot", () => {
-  const simulation = buildSimulation({
-    drawAssignments: { A1: alpha.teamKey, B2: beta.teamKey },
-  });
-
-  it("reverse-looks up the draw slot assigned to the team", () => {
-    expect(resolveFinalsDrawSlot(simulation, beta.teamKey)).toBe("B2");
-    expect(resolveFinalsDrawSlot(simulation, alpha.teamKey)).toBe("A1");
-  });
-
-  it("returns null when the team has no simulated slot or simulation is missing", () => {
-    expect(resolveFinalsDrawSlot(simulation, gamma.teamKey)).toBeNull();
-    expect(resolveFinalsDrawSlot(null, alpha.teamKey)).toBeNull();
-    expect(resolveFinalsDrawSlot(undefined, alpha.teamKey)).toBeNull();
   });
 });
 

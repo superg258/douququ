@@ -1,0 +1,6 @@
+# Reproducible dataframe layer for the production regional/finals sync jobs.
+# Core API requirements remain sourced from requirements.txt.
+-r requirements.txt
+
+pandas==2.3.3
+pyarrow==23.0.1

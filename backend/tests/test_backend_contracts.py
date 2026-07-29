@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.app import artifacts, finals_live, finals_schedule, main, revisions, rmuc_live, service, team_identity
+from backend.app import artifacts, finals_live, finals_schedule, main, revisions, rmuc_live, service, singleflight_cache, team_identity
 from backend.app.competition import (
     SWISS_TOTAL_MATCHES,
     parse_series_scoreline,
@@ -78,6 +78,26 @@ def test_singleflight_cache_reuses_success_and_returns_independent_values() -> N
 
     assert calls == 1
     assert second == {"values": [1]}
+
+
+def test_singleflight_cache_bounds_entries_and_proactively_purges_expired(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clock = 100.0
+    monkeypatch.setattr(singleflight_cache, "monotonic", lambda: clock)
+    cache = SingleflightTTLCache(max_entries=2)
+
+    for key in ("a", "b", "c"):
+        assert cache.get_or_compute(key, lambda key=key: key, success_ttl_seconds=10) == key
+
+    assert list(cache._values) == ["b", "c"]
+
+    clock = 111.0
+    assert cache.get_or_compute("d", lambda: "d", success_ttl_seconds=10) == "d"
+    assert list(cache._values) == ["d"]
+
+    assert cache.get_or_compute("uncached", lambda: "value", success_ttl_seconds=0) == "value"
+    assert "uncached" not in cache._values
 
 
 def _finals_runtime(*, events: dict[str, Any]) -> dict[str, Any]:

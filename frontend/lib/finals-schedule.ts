@@ -23,24 +23,65 @@ const DERIVED_SLOT_PATTERN = /(?:胜者|败者|决赛|半决赛|待确认|待定
 const NATIONALS_FIELD_CAPACITY = 32;
 
 export function hasOfficialFinalSchedule(response: FinalEventResponse) {
-  return response.liveStatus?.isSynthetic !== true
+  return response.liveStatus?.sourceStatus === "active"
+    && response.liveStatus.sourceKind === "official"
+    && response.liveStatus.isSynthetic !== true
+    && response.liveStatus.validationState === "validated"
     && response.event.matches.some((match) => Boolean(match.officialMatchId));
 }
 
-function findNextOfficialMatch(
+export function getFinalsLiveUnavailableReason(response: FinalEventResponse) {
+  const liveStatus = response.liveStatus;
+  if (!liveStatus || liveStatus.sourceStatus === "missing") {
+    return "官方赛程尚未发布，当前仅展示参考赛程。";
+  }
+  if (liveStatus.sourceStatus === "inactive") {
+    return "官方实时源当前未启用，当前仅展示参考赛程。";
+  }
+  if (liveStatus.sourceStatus === "error") {
+    return "官方实时源同步异常，当前仅展示参考赛程。";
+  }
+  if (liveStatus.isSynthetic || liveStatus.sourceKind === "synthetic") {
+    return "当前接入的是仿真测试数据，不作为官方实时赛程。";
+  }
+  if (liveStatus.sourceKind !== "official" || liveStatus.validationState !== "validated") {
+    return "官方实时源尚未通过校验，当前仅展示参考赛程。";
+  }
+  if (!response.event.matches.some((match) => Boolean(match.officialMatchId))) {
+    return "官方赛程尚未同步到可展示比赛，当前仅展示参考赛程。";
+  }
+  return null;
+}
+
+export function getOfficialFinalSchedules(
+  events: Record<FinalEventSlug, FinalEventResponse>,
+) {
+  const schedules: Partial<Record<FinalEventSlug, FinalEventSchedule>> = {};
+  for (const eventSlug of ["repechage", "nationals"] as const) {
+    const response = events[eventSlug];
+    if (hasOfficialFinalSchedule(response)) {
+      schedules[eventSlug] = response.event;
+    }
+  }
+  return schedules;
+}
+
+export function findNextOfficialMatch(
   events: Record<FinalEventSlug, FinalEventResponse>,
   now: string,
 ): { eventSlug: FinalEventSlug; match: FinalEventMatch } | null {
   let bestMatch: FinalEventMatch | null = null;
   let bestEventSlug: FinalEventSlug | null = null;
+  const nowMs = Date.parse(now);
 
   for (const eventSlug of ["repechage", "nationals"] as const) {
     const response = events[eventSlug];
-    if (!response) continue;
+    if (!response || !hasOfficialFinalSchedule(response)) continue;
     for (const match of response.event.matches) {
       if (!match.officialMatchId) continue;
-      if (match.startsAt < now) continue;
-      if (!bestMatch || match.startsAt < bestMatch.startsAt) {
+      const startsAtMs = Date.parse(match.startsAt);
+      if (!Number.isFinite(startsAtMs) || startsAtMs < nowMs) continue;
+      if (!bestMatch || startsAtMs < Date.parse(bestMatch.startsAt)) {
         bestMatch = match;
         bestEventSlug = eventSlug;
       }
@@ -123,7 +164,7 @@ export function buildFinalsCanvasEntry(
   return {
     href: "/forecast-center?event=repechage&mode=sim",
     label: "进入复活赛模拟对阵图",
-    statusLabel: null,
+    statusLabel: "暂无官方赛程 · 模拟",
   };
 }
 

@@ -19,11 +19,8 @@ from .api_models import (
     SimulationResponse,
     TeamProfileResponse,
 )
+from .artifacts import path_signature
 from .competition import RequestParameterError, UnknownResourceError
-from .finals_schedule import (
-    build_final_event_payload,
-    build_finals_snapshot_payload,
-)
 from .export_service import (
     ExportBusyError,
     ExportRequestError,
@@ -31,9 +28,14 @@ from .export_service import (
     ExportVersionConflict,
     render_canvas_png,
 )
-from .revisions import build_live_revisions_payload
+from .finals_schedule import (
+    build_final_event_payload,
+    build_finals_snapshot_payload,
+)
 from .health_service import build_readiness_payload
+from .revisions import build_live_revisions_payload
 from .service import (
+    RUNTIME_LIVE_DIR,
     build_command_center_payload,
     build_live_state_payload,
     build_overview_payload,
@@ -42,6 +44,10 @@ from .service import (
     build_simulation_payload,
     build_team_profile_payload,
 )
+
+MAX_SEED = 999_999_999_999
+REGIONAL_PUBLICATION_PENDING_PATH = RUNTIME_LIVE_DIR / "publish_pending.json"
+REGIONAL_PUBLICATION_GENERATION_PATH = RUNTIME_LIVE_DIR / "publish_generation.json"
 
 
 app = FastAPI(title="RMUC Results API", version="0.1.0")
@@ -53,6 +59,35 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def reject_mixed_live_generation(request: Request, call_next):
+    guarded = request.url.path.startswith("/api/") and not request.url.path.startswith(
+        "/api/health"
+    )
+    if not guarded:
+        return await call_next(request)
+
+    generation_before = path_signature(REGIONAL_PUBLICATION_GENERATION_PATH)
+    if REGIONAL_PUBLICATION_PENDING_PATH.is_file():
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Live data publication is in progress; retry shortly."},
+            headers={"Retry-After": "30"},
+        )
+    response = await call_next(request)
+    generation_after = path_signature(REGIONAL_PUBLICATION_GENERATION_PATH)
+    if (
+        REGIONAL_PUBLICATION_PENDING_PATH.is_file()
+        or generation_after != generation_before
+    ):
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Live data publication changed during the request; retry shortly."},
+            headers={"Retry-After": "1"},
+        )
+    return response
 
 
 @app.exception_handler(RequestParameterError)
@@ -98,7 +133,7 @@ def export_canvas_png(
     competition: str,
     stage: str,
     mode: str = Query("live"),
-    seed: int | None = Query(None, ge=1),
+    seed: int | None = Query(None, ge=1, le=MAX_SEED),
     highlight: str | None = Query(None, max_length=256),
     revision: str | None = Query(None, max_length=128),
 ) -> Response:
@@ -149,7 +184,7 @@ def finals_snapshot(mode: str = Query("live")) -> dict[str, Any]:
 
 @app.get("/api/prematch-center", response_model=PrematchCenterResponse)
 def prematch_center(
-    seed: int = Query(20260414, ge=1),
+    seed: int = Query(20260414, ge=1, le=MAX_SEED),
     mode: str = Query("live"),
     date: str | None = Query(None),
 ) -> dict[str, Any]:
@@ -158,7 +193,7 @@ def prematch_center(
 
 @app.get("/api/command-center", response_model=CommandCenterResponse)
 def command_center(
-    seed: int = Query(20260414, ge=1),
+    seed: int = Query(20260414, ge=1, le=MAX_SEED),
     mode: str = Query("live"),
     date: str | None = Query(None),
 ) -> dict[str, Any]:
@@ -166,17 +201,28 @@ def command_center(
 
 
 @app.get("/api/prediction-recap")
-def prediction_recap(seed: int = Query(20260414, ge=1), mode: str = Query("live")) -> dict[str, Any]:
+def prediction_recap(
+    seed: int = Query(20260414, ge=1, le=MAX_SEED),
+    mode: str = Query("live"),
+) -> dict[str, Any]:
     return build_prediction_recap_payload(seed=seed, mode=mode)
 
 
 @app.get("/api/teams/{team_key}", response_model=TeamProfileResponse)
-def team_profile(team_key: str, seed: int = Query(20260414, ge=1), mode: str = Query("live")) -> dict[str, Any]:
+def team_profile(
+    team_key: str,
+    seed: int = Query(20260414, ge=1, le=MAX_SEED),
+    mode: str = Query("live"),
+) -> dict[str, Any]:
     return build_team_profile_payload(team_key, seed=seed, mode=mode)
 
 
 @app.get("/api/regions/{region_slug}/simulation", response_model=SimulationResponse)
-def simulation(region_slug: str, seed: int = Query(20260414, ge=1), mode: str = Query("sim")) -> dict[str, Any]:
+def simulation(
+    region_slug: str,
+    seed: int = Query(20260414, ge=1, le=MAX_SEED),
+    mode: str = Query("sim"),
+) -> dict[str, Any]:
     return build_simulation_payload(region_slug, seed, mode)
 
 

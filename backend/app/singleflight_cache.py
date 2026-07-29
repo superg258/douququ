@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import OrderedDict
 from concurrent.futures import Future
 from copy import deepcopy
 from threading import Lock
@@ -10,11 +11,27 @@ from typing import Any, Callable, Hashable
 class SingleflightTTLCache:
     """Small in-process cache that computes each live key at most once."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, max_entries: int = 128) -> None:
+        if max_entries < 1:
+            raise ValueError("max_entries must be at least 1")
         self._lock = Lock()
-        self._values: dict[Hashable, tuple[float, Any]] = {}
-        self._failures: dict[Hashable, tuple[float, BaseException]] = {}
+        self._max_entries = int(max_entries)
+        self._values: OrderedDict[Hashable, tuple[float, Any]] = OrderedDict()
+        self._failures: OrderedDict[Hashable, tuple[float, BaseException]] = OrderedDict()
         self._inflight: dict[Hashable, Future[Any]] = {}
+
+    def _purge_expired_locked(self, now: float) -> None:
+        for entries in (self._values, self._failures):
+            expired = [key for key, (expires_at, _) in entries.items() if expires_at <= now]
+            for key in expired:
+                entries.pop(key, None)
+
+    def _enforce_capacity_locked(self) -> None:
+        while len(self._values) + len(self._failures) > self._max_entries:
+            if self._failures:
+                self._failures.popitem(last=False)
+            else:
+                self._values.popitem(last=False)
 
     def get_or_compute(
         self,
@@ -26,11 +43,14 @@ class SingleflightTTLCache:
     ) -> Any:
         now = monotonic()
         with self._lock:
+            self._purge_expired_locked(now)
             cached = self._values.get(key)
-            if cached and cached[0] > now:
+            if cached:
+                self._values.move_to_end(key)
                 return deepcopy(cached[1])
             failed = self._failures.get(key)
-            if failed and failed[0] > now:
+            if failed:
+                self._failures.move_to_end(key)
                 raise RuntimeError(str(failed[1])) from failed[1]
             future = self._inflight.get(key)
             owner = future is None
@@ -45,7 +65,12 @@ class SingleflightTTLCache:
             value = compute()
         except BaseException as exc:
             with self._lock:
-                self._failures[key] = (monotonic() + failure_ttl_seconds, exc)
+                if failure_ttl_seconds > 0:
+                    self._failures[key] = (monotonic() + failure_ttl_seconds, exc)
+                    self._failures.move_to_end(key)
+                    self._enforce_capacity_locked()
+                else:
+                    self._failures.pop(key, None)
                 self._inflight.pop(key, None)
                 future.set_exception(exc)
                 # The owner raises directly; mark the Future exception observed.
@@ -53,7 +78,12 @@ class SingleflightTTLCache:
             raise
 
         with self._lock:
-            self._values[key] = (monotonic() + success_ttl_seconds, deepcopy(value))
+            if success_ttl_seconds > 0:
+                self._values[key] = (monotonic() + success_ttl_seconds, deepcopy(value))
+                self._values.move_to_end(key)
+                self._enforce_capacity_locked()
+            else:
+                self._values.pop(key, None)
             self._failures.pop(key, None)
             self._inflight.pop(key, None)
             future.set_result(deepcopy(value))

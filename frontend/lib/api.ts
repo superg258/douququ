@@ -9,6 +9,7 @@ import type {
 } from "@/lib/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8001";
+export const API_REQUEST_TIMEOUT_MS = 15_000;
 interface SharedRequest {
   controller: AbortController;
   promise: Promise<unknown>;
@@ -63,14 +64,35 @@ function sharedRequest<T>(
   execute: (signal: AbortSignal) => Promise<T>,
   signal?: AbortSignal,
 ): Promise<T> {
+  if (signal?.aborted) {
+    return Promise.reject(new DOMException("The operation was aborted.", "AbortError"));
+  }
   let entry = inFlightRequests.get(key);
+  if (entry?.controller.signal.aborted) {
+    inFlightRequests.delete(key);
+    entry = undefined;
+  }
   if (!entry) {
     const controller = new AbortController();
+    let timedOut = false;
+    const timeout = globalThis.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, API_REQUEST_TIMEOUT_MS);
+    const promise = Promise.resolve()
+      .then(() => execute(controller.signal))
+      .catch((error) => {
+        if (timedOut) {
+          throw new Error(`Request timed out after ${API_REQUEST_TIMEOUT_MS}ms`);
+        }
+        throw error;
+      })
+      .finally(() => globalThis.clearTimeout(timeout));
     entry = {
       controller,
       subscribers: 0,
       settled: false,
-      promise: execute(controller.signal),
+      promise,
     };
     const created = entry;
     entry.promise = entry.promise.finally(() => {

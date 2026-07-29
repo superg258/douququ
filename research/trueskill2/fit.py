@@ -989,6 +989,16 @@ def _published_match_stage_family(match_row: dict[str, Any]) -> str:
     return "other"
 
 
+def _sort_published_live_matches(new_matches: Any) -> Any:
+    """Preserve the official replay sequence when the runtime publishes one."""
+    if "authoritative_order" in new_matches.columns:
+        return new_matches.sort_values(
+            ["authoritative_order", "match_date", "match_id"],
+            kind="stable",
+        )
+    return new_matches.sort_values(["match_date", "match_id"], kind="stable")
+
+
 def build_published_live_state_updates(
     preseason_snapshot: Any,
     live_state_store: Any,
@@ -1164,7 +1174,7 @@ def build_published_live_state_updates(
                     applied_form_snapshots[school].add(evidence_key)
                 elif snapshot:
                     applied_form_snapshots[school].add(f"{snapshot}|{robot_snapshot}")
-    for match in new_matches.sort_values(["match_date", "match_id"], kind="stable").to_dict(orient="records"):
+    for match in _sort_published_live_matches(new_matches).to_dict(orient="records"):
         if str(match.get("ruleset_id")) != "RMUC":
             continue
         match_id = str(match["match_id"])

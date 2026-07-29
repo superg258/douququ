@@ -1,0 +1,25 @@
+[Unit]
+Description=RMUC official repechage and nationals live schedule sync
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/opt/douququ/data/reference/2026_finals/schedule.json
+
+[Service]
+Type=oneshot
+User=douququ
+Group=douququ
+WorkingDirectory=/opt/douququ
+Environment=PYTHONPATH=/opt/douququ
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/douququ/.venv/bin/python /opt/douququ/scripts/sync_finals_live.py
+TimeoutStartSec=45
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+# data/ exists in a clean checkout; the script creates its ignored runtime
+# descendants on first start.
+ReadWritePaths=/opt/douququ/data
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=true

@@ -1376,19 +1376,28 @@ def test_normalize_schedule_payload_keeps_non_rmuc_source_inactive() -> None:
     assert normalized["regions"] == {}
 
 
-def test_build_runtime_match_records_filters_existing_match_school_pairs() -> None:
+def test_build_runtime_match_records_rebuilds_authoritative_result_corrections() -> None:
     normalized = rmuc_live.normalize_schedule_payload(
         _schedule_payload(),
         fetched_at=datetime(2026, 4, 27, tzinfo=UTC),
         source_headers={},
     )
 
-    records = rmuc_live.build_runtime_match_records(
-        normalized,
-        existing_match_school_pairs={("2026RMUC:296001", "太原理工大学")},
-    )
+    original = rmuc_live.build_runtime_match_records(normalized)
+    assert [(row["match_id"], row["red_wins"], row["blue_wins"]) for row in original] == [
+        ("2026RMUC:296001", 2, 0)
+    ]
 
-    assert records == []
+    match = normalized["regions"]["south_region"]["matches"][0]
+    match["redWins"] = 2
+    match["blueWins"] = 1
+    corrected = rmuc_live.build_runtime_match_records(normalized)
+    assert [(row["match_id"], row["red_wins"], row["blue_wins"]) for row in corrected] == [
+        ("2026RMUC:296001", 2, 1)
+    ]
+
+    match["isCompleted"] = False
+    assert rmuc_live.build_runtime_match_records(normalized) == []
 
 
 def test_live_overlay_forces_completed_scoreline_and_keeps_mp_payload() -> None:

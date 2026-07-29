@@ -6,6 +6,7 @@ import json
 import os
 import re
 import sys
+import uuid
 from datetime import UTC, datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
@@ -17,6 +18,7 @@ if str(ROOT) not in sys.path:
 
 from backend.app import rmuc_live  # noqa: E402
 from backend.app.artifacts import (  # noqa: E402
+    DEFAULT_VOLATILE_KEYS,
     read_json as load_json,
     read_versioned_json_if_exists as load_json_if_exists,
     semantic_digest,
@@ -46,14 +48,23 @@ DEFAULT_TS2_CONFIG = ROOT / "configs" / "trueskill2_full.yaml"
 MINI_PROGRAM_PREDICTIONS_FILENAME = "mini_program_predictions.json"
 PREDICTION_FORM_OBSERVATIONS_FILENAME = "prediction_form_observations.json"
 SYNC_MANIFEST_FILENAME = "sync_manifest.json"
+CHECK_STATUS_FILENAME = "check_status.json"
+PUBLISH_PENDING_FILENAME = "publish_pending.json"
+PUBLISH_GENERATION_FILENAME = "publish_generation.json"
+REGIONAL_SEMANTIC_VOLATILE_KEYS = DEFAULT_VOLATILE_KEYS | frozenset(
+    {"sourceUpdatedAt", "etag"}
+)
 DEFAULT_MINI_PROGRAM_TTL_SECONDS = 300
 DEFAULT_MINI_PROGRAM_REFRESH_WINDOW_SECONDS = 60
 DEFAULT_MINI_PROGRAM_LOOKBACK_HOURS = 24
 DEFAULT_MINI_PROGRAM_LOOKAHEAD_HOURS = 48
 DEFAULT_MINI_PROGRAM_MAX_MATCHES = 96
+DEFAULT_RAW_SNAPSHOT_WARNING_BYTES = 3 * 1024 * 1024 * 1024
+DEFAULT_RAW_SNAPSHOT_WARNING_FILES = 2500
 SYNC_USER_AGENT = "douququ-rmuc-live-sync/1.0"
 BEIJING_TZ = timezone(timedelta(hours=8))
 RUNTIME_SNAPSHOT_RE = re.compile(r"^(group_rank_info|robot_data)\.(\d{8}T\d{6}Z)\.json$")
+RAW_TIMESTAMP_SNAPSHOT_RE = re.compile(r"^.+\.\d{8}T\d{6}Z\.json$")
 
 
 def parse_args() -> argparse.Namespace:
@@ -71,6 +82,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mini-program-lookahead-hours", type=int, default=DEFAULT_MINI_PROGRAM_LOOKAHEAD_HOURS)
     parser.add_argument("--mini-program-max-matches", type=int, default=DEFAULT_MINI_PROGRAM_MAX_MATCHES)
     return parser.parse_args()
+
+
+def regional_schedule_digest(payload: Any) -> str:
+    """Digest only regional event semantics, not shared upstream HTTP metadata."""
+    return semantic_digest(
+        payload,
+        volatile_keys=REGIONAL_SEMANTIC_VOLATILE_KEYS,
+    )
 
 
 def mini_program_sync_disabled_from_env() -> bool:
@@ -101,6 +120,60 @@ def write_raw_snapshot(raw_dir: Path, name: str, payload: dict[str, Any], fetche
     safe_timestamp = fetched_at.strftime("%Y%m%dT%H%M%SZ")
     write_json_atomic(raw_dir / f"{name}.json", payload)
     write_json_atomic(raw_dir / f"{name}.{safe_timestamp}.json", payload)
+
+
+def _positive_int_env(name: str, default: int) -> int:
+    try:
+        value = int(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
+def raw_snapshot_capacity_status(
+    raw_dir: Path,
+    *,
+    warning_bytes: int | None = None,
+    warning_files: int | None = None,
+) -> dict[str, Any]:
+    byte_limit = warning_bytes or _positive_int_env(
+        "RMUC_RAW_SNAPSHOT_WARNING_BYTES",
+        DEFAULT_RAW_SNAPSHOT_WARNING_BYTES,
+    )
+    file_limit = warning_files or _positive_int_env(
+        "RMUC_RAW_SNAPSHOT_WARNING_FILES",
+        DEFAULT_RAW_SNAPSHOT_WARNING_FILES,
+    )
+    timestamped_paths = [
+        path
+        for path in raw_dir.glob("*.json")
+        if path.is_file() and RAW_TIMESTAMP_SNAPSHOT_RE.match(path.name)
+    ]
+    total_bytes = 0
+    for path in timestamped_paths:
+        try:
+            total_bytes += path.stat().st_size
+        except OSError:
+            continue
+    over_bytes = total_bytes >= byte_limit
+    over_files = len(timestamped_paths) >= file_limit
+    return {
+        "retentionMode": "retain-originals",
+        "automaticDeletion": False,
+        "timestampedFileCount": len(timestamped_paths),
+        "totalBytes": total_bytes,
+        "warningBytes": byte_limit,
+        "warningFiles": file_limit,
+        "overWarningThreshold": over_bytes or over_files,
+        "warningReasons": [
+            reason
+            for reason, triggered in (
+                ("bytes", over_bytes),
+                ("files", over_files),
+            )
+            if triggered
+        ],
+    }
 
 
 def _runtime_snapshot_index(raw_dir: Path, source_type: str) -> list[tuple[datetime, Path]]:
@@ -825,17 +898,11 @@ def publish_runtime_artifacts(
         rating_scale=rating_scale,
         regional_cfg=regional_cfg,
     )
-    existing = existing_live_updates(runtime_published_dir)
-    if not existing_manifest_compatible(runtime_published_dir, regional_cfg) or not existing_updates_compatible(existing, regional_cfg):
-        existing = pd.DataFrame()
-    existing_pairs = {
-        (str(row["match_id"]), str(row["school_key"]))
-        for row in existing[["match_id", "school_key"]].to_dict(orient="records")
-    } if not existing.empty else set()
-    match_records = rmuc_live.build_runtime_match_records(
-        normalized,
-        existing_match_school_pairs=existing_pairs,
-    )
+    # The normalized official schedule is the authority. Replaying the entire
+    # completed sequence is inexpensive at regional scale and is required for
+    # corrected, revoked, or late backfilled official results.
+    authoritative_state = pd.DataFrame()
+    match_records = rmuc_live.build_runtime_match_records(normalized)
     new_matches = pd.DataFrame(match_records)
     form_observations = build_runtime_live_form_observations(
         normalized=normalized,
@@ -849,7 +916,7 @@ def publish_runtime_artifacts(
     )
     live_updates = build_published_live_state_updates(
         preseason_snapshot=preseason,
-        live_state_store=existing,
+        live_state_store=authoritative_state,
         new_matches=new_matches,
         rating_scale=rating_scale,
         pre_decay_matches=int(regional_cfg.pre_decay_matches),
@@ -859,8 +926,6 @@ def publish_runtime_artifacts(
         season_delta_config=_season_delta_config(regional_cfg),
         form_observations=form_observations,
     )
-    if not existing.empty:
-        live_updates = pd.concat([existing, live_updates], ignore_index=True)
     current_snapshot = _build_published_current_snapshot(
         preseason_snapshot=preseason,
         live_state_store=live_updates,
@@ -933,6 +998,131 @@ def completed_official_match_count(normalized: dict[str, Any]) -> int:
     )
 
 
+def runtime_publication_decision(
+    *,
+    normalized: dict[str, Any],
+    runtime_dir: Path,
+    config_path: Path | None,
+    schedule_changed: bool,
+    prediction_changed: bool,
+    recovery_pending: bool | None = None,
+) -> dict[str, bool]:
+    completed_matches = completed_official_match_count(normalized)
+    publishes_ratings = normalized.get("sourceStatus") == "active" and completed_matches > 0
+    published_manifest_path = runtime_dir / "published_2026" / "published_manifest.json"
+    model_config_changed = publishes_ratings and not existing_manifest_compatible(
+        runtime_dir / "published_2026",
+        load_regional_config(config_path),
+    )
+    if recovery_pending is None:
+        recovery_pending = (runtime_dir / PUBLISH_PENDING_FILENAME).is_file()
+    manifest_missing = not published_manifest_path.is_file()
+    return {
+        "scheduleChanged": bool(schedule_changed),
+        "predictionChanged": bool(prediction_changed),
+        "modelConfigChanged": bool(model_config_changed),
+        "recoveryPending": bool(recovery_pending),
+        "manifestMissing": bool(manifest_missing),
+        "publicationRequired": bool(
+            schedule_changed
+            or prediction_changed
+            or model_config_changed
+            or recovery_pending
+            or manifest_missing
+        ),
+    }
+
+
+def runtime_generation_complete(
+    runtime_dir: Path,
+    *,
+    regional_cfg: RegionalPreModelConfig,
+) -> bool:
+    published_dir = runtime_dir / "published_2026"
+    required_paths = (
+        published_dir / "live_state_updates.json",
+        published_dir / "live_match_ledger.json",
+        published_dir / "current_snapshot.json",
+        published_dir / "published_manifest.json",
+        runtime_dir / PREDICTION_FORM_OBSERVATIONS_FILENAME,
+    )
+    return all(path.is_file() for path in required_paths) and existing_manifest_compatible(
+        published_dir,
+        regional_cfg,
+    )
+
+
+def mark_publication_pending(
+    runtime_dir: Path,
+    *,
+    normalized: dict[str, Any],
+    fetched_at: datetime,
+    reasons: list[str],
+) -> None:
+    write_json_atomic(
+        runtime_dir / PUBLISH_PENDING_FILENAME,
+        {
+            "status": "pending",
+            "startedAt": fetched_at.astimezone(UTC).isoformat(),
+            "normalizedDigest": regional_schedule_digest(normalized),
+            "reasons": reasons,
+        },
+    )
+    write_json_atomic(
+        runtime_dir / PUBLISH_GENERATION_FILENAME,
+        {
+            "generation": uuid.uuid4().hex,
+            "startedAt": fetched_at.astimezone(UTC).isoformat(),
+            "normalizedDigest": regional_schedule_digest(normalized),
+        },
+    )
+
+
+def clear_publication_pending(runtime_dir: Path) -> None:
+    path = runtime_dir / PUBLISH_PENDING_FILENAME
+    if path.exists():
+        path.unlink()
+
+
+def write_sync_check_status(
+    runtime_dir: Path,
+    *,
+    fetched_at: datetime,
+    status: str,
+    schedule_changed: bool,
+    prediction_changed: bool,
+    model_config_changed: bool,
+    publication_required: bool,
+    recovery_pending: bool,
+    error: str | None = None,
+) -> None:
+    path = runtime_dir / CHECK_STATUS_FILENAME
+    previous = load_json_if_exists(path)
+    previous = previous if isinstance(previous, dict) else {}
+    checked_at = fetched_at.astimezone(UTC).isoformat()
+    previous_success = previous.get("lastSuccessAt")
+    if not previous_success and previous.get("status") == "ok":
+        previous_success = previous.get("checkedAt")
+    last_success_at = checked_at if status == "ok" else previous_success
+    write_json_atomic(
+        path,
+        {
+            "status": status,
+            "checkedAt": checked_at,
+            "lastSuccessAt": last_success_at,
+            "scheduleChanged": bool(schedule_changed),
+            "predictionChanged": bool(prediction_changed),
+            "semanticChanged": bool(schedule_changed or prediction_changed),
+            "modelConfigChanged": bool(model_config_changed),
+            "publicationRequired": bool(publication_required),
+            "recoveryPending": bool(recovery_pending),
+            "publishPending": (runtime_dir / PUBLISH_PENDING_FILENAME).is_file(),
+            "error": error,
+            "rawSnapshots": raw_snapshot_capacity_status(runtime_dir / "raw"),
+        },
+    )
+
+
 def clear_stale_runtime_published_artifacts(runtime_dir: Path) -> None:
     runtime_published_dir = runtime_dir / "published_2026"
     for filename in ("live_state_updates.json", "live_match_ledger.json", "current_snapshot.json"):
@@ -999,75 +1189,161 @@ def main() -> None:
         source_headers=headers,
         group_rank_payload=group_rank_payload if isinstance(group_rank_payload, dict) else None,
     )
-    schedule_changed = semantic_digest(normalized) != semantic_digest(previous_normalized)
+    schedule_changed = regional_schedule_digest(normalized) != regional_schedule_digest(
+        previous_normalized
+    )
+    recovery_pending = (args.runtime_dir / PUBLISH_PENDING_FILENAME).is_file()
+    prediction_changed = False
+    model_config_changed = False
+    publication_required = bool(schedule_changed or recovery_pending)
+    mini_program_status = disabled_mini_program_status(
+        "mini-program sync not started",
+        fetched_at=fetched_at,
+    )
     if schedule_changed:
-        write_json_atomic(normalized_path, normalized)
-    elif isinstance(previous_normalized, dict):
-        # Keep the previously published operational timestamps when the event
-        # content is identical, so a 304 cannot manufacture a new artifact.
-        normalized = previous_normalized
-    mini_program_disabled = args.skip_mini_program or mini_program_sync_disabled_from_env()
-    if mini_program_disabled:
-        mini_program_status = disabled_mini_program_status("mini-program sync disabled", fetched_at=fetched_at)
-    else:
-        mini_program_status = sync_mini_program_predictions(
-            normalized,
-            runtime_dir=args.runtime_dir,
+        mark_publication_pending(
+            args.runtime_dir,
+            normalized=normalized,
             fetched_at=fetched_at,
-            ttl_seconds=args.mini_program_ttl_seconds,
-            refresh_window_seconds=args.mini_program_refresh_window_seconds,
-            lookback_hours=args.mini_program_lookback_hours,
-            lookahead_hours=args.mini_program_lookahead_hours,
-            max_matches=args.mini_program_max_matches,
+            reasons=["scheduleChanged"],
         )
-    current_mini_program = load_json_if_exists(
-        args.runtime_dir / MINI_PROGRAM_PREDICTIONS_FILENAME
-    )
-    prediction_changed = semantic_digest(current_mini_program) != semantic_digest(
-        previous_mini_program
-    )
-    completed_matches = completed_official_match_count(normalized)
-    published_manifest_path = args.runtime_dir / "published_2026" / "published_manifest.json"
-    semantic_changed = schedule_changed or prediction_changed
-    if semantic_changed or not published_manifest_path.exists():
-        if normalized.get("sourceStatus") == "active" and completed_matches > 0:
-            publish_runtime_artifacts(
-                normalized=normalized,
-                runtime_dir=args.runtime_dir,
-                base_published_dir=args.base_published_dir,
-                preseason_ratings=args.preseason_ratings,
-                snapshot_date=args.snapshot_date,
-                config_path=args.config,
+    try:
+        if schedule_changed:
+            write_json_atomic(normalized_path, normalized)
+        elif isinstance(previous_normalized, dict):
+            # Keep the previously published operational timestamps when the event
+            # content is identical, so a 304 cannot manufacture a new artifact.
+            normalized = previous_normalized
+
+        mini_program_disabled = args.skip_mini_program or mini_program_sync_disabled_from_env()
+        if mini_program_disabled:
+            mini_program_status = disabled_mini_program_status(
+                "mini-program sync disabled",
+                fetched_at=fetched_at,
             )
         else:
-            clear_stale_runtime_published_artifacts(args.runtime_dir)
-            write_json_atomic(
-                published_manifest_path,
-                {
-                    "season": normalized.get("season"),
-                    "snapshot_date": args.snapshot_date,
-                    "generated_at": datetime.now(tz=UTC).isoformat(),
-                    "source_status": normalized.get("sourceStatus"),
-                    "source_reason": normalized.get("reason"),
-                    "source_updated_at": normalized.get("sourceUpdatedAt"),
-                    "completed_official_matches": completed_matches,
-                },
+            mini_program_status = sync_mini_program_predictions(
+                normalized,
+                runtime_dir=args.runtime_dir,
+                fetched_at=fetched_at,
+                ttl_seconds=args.mini_program_ttl_seconds,
+                refresh_window_seconds=args.mini_program_refresh_window_seconds,
+                lookback_hours=args.mini_program_lookback_hours,
+                lookahead_hours=args.mini_program_lookahead_hours,
+                max_matches=args.mini_program_max_matches,
             )
-    sync_manifest_path = args.runtime_dir / SYNC_MANIFEST_FILENAME
-    if semantic_changed or not sync_manifest_path.exists():
-        write_json_atomic(
-            sync_manifest_path,
-            build_sync_manifest(normalized, mini_program_status=mini_program_status, fetched_at=fetched_at),
+        current_mini_program = load_json_if_exists(
+            args.runtime_dir / MINI_PROGRAM_PREDICTIONS_FILENAME
         )
-    write_json_atomic(
-        args.runtime_dir / "check_status.json",
-        {
-            "checkedAt": fetched_at.isoformat(),
-            "scheduleChanged": schedule_changed,
-            "predictionChanged": prediction_changed,
-            "semanticChanged": semantic_changed,
-        },
-    )
+        prediction_changed = semantic_digest(current_mini_program) != semantic_digest(
+            previous_mini_program
+        )
+        publication = runtime_publication_decision(
+            normalized=normalized,
+            runtime_dir=args.runtime_dir,
+            config_path=args.config,
+            schedule_changed=schedule_changed,
+            prediction_changed=prediction_changed,
+            recovery_pending=recovery_pending,
+        )
+        model_config_changed = publication["modelConfigChanged"]
+        publication_required = publication["publicationRequired"]
+        recovery_pending = publication["recoveryPending"]
+        completed_matches = completed_official_match_count(normalized)
+        published_manifest_path = args.runtime_dir / "published_2026" / "published_manifest.json"
+        semantic_changed = schedule_changed or prediction_changed
+
+        if publication_required:
+            reasons = [
+                key
+                for key, active in publication.items()
+                if active and key != "publicationRequired"
+            ]
+            mark_publication_pending(
+                args.runtime_dir,
+                normalized=normalized,
+                fetched_at=fetched_at,
+                reasons=reasons,
+            )
+            if normalized.get("sourceStatus") == "active" and completed_matches > 0:
+                publish_runtime_artifacts(
+                    normalized=normalized,
+                    runtime_dir=args.runtime_dir,
+                    base_published_dir=args.base_published_dir,
+                    preseason_ratings=args.preseason_ratings,
+                    snapshot_date=args.snapshot_date,
+                    config_path=args.config,
+                )
+                regional_cfg = load_regional_config(args.config)
+                if not runtime_generation_complete(
+                    args.runtime_dir,
+                    regional_cfg=regional_cfg,
+                ):
+                    raise RuntimeError("regional runtime generation is incomplete after publish")
+            else:
+                clear_stale_runtime_published_artifacts(args.runtime_dir)
+                write_json_atomic(
+                    published_manifest_path,
+                    {
+                        "season": normalized.get("season"),
+                        "snapshot_date": args.snapshot_date,
+                        "generated_at": datetime.now(tz=UTC).isoformat(),
+                        "source_status": normalized.get("sourceStatus"),
+                        "source_reason": normalized.get("reason"),
+                        "source_updated_at": normalized.get("sourceUpdatedAt"),
+                        "completed_official_matches": completed_matches,
+                    },
+                )
+
+        sync_manifest_path = args.runtime_dir / SYNC_MANIFEST_FILENAME
+        if semantic_changed or not sync_manifest_path.exists():
+            write_json_atomic(
+                sync_manifest_path,
+                build_sync_manifest(
+                    normalized,
+                    mini_program_status=mini_program_status,
+                    fetched_at=fetched_at,
+                ),
+            )
+        if publication_required:
+            clear_publication_pending(args.runtime_dir)
+        write_sync_check_status(
+            args.runtime_dir,
+            fetched_at=fetched_at,
+            status="ok",
+            schedule_changed=schedule_changed,
+            prediction_changed=prediction_changed,
+            model_config_changed=model_config_changed,
+            publication_required=publication_required,
+            recovery_pending=recovery_pending,
+        )
+    except Exception as exc:
+        pending_path = args.runtime_dir / PUBLISH_PENDING_FILENAME
+        if (schedule_changed or publication_required) and not pending_path.is_file():
+            try:
+                mark_publication_pending(
+                    args.runtime_dir,
+                    normalized=normalized,
+                    fetched_at=fetched_at,
+                    reasons=["failed"],
+                )
+            except OSError:
+                pass
+        try:
+            write_sync_check_status(
+                args.runtime_dir,
+                fetched_at=fetched_at,
+                status="failed",
+                schedule_changed=schedule_changed,
+                prediction_changed=prediction_changed,
+                model_config_changed=model_config_changed,
+                publication_required=publication_required,
+                recovery_pending=recovery_pending,
+                error=f"{type(exc).__name__}: {exc}",
+            )
+        except OSError:
+            pass
+        raise
     print(
         json.dumps(
             {

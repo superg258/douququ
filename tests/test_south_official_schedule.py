@@ -9,6 +9,7 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
+RULES_SCHEDULE = ROOT / "rules" / "RMUC 2026 区域赛（南部赛区）赛程表总览版-赛程总览.csv"
 sys.path.insert(0, str(ROOT / "scripts"))
 import build_rmuc_elo as legacy_elo  # noqa: E402
 
@@ -260,11 +261,12 @@ class SouthOfficialScheduleTests(unittest.TestCase):
             ],
         )
 
+    @unittest.skipUnless(RULES_SCHEDULE.is_file(), "requires the optional official south schedule CSV")
     def test_mock_south_rules_schedule_maps_today_to_day2_and_keeps_day5_label_times(self) -> None:
         import seed_rmuc_live_mock
 
         schedule = seed_rmuc_live_mock.load_rules_schedule(
-            seed_rmuc_live_mock.DEFAULT_RULES_SCHEDULE,
+            RULES_SCHEDULE,
             today_date_text="2026-05-06",
             today_day=2,
             timezone_name="Asia/Shanghai",
@@ -280,6 +282,7 @@ class SouthOfficialScheduleTests(unittest.TestCase):
         self.assertEqual(schedule["QUAL-2-2"].planned_start_at, "2026-05-09T13:35:00+08:00")
         self.assertEqual(schedule["FINAL-1"].planned_start_at, "2026-05-09T15:10:00+08:00")
 
+    @unittest.skipUnless(RULES_SCHEDULE.is_file(), "requires the optional official south schedule CSV")
     def test_mock_south_rules_schedule_selects_post_group_matches_by_rule_order(self) -> None:
         import seed_rmuc_live_mock
 
@@ -292,7 +295,7 @@ class SouthOfficialScheduleTests(unittest.TestCase):
             start_at=seed_rmuc_live_mock.DEFAULT_START_AT,
             interval_minutes=25,
             use_rules_schedule=True,
-            rules_schedule=seed_rmuc_live_mock.DEFAULT_RULES_SCHEDULE,
+            rules_schedule=RULES_SCHEDULE,
             today_date="2026-05-06",
             today_day=2,
             timezone_name="Asia/Shanghai",
@@ -310,6 +313,7 @@ class SouthOfficialScheduleTests(unittest.TestCase):
         )
         self.assertNotIn("QUAL-2-1", {match["matchLabel"] for match in normalized["regions"]["south_region"]["matches"]})
 
+    @unittest.skipUnless(RULES_SCHEDULE.is_file(), "requires the optional official south schedule CSV")
     def test_mock_south_rules_schedule_keeps_semifinal_before_qualification_round2(self) -> None:
         import seed_rmuc_live_mock
 
@@ -322,7 +326,7 @@ class SouthOfficialScheduleTests(unittest.TestCase):
             start_at=seed_rmuc_live_mock.DEFAULT_START_AT,
             interval_minutes=25,
             use_rules_schedule=True,
-            rules_schedule=seed_rmuc_live_mock.DEFAULT_RULES_SCHEDULE,
+            rules_schedule=RULES_SCHEDULE,
             today_date="2026-05-06",
             today_day=2,
             timezone_name="Asia/Shanghai",
