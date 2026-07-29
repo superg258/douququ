@@ -37,7 +37,6 @@ SCRIPTS_DIR = ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-import build_rmuc_ts2_backend as ts2_model  # noqa: E402
 import simulate_region as region_sim  # noqa: E402
 from . import rmuc_live
 
@@ -50,8 +49,8 @@ REGION_SLUG_ORDER = ["south_region", "east_region", "north_region"]
 REGION_SLUG_ORDER_INDEX = {region_slug: index for index, region_slug in enumerate(REGION_SLUG_ORDER)}
 REGION_SLUG_TO_NAME = {config["slug"]: region for region, config in region_sim.REGION_CONFIGS.items()}
 PRESEASON_RATINGS_CSV = DEFAULT_TEAM_RATINGS_PATH
-PUBLISHED_RATINGS_DIR = ts2_model.DERIVED_DIR / "published_2026"
-REGION_SIM_DIR = ts2_model.ROOT / "data" / "derived" / "2026_rmuc_region_simulations"
+PUBLISHED_RATINGS_DIR = ROOT / "data" / "derived" / "2026_rmuc_ts2" / "published_2026"
+REGION_SIM_DIR = ROOT / "data" / "derived" / "2026_rmuc_region_simulations"
 RUNTIME_LIVE_DIR = ROOT / "data" / "runtime" / "rmuc_live"
 NORMALIZED_LIVE_SCHEDULE_PATH = RUNTIME_LIVE_DIR / "normalized_schedule.json"
 MINI_PROGRAM_PREDICTIONS_PATH = RUNTIME_LIVE_DIR / "mini_program_predictions.json"
@@ -59,6 +58,7 @@ PREDICTION_FORM_OBSERVATIONS_PATH = RUNTIME_LIVE_DIR / "prediction_form_observat
 RUNTIME_PUBLISHED_RATINGS_DIR = RUNTIME_LIVE_DIR / "published_2026"
 MINI_PROGRAM_CLIENT = rmuc_live.MiniProgramPredictionClient()
 SIMULATION_CACHE = SingleflightTTLCache()
+SIMULATION_TOPOLOGY_VERSION = "regional-simulation-v1"
 
 
 class UnknownRegionError(UnknownResourceError):
@@ -3236,7 +3236,6 @@ def _build_simulation_payload_uncached(
     mode: str = "sim",
     samples: int = DEFAULT_SIMULATION_SAMPLES,
 ) -> dict[str, Any]:
-    from .competition_graph import COMPETITION_GRAPH_VERSION
     from .revisions import current_model_version, region_revisions
 
     if mode not in {"live", "sim"}:
@@ -3295,7 +3294,6 @@ def _build_simulation_payload_uncached(
     )
     payload["meta"].update(region_revisions(region_slug))
     payload["meta"]["modelVersion"] = current_model_version()
-    payload["meta"]["topologyVersion"] = COMPETITION_GRAPH_VERSION
     if mode == "live" and context.source_status == "active":
         _attach_live_schedule_metadata(
             payload,
@@ -3334,7 +3332,6 @@ def build_simulation_payload(
     mode: str = "sim",
     samples: int = DEFAULT_SIMULATION_SAMPLES,
 ) -> dict[str, Any]:
-    from .competition_graph import COMPETITION_GRAPH_VERSION
     from .revisions import current_model_version, region_revisions
 
     revisions = region_revisions(region_slug)
@@ -3345,7 +3342,7 @@ def build_simulation_payload(
         int(samples),
         revisions["dataRevision"],
         current_model_version(),
-        COMPETITION_GRAPH_VERSION,
+        SIMULATION_TOPOLOGY_VERSION,
     )
     return SIMULATION_CACHE.get_or_compute(
         cache_key,

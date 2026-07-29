@@ -35,8 +35,6 @@ import {
   SWISS_OFFICIAL_PLACEHOLDER_SUMMARY_COUNTS,
   SWISS_STAGE_COLUMNS,
   SWISS_STAGE_FLOWS,
-  type SwissBucketKey,
-  type SwissSummaryId,
 } from "@/lib/swiss-canvas";
 
 interface SwissReplayArtifacts {
@@ -374,37 +372,6 @@ function replaySwissBuckets(simulation: SimulationResponse, groupName: "A" | "B"
   }
 
   return { matchBuckets, summaryBuckets, summaryIsSimulated };
-}
-
-export function summaryBucketTeams(
-  simulation: SimulationResponse,
-  bucket: string
-): Array<GroupRankingRow | FinalRankingRow> {
-  if (bucket.includes(":qualified-") || bucket.includes(":eliminated-")) {
-    const [groupName, label] = bucket.split(":");
-    const artifacts = replaySwissBuckets(simulation, groupName as "A" | "B");
-    return artifacts.summaryBuckets[label] ?? [];
-  }
-
-  if (bucket === "champion") {
-    return simulation.finalRankings.filter((row) => row.finalBucket === "champion");
-  }
-  if (bucket === "runner-up") {
-    return simulation.finalRankings.filter((row) => row.finalBucket === "runner_up");
-  }
-  if (bucket === "third-place") {
-    return simulation.finalRankings.filter((row) => row.finalBucket === "third_place");
-  }
-  if (bucket === "fourth-place") {
-    return simulation.finalRankings.filter((row) => row.finalBucket === "fourth_place");
-  }
-  if (bucket === "national-qualifiers") {
-    return simulation.finalRankings.filter((row) => row.advancement === "national_qualified");
-  }
-  if (bucket === "repechage-qualifiers") {
-    return simulation.finalRankings.filter((row) => row.advancement === "repechage_qualified");
-  }
-  return [];
 }
 
 type QualificationOutcomeKey = "national" | "repechage" | "eliminated";

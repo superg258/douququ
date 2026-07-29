@@ -9,7 +9,6 @@ from starlette.responses import JSONResponse
 
 from .api_models import (
     CommandCenterResponse,
-    CompetitionGraphResponse,
     FinalEventResponse,
     FinalsSnapshotResponse,
     HealthResponse,
@@ -20,7 +19,6 @@ from .api_models import (
     SimulationResponse,
     TeamProfileResponse,
 )
-from .competition_graph import build_competition_graph
 from .competition import RequestParameterError, UnknownResourceError
 from .finals_schedule import (
     build_final_event_payload,
@@ -180,11 +178,6 @@ def team_profile(team_key: str, seed: int = Query(20260414, ge=1), mode: str = Q
 @app.get("/api/regions/{region_slug}/simulation", response_model=SimulationResponse)
 def simulation(region_slug: str, seed: int = Query(20260414, ge=1), mode: str = Query("sim")) -> dict[str, Any]:
     return build_simulation_payload(region_slug, seed, mode)
-
-
-@app.get("/api/competition-graphs/{competition}", response_model=CompetitionGraphResponse)
-def competition_graph(competition: str) -> dict[str, object]:
-    return build_competition_graph(competition)
 
 
 @app.get("/api/regions/{region_slug}/live-state")

@@ -321,7 +321,6 @@ export interface SimulationResponse {
     ratingRevision?: string;
     dataRevision?: string;
     modelVersion?: string;
-    topologyVersion?: string;
   };
   slots: SlotRow[];
   groupRankings: Record<string, GroupRankingRow[]>;
@@ -344,83 +343,6 @@ export interface RegionViewConfig {
   description: string;
   kind: "canvas";
   tone: CanvasTone;
-}
-
-export interface OverviewMetric {
-  label: string;
-  value: string;
-}
-
-export interface OverviewModule {
-  id: string;
-  eyebrow: string;
-  title: string;
-  description?: string;
-  tone?: CanvasTone;
-}
-
-export interface RegionDashboardCard {
-  regionSlug: RegionSlug;
-  regionName: string;
-  nationalSlots: number;
-  repechageSlots: number;
-  teamCount: number;
-  avgTop4Elo: number;
-  avgTop8Elo: number;
-  meanElo: number;
-  medianElo: number;
-  top3ChampionShare: number;
-  top8ChampionShare: number;
-  titleGap: number;
-  favorite: OverviewTeam;
-  teams: OverviewTeam[];
-  monteCarlo: OverviewRegion["monteCarlo"];
-  liveStatus?: LiveStatusSummary;
-  titleShapeTag: string;
-  profileTags: string[];
-  summarySentence: string;
-  nationalLocks: OverviewTeam[];
-  repechageLocks: OverviewTeam[];
-  nationalRace: {
-    locksCount: number;
-    cutoffTeam: OverviewTeam | null;
-    chasingTeams: OverviewTeam[];
-    totalChasingCount: number;
-    cutoffProbability: number;
-    gap: number;
-    bandSize: number;
-  };
-  repechageRace: {
-    locksCount: number;
-    cutoffTeam: OverviewTeam | null;
-    chasingTeams: OverviewTeam[];
-    totalChasingCount: number;
-    cutoffProbability: number;
-    gap: number;
-    bandSize: number;
-  };
-}
-
-export interface RegionStrengthRow {
-  regionSlug: RegionSlug;
-  regionName: string;
-  powerIndex: number;
-  top4AverageElo: number;
-  top8AverageElo: number;
-  meanElo: number;
-  medianElo: number;
-  favoriteChampionProbability: number;
-  top3ChampionShare: number;
-  nationalLockCount: number;
-  titleGap: number;
-}
-
-export interface OverviewDashboard {
-  generatedLabel: string;
-  heroMetrics: OverviewMetric[];
-  regions: RegionDashboardCard[];
-  contenders: OverviewTeam[];
-  regionStrength: RegionStrengthRow[];
 }
 
 export interface WorkspaceStageHeader {
@@ -574,23 +496,6 @@ export type InspectorSelection =
   | { kind: "team"; teamKey: string }
   | { kind: "match"; matchLabel: string };
 
-/* ═══════════════════════════════════════════════════════════
-   Prematch Center
-   ═══════════════════════════════════════════════════════════ */
-
-export type PrematchDataSource = "official_live" | "simulation" | "simulation_proxy";
-export type PrematchScheduleState = "simulation" | "simulation_proxy" | "scheduled" | "confirmed_unfinished" | "official_placeholder";
-export type PrematchRequestedMode = "live" | "sim";
-export type PrematchEffectiveMode = "live" | "sim" | "simulation_proxy";
-export type PrematchTimelineState =
-  | "live_now"
-  | "up_next"
-  | "today_pending"
-  | "confirmed_upcoming"
-  | "overdue_unresolved"
-  | "simulation_unassigned"
-  | "review_pending";
-
 export interface PrematchRegionStatus {
   regionSlug: RegionSlug;
   regionName: string;
@@ -618,184 +523,6 @@ export interface SourceFreshness {
   totalRegionCount: number;
   coverageLabel: string;
   regionStatuses: PrematchRegionStatus[];
-}
-
-export interface PrematchAudience {
-  status: "available" | "stale" | "unavailable";
-  available: boolean;
-  redRate: number | null;
-  blueRate: number | null;
-  tieRate: number | null;
-  totalCount: number | null;
-  favoriteSide: "red" | "blue" | "tie" | null;
-  label: string;
-  fetchedAt: string | null;
-}
-
-export interface PrematchDivergence {
-  available: boolean;
-  redDelta: number | null;
-  absoluteDelta: number | null;
-  label: string;
-  audienceFavoriteSide: "red" | "blue" | "tie" | null;
-}
-
-export interface PrematchUpsetRisk {
-  score: number;
-  label: string;
-  reason: string;
-}
-
-export interface PrematchCenterMatch {
-  id: string;
-  regionSlug: RegionSlug;
-  regionName: string;
-  seed: number;
-  mode: string;
-  dataSource: PrematchDataSource;
-  scheduleState: PrematchScheduleState;
-  timelineState?: PrematchTimelineState;
-  workspaceView: WorkspaceView;
-  matchLabel: string;
-  stage: string;
-  stageLabel: string;
-  stageOrder: number;
-  roundNumber: number;
-  groupName: string;
-  bestOf: number;
-  isConfirmedMatchup?: boolean;
-  plannedStartAt: string | null;
-  plannedLocalDate: string | null;
-  officialMatchId: string | null;
-  officialStatus: string | null;
-  redTeam: TeamRef;
-  blueTeam: TeamRef;
-  pGameRed: number;
-  pGameBlue: number;
-  pSeriesRed: number;
-  pSeriesBlue: number;
-  favoriteRate: number;
-  margin: number;
-  predictedWinnerSide: "red" | "blue";
-  predictedWinnerTeamKey: string;
-  predictedWinnerName: string;
-  predictedScoreline: string;
-  confidenceLabel: string;
-  confidenceText: string;
-  audience: PrematchAudience;
-  modelAudienceDivergence: PrematchDivergence;
-  upsetRisk: PrematchUpsetRisk;
-  redTeamGlobalRank?: number | null;
-  blueTeamGlobalRank?: number | null;
-  redCurrentElo?: number | null;
-  blueCurrentElo?: number | null;
-  redPreseasonElo?: number | null;
-  bluePreseasonElo?: number | null;
-  redEloDeltaFromPreseason?: number | null;
-  blueEloDeltaFromPreseason?: number | null;
-  redSeasonOverperformer?: boolean;
-  blueSeasonOverperformer?: boolean;
-  strongTeamInvolved?: boolean;
-  priorUpsetTeamKeys?: string[];
-  hasPriorUpsetTeam?: boolean;
-  seasonOverperformerTeamKeys?: string[];
-  hasSeasonOverperformerTeam?: boolean;
-}
-
-export interface PrematchCenterResponse {
-  generatedAt: string;
-  seed: number;
-  targetDate: string;
-  timezone: string;
-  source: {
-    requestedMode: PrematchRequestedMode;
-    effectiveMode: PrematchEffectiveMode;
-    regionStatuses: PrematchRegionStatus[];
-  };
-  sourceFreshness?: SourceFreshness;
-  completedMatchCount: number;
-  pendingMatchCount: number;
-  confirmedPendingMatchCount: number;
-  scheduledPendingMatchCount: number;
-  officialPlaceholderMatchCount?: number;
-  nextMatch: PrematchCenterMatch | null;
-  nextActionMatch?: PrematchCenterMatch | null;
-  timelineBuckets?: {
-    liveNow: PrematchCenterMatch[];
-    upNext: PrematchCenterMatch[];
-    todayPending: PrematchCenterMatch[];
-    confirmedUpcoming: PrematchCenterMatch[];
-    overdueUnresolved: PrematchCenterMatch[];
-    simulationUnassigned: PrematchCenterMatch[];
-    reviewPending: PrematchCenterMatch[];
-  };
-  todayMatches: PrematchCenterMatch[];
-  allUpcomingMatches: PrematchCenterMatch[];
-}
-
-export interface CommandCenterResponse {
-  generatedAt: string;
-  seed: number;
-  targetDate: string;
-  timezone: string;
-  source: PrematchCenterResponse["source"];
-  sourceFreshness: SourceFreshness;
-  completedMatchCount: number;
-  pendingMatchCount: number;
-  confirmedPendingMatchCount: number;
-  scheduledPendingMatchCount: number;
-  officialPlaceholderMatchCount?: number;
-  nextActionMatch: PrematchCenterMatch | null;
-  timelineBuckets: NonNullable<PrematchCenterResponse["timelineBuckets"]>;
-}
-
-export interface PredictionRecapGroup {
-  completedMatches: number;
-  pendingMatches: number;
-  winnerHits: number;
-  scorelineHits: number;
-  upsetMisses: number;
-  winnerHitRate: number | null;
-  scorelineHitRate: number | null;
-  regionName?: string;
-  confidenceText?: string;
-  stageLabel?: string;
-}
-
-export interface PredictionRecapMatch {
-  id: string;
-  regionSlug: RegionSlug;
-  regionName: string;
-  seed: number;
-  workspaceView: WorkspaceView;
-  matchLabel: string;
-  stage: string;
-  stageLabel: string;
-  plannedStartAt?: string | null;
-  predictedWinnerTeamKey: string;
-  predictedWinnerName: string;
-  actualWinnerTeamKey: string | null;
-  actualWinnerName: string | null;
-  predictedScoreline: string;
-  actualScoreline: string | null;
-  favoriteRate: number;
-  confidenceLabel: string;
-  confidenceText: string;
-  deviationType: "upset_miss" | "scoreline_miss" | string;
-  redTeam: TeamRef;
-  blueTeam: TeamRef;
-  predictedWinnerSide: "red" | "blue";
-}
-
-export interface PredictionRecapResponse {
-  generatedAt: string;
-  seed: number;
-  mode: "live" | "sim";
-  summary: PredictionRecapGroup;
-  byRegion: Record<RegionSlug, PredictionRecapGroup>;
-  byConfidence: Record<string, PredictionRecapGroup>;
-  byStage: Record<string, PredictionRecapGroup>;
-  notableMatches: PredictionRecapMatch[];
 }
 
 export type TeamProfileMatch = MatchRow & {
@@ -950,7 +677,6 @@ export interface FinalEventsSnapshotResponse {
   ratingRevision?: string;
   dataRevision?: string;
   modelVersion?: string;
-  topologyVersion?: string;
   runtimeArtifactVersion: string;
   events: Record<FinalEventSlug, FinalEventResponse>;
 }

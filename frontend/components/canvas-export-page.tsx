@@ -13,7 +13,6 @@ import { isRegionSlug, REGION_LABELS, REGION_VIEWS } from "@/lib/region-config";
 import type {
   FinalEventSlug,
   FinalEventStageFilter,
-  RegionSlug,
   WorkspaceStage,
   WorkspaceView,
 } from "@/lib/types";

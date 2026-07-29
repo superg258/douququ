@@ -7,17 +7,14 @@ import { createPortal } from "react-dom";
 
 import { CompetitionSelector, isRegionCompetition } from "@/components/competition-selector";
 import { ForecastInspectorPanel, type InspectorTeamInfo } from "@/components/forecast-inspector-panel";
-import { PredictionExplanationCard } from "@/components/prediction-explanation-card";
-import { PredictionSignalsPanel } from "@/components/prediction-signals";
 import { ShareScheduleButton } from "@/components/share-schedule-button";
 import { WorkspaceStageView } from "@/components/workspace-stage";
 import { WorkspaceSearchModal } from "@/components/workspace-search-modal";
-import { formatMatchCardScheduleTime, predictScoreline } from "@/components/canvas-card";
 import { ErrorPanel } from "@/components/ui/async-state";
 import { ExportCanvasButton } from "@/components/export-canvas-button";
 import { getFinalEvents, getLiveState, getOverview } from "@/lib/api";
 import { buildFullSeasonTrajectories } from "@/lib/elo-trajectory";
-import { percent, translateConfidenceLabel, translateStageLabel } from "@/lib/display";
+import { percent } from "@/lib/display";
 import { buildFinalsWorkspaceStage } from "@/lib/finals-canvas";
 import { buildFinalsMatchRow, resolveFinalsTeamRating } from "@/lib/finals-match-adapter";
 import { buildFinalsTeamPath, resolveFinalsTeamOutcome } from "@/lib/finals-team";
@@ -27,7 +24,6 @@ import { useRevisionPolling } from "@/lib/use-revision-polling";
 import {
   FINAL_STAGE_OPTIONS,
   formatFinalsDateRange,
-  getRepechageSwissMatchHint,
   hasOfficialFinalSchedule,
   matchesForFinalStage,
   projectFinalsStageProbabilities,
@@ -35,14 +31,11 @@ import {
   type FinalsStageProbabilityProjection,
 } from "@/lib/finals-schedule";
 import { buildTeamHref } from "@/lib/team-profile";
-import { isOfficialPlaceholderMatch } from "@/lib/workspace-selection";
 import { buildScheduleShareUrl } from "@/lib/share-link";
 import { sortTeamsForWorkspaceSearch } from "@/lib/workspace-search";
 import { handleHorizontalTabKeyDown } from "@/lib/keyboard-navigation";
 import type {
-  FinalEventMatch,
   FinalEventResponse,
-  FinalEventSchedule,
   FinalEventSlug,
   FinalEventStageFilter,
   InspectorSelection,

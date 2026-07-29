@@ -298,13 +298,6 @@ def _normalize_group_rank_metric_buckets(
     return regions
 
 
-def normalize_group_rank_metrics(
-    payload: dict[str, Any] | None,
-) -> dict[str, dict[str, dict[str, Any]]]:
-    buckets = _normalize_group_rank_metric_buckets(payload)
-    return {region_slug: dict(bucket.get("teams", {})) for region_slug, bucket in buckets.items()}
-
-
 def _computed_swiss_opponent_points(matches: list[dict[str, Any]]) -> dict[str, float]:
     stats: dict[str, dict[str, int]] = {}
     opponents: dict[str, list[str]] = {}

@@ -1,11 +1,8 @@
 import type {
-  CommandCenterResponse,
   FinalEventsSnapshotResponse,
   LiveRevisionsResponse,
   LiveStateResponse,
   OverviewResponse,
-  PredictionRecapResponse,
-  PrematchCenterResponse,
   RegionSlug,
   SimulationResponse,
   TeamProfileResponse,
@@ -61,8 +58,11 @@ function subscribeToRequest<T>(entry: SharedRequest, signal?: AbortSignal): Prom
   });
 }
 
-async function requestJson<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const key = `GET ${path} accept:application/json`;
+function sharedRequest<T>(
+  key: string,
+  execute: (signal: AbortSignal) => Promise<T>,
+  signal?: AbortSignal,
+): Promise<T> {
   let entry = inFlightRequests.get(key);
   if (!entry) {
     const controller = new AbortController();
@@ -70,24 +70,31 @@ async function requestJson<T>(path: string, signal?: AbortSignal): Promise<T> {
       controller,
       subscribers: 0,
       settled: false,
-      promise: Promise.resolve(),
+      promise: execute(controller.signal),
     };
-    entry.promise = fetch(`${API_BASE_URL}${path}`, {
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-      signal: controller.signal,
-    })
-    .then(async (response) => {
-      if (!response.ok) throw new Error(`Request failed: ${response.status}`);
-      return (await response.json()) as T;
-    })
-      .finally(() => {
-        entry!.settled = true;
-        inFlightRequests.delete(key);
-      });
+    const created = entry;
+    entry.promise = entry.promise.finally(() => {
+      created.settled = true;
+      if (inFlightRequests.get(key) === created) inFlightRequests.delete(key);
+    });
     inFlightRequests.set(key, entry);
   }
   return subscribeToRequest<T>(entry, signal);
+}
+
+function requestJson<T>(path: string, signal?: AbortSignal): Promise<T> {
+  return sharedRequest(
+    `GET ${path} accept:application/json`,
+    (requestSignal) => fetch(`${API_BASE_URL}${path}`, {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+      signal: requestSignal,
+    }).then(async (response) => {
+      if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+      return (await response.json()) as T;
+    }),
+    signal,
+  );
 }
 
 export function getOverview(signal?: AbortSignal): Promise<OverviewResponse> {
@@ -111,21 +118,14 @@ export async function getLiveRevisions(
   signal?: AbortSignal,
 ): Promise<{ changed: boolean; etag: string; payload: LiveRevisionsResponse | null }> {
   const key = `GET /api/live-revisions if-none-match:${previousEtag ?? ""}`;
-  let entry = inFlightRequests.get(key);
-  if (!entry) {
-    const controller = new AbortController();
-    entry = {
-      controller,
-      subscribers: 0,
-      settled: false,
-      promise: Promise.resolve(),
-    };
-    entry.promise = fetch(`${API_BASE_URL}/api/live-revisions`, {
+  return sharedRequest(
+    key,
+    (requestSignal) => fetch(`${API_BASE_URL}/api/live-revisions`, {
       cache: "no-cache",
       headers: previousEtag
         ? { Accept: "application/json", "If-None-Match": `"${previousEtag}"` }
         : { Accept: "application/json" },
-      signal: controller.signal,
+      signal: requestSignal,
     }).then(async (response) => {
       const etag = (response.headers.get("etag") ?? "").replace(/^"|"$/g, "");
       if (response.status === 304) {
@@ -137,29 +137,9 @@ export async function getLiveRevisions(
         etag,
         payload: (await response.json()) as LiveRevisionsResponse,
       };
-    }).finally(() => {
-      entry!.settled = true;
-      inFlightRequests.delete(key);
-    });
-    inFlightRequests.set(key, entry);
-  }
-  return subscribeToRequest(entry, signal);
-}
-
-export function getPrematchCenter(seed = 20260414, mode: "live" | "sim" = "live") {
-  const params = new URLSearchParams({ seed: String(seed), mode });
-  return requestJson<PrematchCenterResponse>(`/api/prematch-center?${params}`);
-}
-
-export function getCommandCenter(seed = 20260414, mode: "live" | "sim" = "live", date?: string) {
-  const params = new URLSearchParams({ seed: String(seed), mode });
-  if (date) params.set("date", date);
-  return requestJson<CommandCenterResponse>(`/api/command-center?${params}`);
-}
-
-export function getPredictionRecap(seed = 20260414, mode: "live" | "sim" = "live") {
-  const params = new URLSearchParams({ seed: String(seed), mode });
-  return requestJson<PredictionRecapResponse>(`/api/prediction-recap?${params}`);
+    }),
+    signal,
+  );
 }
 
 export function getTeamProfile(teamKey: string, seed = 20260414, mode: "live" | "sim" = "live", signal?: AbortSignal) {

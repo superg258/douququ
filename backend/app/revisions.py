@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any
 
-from .artifacts import read_versioned_json_if_exists, semantic_digest
+from .artifacts import PathSignature, path_signature, read_versioned_json_if_exists, semantic_digest
 from . import finals_live, finals_schedule, service
 
 
@@ -24,6 +25,24 @@ def current_model_version() -> str:
         or manifest.get("source_model_dir")
         or manifest.get("schema_version")
         or "ts2-elo-simulation-v1"
+    )
+
+
+def _revision_input_signatures() -> tuple[PathSignature, ...]:
+    published_dir = service._effective_published_dir()
+    return tuple(
+        path_signature(path)
+        for path in (
+            service.NORMALIZED_LIVE_SCHEDULE_PATH,
+            service.MINI_PROGRAM_PREDICTIONS_PATH,
+            service.PREDICTION_FORM_OBSERVATIONS_PATH,
+            service.PRESEASON_RATINGS_CSV,
+            service._published_manifest_path_for(published_dir),
+            service._published_current_snapshot_path_for(published_dir),
+            service._published_live_match_ledger_path_for(published_dir),
+            finals_schedule.FINALS_SCHEDULE_PATH,
+            finals_live.FINALS_RUNTIME_PATH,
+        )
     )
 
 
@@ -89,7 +108,7 @@ def _regional_revision_inputs(region_slug: str) -> tuple[dict[str, Any], dict[st
     return schedule_input, rating_input
 
 
-def region_revisions(region_slug: str) -> dict[str, str]:
+def _build_region_revisions(region_slug: str) -> dict[str, str]:
     schedule_input, rating_input = _regional_revision_inputs(region_slug)
     schedule_revision = semantic_digest(schedule_input)
     rating_revision = semantic_digest(rating_input)
@@ -100,6 +119,18 @@ def region_revisions(region_slug: str) -> dict[str, str]:
             {"scheduleRevision": schedule_revision, "ratingRevision": rating_revision}
         ),
     }
+
+
+@lru_cache(maxsize=32)
+def _region_revisions_cached(
+    region_slug: str,
+    _signatures: tuple[PathSignature, ...],
+) -> dict[str, str]:
+    return _build_region_revisions(region_slug)
+
+
+def region_revisions(region_slug: str) -> dict[str, str]:
+    return _region_revisions_cached(region_slug, _revision_input_signatures())
 
 
 def _finals_revision_inputs(
@@ -133,6 +164,21 @@ def finals_revisions(
     runtime: dict[str, Any] | None = None,
     runtime_loaded: bool = False,
 ) -> dict[str, str]:
+    if reference is None and runtime is None and not runtime_loaded:
+        return _finals_revisions_cached(_revision_input_signatures())
+    return _build_finals_revisions(
+        reference=reference,
+        runtime=runtime,
+        runtime_loaded=runtime_loaded,
+    )
+
+
+def _build_finals_revisions(
+    *,
+    reference: dict[str, Any] | None = None,
+    runtime: dict[str, Any] | None = None,
+    runtime_loaded: bool = False,
+) -> dict[str, str]:
     schedule_input, rating_input = _finals_revision_inputs(
         reference=reference,
         runtime=runtime,
@@ -149,7 +195,14 @@ def finals_revisions(
     }
 
 
-def build_live_revisions_payload() -> dict[str, Any]:
+@lru_cache(maxsize=16)
+def _finals_revisions_cached(
+    _signatures: tuple[PathSignature, ...],
+) -> dict[str, str]:
+    return _build_finals_revisions()
+
+
+def _build_live_revisions_payload() -> dict[str, Any]:
     regions: dict[str, Any] = {}
     for region_slug in service.REGION_SLUG_ORDER:
         status = service.summarize_live_status(region_slug)
@@ -185,3 +238,25 @@ def build_live_revisions_payload() -> dict[str, Any]:
     }
     payload["etag"] = semantic_digest(payload)
     return payload
+
+
+@lru_cache(maxsize=16)
+def _live_revisions_cached(
+    _signatures: tuple[PathSignature, ...],
+) -> dict[str, Any]:
+    return _build_live_revisions_payload()
+
+
+def build_live_revisions_payload() -> dict[str, Any]:
+    for _attempt in range(2):
+        before = _revision_input_signatures()
+        payload = _live_revisions_cached(before)
+        if before == _revision_input_signatures():
+            return payload
+    raise RuntimeError("revision inputs changed while building the live revision payload")
+
+
+def clear_revision_caches() -> None:
+    _region_revisions_cached.cache_clear()
+    _finals_revisions_cached.cache_clear()
+    _live_revisions_cached.cache_clear()

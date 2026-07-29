@@ -42,106 +42,6 @@
         "title": "CommandCenterResponse",
         "type": "object"
       },
-      "CompetitionGraphEdge": {
-        "additionalProperties": true,
-        "properties": {
-          "advancement": {
-            "title": "Advancement",
-            "type": "string"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "source": {
-            "title": "Source",
-            "type": "string"
-          },
-          "target": {
-            "title": "Target",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "source",
-          "target",
-          "advancement"
-        ],
-        "title": "CompetitionGraphEdge",
-        "type": "object"
-      },
-      "CompetitionGraphNode": {
-        "additionalProperties": true,
-        "properties": {
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "kind": {
-            "enum": [
-              "entry",
-              "stage",
-              "ranking",
-              "exit"
-            ],
-            "title": "Kind",
-            "type": "string"
-          },
-          "label": {
-            "title": "Label",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "kind",
-          "label"
-        ],
-        "title": "CompetitionGraphNode",
-        "type": "object"
-      },
-      "CompetitionGraphResponse": {
-        "additionalProperties": true,
-        "properties": {
-          "competition": {
-            "title": "Competition",
-            "type": "string"
-          },
-          "edges": {
-            "items": {
-              "$ref": "#/components/schemas/CompetitionGraphEdge"
-            },
-            "title": "Edges",
-            "type": "array"
-          },
-          "nodes": {
-            "items": {
-              "$ref": "#/components/schemas/CompetitionGraphNode"
-            },
-            "title": "Nodes",
-            "type": "array"
-          },
-          "schemaVersion": {
-            "const": "competition-graph-v1",
-            "title": "Schemaversion",
-            "type": "string"
-          },
-          "topologyVersion": {
-            "title": "Topologyversion",
-            "type": "string"
-          }
-        },
-        "required": [
-          "schemaVersion",
-          "topologyVersion",
-          "competition",
-          "nodes",
-          "edges"
-        ],
-        "title": "CompetitionGraphResponse",
-        "type": "object"
-      },
       "FinalEventResponse": {
         "additionalProperties": true,
         "properties": {
@@ -225,10 +125,6 @@
           "season": {
             "title": "Season",
             "type": "integer"
-          },
-          "topologyVersion": {
-            "title": "Topologyversion",
-            "type": "string"
           }
         },
         "required": [
@@ -239,7 +135,6 @@
           "ratingRevision",
           "dataRevision",
           "modelVersion",
-          "topologyVersion",
           "runtimeArtifactVersion",
           "events"
         ],
@@ -556,10 +451,6 @@
           "seed": {
             "title": "Seed",
             "type": "integer"
-          },
-          "topologyVersion": {
-            "title": "Topologyversion",
-            "type": "string"
           }
         },
         "required": [
@@ -573,8 +464,7 @@
           "scheduleRevision",
           "ratingRevision",
           "dataRevision",
-          "modelVersion",
-          "topologyVersion"
+          "modelVersion"
         ],
         "title": "SimulationMeta",
         "type": "object"
@@ -784,45 +674,6 @@
           }
         },
         "summary": "Command Center"
-      }
-    },
-    "/api/competition-graphs/{competition}": {
-      "get": {
-        "operationId": "competition_graph_api_competition_graphs__competition__get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "competition",
-            "required": true,
-            "schema": {
-              "title": "Competition",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CompetitionGraphResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Competition Graph"
       }
     },
     "/api/exports/canvas.png": {

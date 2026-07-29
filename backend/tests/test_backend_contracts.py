@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.app import artifacts, finals_live, finals_schedule, main, rmuc_live, service, team_identity
+from backend.app import artifacts, finals_live, finals_schedule, main, revisions, rmuc_live, service, team_identity
 from backend.app.competition import (
     SWISS_TOTAL_MATCHES,
     parse_series_scoreline,
@@ -21,6 +21,27 @@ from backend.app.singleflight_cache import SingleflightTTLCache
 
 
 client = TestClient(main.app)
+
+
+def test_live_revision_cache_reuses_stable_inputs_and_invalidates_on_change(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    signatures = [("artifact.json", 1, 10)]
+    builds = 0
+
+    def build() -> dict[str, Any]:
+        nonlocal builds
+        builds += 1
+        return {"etag": f"sha256:{builds}"}
+
+    monkeypatch.setattr(revisions, "_revision_input_signatures", lambda: tuple(signatures))
+    monkeypatch.setattr(revisions, "_build_live_revisions_payload", build)
+    revisions.clear_revision_caches()
+
+    assert revisions.build_live_revisions_payload()["etag"] == "sha256:1"
+    assert revisions.build_live_revisions_payload()["etag"] == "sha256:1"
+    signatures[0] = ("artifact.json", 2, 10)
+    assert revisions.build_live_revisions_payload()["etag"] == "sha256:2"
 
 
 def test_semantic_revision_ignores_operational_freshness_fields() -> None:

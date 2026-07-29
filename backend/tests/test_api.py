@@ -85,30 +85,6 @@ def test_readiness_reports_required_artifacts_revisions_and_sync_modes() -> None
     assert payload["sync"]["finals"]["mode"] == "manual"
 
 
-def test_competition_graph_contract_has_stable_non_dangling_ids() -> None:
-    for competition in (
-        "south_region",
-        "east_region",
-        "north_region",
-        "repechage",
-        "nationals",
-    ):
-        response = client.get(f"/api/competition-graphs/{competition}")
-        assert response.status_code == 200
-        payload = response.json()
-        assert payload["schemaVersion"] == "competition-graph-v1"
-        assert payload["topologyVersion"] == "competition-graph-v1.0.0"
-        node_ids = {node["id"] for node in payload["nodes"]}
-        edge_ids = {edge["id"] for edge in payload["edges"]}
-        assert len(node_ids) == len(payload["nodes"])
-        assert len(edge_ids) == len(payload["edges"])
-        assert all(
-            edge["source"] in node_ids and edge["target"] in node_ids
-            for edge in payload["edges"]
-        )
-    assert client.get("/api/competition-graphs/unknown").status_code == 400
-
-
 def test_openapi_uses_explicit_models_for_core_endpoints() -> None:
     schema = app.openapi()
     expected_models = {

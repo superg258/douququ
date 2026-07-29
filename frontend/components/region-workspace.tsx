@@ -5,8 +5,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { PredictionSignalsPanel } from "@/components/prediction-signals";
-import { PredictionExplanationCard } from "@/components/prediction-explanation-card";
 import { WorkspaceStageView } from "@/components/workspace-stage";
 import { CompetitionSelector, isRegionCompetition } from "@/components/competition-selector";
 import { RegionInspectorPanel } from "@/components/region-inspector-panel";
@@ -19,10 +17,9 @@ import { ExportCanvasButton } from "@/components/export-canvas-button";
 import { getLiveState, getOverview, getSimulation } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { buildWorkspaceStage } from "@/lib/canvas-builders";
-import { formatMatchLabel, formatRankingResultLabel, percent, translateConfidenceLabel, translateOfficialStatusLabel, translateStageLabel } from "@/lib/display";
+import { percent } from "@/lib/display";
 import { buildPredictionRecap, derivePredictionVerdict } from "@/lib/prediction-insights";
-import { parseScoreline, predictDisplayScoreline } from "@/lib/scoreline";
-import { formatBeijingMonthDayTime } from "@/lib/time-format";
+import { predictDisplayScoreline } from "@/lib/scoreline";
 import {
   buildRegionHref,
   DEFAULT_SEED,
@@ -38,24 +35,17 @@ import { buildTeamHref } from "@/lib/team-profile";
 import { sortTeamsForWorkspaceSearch } from "@/lib/workspace-search";
 import {
   filterTeamDrawerMatches,
-  isOfficialPlaceholderMatch,
   resolveHighlightSelectionState,
   resolveWorkspaceInspectorTeam,
-  shouldRenderTeamInspector,
   type InspectorPanelState,
-  type TeamDrawerMode,
-  type WorkspaceInspectorTeam,
 } from "@/lib/workspace-selection";
 import { deriveRealtimeAvailability, liveStateRefreshKey } from "@/lib/realtime";
 import { buildScheduleShareUrl } from "@/lib/share-link";
 import { useRevisionPolling } from "@/lib/use-revision-polling";
-import { deriveMatchRatingBreakdown, formatSignedRatingDelta, ratingDeltaTone, type MatchRatingBreakdown } from "@/lib/live-rating";
 import type {
-  FinalRankingRow,
   InspectorSelection,
   LiveStateResponse,
   MatchRow,
-  OverviewRegion,
   OverviewResponse,
   OverviewTeam,
   RegionSlug,

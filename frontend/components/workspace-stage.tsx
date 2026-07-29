@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { CanvasCardView } from "@/components/canvas-card";
 import { CanvasConnectorView } from "@/components/canvas-connector";
@@ -64,6 +64,83 @@ function headerToneClass(tone: WorkspaceStage["headers"][number]["tone"]) {
   }
 }
 
+export function WorkspaceStageContent({
+  stage,
+  mode,
+  selectedTeamKey,
+  highlightedTeamKey,
+  selectedMatchLabel,
+  onTeamSelect,
+  onMatchSelect,
+  className,
+  style,
+}: {
+  stage: WorkspaceStage;
+  mode?: "sim" | "live";
+  selectedTeamKey: string | null;
+  highlightedTeamKey: string | null;
+  selectedMatchLabel: string | null;
+  onTeamSelect: (teamKey: string) => void;
+  onMatchSelect: (matchLabel: string) => void;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  const hasActiveHighlight = highlightedTeamKey !== null;
+  return (
+    <div className={cn("canvas-grid", className)} style={{ width: stage.width, height: stage.height, ...style }}>
+      {stage.headers.map((header) => (
+        <div
+          key={header.id}
+          className={cn(
+            "glass-panel absolute flex h-12 min-w-0 items-center justify-between gap-3 overflow-hidden border-y border-r border-y-white/10 border-r-white/10 px-3 py-2 font-mono clip-chamfer",
+            headerToneClass(header.tone),
+            hasActiveHighlight && "opacity-30 grayscale-[30%]",
+          )}
+          style={{ left: header.x, top: header.y, width: header.width }}
+        >
+          <div className="min-w-0">
+            <div className="truncate font-machine text-[16px] font-extrabold leading-none tracking-widest">
+              {header.title}
+            </div>
+            {header.subtitle ? (
+              <div className="mt-1 truncate text-[10px] font-semibold leading-none tracking-widest opacity-70">
+                {header.subtitle}
+              </div>
+            ) : null}
+          </div>
+          <div className="flex h-full shrink-0 items-center gap-1 opacity-80">
+            <span className="h-6 w-[3px] bg-current" />
+            <span className="h-4 w-[3px] bg-current opacity-60" />
+          </div>
+        </div>
+      ))}
+      <svg className="pointer-events-none absolute inset-0" width={stage.width} height={stage.height}>
+        {stage.connectors.map((connector) => (
+          <CanvasConnectorView
+            key={connector.id}
+            connector={connector}
+            selectedTeamKey={selectedTeamKey}
+            highlightedTeamKey={highlightedTeamKey}
+          />
+        ))}
+      </svg>
+      {stage.cards.map((card) => (
+        <CanvasCardView
+          key={card.id}
+          card={card}
+          mode={mode}
+          selectedTeamKey={selectedTeamKey}
+          highlightedTeamKey={highlightedTeamKey}
+          selectedMatchLabel={selectedMatchLabel}
+          hasActiveHighlight={hasActiveHighlight}
+          onTeamSelect={onTeamSelect}
+          onMatchSelect={onMatchSelect}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function WorkspaceStageView({
   stage,
   layoutKey,
@@ -94,7 +171,6 @@ export function WorkspaceStageView({
   const [frameSize, setFrameSize] = useState({ width: 0, height: 0 });
   const [viewport, setViewport] = useState({ scale: 1, x: 0, y: 0 });
   const [fullscreen, setFullscreen] = useState(false);
-  const hasActiveHighlight = highlightedTeamKey !== null;
   const [portalReady, setPortalReady] = useState(false);
   const [panning, setPanning] = useState(false);
   const frameSizeRef = useRef(frameSize);
@@ -298,7 +374,7 @@ export function WorkspaceStageView({
     setFullscreen((current) => !current);
   };
 
-  const clearInteraction = (pointerId: number, target: EventTarget | null) => {
+  const clearInteraction = (pointerId: number) => {
     activePointers.current.delete(pointerId);
 
     if (dragState.current?.pointerId === pointerId) {
@@ -403,7 +479,7 @@ export function WorkspaceStageView({
     };
 
     const handlePointerEnd = (event: PointerEvent) => {
-      clearInteraction(event.pointerId, frameElement);
+      clearInteraction(event.pointerId);
       if (event.type === "pointercancel") {
         suppressClickRef.current = false;
       }
@@ -510,74 +586,20 @@ export function WorkspaceStageView({
         ref={frameRef}
         className="flex-1 w-full h-full cursor-grab active:cursor-grabbing overflow-hidden touch-none"
       >
-        <div
-          className="absolute top-0 left-0 origin-top-left canvas-grid"
+        <WorkspaceStageContent
+          stage={stage}
+          mode={mode}
+          selectedTeamKey={selectedTeamKey}
+          highlightedTeamKey={highlightedTeamKey}
+          selectedMatchLabel={selectedMatchLabel}
+          onTeamSelect={handleTeamSelect}
+          onMatchSelect={onMatchSelect}
+          className="absolute left-0 top-0 origin-top-left"
           style={{
             transform: `translate3d(${viewport.x}px, ${viewport.y}px, 0) scale(${viewport.scale})`,
-            width: stage.width,
-            height: stage.height,
             transition: panning ? "transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1)" : "none",
           }}
-        >
-          {/* Header Banners (e.g. Round 1, Round 2, Final Band) */}
-          {stage.headers.map((header) => (
-             <div
-               key={header.id}
-               className={cn(
-                "absolute flex h-12 items-center justify-between gap-3 overflow-hidden px-3 py-2 font-mono clip-chamfer min-w-0 border-y border-r border-y-white/10 border-r-white/10 glass-panel",
-                 headerToneClass(header.tone),
-                 hasActiveHighlight && "opacity-30 grayscale-[30%]"
-               )}
-               style={{
-                 left: header.x,
-                 top: header.y,
-                 width: header.width,
-               }}
-             >
-                <div className="min-w-0">
-                  <div className="truncate font-machine text-[16px] font-extrabold leading-none tracking-widest text-current">
-                    {header.title}
-                  </div>
-                  {header.subtitle ? (
-                    <div className="mt-1 truncate text-[10px] font-semibold leading-none tracking-widest text-current opacity-70">
-                      {header.subtitle}
-                    </div>
-                  ) : null}
-                </div>
-                <div className="flex h-full shrink-0 items-center gap-1 opacity-80">
-                  <span className="h-6 w-[3px] bg-current" />
-                  <span className="h-4 w-[3px] bg-current opacity-60" />
-                </div>
-             </div>
-          ))}
-
-          {/* Connectors (SVG) */}
-          <svg className="absolute inset-0 pointer-events-none" width={stage.width} height={stage.height}>
-            {stage.connectors.map((connector, i) => (
-              <CanvasConnectorView
-                key={i}
-                connector={connector}
-                selectedTeamKey={selectedTeamKey}
-                highlightedTeamKey={highlightedTeamKey}
-              />
-            ))}
-          </svg>
-
-          {/* Cards */}
-          {stage.cards.map((card) => (
-            <CanvasCardView
-              key={card.id}
-              card={card}
-              mode={mode}
-              onMatchSelect={onMatchSelect}
-              selectedMatchLabel={selectedMatchLabel}
-              selectedTeamKey={selectedTeamKey}
-              highlightedTeamKey={highlightedTeamKey}
-              hasActiveHighlight={hasActiveHighlight}
-              onTeamSelect={handleTeamSelect}
-            />
-          ))}
-        </div>
+        />
       </div>
     </section>
   );

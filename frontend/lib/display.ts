@@ -90,22 +90,6 @@ export function translateAdvancementLabel(advancement: string) {
   return ADVANCEMENT_LABELS[advancement] ?? fallbackLabel(advancement);
 }
 
-export function translateDestinationLabel(destination: string) {
-  if (ADVANCEMENT_LABELS[destination]) {
-    return translateAdvancementLabel(destination);
-  }
-  if (FINAL_BUCKET_LABELS[destination]) {
-    return translateFinalBucket(destination);
-  }
-  if (STAGE_LABELS[destination]) {
-    return `进入${translateStageLabel(destination)}`;
-  }
-  if (destination === "next") {
-    return "进入下一阶段";
-  }
-  return fallbackLabel(destination);
-}
-
 export function translateConfidenceLabel(confidence: string) {
   return CONFIDENCE_LABELS[confidence] ?? fallbackLabel(confidence);
 }

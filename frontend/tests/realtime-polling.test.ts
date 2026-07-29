@@ -1,14 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { LIVE_REFRESH_INTERVAL_MS, startRealtimePolling } from "@/lib/realtime-polling";
+import { startRealtimePolling } from "@/lib/realtime-polling";
+
+const TEST_INTERVAL_MS = 30_000;
 
 describe("realtime polling", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
-  });
-
-  it("uses a three minute default refresh interval", () => {
-    expect(LIVE_REFRESH_INTERVAL_MS).toBe(180_000);
   });
 
   it("loads immediately and schedules the next check only after settle", async () => {
@@ -17,11 +15,11 @@ describe("realtime polling", () => {
     const clearTimeout = vi.fn();
     vi.stubGlobal("window", { setTimeout, clearTimeout });
 
-    const stop = startRealtimePolling(load);
+    const stop = startRealtimePolling(load, TEST_INTERVAL_MS);
     await Promise.resolve();
 
     expect(load).toHaveBeenCalledTimes(1);
-    expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), LIVE_REFRESH_INTERVAL_MS);
+    expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), TEST_INTERVAL_MS);
 
     const tick = setTimeout.mock.calls[0][0] as () => void;
     tick();
@@ -41,7 +39,7 @@ describe("realtime polling", () => {
     const clearTimeout = vi.fn();
     vi.stubGlobal("window", { setTimeout, clearTimeout });
 
-    const stop = startRealtimePolling(load);
+    const stop = startRealtimePolling(load, TEST_INTERVAL_MS);
 
     expect(load).toHaveBeenCalledTimes(1);
     expect(setTimeout).not.toHaveBeenCalled();
@@ -92,7 +90,7 @@ describe("realtime polling", () => {
     };
     vi.stubGlobal("document", doc);
 
-    const stop = startRealtimePolling(load, LIVE_REFRESH_INTERVAL_MS, { pauseWhenHidden: true });
+    const stop = startRealtimePolling(load, TEST_INTERVAL_MS, { pauseWhenHidden: true });
     await Promise.resolve();
 
     expect(load).toHaveBeenCalledTimes(1);
@@ -129,7 +127,7 @@ describe("realtime polling", () => {
     };
     vi.stubGlobal("document", doc);
 
-    const stop = startRealtimePolling(load, LIVE_REFRESH_INTERVAL_MS, { pauseWhenHidden: true });
+    const stop = startRealtimePolling(load, TEST_INTERVAL_MS, { pauseWhenHidden: true });
 
     expect(load).not.toHaveBeenCalled();
     expect(setTimeout).not.toHaveBeenCalled();

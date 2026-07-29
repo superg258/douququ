@@ -139,7 +139,6 @@ function MatchPathRow({
 }) {
   const isWin = match.resultForTeam === "win";
   const isLoss = match.resultForTeam === "loss";
-  const isPending = !isWin && !isLoss;
 
   const dotColor = isWin
     ? "bg-rm-status-safe shadow-[0_0_6px_rgba(0,232,120,0.5)]"

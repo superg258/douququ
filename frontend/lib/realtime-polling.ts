@@ -1,5 +1,3 @@
-export const LIVE_REFRESH_INTERVAL_MS = 3 * 60 * 1000;
-
 export interface RealtimePollingOptions {
   /**
    * 页面隐藏（document.hidden）时暂停周期轮询；
@@ -12,7 +10,7 @@ export interface RealtimePollingOptions {
 
 export function startRealtimePolling(
   load: () => void | Promise<void>,
-  intervalMs = LIVE_REFRESH_INTERVAL_MS,
+  intervalMs: number,
   options: RealtimePollingOptions = {}
 ) {
   const {

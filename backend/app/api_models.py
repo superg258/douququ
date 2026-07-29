@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 
 class ApiModel(BaseModel):
@@ -58,7 +58,6 @@ class SimulationMeta(ApiModel):
     ratingRevision: str
     dataRevision: str
     modelVersion: str
-    topologyVersion: str
 
 
 class SimulationResponse(ApiModel):
@@ -78,7 +77,6 @@ class FinalsSnapshotResponse(ApiModel):
     ratingRevision: str
     dataRevision: str
     modelVersion: str
-    topologyVersion: str
     runtimeArtifactVersion: str
     events: dict[str, Any]
 
@@ -117,24 +115,3 @@ class TeamProfileResponse(ApiModel):
     team: dict[str, Any]
     region: dict[str, Any]
     matchPath: list[Any]
-
-
-class CompetitionGraphNode(ApiModel):
-    id: str
-    kind: Literal["entry", "stage", "ranking", "exit"]
-    label: str
-
-
-class CompetitionGraphEdge(ApiModel):
-    id: str
-    source: str
-    target: str
-    advancement: str
-
-
-class CompetitionGraphResponse(ApiModel):
-    schemaVersion: Literal["competition-graph-v1"]
-    topologyVersion: str
-    competition: str
-    nodes: list[CompetitionGraphNode]
-    edges: list[CompetitionGraphEdge]

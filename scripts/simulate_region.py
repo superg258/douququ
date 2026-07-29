@@ -12,16 +12,14 @@ from _predict_match_core import compute_scoreline_distribution
 import build_rmuc_elo as legacy_elo
 import head_to_head as h2h
 
-import build_rmuc_ts2_backend as ts2_model
-
-
 RegionTeam = region_core.RegionTeam
 PayloadBuilder = region_core.PayloadBuilder
 REGION_CONFIGS = region_core.REGION_CONFIGS
 DEFAULT_MONTE_CARLO_SAMPLES = region_core.DEFAULT_MONTE_CARLO_SAMPLES
 DEFAULT_SIMULATION_SEED = region_core.DEFAULT_SIMULATION_SEED
 SIMULATION_DERIVED_DIR = region_core.SIMULATION_DERIVED_DIR
-DEFAULT_RATINGS_CSV = ts2_model.DERIVED_DIR / "preseason_ratings.csv"
+ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_RATINGS_CSV = ROOT / "data" / "derived" / "2026_rmuc_ts2" / "preseason_ratings.csv"
 TOURNAMENT_LATENT_SIGMA_FACTOR = region_core.TOURNAMENT_LATENT_SIGMA_FACTOR
 TOURNAMENT_LATENT_SIGMA_CLIP = region_core.TOURNAMENT_LATENT_SIGMA_CLIP
 TOURNAMENT_MATCH_SIGMA_FACTOR = region_core.TOURNAMENT_MATCH_SIGMA_FACTOR
