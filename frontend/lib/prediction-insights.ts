@@ -74,11 +74,6 @@ function actualWinnerSide(match: MatchRow) {
   return Number(redScore) >= Number(blueScore) ? "red" : "blue";
 }
 
-function isPredictedScoreWinnerRed(scoreline: string) {
-  const [redScore = "0", blueScore = "0"] = scoreline.split(":");
-  return Number(redScore) >= Number(blueScore);
-}
-
 function determineVerdict(match: MatchRow, predictedScoreline: string): MatchPredictionExplanation["verdict"] {
   if (!match.isRealResult) return "pending";
 

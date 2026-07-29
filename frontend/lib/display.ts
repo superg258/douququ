@@ -174,3 +174,7 @@ export function formatSwissRecordLabel(wins: number, losses: number) {
 export function formatRankingResultLabel(rank: number, finalBucket: string, advancement: string) {
   return `最终排名 #${rank} · ${translateFinalBucket(finalBucket)} · ${translateAdvancementLabel(advancement)}`;
 }
+
+export function percent(value: number) {
+  return `${(value * 100).toFixed(1)}%`;
+}

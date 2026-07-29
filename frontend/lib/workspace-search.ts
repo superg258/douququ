@@ -26,19 +26,23 @@ function searchRank(team: OverviewTeam) {
 export function sortTeamsForWorkspaceSearch(
   teams: OverviewTeam[],
   query: string,
-  currentRegionSlug: RegionSlug
+  currentRegionSlug: RegionSlug | null
 ) {
   const normalizedQuery = query.trim();
   const rows = normalizedQuery
     ? teams.filter((team) => matchesTeamQuery(team, normalizedQuery))
-    : teams.filter((team) => team.regionSlug === currentRegionSlug);
+    : currentRegionSlug
+      ? teams.filter((team) => team.regionSlug === currentRegionSlug)
+      : teams;
 
   return [...rows].sort((left, right) => {
-    if (left.regionSlug === currentRegionSlug && right.regionSlug !== currentRegionSlug) {
-      return -1;
-    }
-    if (left.regionSlug !== currentRegionSlug && right.regionSlug === currentRegionSlug) {
-      return 1;
+    if (currentRegionSlug) {
+      if (left.regionSlug === currentRegionSlug && right.regionSlug !== currentRegionSlug) {
+        return -1;
+      }
+      if (left.regionSlug !== currentRegionSlug && right.regionSlug === currentRegionSlug) {
+        return 1;
+      }
     }
 
     const leftRank = searchRank(left);

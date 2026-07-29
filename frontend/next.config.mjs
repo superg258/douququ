@@ -12,7 +12,7 @@ const nextConfig = {
   async headers() {
     return [
       {
-        source: "/:asset(rm-hero-bg-v1\\.(?:webp|jpg)|fonts/.+\\.woff)",
+        source: "/:asset(rm-(?:hero|finals)-bg-v1\\.(?:webp|jpg)|fonts/.+\\.woff)",
         headers: [
           {
             key: "Cache-Control",

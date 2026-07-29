@@ -6,7 +6,7 @@ import { CanvasCardView } from "@/components/canvas-card";
 import { CanvasConnectorView } from "@/components/canvas-connector";
 import type { WorkspaceStage } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { isPageFullscreenActive, setPageFullscreenLock } from "@/lib/fullscreen-api";
+import { setPageFullscreenLock } from "@/lib/fullscreen-api";
 import { exceedsPressThreshold } from "@/lib/use-press-guard";
 import {
   clampViewportPosition,
@@ -17,9 +17,14 @@ import {
 } from "@/lib/workspace-viewport";
 
 const CANVAS_PAN_BLOCK_SELECTOR = "input, textarea, select, a, [data-canvas-pan-exempt]";
+export type WorkspaceStageBackground = "regional" | "nationals";
 
 export function shouldBlockCanvasPanTarget(target: Pick<HTMLElement, "closest"> | null) {
   return Boolean(target?.closest(CANVAS_PAN_BLOCK_SELECTOR));
+}
+
+export function getWorkspaceStageBackgroundClass(background: WorkspaceStageBackground) {
+  return background === "nationals" ? "canvas-background--nationals" : "";
 }
 
 export function getWorkspaceStageFullscreenClasses(fullscreen: boolean, reserveRightRail: boolean) {
@@ -69,6 +74,7 @@ export function WorkspaceStageView({
   onMatchSelect,
   onFullscreenChange,
   reserveRightRail = false,
+  background = "regional",
 }: {
   stage: WorkspaceStage;
   mode?: "sim" | "live";
@@ -79,6 +85,7 @@ export function WorkspaceStageView({
   onMatchSelect: (matchLabel: string) => void;
   onFullscreenChange?: (fullscreen: boolean) => void;
   reserveRightRail?: boolean;
+  background?: WorkspaceStageBackground;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
@@ -436,7 +443,8 @@ export function WorkspaceStageView({
       ref={sectionRef}
       className={cn(
         "canvas-background relative flex flex-col h-full border-t border-rm-metal-border rounded-none overflow-hidden",
-        getWorkspaceStageFullscreenClasses(isPageFullscreenActive(fullscreen), reserveRightRail)
+        getWorkspaceStageBackgroundClass(background),
+        getWorkspaceStageFullscreenClasses(fullscreen, reserveRightRail)
       )}
     >
       {/* Zoom toolbar — top-right floating */}

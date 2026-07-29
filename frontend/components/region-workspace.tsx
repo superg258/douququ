@@ -17,7 +17,7 @@ import { ErrorPanel } from "@/components/ui/async-state";
 import { getLiveState, getOverview, getSimulation } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { buildWorkspaceStage } from "@/lib/canvas-builders";
-import { formatMatchLabel, formatRankingResultLabel, translateConfidenceLabel, translateOfficialStatusLabel, translateStageLabel } from "@/lib/display";
+import { formatMatchLabel, formatRankingResultLabel, percent, translateConfidenceLabel, translateOfficialStatusLabel, translateStageLabel } from "@/lib/display";
 import { buildPredictionRecap, derivePredictionVerdict } from "@/lib/prediction-insights";
 import { parseScoreline, predictDisplayScoreline } from "@/lib/scoreline";
 import { formatBeijingMonthDayTime } from "@/lib/time-format";
@@ -61,10 +61,6 @@ import type {
 } from "@/lib/types";
 
 type MatchPhase = "pre" | "post";
-
-function percent(value: number) {
-  return `${(value * 100).toFixed(1)}%`;
-}
 
 function validView(view: string | null): view is WorkspaceView {
   return REGION_VIEWS.some((item) => item.id === view);

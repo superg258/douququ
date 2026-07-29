@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  getWorkspaceStageBackgroundClass,
   getWorkspaceStageFullscreenClasses,
   shouldAutoPanToHighlightedTeam,
   shouldBlockCanvasPanTarget,
@@ -14,6 +15,16 @@ function fakeTarget(matches: string[]) {
     },
   };
 }
+
+describe("WorkspaceStageView background selection", () => {
+  it("keeps the regional background as the default canvas treatment", () => {
+    expect(getWorkspaceStageBackgroundClass("regional")).toBe("");
+  });
+
+  it("selects the dedicated official background for the nationals canvas", () => {
+    expect(getWorkspaceStageBackgroundClass("nationals")).toBe("canvas-background--nationals");
+  });
+});
 
 describe("WorkspaceStageView pointer handling", () => {
   it("allows drags that begin on selectable cards to pan the canvas", () => {

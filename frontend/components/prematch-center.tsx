@@ -145,7 +145,7 @@ export function PrematchCenter() {
         </h2>
         <Link
           href="/forecast-center"
-          className="ml-auto font-sans text-sm font-semibold transition-all duration-200 flex items-center gap-1.5 px-3 py-1.5 border rounded-sm border-rm-blue/50 bg-rm-blue/12 text-rm-blue hover:bg-rm-blue/22 hover:shadow-[0_0_16px_rgba(42,159,255,0.3)]"
+          className="ml-auto font-sans text-sm font-semibold transition-all duration-200 flex items-center gap-1.5 px-3 py-1.5 border rounded-sm border-rm-blue/50 bg-rm-blue/10 text-rm-blue hover:bg-rm-blue/20 hover:shadow-[0_0_16px_rgba(42,159,255,0.3)]"
         >
           进入实时预测中心
         </Link>

@@ -48,12 +48,12 @@ export function LiveCommandCenterPanel({
   return (
     <section className="space-y-4">
       {center.unavailableReason && (
-        <div className="border border-rm-status-warn/30 bg-rm-status-warn/8 px-4 py-3 font-mono text-xs text-rm-status-warn">
+        <div className="border border-rm-status-warn/30 bg-rm-status-warn/10 px-4 py-3 font-mono text-xs text-rm-status-warn">
           {center.unavailableReason}
         </div>
       )}
       {center.statusNotice && (
-        <div className="border border-rm-blue/30 bg-rm-blue/8 px-4 py-3 font-mono text-xs text-rm-blue">
+        <div className="border border-rm-blue/30 bg-rm-blue/10 px-4 py-3 font-mono text-xs text-rm-blue">
           {center.statusNotice}
         </div>
       )}

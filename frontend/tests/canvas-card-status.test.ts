@@ -232,7 +232,7 @@ describe("deriveMatchCardState", () => {
   });
 
   it("keeps prediction match visual tokens deliberately dim", () => {
-    expect(PREDICTION_MATCH_VISUAL_CLASSES.container).toContain("border-rm-blue/8");
+    expect(PREDICTION_MATCH_VISUAL_CLASSES.container).toContain("border-rm-blue/10");
     expect(PREDICTION_MATCH_VISUAL_CLASSES.container).toContain("bg-black/60");
     expect(PREDICTION_MATCH_VISUAL_CLASSES.statusBadge).toContain("text-rm-blue/40");
     expect(PREDICTION_MATCH_VISUAL_CLASSES.sideAccent).toBe("opacity-[0.12]");

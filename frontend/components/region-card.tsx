@@ -312,15 +312,15 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
         </p>
         <div className="mt-2.5 flex items-start gap-2 text-[10px] font-mono font-bold tracking-widest">
           <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
-            <span className="border border-rm-status-confirmed/30 bg-rm-status-confirmed/8 text-rm-status-confirmed/80 px-1.5 py-0.5
+            <span className="border border-rm-status-confirmed/30 bg-rm-status-confirmed/10 text-rm-status-confirmed/80 px-1.5 py-0.5
                             group-hover/entry:border-rm-status-confirmed/50 group-hover/entry:bg-rm-status-confirmed/15 group-hover/entry:text-rm-status-confirmed transition-all duration-200">
               官方赛程
             </span>
-            <span className="border border-rm-blue/30 bg-rm-blue/8 text-rm-blue/80 px-1.5 py-0.5
+            <span className="border border-rm-blue/30 bg-rm-blue/10 text-rm-blue/80 px-1.5 py-0.5
                             group-hover/entry:border-rm-blue/50 group-hover/entry:bg-rm-blue/15 group-hover/entry:text-rm-blue transition-all duration-200">
               Elo 预测
             </span>
-            <span className="border border-rm-status-pending/30 bg-rm-status-pending/8 text-rm-status-pending/80 px-1.5 py-0.5
+            <span className="border border-rm-status-pending/30 bg-rm-status-pending/10 text-rm-status-pending/80 px-1.5 py-0.5
                             group-hover/entry:border-rm-status-pending/50 group-hover/entry:bg-rm-status-pending/15 group-hover/entry:text-rm-status-pending transition-all duration-200">
               王牌预言家
             </span>
@@ -329,7 +329,7 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
             "shrink-0 border px-2.5 py-1 text-[10px] transition-all duration-300 font-bold tracking-widest whitespace-nowrap",
             realtimeEnabled
               ? "shadow-[0_0_10px_rgba(232,196,74,0.2)] border-rm-gold/60 bg-rm-gold/15 text-rm-gold group-hover/entry:bg-rm-gold group-hover/entry:text-black group-hover/entry:shadow-[0_0_18px_rgba(232,196,74,0.4)]"
-              : "shadow-[0_0_10px_rgba(45,212,191,0.18)] border-rm-teal/50 bg-rm-teal/12 text-rm-teal group-hover/entry:bg-rm-teal group-hover/entry:text-black group-hover/entry:shadow-[0_0_18px_rgba(45,212,191,0.35)]",
+              : "shadow-[0_0_10px_rgba(45,212,191,0.18)] border-rm-teal/50 bg-rm-teal/10 text-rm-teal group-hover/entry:bg-rm-teal group-hover/entry:text-black group-hover/entry:shadow-[0_0_18px_rgba(45,212,191,0.35)]",
           )}>
             {entryCopy.cta}
           </span>
@@ -376,7 +376,7 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
               className={cn(
                 "px-1.5 py-0.5 border text-[10px] tracking-widest transition-all duration-150",
                 i === 0
-                  ? "border-rm-blue/30 bg-rm-blue/8 text-rm-blue/80"
+                  ? "border-rm-blue/30 bg-rm-blue/10 text-rm-blue/80"
                   : "border-rm-metal-border bg-rm-metal-dark/10 text-rm-metal-textFaint",
               )}
             >
@@ -462,8 +462,8 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
             className={cn(
               "font-sans text-sm font-semibold transition-all duration-200 flex items-center gap-1.5",
               "px-3 py-1.5 border rounded-sm",
-              "border-rm-accent/50 bg-rm-accent/12 text-rm-accent",
-              "hover:bg-rm-accent/22 hover:shadow-[0_0_16px_rgba(45,212,191,0.3)]",
+              "border-rm-accent/50 bg-rm-accent/10 text-rm-accent",
+              "hover:bg-rm-accent/20 hover:shadow-[0_0_16px_rgba(45,212,191,0.3)]",
             )}
           >
             进入赛区沙盘
@@ -474,8 +474,8 @@ export function RegionCard({ region, entryHref }: { region: RegionDashboardCard;
             className={cn(
               "font-sans text-sm font-semibold transition-all duration-200 flex items-center gap-1.5",
               "px-3 py-1.5 border rounded-sm",
-              "border-rm-blue/50 bg-rm-blue/12 text-rm-blue",
-              "hover:bg-rm-blue/22 hover:shadow-[0_0_16px_rgba(42,159,255,0.3)]",
+              "border-rm-blue/50 bg-rm-blue/10 text-rm-blue",
+              "hover:bg-rm-blue/20 hover:shadow-[0_0_16px_rgba(42,159,255,0.3)]",
             )}
           >
             实时预测

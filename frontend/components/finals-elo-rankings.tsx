@@ -351,7 +351,9 @@ function RankingSectionCard({
           </span>
         </div>
 
-        <p className="mt-3 text-xs leading-5 text-rm-metal-text">{section.eyebrow}</p>
+        <p className="mt-3 truncate text-xs leading-5 text-rm-metal-text" title={section.eyebrow}>
+          {section.eyebrow}
+        </p>
 
         <div className="mt-4 grid grid-cols-2 gap-3 border-t border-rm-metal-border/70 pt-4">
           <div>
@@ -379,9 +381,9 @@ function RankingSectionCard({
       </header>
 
       <div className="sticky top-0 z-20 grid grid-cols-[2.4rem_minmax(0,1fr)_5rem] gap-2 border-b border-rm-metal-border/70 bg-rm-metal-abyss/95 px-2.5 py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-rm-metal-textMuted backdrop-blur-md">
-        <span>赛事排名</span>
-        <span>队伍 · 全局排名 · 梯队/来源</span>
-        <span className="text-right">Elo · 赛季变化</span>
+        <span className="whitespace-nowrap">赛事排名</span>
+        <span className="whitespace-nowrap">队伍 · 全局排名 · 梯队/来源</span>
+        <span className="whitespace-nowrap text-right">Elo · 赛季变化</span>
       </div>
 
       {section.rows.length ? (

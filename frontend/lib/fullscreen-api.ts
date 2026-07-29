@@ -14,10 +14,6 @@ type FullscreenHost = {
   };
 };
 
-export function isPageFullscreenActive(fullscreen: boolean) {
-  return fullscreen;
-}
-
 export function setPageFullscreenLock(doc: FullscreenHost, active: boolean) {
   const { body, documentElement } = doc;
 

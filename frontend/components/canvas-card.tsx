@@ -5,7 +5,7 @@ import { memo } from "react";
 import type { CanvasCard, MatchCanvasCard, MatchRow, ScheduleCanvasCard, TeamCanvasCard } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { audienceSignal, clampProbability, formatRate, getPredictedAdvantageLabel } from "@/lib/prediction-display";
-import { predictDisplayScoreline } from "@/lib/scoreline";
+import { parseScoreline, predictDisplayScoreline } from "@/lib/scoreline";
 import { formatBeijingMonthDayTime } from "@/lib/time-format";
 import { usePressGuard } from "@/lib/use-press-guard";
 
@@ -32,7 +32,7 @@ export function formatMatchCardScheduleTime(plannedStartAt?: string | null) {
 }
 
 export const PREDICTION_MATCH_VISUAL_CLASSES = {
-  container: "border border-dashed border-rm-blue/8 bg-black/60",
+  container: "border border-dashed border-rm-blue/10 bg-black/60",
   statusBadge: "border-rm-blue/20 text-rm-blue/40 bg-rm-blue/[0.03]",
   sideAccent: "opacity-[0.12]",
   redTeamRow: "bg-[linear-gradient(90deg,rgba(232,48,42,0.05),transparent_60%)]",
@@ -154,7 +154,7 @@ function TeamCanvasCardComponent({
       return "border border-dashed border-rm-status-upset/35 bg-rm-status-upset/10 text-rm-status-upset/65";
     }
     if (visualTier === "predicted-safe") {
-      return "border border-dashed border-rm-status-safe/40 bg-rm-status-safe/12 text-rm-status-safe/70";
+      return "border border-dashed border-rm-status-safe/40 bg-rm-status-safe/10 text-rm-status-safe/70";
     }
     if (isSimulated) {
       return isSafe ? "bg-rm-status-safe/20 text-rm-status-safe/60" : "bg-rm-status-upset/15 text-rm-status-upset/50";
@@ -246,8 +246,11 @@ function TeamCanvasCardComponent({
 }
 
 function scoreParts(scoreline: string) {
-  const [red = "-", blue = "-"] = scoreline.split(":");
-  return { red, blue };
+  const [red, blue] = parseScoreline(scoreline);
+  return {
+    red: Number.isFinite(red) ? String(red) : "-",
+    blue: Number.isFinite(blue) ? String(blue) : "-",
+  };
 }
 
 function SignalMicroRow({
@@ -589,9 +592,7 @@ function MatchCanvasCardComponent({
   const cardState = deriveMatchCardState(row, mode);
   const { isSimulationMode, isOfficialScheduled, isOfficialPlaceholder, isPrediction, showsResolvedScoreline, usesActualResultVisuals, isTentativeScoreline, isLiveNow, scheduleTimeLabel } = cardState;
   const rendersDimmedPredictionOutcome = showsResolvedScoreline && !usesActualResultVisuals && !isTentativeScoreline;
-  const [redGamesText, blueGamesText] = (row.scoreline || "0:0").split(":");
-  const redGames = Number(redGamesText);
-  const blueGames = Number(blueGamesText);
+  const [redGames, blueGames] = parseScoreline(row.scoreline);
   const isTentativeDraw = isTentativeScoreline && Number.isFinite(redGames) && Number.isFinite(blueGames) && redGames === blueGames;
   const predictedScore = predictScoreline(row.pGameRed ?? expectedRed, expectedRed, row.bestOf || 3);
   const resolvedDisplayScore = scoreParts(row.scoreline);
@@ -631,9 +632,9 @@ function MatchCanvasCardComponent({
       return { label: "已完赛", className: "border-rm-status-safe text-rm-status-safe bg-rm-status-safe/20 shadow-[0_0_10px_rgba(0,232,120,0.3)]" };
     }
     // Tier 2: scheduled — muted
-    if (isLiveNow) return { label: "比赛中", className: "border-rm-status-safe/70 text-rm-status-safe bg-rm-status-safe/12" };
-    if (isTentativeScoreline) return { label: "比分待确认", className: "border-rm-status-warn/70 text-rm-status-warn bg-rm-status-warn/12" };
-    if (isOfficialPlaceholder) return { label: "队伍待定", className: "border-dashed border-rm-status-scheduled/55 text-rm-status-scheduled/75 bg-rm-status-scheduled/8" };
+    if (isLiveNow) return { label: "比赛中", className: "border-rm-status-safe/70 text-rm-status-safe bg-rm-status-safe/10" };
+    if (isTentativeScoreline) return { label: "比分待确认", className: "border-rm-status-warn/70 text-rm-status-warn bg-rm-status-warn/10" };
+    if (isOfficialPlaceholder) return { label: "队伍待定", className: "border-dashed border-rm-status-scheduled/55 text-rm-status-scheduled/75 bg-rm-status-scheduled/10" };
     if (isOfficialScheduled) return { label: "已排期", className: "border-rm-status-scheduled/60 text-rm-status-scheduled/80 bg-rm-status-scheduled/10" };
     // Tier 3: prediction — faint
     return { label: "预测", className: PREDICTION_MATCH_VISUAL_CLASSES.statusBadge };
@@ -686,7 +687,7 @@ function MatchCanvasCardComponent({
         </div>
         {scheduleTimeLabel && (
           <div className="shrink-0 flex items-center gap-1.5 text-[10px] font-mono text-rm-metal-text">
-            <span className="border border-rm-status-scheduled/25 bg-rm-status-scheduled/8 px-1.5 py-0.5 text-rm-status-scheduled tabular-nums">
+            <span className="border border-rm-status-scheduled/25 bg-rm-status-scheduled/10 px-1.5 py-0.5 text-rm-status-scheduled tabular-nums">
               {scheduleTimeLabel}
             </span>
           </div>
@@ -857,7 +858,7 @@ function ScheduleCanvasCardComponent({
           )}
           <span className="truncate font-machine text-[11px] font-bold tracking-widest text-white">{card.displayLabel}</span>
         </div>
-        <span className="shrink-0 border border-rm-status-scheduled/25 bg-rm-status-scheduled/8 px-1.5 py-0.5 font-mono text-[10px] text-rm-status-scheduled tabular-nums">
+        <span className="shrink-0 border border-rm-status-scheduled/25 bg-rm-status-scheduled/10 px-1.5 py-0.5 font-mono text-[10px] text-rm-status-scheduled tabular-nums">
           {formatMatchCardScheduleTime(card.match.startsAt)}
         </span>
       </div>

@@ -6,12 +6,13 @@ import { formatMatchCardScheduleTime, predictScoreline } from "@/components/canv
 import { EloSparkline, formatEloDelta, downsampleTrajectory } from "@/components/elo-sparkline";
 import { PredictionExplanationCard } from "@/components/prediction-explanation-card";
 import { PredictionSignalsPanel } from "@/components/prediction-signals";
-import { translateConfidenceLabel, translateStageLabel } from "@/lib/display";
+import { percent, translateConfidenceLabel, translateStageLabel } from "@/lib/display";
 import {
   formatFinalsDateRange,
   getRepechageSwissMatchHint,
   type FinalsStageProbabilityProjection,
 } from "@/lib/finals-schedule";
+import { FINALS_OUTCOME_LABELS } from "@/lib/finals-team";
 import {
   deriveMatchRatingBreakdown,
   formatSignedRatingDelta,
@@ -31,9 +32,6 @@ import { cn } from "@/lib/utils";
 
 type ForecastMode = "live" | "sim";
 
-function percent(value: number) {
-  return `${(value * 100).toFixed(1)}%`;
-}
 function MatchRoute({ match, eventSlug }: { match: FinalEventMatch; eventSlug?: FinalEventSlug }) {
   const flowHint = eventSlug === "repechage" ? getRepechageSwissMatchHint(match) : null;
   if (flowHint) {
@@ -49,11 +47,6 @@ function MatchRoute({ match, eventSlug }: { match: FinalEventMatch; eventSlug?: 
     </span>
   );
 }
-
-const FINALS_OUTCOME_LABELS: Record<string, string> = {
-  全国赛: "晋级全国赛",
-  淘汰: "淘汰",
-};
 
 export interface InspectorTeamInfo {
   teamKey: string;
@@ -112,7 +105,7 @@ export function ForecastInspectorPanel({
             <p className="text-xs text-rm-blue font-mono">{teamInfo.teamName}</p>
             <Link
               href={buildTeamHref(teamInfo.teamKey)}
-              className="mt-2 inline-flex border border-rm-blue/30 bg-rm-blue/8 px-2 py-1 font-mono text-[10px] text-rm-blue hover:border-rm-blue/60 hover:text-white"
+              className="mt-2 inline-flex border border-rm-blue/30 bg-rm-blue/10 px-2 py-1 font-mono text-[10px] text-rm-blue hover:border-rm-blue/60 hover:text-white"
             >
               打开队伍档案
             </Link>
@@ -247,7 +240,7 @@ export function ForecastInspectorPanel({
 
         <div className="space-y-6">
           {isOfficialPlaceholder ? (
-            <section className="border border-rm-status-scheduled/35 bg-rm-status-scheduled/8 p-3 clip-chamfer">
+            <section className="border border-rm-status-scheduled/35 bg-rm-status-scheduled/10 p-3 clip-chamfer">
               <p className="text-[10px] font-bold uppercase tracking-widest text-rm-status-scheduled">对阵待确认</p>
               <p className="mt-2 text-[11px] leading-relaxed text-rm-metal-text">
                 该场次已排期，对阵双方待抽签落位后更新预测数据。

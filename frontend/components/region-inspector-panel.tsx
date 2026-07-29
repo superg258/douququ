@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import {
   formatMatchLabel,
   formatRankingResultLabel,
+  percent,
   translateConfidenceLabel,
   translateOfficialStatusLabel,
   translateStageLabel,
@@ -34,10 +35,6 @@ import type {
   MatchRow,
   OverviewRegion,
 } from "@/lib/types";
-
-function percent(value: number) {
-  return `${(value * 100).toFixed(1)}%`;
-}
 
 function displayElo(team: { currentElo?: number; mu0?: number }) {
   return team.currentElo ?? team.mu0 ?? null;
@@ -120,7 +117,7 @@ export function RegionInspectorPanel({ selection, regionOverview, selectedOvervi
             <p className="text-xs text-rm-blue font-mono">{selectedOverviewTeam.teamName}</p>
             <Link
               href={buildTeamHref(selectedOverviewTeam.teamKey)}
-              className="mt-2 inline-flex border border-rm-blue/30 bg-rm-blue/8 px-2 py-1 font-mono text-[10px] text-rm-blue hover:border-rm-blue/60 hover:text-white"
+              className="mt-2 inline-flex border border-rm-blue/30 bg-rm-blue/10 px-2 py-1 font-mono text-[10px] text-rm-blue hover:border-rm-blue/60 hover:text-white"
             >
               打开队伍档案
             </Link>
@@ -208,7 +205,7 @@ export function RegionInspectorPanel({ selection, regionOverview, selectedOvervi
 
         <div className="space-y-6">
           {isOfficialPlaceholder ? (
-            <section className="border border-rm-status-scheduled/35 bg-rm-status-scheduled/8 p-3 clip-chamfer">
+            <section className="border border-rm-status-scheduled/35 bg-rm-status-scheduled/10 p-3 clip-chamfer">
               <p className="text-[10px] font-bold uppercase tracking-widest text-rm-status-scheduled">对阵待确认</p>
               <p className="mt-2 text-[11px] leading-relaxed text-rm-metal-text">
                 该场次已排期，对阵双方待抽签落位后更新预测数据。

@@ -166,3 +166,39 @@
 - computed font-family：h1 / .font-machine / .font-mono / body 全部 = `Arial, Helvetica, sans-serif`。
 - 移动端 390px：`/`、`/elo-rankings`、`/teams/...` 均无页面级横向溢出（elo/首页表格为容器内滚动）。
 - 待实测确认：workspace-stage `onWheel` 的 passive 警告（建议 dev 下滚轮缩放时看 console）。
+
+---
+
+# 优化后复查（2026-07-22，生产构建实测）
+
+## 实施与验证结论
+
+P0–P2 全部完成（部分由仓库主人在暂停期间补齐，见 git log d5c6e62→7029462）。最终状态：**`npm run build` 通过（6 路由），vitest 28 文件 199 用例全绿**，生产服务器（next start）+ 后端实跑复查。
+
+### 运行时探针前后对比
+
+| 探测项 | 优化前 | 优化后 |
+|---|---|---|
+| `h1` computed font | Arial | **Quantico** |
+| `.font-machine` | Arial（变量未定义） | **Orbitron** + Fallback |
+| `.font-mono` | Arial | **Roboto Mono** + Fallback |
+| `document.fonts` | 仅 Quantico 700 | Quantico / Orbitron / Roboto Mono 均加载生效 |
+| 移动端 390px 横向溢出 | 无 | 无（保持） |
+| 非刻度透明度（/78、/4、/6、/8、/12、/22 等静默失效） | 37 处 | **0 残留** |
+
+### 截图复查要点（output/screenshots-after/，桌面+移动）
+
+- **首页**：hero 右侧新增 NEXT MATCH 情报条（下一场对阵+倒计时），假状态行删除，RootNav 改为真实"数据接口已连接"（service-health）；赛事面板头部新增阶段进度行；表格数字 Orbitron/Roboto Mono + tabular-nums。
+- **预测中心**：默认自动进入模拟模式，卡片满数据（队名/比分/胜率条）；InspectorPanel 拆分为 forecast-inspector-panel.tsx；画布 memo + 非 passive wheel + use-press-guard 均已落地。
+- **Elo 榜**：单 sticky 头（RootNav 排除本页）；行高压缩、移动端队名截断显著缓解；每行 sparkline（真实 Elo 轨迹）+ 涨跌色 delta；tab 状态入 URL、默认全国赛；移动端 hero 标题折行已修（whitespace-nowrap + 移动端图标化返回）。
+- **队伍页**：hero 新增队伍编号"铭牌"（A1）；预测路径空态改为 SEASON SUMMARY 金色总结卡；seed/mode 从 URL 贯通；错误态统一 ErrorPanel 带重试。
+- **赛区工作区**：文件拆为 toolbar/inspector-panel/legend-popover/search-modal（1208→724 行）；轮询 sim 模式停启 + 页面隐藏暂停；搜索弹窗 dialog 语义 + Esc/遮罩关闭；非法 slug 自动 replace URL。
+
+## 遗留与已知取舍
+
+1. `requestJson` 按 path 在途去重：signal 调用与无 signal 调用并发同 path 时 abort 会波及共享请求（窗口极小，各页有重试 UI，未做 caller 维度隔离）。
+2. `useIsDesktop` SSR 首帧恒为移动端布局，桌面 hydration 后有一次布局切换（单一 DOM 方案固有权衡）。
+3. Elo 榜移动端队名仍截断（约 5 字），为 ELO+sparkline 列让位的有意取舍。
+4. 透明度修复让原本未渲染的淡色底纹真正显示（4→5/6→5/8→10/12→10/22→20），属还原设计意图。
+5. docs/superpowers/ 下历史计划文档仍提及已删文件，属归档资料，未同步。
+6. 复查用小问题已当场修复：elo 移动端 hero 折行（rankings-hero.tsx）。

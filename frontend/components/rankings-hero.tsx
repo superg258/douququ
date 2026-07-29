@@ -28,16 +28,16 @@ export function RankingsHero({
               >
                 <path d="m15 18-6-6 6-6" />
               </svg>
-              <span className="text-xs tracking-widest font-bold uppercase">
+              <span className="hidden sm:inline text-xs tracking-widest font-bold uppercase">
                 返回总控台
               </span>
             </Link>
             <div className="h-5 w-px bg-rm-metal-border" />
-            <h1 className="font-machine text-lg font-bold tracking-widest text-rm-metal-textLight">
+            <h1 className="font-machine text-base sm:text-lg font-bold tracking-widest text-rm-metal-textLight whitespace-nowrap">
               Elo 战力排名
             </h1>
           </div>
-          <span className="font-mono text-[10px] text-rm-metal-textFaint">
+          <span className="shrink-0 whitespace-nowrap font-mono text-[10px] text-rm-metal-textFaint">
             {generatedLabel}
           </span>
         </div>

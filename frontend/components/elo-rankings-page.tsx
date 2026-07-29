@@ -32,9 +32,9 @@ export function EloRankingsPage() {
 
     const load = () => {
       Promise.allSettled([
-        getOverview(),
-        getFinalEvents("live"),
-        ...REGION_ORDER.map((slug) => getLiveState(slug)),
+        getOverview(signal),
+        getFinalEvents("live", signal),
+        ...REGION_ORDER.map((slug) => getLiveState(slug, signal)),
       ]).then((results) => {
         if (signal.aborted) return;
         const [overviewResult, finalsResult, ...liveStateResults] = results;

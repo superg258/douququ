@@ -268,7 +268,7 @@ export function PrematchMatchCard({
         <div className="flex items-center gap-1.5 min-w-0">
           {isHero && (
             <span className="font-mono text-[10px] text-rm-status-warn border border-rm-status-warn/30
-              bg-rm-status-warn/8 px-1.5 py-px tracking-widest shrink-0">
+              bg-rm-status-warn/10 px-1.5 py-px tracking-widest shrink-0">
               NEXT
             </span>
           )}
@@ -300,7 +300,7 @@ export function PrematchMatchCard({
             {match.redTeam.collegeName}
           </span>
           {isOfficialPlaceholder ? (
-            <span className="shrink-0 border border-rm-status-scheduled/30 bg-rm-status-scheduled/8 px-2 py-0.5 font-mono text-[10px] text-rm-status-scheduled">
+            <span className="shrink-0 border border-rm-status-scheduled/30 bg-rm-status-scheduled/10 px-2 py-0.5 font-mono text-[10px] text-rm-status-scheduled">
               队伍待定
             </span>
           ) : (
@@ -338,7 +338,7 @@ export function PrematchMatchCard({
             )}
           </div>
           {isOfficialPlaceholder ? (
-            <div className="border border-rm-status-scheduled/25 bg-rm-status-scheduled/8 py-1 text-center font-mono text-[10px] text-rm-status-scheduled">
+            <div className="border border-rm-status-scheduled/25 bg-rm-status-scheduled/10 py-1 text-center font-mono text-[10px] text-rm-status-scheduled">
               学校队伍待确认
             </div>
           ) : (

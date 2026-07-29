@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { CompetitionSelector, isRegionCompetition } from "@/components/competition-selector";
@@ -10,13 +10,15 @@ import { ForecastInspectorPanel, type InspectorTeamInfo } from "@/components/for
 import { PredictionExplanationCard } from "@/components/prediction-explanation-card";
 import { PredictionSignalsPanel } from "@/components/prediction-signals";
 import { WorkspaceStageView } from "@/components/workspace-stage";
+import { WorkspaceSearchModal } from "@/components/workspace-search-modal";
 import { formatMatchCardScheduleTime, predictScoreline } from "@/components/canvas-card";
 import { ErrorPanel } from "@/components/ui/async-state";
 import { getFinalEvents, getLiveState, getOverview } from "@/lib/api";
 import { buildFullSeasonTrajectories } from "@/lib/elo-trajectory";
-import { translateConfidenceLabel, translateStageLabel } from "@/lib/display";
+import { percent, translateConfidenceLabel, translateStageLabel } from "@/lib/display";
 import { buildFinalsWorkspaceStage } from "@/lib/finals-canvas";
 import { buildFinalsMatchRow, resolveFinalsTeamRating } from "@/lib/finals-match-adapter";
+import { buildFinalsTeamPath, resolveFinalsTeamOutcome } from "@/lib/finals-team";
 import { hasOfficialFinalMatchData, simulateFinalsEvents, simulateFinalsLiveEvents } from "@/lib/finals-simulation";
 import { DEFAULT_SEED, REGION_ORDER, buildRegionHref, getOrCreateSessionSeed, isRegionRealtimeEnabled, parseSeed, refreshSessionSeed } from "@/lib/region-config";
 import { LIVE_REFRESH_INTERVAL_MS, startRealtimePolling } from "@/lib/realtime-polling";
@@ -32,6 +34,7 @@ import {
 } from "@/lib/finals-schedule";
 import { buildTeamHref } from "@/lib/team-profile";
 import { isOfficialPlaceholderMatch } from "@/lib/workspace-selection";
+import { sortTeamsForWorkspaceSearch } from "@/lib/workspace-search";
 import { handleHorizontalTabKeyDown } from "@/lib/keyboard-navigation";
 import type {
   FinalEventMatch,
@@ -48,10 +51,6 @@ import type {
 import { cn } from "@/lib/utils";
 
 type ForecastMode = "live" | "sim";
-
-function percent(value: number) {
-  return `${(value * 100).toFixed(1)}%`;
-}
 
 function defaultStage(eventSlug: FinalEventSlug) {
   return FINAL_STAGE_OPTIONS[eventSlug][0].id;
@@ -86,7 +85,9 @@ export function ForecastCenterPage() {
   const [selection, setSelection] = useState<InspectorSelection | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [stageFullscreen, setStageFullscreen] = useState(false);
-  const [legendOpen, setLegendOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchText, setSearchText] = useState("");
+  const [searchActiveIndex, setSearchActiveIndex] = useState(0);
   const [eventErrors, setEventErrors] = useState<Partial<Record<FinalEventSlug, string>>>({});
   const [overviewError, setOverviewError] = useState<string | null>(null);
   const [overviewWarnDismissed, setOverviewWarnDismissed] = useState(false);
@@ -265,6 +266,21 @@ export function ForecastCenterPage() {
   const selectedTeamKey = selection?.kind === "team" ? selection.teamKey : null;
   const selectedMatchLabel = selection?.kind === "match" ? selection.matchLabel : null;
   const allTeams = useMemo(() => overview?.regions.flatMap((region) => region.teams) ?? [], [overview]);
+  const deferredSearchText = useDeferredValue(searchText);
+  // 搜索范围限定在当前赛事参赛队伍内，与画布可见内容一致
+  const eventTeams = useMemo(() => {
+    if (!current) return [] as OverviewTeam[];
+    const participantKeys = new Set(current.event.participants.map((participant) => participant.teamKey));
+    return allTeams.filter((team) => participantKeys.has(team.teamKey));
+  }, [current, allTeams]);
+  const searchResults = useMemo(
+    () => sortTeamsForWorkspaceSearch(eventTeams, deferredSearchText, null).slice(0, 18),
+    [eventTeams, deferredSearchText],
+  );
+
+  useEffect(() => {
+    setSearchActiveIndex(0);
+  }, [deferredSearchText, searchOpen]);
 
   const selectedMatch = useMemo(() => {
     if (!current || !selectedMatchLabel) return null;
@@ -312,24 +328,12 @@ export function ForecastCenterPage() {
 
   const selectedTeamPath = useMemo<MatchRow[]>(() => {
     if (!selectedTeamKey || !current || !currentSimulation) return [];
-    return current.event.matches
-      .filter((match) => {
-        const result = currentSimulation.matchResults.get(match.number);
-        if (!result) return false;
-        // 仅展示官方已确认的赛程：已有真实赛果，或对阵双方已官方落位
-        if (!result.isRealResult && !result.isConfirmedMatchup) return false;
-        return result.red?.teamKey === selectedTeamKey || result.blue?.teamKey === selectedTeamKey;
-      })
-      .sort((left, right) => left.number - right.number)
-      .map((match) => buildFinalsMatchRow(current.event, match, currentSimulation.matchResults.get(match.number)));
+    return buildFinalsTeamPath(current.event, currentSimulation, selectedTeamKey);
   }, [selectedTeamKey, current, currentSimulation]);
 
   const selectedTeamOutcome = useMemo(() => {
     if (!selectedTeamKey || !currentSimulation) return null;
-    for (const [destination, teams] of currentSimulation.terminalOutcomes) {
-      if (teams.some((team) => team.teamKey === selectedTeamKey)) return destination;
-    }
-    return null;
+    return resolveFinalsTeamOutcome(currentSimulation, selectedTeamKey);
   }, [selectedTeamKey, currentSimulation]);
 
   const topTeams = useMemo(() => {
@@ -362,6 +366,12 @@ export function ForecastCenterPage() {
     setSelection({ kind: "match", matchLabel });
     setInspectorOpen(true);
   }, [current]);
+
+  const chooseSearchTeam = (team: OverviewTeam) => {
+    setSearchOpen(false);
+    setSearchText("");
+    openTeam(team.teamKey);
+  };
 
   const chooseEvent = (nextEvent: FinalEventSlug) => {
     const nextStage = defaultStage(nextEvent);
@@ -410,7 +420,6 @@ export function ForecastCenterPage() {
   }
 
   const visibleMatches = matchesForFinalStage(current.event, stage);
-  const inspectorVisible = inspectorOpen || Boolean(selection);
 
   const inspectorToggle = (
     <div className={cn(
@@ -551,16 +560,12 @@ export function ForecastCenterPage() {
             <span className="text-rm-status-scheduled">{formatFinalsDateRange(current.event.competitionRange.start, current.event.competitionRange.end)}</span>
           </div>
           <div className="flex-1" />
-          <button type="button" onClick={() => setLegendOpen((open) => !open)} className={cn("shrink-0 border px-2.5 py-1.5 text-xs transition-colors", legendOpen ? "border-rm-blue bg-rm-blue/15 text-rm-blue" : "border-white/10 bg-rm-metal-dark/80 text-rm-metal-text hover:text-white")}>图例</button>
           <button
             type="button"
-            onClick={() => setInspectorOpen((open) => !open)}
-            className={cn(
-              "shrink-0 border px-2.5 py-1.5 text-xs uppercase transition-colors",
-              inspectorVisible ? "border-rm-blue bg-rm-blue/15 text-rm-blue" : "border-white/10 bg-rm-metal-dark/80 text-rm-metal-text hover:text-white"
-            )}
+            onClick={() => setSearchOpen(true)}
+            className="shrink-0 border border-white/10 bg-rm-metal-dark/80 px-2.5 py-1.5 text-xs uppercase text-rm-metal-text transition-colors hover:bg-rm-metal-panel hover:text-white"
           >
-            情报
+            搜索
           </button>
           <span className="hidden shrink-0 font-mono text-[10px] text-rm-metal-textFaint sm:inline">{current.event.statusLabel}</span>
         </div>
@@ -598,18 +603,6 @@ export function ForecastCenterPage() {
         </div>
       ) : null}
 
-      {legendOpen ? (
-        <div className="absolute left-0 right-0 top-[74px] z-40 glass-sheet border-y border-rm-metal-border px-3 py-3 md:left-auto md:right-4 md:top-20 md:w-72 md:border">
-          <div className="flex items-center justify-between"><span className="text-[10px] font-bold uppercase tracking-widest text-rm-metal-text">路线图例</span><button type="button" onClick={() => setLegendOpen(false)} className="font-mono text-[10px] text-rm-metal-text hover:text-white">收起</button></div>
-          <div className="mt-3 space-y-2 font-mono text-[10px] text-rm-metal-textMuted">
-            <span className="flex items-center gap-2"><span className="h-0.5 w-8 bg-rm-status-safe" />胜者晋级</span>
-            <span className="flex items-center gap-2"><span className="h-0.5 w-8 bg-rm-result-winner" />席位与名次落位</span>
-            <span className="flex items-center gap-2"><span className="h-0.5 w-8 bg-rm-metal-text/60" />负者转战或淘汰</span>
-            <span className="flex items-center gap-2"><span className="h-0.5 w-8 bg-rm-blue" />瑞士轮按战绩配对</span>
-          </div>
-        </div>
-      ) : null}
-
       <div className="flex-1 relative flex overflow-hidden">
         {/* Canvas Area */}
         <div id="forecast-stage-panel" role="tabpanel" aria-labelledby={`forecast-${stage}-tab`} className="flex-1 min-w-0 relative bg-transparent">
@@ -617,6 +610,7 @@ export function ForecastCenterPage() {
             <WorkspaceStageView
               stage={workspace}
               mode={mode}
+              background="nationals"
               selectedTeamKey={selectedTeamKey}
               highlightedTeamKey={selectedTeamKey}
               selectedMatchLabel={selectedMatchLabel}
@@ -638,6 +632,67 @@ export function ForecastCenterPage() {
         </>,
         document.body
       ) : null}
+
+      <WorkspaceSearchModal open={searchOpen} title="搜索队伍档案 · 当前赛事" onClose={() => setSearchOpen(false)}>
+        <div className="flex flex-col gap-4">
+          <input
+            name="team-search"
+            type="text"
+            autoComplete="off"
+            autoFocus
+            placeholder="输入高校名称或拼音..."
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowDown") {
+                event.preventDefault();
+                setSearchActiveIndex((index) => Math.min(Math.max(0, searchResults.length - 1), index + 1));
+              } else if (event.key === "ArrowUp") {
+                event.preventDefault();
+                setSearchActiveIndex((index) => Math.max(0, index - 1));
+              } else if (event.key === "Enter" && searchResults[searchActiveIndex]) {
+                event.preventDefault();
+                chooseSearchTeam(searchResults[searchActiveIndex]);
+              }
+            }}
+            aria-controls="team-search-results"
+            aria-activedescendant={searchResults[searchActiveIndex] ? `team-search-result-${searchActiveIndex}` : undefined}
+            className="bg-rm-metal-dark border-2 border-rm-metal-border focus:border-rm-blue px-4 py-3 text-white font-mono text-sm focus:outline-none transition-colors"
+          />
+          <div id="team-search-results" role="listbox" className="flex flex-col gap-2 max-h-96 overflow-y-auto pr-2 no-scrollbar">
+            {searchResults.map((team, index) => (
+              <div
+                key={team.teamKey}
+                id={`team-search-result-${index}`}
+                role="option"
+                aria-selected={index === searchActiveIndex}
+                className={cn(
+                  "group flex items-stretch border bg-rm-metal-panel text-left transition-all hover:border-rm-blue hover:bg-rm-blue/10",
+                  index === searchActiveIndex ? "border-rm-blue bg-rm-blue/10 shadow-[0_0_16px_rgba(42,159,255,0.15)]" : "border-rm-metal-border",
+                )}
+              >
+                <button onClick={() => chooseSearchTeam(team)} className="flex-1 p-3 text-left">
+                  <div className="flex items-center justify-between w-full mb-1">
+                     <strong className="text-white font-bold group-hover:text-rm-blue transition-colors text-sm">{team.collegeName}</strong>
+                     <span className="text-[10px] text-rm-metal-text font-mono border border-rm-metal-border px-1.5">{team.regionName}</span>
+                  </div>
+                  <div className="flex items-center justify-between w-full mt-1">
+                     <span className="text-xs text-rm-metal-text font-mono">{team.teamName}</span>
+                  <span className="text-[10px] text-rm-status-warn font-bold font-mono">国赛率 {percent(team.probabilities.national)}</span>
+                  </div>
+                </button>
+                <Link
+                  href={buildTeamHref(team.teamKey)}
+                  className="flex items-center border-l border-rm-metal-border px-3 font-mono text-[10px] text-rm-blue hover:text-white"
+                >
+                  档案
+                </Link>
+              </div>
+            ))}
+            {searchResults.length === 0 ? <div className="text-rm-metal-text/50 font-mono text-xs italic p-4 text-center">未找到与“{searchText}”匹配的队伍</div> : null}
+          </div>
+        </div>
+      </WorkspaceSearchModal>
     </div>
   );
 }

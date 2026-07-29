@@ -36,7 +36,7 @@ const EVENT_TONES: Record<FinalEventSlug, {
     border: "border-rm-blue/35",
     glow: "bg-rm-blue/75 shadow-[0_0_12px_rgba(42,159,255,0.45)]",
     wash: "bg-[radial-gradient(circle_at_12%_16%,rgba(42,159,255,0.13),transparent_38%)]",
-    badge: "border-rm-blue/35 bg-rm-blue/8 text-rm-blue",
+    badge: "border-rm-blue/35 bg-rm-blue/10 text-rm-blue",
     button: "border-rm-blue/45 bg-rm-blue/10 text-rm-blue hover:bg-rm-blue hover:text-black",
   },
   nationals: {
@@ -45,7 +45,7 @@ const EVENT_TONES: Record<FinalEventSlug, {
     border: "border-rm-status-warn/35",
     glow: "bg-rm-status-warn/70 shadow-[0_0_12px_rgba(255,176,0,0.45)]",
     wash: "bg-[radial-gradient(circle_at_88%_16%,rgba(255,176,0,0.11),transparent_36%)]",
-    badge: "border-rm-status-warn/35 bg-rm-status-warn/8 text-rm-status-warn",
+    badge: "border-rm-status-warn/35 bg-rm-status-warn/10 text-rm-status-warn",
     button: "border-rm-status-warn/45 bg-rm-status-warn/10 text-rm-status-warn hover:bg-rm-status-warn hover:text-black",
   },
 };

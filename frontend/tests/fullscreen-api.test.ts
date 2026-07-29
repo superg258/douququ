@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isPageFullscreenActive, setPageFullscreenLock } from "@/lib/fullscreen-api";
+import { setPageFullscreenLock } from "@/lib/fullscreen-api";
 
 describe("fullscreen-api", () => {
   const createMockElement = (overflow = "") => {
@@ -16,11 +16,6 @@ describe("fullscreen-api", () => {
       },
     };
   };
-
-  it("reports page fullscreen from local UI state", () => {
-    expect(isPageFullscreenActive(true)).toBe(true);
-    expect(isPageFullscreenActive(false)).toBe(false);
-  });
 
   it("locks page scrolling and marks fullscreen state while active", () => {
     const body = createMockElement("auto");
