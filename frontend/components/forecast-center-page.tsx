@@ -33,6 +33,7 @@ import {
   formatFinalsDateRange,
   getFinalsLiveUnavailableReason,
   hasOfficialFinalSchedule,
+  hasOfficialFinalScheduleSkeleton,
   matchesForFinalStage,
   projectFinalsStageProbabilities,
   rankFinalEventParticipantsByCurrentElo,
@@ -252,6 +253,7 @@ export function ForecastCenterPage() {
 
   const current = events?.[eventSlug] ?? null;
   const officialLiveSchedule = current ? hasOfficialFinalSchedule(current) : false;
+  const officialScheduleSkeleton = current ? hasOfficialFinalScheduleSkeleton(current) : false;
   const liveReferenceReason = mode === "live" && current && !officialLiveSchedule
     ? getFinalsLiveUnavailableReason(current) ?? "官方实时源未就绪，当前仅展示参考赛程。"
     : null;
@@ -554,6 +556,8 @@ export function ForecastCenterPage() {
                 ? "检查并打开官方实时赛程"
                 : officialLiveSchedule
                   ? "基于官方赛程的实时数据"
+                  : officialScheduleSkeleton
+                    ? "官方排期骨架已同步；初始抽签对阵尚未发布"
                   : "官方实时源未就绪；打开参考赛程"}
               className={cn(
                 "px-2.5 py-1.5 text-xs font-bold uppercase transition-colors",
@@ -583,7 +587,9 @@ export function ForecastCenterPage() {
             </span>
           ) : mode === "live" && liveReferenceReason ? (
             <span className="shrink-0 border border-rm-status-warn/70 bg-rm-status-warn/15 px-2 py-1 font-mono text-[10px] font-bold text-rm-status-warn">
-              官方实时源未就绪 · 仅参考赛程
+              {officialScheduleSkeleton
+                ? "官方排期骨架已同步 · 对阵未发布"
+                : "官方实时源未就绪 · 仅参考赛程"}
             </span>
           ) : mode === "live" ? (
             <span className="shrink-0 border border-rm-status-safe/60 bg-rm-status-safe/10 px-2 py-1 font-mono text-[10px] font-bold text-rm-status-safe">
@@ -663,20 +669,6 @@ export function ForecastCenterPage() {
           </span>
         </div>
       </header>
-
-      {liveReferenceReason ? (
-        <div className="z-30 flex flex-wrap items-center gap-2 border-b border-rm-status-warn/50 bg-rm-status-warn/10 px-3 py-2 font-mono text-[11px] text-rm-status-warn md:px-4">
-          <span className="min-w-0 flex-1">
-            {liveReferenceReason} 此页面保留显式 live 深链，但不包含官方实时赛果。
-          </span>
-          <button type="button" onClick={() => chooseMode("sim")} className="border border-rm-status-warn/50 px-2 py-1 font-bold hover:bg-rm-status-warn hover:text-black">
-            进入模拟推演
-          </button>
-          <button type="button" onClick={retryEvents} className="px-2 py-1 underline underline-offset-2">
-            重新检查
-          </button>
-        </div>
-      ) : null}
 
       {selectedEventError ? (
         <div className="border-b border-rm-status-warn/40 bg-rm-status-warn/5 px-4 py-2 font-mono text-[11px] text-rm-status-warn">

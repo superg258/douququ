@@ -13,6 +13,7 @@ import {
   getRepechageSwissMatchHint,
   hasActualFinalMatchup,
   hasOfficialFinalSchedule,
+  hasOfficialFinalScheduleSkeleton,
   isActualSchoolName,
   matchesForFinalStage,
   projectFinalsStageProbabilities,
@@ -21,6 +22,15 @@ import {
 import type { FinalEventMatch, FinalEventResponse, FinalEventsSnapshotResponse, FinalEventSchedule, LiveSourceStatusContract, OverviewResponse, OverviewTeam, TeamCanvasCard } from "@/lib/types";
 
 function match(number: number, startsAt: string, stage: string, overrides: Partial<FinalEventMatch> = {}): FinalEventMatch {
+  const confirmedOfficialMatchup = overrides.officialMatchId && overrides.isConfirmedMatchup !== false
+    ? {
+        isConfirmedMatchup: true,
+        redTeamKey: `red::${number}`,
+        blueTeamKey: `blue::${number}`,
+        redCollegeName: `红方大学 ${number}`,
+        blueCollegeName: `蓝方大学 ${number}`,
+      }
+    : {};
   return {
     number,
     stageKey: "swiss",
@@ -34,6 +44,7 @@ function match(number: number, startsAt: string, stage: string, overrides: Parti
     endTime: "10:00",
     startsAt,
     endsAt: `${startsAt.slice(0, 11)}10:00:00+08:00`,
+    ...confirmedOfficialMatchup,
     ...overrides,
   };
 }
@@ -93,6 +104,27 @@ describe("finals schedule helpers", () => {
       liveStatus: activeOfficialLiveStatus,
       event: event([match(1, "2026-07-31T10:00:00+08:00", "A组瑞士轮第一轮", { officialMatchId: "30900" })]),
     })).toBe(true);
+    const skeletonOnly = {
+      ...base,
+      liveStatus: { ...activeOfficialLiveStatus, confirmedMatches: 0 },
+      event: event([match(1, "2026-07-31T10:00:00+08:00", "A组瑞士轮第一轮", {
+        officialMatchId: "30900",
+        isConfirmedMatchup: false,
+      })]),
+    };
+    expect(hasOfficialFinalScheduleSkeleton(skeletonOnly)).toBe(true);
+    expect(hasOfficialFinalSchedule(skeletonOnly)).toBe(false);
+    expect(hasOfficialFinalSchedule({
+      ...base,
+      liveStatus: activeOfficialLiveStatus,
+      event: event([
+        match(1, "2026-07-31T10:00:00+08:00", "A组瑞士轮第一轮", { officialMatchId: "30900" }),
+        match(2, "2026-07-31T11:00:00+08:00", "B组瑞士轮第一轮", {
+          officialMatchId: "30901",
+          isConfirmedMatchup: false,
+        }),
+      ]),
+    })).toBe(false);
     expect(hasOfficialFinalSchedule({
       ...base,
       liveStatus: { ...activeOfficialLiveStatus, sourceKind: "synthetic", isSynthetic: true },
@@ -139,6 +171,15 @@ describe("finals schedule helpers", () => {
       event: event([match(1, "2026-07-31T10:00:00+08:00", "A组瑞士轮第一轮", { officialMatchId: "30900" })]),
     };
     expect(getFinalsLiveUnavailableReason(stale)).toBeNull();
+    const skeleton = {
+      ...stale,
+      liveStatus: { ...stale.liveStatus, confirmedMatches: 0 },
+      event: event([match(1, "2026-07-31T10:00:00+08:00", "A组瑞士轮第一轮", {
+        officialMatchId: "30900",
+        isConfirmedMatchup: false,
+      })]),
+    };
+    expect(getFinalsLiveUnavailableReason(skeleton)).toContain("初始抽签对阵尚未发布");
   });
 
   it("builds explicit homepage entries for live and simulated finals canvases", () => {

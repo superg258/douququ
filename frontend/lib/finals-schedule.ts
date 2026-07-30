@@ -22,12 +22,33 @@ const DRAW_SLOT_PATTERN = /^(?:(?:[ⅠⅡⅢⅣⅤIVX]+)\s*-\s*)?[AB]\s*-?\s*\d+
 const DERIVED_SLOT_PATTERN = /(?:胜者|败者|决赛|半决赛|待确认|待定|槽位|名额)/u;
 const NATIONALS_FIELD_CAPACITY = 32;
 
-export function hasOfficialFinalSchedule(response: FinalEventResponse) {
+function hasConfirmedOfficialFinalMatchup(match: FinalEventMatch) {
+  return Boolean(match.officialMatchId)
+    && match.isConfirmedMatchup === true
+    && hasActualFinalMatchup(match);
+}
+
+function hasPublishedInitialFinalSchedule(event: FinalEventSchedule) {
+  const openingSwissMatches = event.matches.filter(
+    (match) => match.stageKey === "swiss" && getSwissRoundNumber(match.stage) === 1,
+  );
+  if (openingSwissMatches.length > 0) {
+    return openingSwissMatches.every(hasConfirmedOfficialFinalMatchup);
+  }
+  return event.matches.some(hasConfirmedOfficialFinalMatchup);
+}
+
+export function hasOfficialFinalScheduleSkeleton(response: FinalEventResponse) {
   return response.liveStatus?.sourceStatus === "active"
     && response.liveStatus.sourceKind === "official"
     && response.liveStatus.isSynthetic !== true
     && response.liveStatus.validationState === "validated"
     && response.event.matches.some((match) => Boolean(match.officialMatchId));
+}
+
+export function hasOfficialFinalSchedule(response: FinalEventResponse) {
+  return hasOfficialFinalScheduleSkeleton(response)
+    && hasPublishedInitialFinalSchedule(response.event);
 }
 
 export function getFinalsLiveUnavailableReason(response: FinalEventResponse) {
@@ -49,6 +70,9 @@ export function getFinalsLiveUnavailableReason(response: FinalEventResponse) {
   }
   if (!response.event.matches.some((match) => Boolean(match.officialMatchId))) {
     return "官方赛程尚未同步到可展示比赛，当前仅展示参考赛程。";
+  }
+  if (!hasPublishedInitialFinalSchedule(response.event)) {
+    return "官方已同步比赛排期骨架，但初始抽签对阵尚未发布，当前仅展示槽位参考赛程。";
   }
   return null;
 }
