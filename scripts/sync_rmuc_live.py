@@ -7,8 +7,7 @@ import os
 import re
 import sys
 import uuid
-from datetime import UTC, datetime, timedelta, timezone
-from email.utils import parsedate_to_datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +25,18 @@ from backend.app.artifacts import (  # noqa: E402
 )
 from backend.app.competition import is_completed_match_status  # noqa: E402
 from scripts._live_sync_common import fetch_json  # noqa: E402
+from scripts._mini_program_sync import (  # noqa: E402
+    DEFAULT_MINI_PROGRAM_LOOKAHEAD_HOURS,
+    DEFAULT_MINI_PROGRAM_LOOKBACK_HOURS,
+    DEFAULT_MINI_PROGRAM_MAX_MATCHES,
+    DEFAULT_MINI_PROGRAM_REFRESH_WINDOW_SECONDS,
+    DEFAULT_MINI_PROGRAM_TTL_SECONDS,
+    MINI_PROGRAM_PREDICTIONS_FILENAME,
+    collect_match_ids as collect_mini_program_match_ids_from_matches,
+    disabled_status as disabled_mini_program_status,
+    parse_datetime as _parse_datetime,
+    sync_predictions,
+)
 from research.trueskill2.fit import (  # noqa: E402
     _build_published_current_snapshot,
     _regional_pre_config,
@@ -45,7 +56,6 @@ DEFAULT_RUNTIME_DIR = ROOT / "data" / "runtime" / "rmuc_live"
 DEFAULT_BASE_PUBLISHED_DIR = ROOT / "data" / "derived" / "2026_rmuc_ts2" / "published_2026"
 DEFAULT_PRESEASON_RATINGS = ROOT / "data" / "derived" / "2026_rmuc_ts2" / "preseason_ratings.csv"
 DEFAULT_TS2_CONFIG = ROOT / "configs" / "trueskill2_full.yaml"
-MINI_PROGRAM_PREDICTIONS_FILENAME = "mini_program_predictions.json"
 PREDICTION_FORM_OBSERVATIONS_FILENAME = "prediction_form_observations.json"
 SYNC_MANIFEST_FILENAME = "sync_manifest.json"
 CHECK_STATUS_FILENAME = "check_status.json"
@@ -54,15 +64,9 @@ PUBLISH_GENERATION_FILENAME = "publish_generation.json"
 REGIONAL_SEMANTIC_VOLATILE_KEYS = DEFAULT_VOLATILE_KEYS | frozenset(
     {"sourceUpdatedAt", "etag"}
 )
-DEFAULT_MINI_PROGRAM_TTL_SECONDS = 300
-DEFAULT_MINI_PROGRAM_REFRESH_WINDOW_SECONDS = 60
-DEFAULT_MINI_PROGRAM_LOOKBACK_HOURS = 24
-DEFAULT_MINI_PROGRAM_LOOKAHEAD_HOURS = 48
-DEFAULT_MINI_PROGRAM_MAX_MATCHES = 96
 DEFAULT_RAW_SNAPSHOT_WARNING_BYTES = 3 * 1024 * 1024 * 1024
 DEFAULT_RAW_SNAPSHOT_WARNING_FILES = 2500
 SYNC_USER_AGENT = "douququ-rmuc-live-sync/1.0"
-BEIJING_TZ = timezone(timedelta(hours=8))
 RUNTIME_SNAPSHOT_RE = re.compile(r"^(group_rank_info|robot_data)\.(\d{8}T\d{6}Z)\.json$")
 RAW_TIMESTAMP_SNAPSHOT_RE = re.compile(r"^.+\.\d{8}T\d{6}Z\.json$")
 
@@ -94,26 +98,6 @@ def regional_schedule_digest(payload: Any) -> str:
 
 def mini_program_sync_disabled_from_env() -> bool:
     return os.getenv("RMUC_MINI_PROGRAM_ENABLED", "1").strip().lower() in {"0", "false", "no", "off"}
-
-
-def _parse_datetime(value: Any) -> datetime | None:
-    if value in (None, ""):
-        return None
-    text = str(value).strip()
-    if not text:
-        return None
-    try:
-        if text.endswith("Z"):
-            text = text[:-1] + "+00:00"
-        parsed = datetime.fromisoformat(text)
-    except ValueError:
-        try:
-            parsed = parsedate_to_datetime(str(value))
-        except (TypeError, ValueError):
-            return None
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=BEIJING_TZ).astimezone(UTC)
-    return parsed.astimezone(UTC)
 
 
 def write_raw_snapshot(raw_dir: Path, name: str, payload: dict[str, Any], fetched_at: datetime) -> None:
@@ -489,55 +473,14 @@ def collect_mini_program_match_ids(
 ) -> list[str]:
     if normalized.get("sourceStatus") != "active":
         return []
-    window_start = now.astimezone(UTC) - timedelta(hours=max(0, lookback_hours))
-    window_end = now.astimezone(UTC) + timedelta(hours=max(0, lookahead_hours))
-    candidates: list[tuple[datetime, str]] = []
-    seen: set[str] = set()
-    for match in _iter_normalized_matches(normalized):
-        official_id = str(match.get("officialMatchId") or "").strip()
-        if not official_id or not official_id.isdigit() or official_id in seen:
-            continue
-        planned_start = _parse_datetime(match.get("plannedStartAt"))
-        if planned_start is None or not (window_start <= planned_start <= window_end):
-            continue
-        seen.add(official_id)
-        candidates.append((planned_start, official_id))
-    candidates.sort(key=lambda item: (item[0], item[1]))
-    match_ids = [match_id for _, match_id in candidates]
-    if max_matches is not None and max_matches > 0:
-        return match_ids[:max_matches]
-    return match_ids
-
-
-def _prediction_is_fresh(prediction: dict[str, Any], *, now: datetime, ttl_seconds: int, refresh_window_seconds: int) -> bool:
-    fetched_at = _parse_datetime(prediction.get("fetchedAt"))
-    if fetched_at is None:
-        return False
-    refresh_after = max(0, ttl_seconds - refresh_window_seconds)
-    return (now.astimezone(UTC) - fetched_at).total_seconds() < refresh_after
-
-
-def _load_existing_mini_program_predictions(runtime_dir: Path) -> dict[str, dict[str, Any]]:
-    payload = load_json_if_exists(runtime_dir / MINI_PROGRAM_PREDICTIONS_FILENAME)
-    if not isinstance(payload, dict):
-        return {}
-    predictions = payload.get("predictions")
-    if not isinstance(predictions, dict):
-        return {}
-    return {
-        str(match_id): prediction
-        for match_id, prediction in predictions.items()
-        if isinstance(prediction, dict)
-    }
-
-
-def _unavailable_prediction(match_id: str, reason: str, *, fetched_at: datetime) -> dict[str, Any]:
-    return {
-        "status": "unavailable",
-        "matchId": match_id,
-        "reason": reason,
-        "fetchedAt": fetched_at.astimezone(UTC).isoformat(),
-    }
+    return collect_mini_program_match_ids_from_matches(
+        _iter_normalized_matches(normalized),
+        now=now,
+        timestamp_fields=("plannedStartAt",),
+        lookback_hours=lookback_hours,
+        lookahead_hours=lookahead_hours,
+        max_matches=max_matches,
+    )
 
 
 def sync_mini_program_predictions(
@@ -552,7 +495,6 @@ def sync_mini_program_predictions(
     lookahead_hours: int = DEFAULT_MINI_PROGRAM_LOOKAHEAD_HOURS,
     max_matches: int | None = DEFAULT_MINI_PROGRAM_MAX_MATCHES,
 ) -> dict[str, Any]:
-    fetcher = fetcher or rmuc_live.MiniProgramPredictionClient().get
     match_ids = collect_mini_program_match_ids(
         normalized,
         now=fetched_at,
@@ -560,80 +502,16 @@ def sync_mini_program_predictions(
         lookahead_hours=lookahead_hours,
         max_matches=max_matches,
     )
-    existing = _load_existing_mini_program_predictions(runtime_dir)
-    predictions: dict[str, dict[str, Any]] = dict(existing)
-    errors: dict[str, str] = {}
-    reused = 0
-    refreshed = 0
-
-    for match_id in match_ids:
-        cached = existing.get(match_id)
-        if cached is not None and _prediction_is_fresh(
-            cached,
-            now=fetched_at,
-            ttl_seconds=ttl_seconds,
-            refresh_window_seconds=refresh_window_seconds,
-        ):
-            predictions[match_id] = cached
-            reused += 1
-            continue
-        try:
-            prediction = fetcher(match_id)
-        except Exception as exc:  # noqa: BLE001 - upstream failure should be represented in runtime status.
-            errors[match_id] = str(exc)
-            prediction = _unavailable_prediction(match_id, str(exc), fetched_at=fetched_at)
-        if not isinstance(prediction, dict):
-            prediction = _unavailable_prediction(match_id, "invalid mini-program response", fetched_at=fetched_at)
-        predictions[match_id] = prediction
-        refreshed += 1
-
-    window_predictions = {
-        match_id: predictions[match_id]
-        for match_id in match_ids
-        if match_id in predictions
-    }
-    status = {
-        "sourceStatus": "active" if not errors else "partial_error",
-        "enabled": True,
-        "generatedAt": fetched_at.astimezone(UTC).isoformat(),
-        "ttlSeconds": ttl_seconds,
-        "refreshWindowSeconds": refresh_window_seconds,
-        "lookbackHours": lookback_hours,
-        "lookaheadHours": lookahead_hours,
-        "candidateMatchIds": len(match_ids),
-        "reused": reused,
-        "refreshed": refreshed,
-        "available": sum(1 for prediction in window_predictions.values() if prediction.get("status") == "available"),
-        "unavailable": sum(1 for prediction in window_predictions.values() if prediction.get("status") != "available"),
-        "storedPredictions": len(predictions),
-        "errorCount": len(errors),
-        "errors": errors,
-    }
-    write_json_atomic(
-        runtime_dir / MINI_PROGRAM_PREDICTIONS_FILENAME,
-        {
-            **status,
-            "predictions": predictions,
-        },
+    return sync_predictions(
+        match_ids,
+        runtime_dir=runtime_dir,
+        fetched_at=fetched_at,
+        fetcher=fetcher,
+        ttl_seconds=ttl_seconds,
+        refresh_window_seconds=refresh_window_seconds,
+        lookback_hours=lookback_hours,
+        lookahead_hours=lookahead_hours,
     )
-    return status
-
-
-def disabled_mini_program_status(reason: str, *, fetched_at: datetime) -> dict[str, Any]:
-    return {
-        "sourceStatus": "disabled",
-        "enabled": False,
-        "generatedAt": fetched_at.astimezone(UTC).isoformat(),
-        "reason": reason,
-        "candidateMatchIds": 0,
-        "reused": 0,
-        "refreshed": 0,
-        "available": 0,
-        "unavailable": 0,
-        "storedPredictions": 0,
-        "errorCount": 0,
-        "errors": {},
-    }
 
 
 def build_sync_manifest(

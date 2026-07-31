@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 
 from backend.app import service
-from scripts import sync_rmuc_live
+from scripts import _mini_program_sync, sync_rmuc_live
 
 
 def _write_json(path: Path, payload: Any) -> None:
@@ -389,6 +389,26 @@ def test_sync_mini_program_predictions_reuses_fresh_cache_and_fetches_windowed_m
     assert manifest["officialSchedule"]["sourceStatus"] == "active"
     assert manifest["officialSchedule"]["matchCount"] == 4
     assert manifest["miniProgramPrediction"]["candidateMatchIds"] == 2
+
+
+def test_mini_program_deadline_defers_uncached_matches_without_failing_sync(
+    tmp_path: Path,
+) -> None:
+    fetched: list[str] = []
+
+    status = _mini_program_sync.sync_predictions(
+        ["31221", "31222"],
+        runtime_dir=tmp_path,
+        fetched_at=datetime(2026, 7, 31, 10, 0, tzinfo=UTC),
+        fetcher=lambda match_id: fetched.append(match_id),
+        deadline_seconds=0,
+    )
+
+    assert fetched == []
+    assert status["sourceStatus"] == "active"
+    assert status["candidateMatchIds"] == 2
+    assert status["refreshed"] == 0
+    assert status["deferred"] == 2
 
 
 def test_collect_mini_program_match_ids_treats_naive_schedule_times_as_beijing() -> None:

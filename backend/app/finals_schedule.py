@@ -292,6 +292,31 @@ def _merge_runtime_event(event: dict[str, Any], runtime_event: dict[str, Any] | 
     return merged
 
 
+def _merge_mini_program_predictions(
+    event: dict[str, Any],
+    predictions: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    if not predictions:
+        return event
+    merged = dict(event)
+    merged["matches"] = [
+        {
+            **match,
+            **(
+                {"miniProgramPrediction": predictions[official_match_id]}
+                if (
+                    (official_match_id := str(match.get("officialMatchId") or "").strip())
+                    and official_match_id in predictions
+                )
+                else {}
+            ),
+        }
+        for match in event.get("matches", [])
+        if isinstance(match, dict)
+    ]
+    return merged
+
+
 def _runtime_status(
     runtime: dict[str, Any] | None,
     event_slug: str,
@@ -352,6 +377,7 @@ def _build_final_event_from_snapshot(
     mode: str,
     payload: dict[str, Any],
     runtime: dict[str, Any] | None,
+    mini_program_predictions: dict[str, dict[str, Any]],
     runtime_artifact_version: str,
 ) -> dict[str, Any]:
     runtime_status = _runtime_status(
@@ -363,6 +389,11 @@ def _build_final_event_from_snapshot(
     runtime_active = runtime_status["sourceStatus"] == "active"
     runtime_event = runtime.get("events", {}).get(event_slug) if runtime_active else None
     merged_event = _merge_runtime_event(payload["events"][event_slug], runtime_event)
+    if mode == "live":
+        merged_event = _merge_mini_program_predictions(
+            merged_event,
+            mini_program_predictions,
+        )
     sources = list(payload["sources"])
     if runtime_active:
         sources.append(
@@ -393,30 +424,44 @@ def _build_final_event_from_snapshot(
     }
 
 
-def _load_finals_snapshot(mode: str) -> tuple[dict[str, Any], dict[str, Any] | None, str]:
+def _load_finals_snapshot(
+    mode: str,
+) -> tuple[
+    dict[str, Any],
+    dict[str, Any] | None,
+    dict[str, dict[str, Any]],
+    str,
+]:
     if mode not in {"live", "sim"}:
         raise RequestParameterError(f"Unsupported finals mode: {mode}")
     payload = load_finals_schedule()
     if mode == "sim":
-        return payload, None, "disabled"
+        return payload, None, {}, "disabled"
     for _ in range(2):
         version_before = finals_live.runtime_artifact_version()
         runtime = finals_live.load_finals_runtime()
+        mini_program_predictions = finals_live.load_finals_mini_program_predictions()
         version_after = finals_live.runtime_artifact_version()
         if version_before == version_after:
-            return payload, runtime, version_after
+            return payload, runtime, mini_program_predictions, version_after
     raise RuntimeError("Finals runtime changed repeatedly while building a snapshot")
 
 
 def build_final_event_payload(event_slug: str, *, mode: str = "live") -> dict[str, Any]:
     if event_slug not in EVENT_SLUGS:
         raise UnknownFinalEventError(event_slug)
-    payload, runtime, runtime_artifact_version = _load_finals_snapshot(mode)
+    (
+        payload,
+        runtime,
+        mini_program_predictions,
+        runtime_artifact_version,
+    ) = _load_finals_snapshot(mode)
     return _build_final_event_from_snapshot(
         event_slug,
         mode=mode,
         payload=payload,
         runtime=runtime,
+        mini_program_predictions=mini_program_predictions,
         runtime_artifact_version=runtime_artifact_version,
     )
 
@@ -425,13 +470,24 @@ def build_finals_snapshot_payload(*, mode: str = "live") -> dict[str, Any]:
     """Build both finals events from one reference/runtime snapshot."""
     from .revisions import current_model_version, finals_revisions
 
-    payload, runtime, runtime_artifact_version = _load_finals_snapshot(mode)
+    (
+        payload,
+        runtime,
+        mini_program_predictions,
+        runtime_artifact_version,
+    ) = _load_finals_snapshot(mode)
     return {
         "schemaVersion": payload["schemaVersion"],
         "season": payload["season"],
         "mode": mode,
         "modelVersion": current_model_version(),
-        **finals_revisions(reference=payload, runtime=runtime, runtime_loaded=True),
+        **finals_revisions(
+            reference=payload,
+            runtime=runtime,
+            runtime_loaded=True,
+            mini_program_predictions=mini_program_predictions,
+            predictions_loaded=True,
+        ),
         "runtimeArtifactVersion": runtime_artifact_version,
         "events": {
             event_slug: _build_final_event_from_snapshot(
@@ -439,6 +495,7 @@ def build_finals_snapshot_payload(*, mode: str = "live") -> dict[str, Any]:
                 mode=mode,
                 payload=payload,
                 runtime=runtime,
+                mini_program_predictions=mini_program_predictions,
                 runtime_artifact_version=runtime_artifact_version,
             )
             for event_slug in sorted(EVENT_SLUGS)

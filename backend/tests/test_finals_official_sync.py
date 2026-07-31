@@ -140,6 +140,13 @@ def _args(tmp_path: Path | None = None) -> Namespace:
         source_kind="official",
         scenario_id=None,
         source_updated_at=None,
+        skip_mini_program=True,
+        mini_program_ttl_seconds=300,
+        mini_program_refresh_window_seconds=60,
+        mini_program_lookback_hours=24,
+        mini_program_lookahead_hours=48,
+        mini_program_max_matches=96,
+        mini_program_deadline_seconds=30,
     )
 
 
@@ -321,6 +328,96 @@ def test_official_reschedule_changes_finals_schedule_revision() -> None:
 
     assert before["scheduleRevision"] != after["scheduleRevision"]
     assert before["dataRevision"] != after["dataRevision"]
+
+
+def test_finals_audience_votes_change_data_revision_without_changing_schedule() -> None:
+    reference = finals_schedule.load_finals_schedule()
+    runtime = sync_finals_live.normalize_raw_input(
+        _official_payload(reference),
+        _args(),
+        datetime(2026, 7, 31, 10, 0, tzinfo=UTC),
+        source_headers={"last-modified": "Fri, 31 Jul 2026 09:59:21 GMT"},
+    )
+    before = revisions.finals_revisions(
+        reference=reference,
+        runtime=runtime,
+        runtime_loaded=True,
+        mini_program_predictions={},
+        predictions_loaded=True,
+    )
+    after = revisions.finals_revisions(
+        reference=reference,
+        runtime=runtime,
+        runtime_loaded=True,
+        mini_program_predictions={
+            "41001": {
+                "status": "available",
+                "matchId": "41001",
+                "redCount": 7,
+                "blueCount": 3,
+                "tieCount": 0,
+                "totalCount": 10,
+                "redRate": 0.7,
+                "blueRate": 0.3,
+                "tieRate": 0.0,
+                "fetchedAt": "2026-07-31T10:00:00+00:00",
+            }
+        },
+        predictions_loaded=True,
+    )
+
+    assert before["scheduleRevision"] == after["scheduleRevision"]
+    assert before["ratingRevision"] != after["ratingRevision"]
+    assert before["dataRevision"] != after["dataRevision"]
+
+
+def test_sync_once_reuses_mini_program_sync_for_finals_matches(tmp_path: Path) -> None:
+    raw = _official_payload(finals_schedule.load_finals_schedule())
+    args = _args(tmp_path)
+    args.skip_mini_program = False
+
+    def official_fetch(*_args, **_kwargs):
+        return raw, {
+            "etag": '"finals-with-audience"',
+            "last-modified": "Fri, 31 Jul 2026 09:59:21 GMT",
+        }, True
+
+    fetched_match_ids: list[str] = []
+
+    def audience_fetch(match_id: str) -> dict[str, Any]:
+        fetched_match_ids.append(match_id)
+        return {
+            "status": "available",
+            "matchId": match_id,
+            "redCount": 7,
+            "blueCount": 3,
+            "tieCount": 0,
+            "totalCount": 10,
+            "redRate": 0.7,
+            "blueRate": 0.3,
+            "tieRate": 0.0,
+            "fetchedAt": "2026-07-31T10:00:00+00:00",
+        }
+
+    manifest = sync_finals_live.sync_once(
+        args,
+        fetched_at=datetime(2026, 7, 31, 10, 0, tzinfo=UTC),
+        fetcher=official_fetch,
+        mini_program_fetcher=audience_fetch,
+    )
+
+    prediction_payload = json.loads(
+        (tmp_path / "mini_program_predictions.json").read_text(encoding="utf-8")
+    )
+    check_status = json.loads(
+        (tmp_path / "check_status.json").read_text(encoding="utf-8")
+    )
+    assert "41001" in fetched_match_ids
+    assert prediction_payload["predictions"]["41001"]["redRate"] == 0.7
+    assert manifest["miniProgramPrediction"]["candidateMatchIds"] == len(fetched_match_ids)
+    assert manifest["miniProgramPrediction"]["available"] == len(fetched_match_ids)
+    assert check_status["predictionChanged"] is True
+    assert check_status["semanticChanged"] is True
 
 
 def test_sync_once_preserves_last_known_good_and_tracks_304(tmp_path: Path) -> None:

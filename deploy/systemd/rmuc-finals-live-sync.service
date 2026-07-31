@@ -11,7 +11,8 @@ Group=douququ
 WorkingDirectory=/opt/douququ
 Environment=PYTHONPATH=/opt/douququ
 Environment=PYTHONDONTWRITEBYTECODE=1
-ExecStart=/opt/douququ/.venv/bin/python /opt/douququ/scripts/sync_finals_live.py
+Environment=RMUC_MINI_PROGRAM_ENABLED=1
+ExecStart=/opt/douququ/.venv/bin/python /opt/douququ/scripts/sync_finals_live.py --mini-program-ttl-seconds 300 --mini-program-refresh-window-seconds 60 --mini-program-deadline-seconds 30
 TimeoutStartSec=45
 UMask=0027
 NoNewPrivileges=true

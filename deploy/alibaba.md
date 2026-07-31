@@ -351,11 +351,13 @@ WantedBy=multi-user.target
 
 ### 9.3 实时赛程同步定时器
 
-官方赛程和“王牌预言家”同步不在后端请求路径里实时抓取，而是由两个相互隔离的
-`systemd timer` 定时运行，避免其中一个上游变慢时阻塞另一条链：
+官方赛程和“王牌预言家”同步不在后端请求路径里实时抓取，而是按区域赛与国赛两个
+事件范围分别由 `systemd timer` 定时运行。两边复用同一套观众投票同步与缓存逻辑，
+但写入彼此独立的运行时目录，避免并发覆盖：
 
 - 官方赛程写入：`/opt/douququ/data/runtime/rmuc_live/normalized_schedule.json`
 - 王牌预言家写入：`/opt/douququ/data/runtime/rmuc_live/mini_program_predictions.json`
+- 复活赛/全国赛王牌预言家写入：`/opt/douququ/data/runtime/rmuc_live/finals/mini_program_predictions.json`
 - 同步状态汇总：`/opt/douququ/data/runtime/rmuc_live/sync_manifest.json`
 - 复活赛/全国赛官方覆盖层：`/opt/douququ/data/runtime/rmuc_live/finals/normalized_schedule.json`
 - 复活赛/全国赛最近检查：`/opt/douququ/data/runtime/rmuc_live/finals/check_status.json`
@@ -634,6 +636,7 @@ file /tmp/rmuc-canvas-smoke.png
 
 ```bash
 test -s /opt/douququ/data/runtime/rmuc_live/mini_program_predictions.json
+test -s /opt/douququ/data/runtime/rmuc_live/finals/mini_program_predictions.json
 ```
 
 ### 13.2 前端构建校验

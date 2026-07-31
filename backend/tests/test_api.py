@@ -635,6 +635,60 @@ def test_repechage_schedule_matches_official_contract() -> None:
     assert event["matches"][-1]["winnerTo"] == "全国赛"
 
 
+def test_finals_api_merges_audience_votes_by_real_official_match_id(monkeypatch) -> None:
+    runtime = finals_live.validate_runtime_payload({
+        "schemaVersion": "rmuc-finals-live-v1",
+        "season": 2026,
+        "sourceStatus": "active",
+        "sourceKind": "official",
+        "sourceUpdatedAt": "2026-07-31T10:00:00+08:00",
+        "events": {
+            "repechage": {
+                "participants": [],
+                "matches": [{
+                    "number": 1,
+                    "officialMatchId": "31221",
+                    "bestOf": 3,
+                    "officialStatus": "PENDING",
+                    "isCompleted": False,
+                    "isConfirmedMatchup": False,
+                }],
+            }
+        },
+    })
+    audience = {
+        "status": "available",
+        "matchId": "31221",
+        "redCount": 769,
+        "blueCount": 151,
+        "tieCount": 0,
+        "totalCount": 920,
+        "redRate": 769 / 920,
+        "blueRate": 151 / 920,
+        "tieRate": 0.0,
+        "fetchedAt": "2026-07-31T10:00:00+08:00",
+    }
+    monkeypatch.setattr(finals_schedule.finals_live, "load_finals_runtime", lambda: runtime)
+    monkeypatch.setattr(
+        finals_schedule.finals_live,
+        "load_finals_mini_program_predictions",
+        lambda: {"31221": audience},
+    )
+    monkeypatch.setattr(
+        finals_schedule.finals_live,
+        "runtime_artifact_version",
+        lambda: "finals-with-audience",
+    )
+
+    response = client.get("/api/finals/repechage")
+
+    assert response.status_code == 200
+    match_payload = response.json()["event"]["matches"][0]
+    assert match_payload["officialMatchId"] == "31221"
+    assert match_payload["miniProgramPrediction"] == audience
+    assert response.json()["event"]["predictionBasis"] == "finals_sequential_elo"
+
+
 def test_finals_status_reports_completed_match_progress(monkeypatch) -> None:
     payload = deepcopy(finals_schedule.load_finals_schedule())
     matches = payload["events"]["repechage"]["matches"]

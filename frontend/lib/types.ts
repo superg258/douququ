@@ -606,6 +606,8 @@ export interface FinalEventMatch {
   startsAt: string;
   endsAt: string;
   officialMatchId?: string | null;
+  /** 王牌预言家观众投票，仅用于展示与模型分歧对比。 */
+  miniProgramPrediction?: MiniProgramPrediction;
   sourceKind?: "official" | "synthetic" | null;
   isSynthetic?: boolean;
   officialStatus?: string | null;

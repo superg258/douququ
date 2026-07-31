@@ -417,6 +417,45 @@ describe("finals schedule helpers", () => {
     });
   });
 
+  it("carries finals audience votes for display without changing model probability", () => {
+    const payload = event([]);
+    payload.participants = [
+      { order: 1, schoolKey: "red-school", teamKey: "red::team", collegeName: "红方大学", teamName: "红方战队", drawTier: "第一梯队", status: "confirmed" },
+      { order: 2, schoolKey: "blue-school", teamKey: "blue::team", collegeName: "蓝方大学", teamName: "蓝方战队", drawTier: "第一梯队", status: "confirmed" },
+    ];
+    const officialMatch = match(1, "2026-07-31T19:00:00+08:00", "A组瑞士轮第一轮（BO3）", {
+      officialMatchId: "31221",
+      isConfirmedMatchup: true,
+      redTeamKey: "red::team",
+      redCollegeName: "红方大学",
+      redTeamName: "红方战队",
+      blueTeamKey: "blue::team",
+      blueCollegeName: "蓝方大学",
+      blueTeamName: "蓝方战队",
+      miniProgramPrediction: {
+        status: "available",
+        matchId: "31221",
+        redCount: 769,
+        blueCount: 151,
+        tieCount: 0,
+        totalCount: 920,
+        redRate: 769 / 920,
+        blueRate: 151 / 920,
+        tieRate: 0,
+        fetchedAt: "2026-07-31T10:00:00+08:00",
+      },
+    });
+    const withoutAudience = { ...officialMatch, miniProgramPrediction: undefined };
+
+    const row = buildFinalsMatchRow(payload, officialMatch);
+    const baseline = buildFinalsMatchRow(payload, withoutAudience);
+
+    expect(row.officialMatchId).toBe("31221");
+    expect(row.miniProgramPrediction).toEqual(officialMatch.miniProgramPrediction);
+    expect(row.pGameRed).toBe(baseline.pGameRed);
+    expect(row.pSeriesRed).toBe(baseline.pSeriesRed);
+  });
+
   it("preserves an in-progress official finals score without marking it completed", () => {
     const row = buildFinalsMatchRow(event([]), match(2, "2026-07-31T19:40:00+08:00", "A组瑞士轮第一轮（BO3）", {
       officialStatus: "LIVE",

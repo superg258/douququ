@@ -168,6 +168,8 @@ export function buildFinalsMatchRow(
     winnerNext: match.winnerTo ?? "",
     loserNext: match.loserTo ?? "",
     plannedStartAt: match.startsAt,
+    officialMatchId: match.officialMatchId ?? `${event.slug}-${match.number}`,
+    miniProgramPrediction: match.miniProgramPrediction,
   };
 
   const red = simulation?.red ?? null;
@@ -215,7 +217,6 @@ export function buildFinalsMatchRow(
         redCurrentElo: simulation?.redEloAfter ?? simulation?.redElo ?? undefined,
         blueCurrentElo: simulation?.blueEloAfter ?? simulation?.blueElo ?? undefined,
         confidenceLabel: "low",
-        officialMatchId: `${event.slug}-${match.number}`,
       };
     }
     // 实时模式 / 沙盘未落位：官方排期占位（同区域赛官方占位对阵）
@@ -236,7 +237,6 @@ export function buildFinalsMatchRow(
       pSeriesBlue: 0.5,
       deltaH2H: 0,
       confidenceLabel: "low",
-      officialMatchId: `${event.slug}-${match.number}`,
       officialStatus: match.officialStatus ?? undefined,
     };
   }
@@ -278,7 +278,6 @@ export function buildFinalsMatchRow(
     blueDelta: simulation?.blueEloDelta,
     redCurrentElo: simulation?.redEloAfter ?? redElo ?? undefined,
     blueCurrentElo: simulation?.blueEloAfter ?? blueElo ?? undefined,
-    officialMatchId: `${event.slug}-${match.number}`,
     officialStatus: match.officialStatus ?? undefined,
   };
 }

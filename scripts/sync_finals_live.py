@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -26,6 +27,17 @@ from backend.app.artifacts import (
 )
 from backend.app.team_identity import team_identity_key  # noqa: E402
 from scripts._live_sync_common import fetch_json  # noqa: E402
+from scripts._mini_program_sync import (  # noqa: E402
+    DEFAULT_MINI_PROGRAM_LOOKAHEAD_HOURS,
+    DEFAULT_MINI_PROGRAM_LOOKBACK_HOURS,
+    DEFAULT_MINI_PROGRAM_MAX_MATCHES,
+    DEFAULT_MINI_PROGRAM_REFRESH_WINDOW_SECONDS,
+    DEFAULT_MINI_PROGRAM_TTL_SECONDS,
+    MINI_PROGRAM_PREDICTIONS_FILENAME,
+    collect_match_ids as collect_mini_program_match_ids,
+    disabled_status as disabled_mini_program_status,
+    sync_predictions as sync_mini_program_predictions,
+)
 from scripts.finals_official_adapter import (  # noqa: E402
     is_official_schedule_payload,
     overlay_from_official_schedule,
@@ -58,6 +70,42 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--source-kind", choices=("official", "synthetic"), default="official")
     parser.add_argument("--scenario-id")
     parser.add_argument("--source-updated-at")
+    parser.add_argument(
+        "--skip-mini-program",
+        action="store_true",
+        help="Do not refresh the finals mini-program prediction cache.",
+    )
+    parser.add_argument(
+        "--mini-program-ttl-seconds",
+        type=int,
+        default=DEFAULT_MINI_PROGRAM_TTL_SECONDS,
+    )
+    parser.add_argument(
+        "--mini-program-refresh-window-seconds",
+        type=int,
+        default=DEFAULT_MINI_PROGRAM_REFRESH_WINDOW_SECONDS,
+    )
+    parser.add_argument(
+        "--mini-program-lookback-hours",
+        type=int,
+        default=DEFAULT_MINI_PROGRAM_LOOKBACK_HOURS,
+    )
+    parser.add_argument(
+        "--mini-program-lookahead-hours",
+        type=int,
+        default=DEFAULT_MINI_PROGRAM_LOOKAHEAD_HOURS,
+    )
+    parser.add_argument(
+        "--mini-program-max-matches",
+        type=int,
+        default=DEFAULT_MINI_PROGRAM_MAX_MATCHES,
+    )
+    parser.add_argument(
+        "--mini-program-deadline-seconds",
+        type=float,
+        default=30,
+        help="Best-effort time budget for audience vote refreshes.",
+    )
     args = parser.parse_args()
     if args.input is None and args.source_url is None:
         args.source_url = DEFAULT_SOURCE_URL
@@ -208,11 +256,36 @@ def _previous_last_success_at(check_status: Any) -> str | None:
     return None
 
 
+def _iter_finals_matches(normalized: dict[str, Any]):
+    events = normalized.get("events")
+    if not isinstance(events, dict):
+        return
+    for event in events.values():
+        if not isinstance(event, dict):
+            continue
+        matches = event.get("matches")
+        if not isinstance(matches, list):
+            continue
+        for match in matches:
+            if isinstance(match, dict):
+                yield match
+
+
+def mini_program_sync_disabled_from_env() -> bool:
+    return os.getenv("RMUC_MINI_PROGRAM_ENABLED", "1").strip().lower() in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+
+
 def sync_once(
     args: argparse.Namespace,
     *,
     fetched_at: datetime | None = None,
     fetcher=fetch_json,
+    mini_program_fetcher=None,
 ) -> dict[str, Any]:
     fetched_at = fetched_at or datetime.now(tz=UTC)
     raw_dir = args.runtime_dir / "raw"
@@ -221,6 +294,8 @@ def sync_once(
     manifest_path = args.runtime_dir / "sync_manifest.json"
     check_status_path = args.runtime_dir / "check_status.json"
     previous_check_status = read_json_if_exists(check_status_path)
+    prediction_path = args.runtime_dir / MINI_PROGRAM_PREDICTIONS_FILENAME
+    previous_mini_program = read_json_if_exists(prediction_path)
     source_headers: dict[str, str] = {}
     source_changed = True
     try:
@@ -262,6 +337,72 @@ def sync_once(
         # until the replacement is ready.
         write_json_atomic(normalized_path, normalized)
 
+        mini_program_disabled = (
+            getattr(args, "skip_mini_program", False)
+            or mini_program_sync_disabled_from_env()
+        )
+        if mini_program_disabled:
+            mini_program_status = disabled_mini_program_status(
+                "mini-program sync disabled",
+                fetched_at=fetched_at,
+            )
+        else:
+            mini_program_match_ids = collect_mini_program_match_ids(
+                _iter_finals_matches(normalized),
+                now=fetched_at,
+                timestamp_fields=("startsAt",),
+                lookback_hours=getattr(
+                    args,
+                    "mini_program_lookback_hours",
+                    DEFAULT_MINI_PROGRAM_LOOKBACK_HOURS,
+                ),
+                lookahead_hours=getattr(
+                    args,
+                    "mini_program_lookahead_hours",
+                    DEFAULT_MINI_PROGRAM_LOOKAHEAD_HOURS,
+                ),
+                max_matches=getattr(
+                    args,
+                    "mini_program_max_matches",
+                    DEFAULT_MINI_PROGRAM_MAX_MATCHES,
+                ),
+            )
+            mini_program_status = sync_mini_program_predictions(
+                mini_program_match_ids,
+                runtime_dir=args.runtime_dir,
+                fetched_at=fetched_at,
+                fetcher=mini_program_fetcher,
+                ttl_seconds=getattr(
+                    args,
+                    "mini_program_ttl_seconds",
+                    DEFAULT_MINI_PROGRAM_TTL_SECONDS,
+                ),
+                refresh_window_seconds=getattr(
+                    args,
+                    "mini_program_refresh_window_seconds",
+                    DEFAULT_MINI_PROGRAM_REFRESH_WINDOW_SECONDS,
+                ),
+                lookback_hours=getattr(
+                    args,
+                    "mini_program_lookback_hours",
+                    DEFAULT_MINI_PROGRAM_LOOKBACK_HOURS,
+                ),
+                lookahead_hours=getattr(
+                    args,
+                    "mini_program_lookahead_hours",
+                    DEFAULT_MINI_PROGRAM_LOOKAHEAD_HOURS,
+                ),
+                deadline_seconds=getattr(
+                    args,
+                    "mini_program_deadline_seconds",
+                    30,
+                ),
+            )
+        current_mini_program = read_json_if_exists(prediction_path)
+        prediction_changed = semantic_digest(current_mini_program) != semantic_digest(
+            previous_mini_program
+        )
+
         match_count = sum(len(event.get("matches", [])) for event in normalized["events"].values())
         completed_count = sum(
             1
@@ -283,8 +424,9 @@ def sync_once(
             "sourceChanged": source_changed,
             "matchCount": match_count,
             "completedMatches": completed_count,
+            "miniProgramPrediction": mini_program_status,
         }
-        if semantic_changed or not manifest_path.exists():
+        if semantic_changed or prediction_changed or not manifest_path.exists():
             write_json_atomic(manifest_path, manifest)
         write_json_atomic(
             check_status_path,
@@ -295,11 +437,14 @@ def sync_once(
                 "lastSuccessAt": fetched_at.isoformat(),
                 "sourceUrl": args.source_url,
                 "sourceChanged": source_changed,
-                "semanticChanged": semantic_changed,
+                "scheduleChanged": semantic_changed,
+                "predictionChanged": prediction_changed,
+                "semanticChanged": semantic_changed or prediction_changed,
                 "etag": source_headers.get("etag") or normalized.get("etag"),
                 "lastModified": source_headers.get("last-modified") or normalized.get("lastModified"),
                 "matchCount": match_count,
                 "completedMatches": completed_count,
+                "miniProgramPrediction": mini_program_status,
                 "lastKnownGoodPreserved": True,
             },
         )

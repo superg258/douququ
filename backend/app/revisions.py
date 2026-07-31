@@ -47,6 +47,7 @@ def _revision_input_signatures() -> tuple[PathSignature, ...]:
             service._published_live_match_ledger_path_for(published_dir),
             finals_schedule.FINALS_SCHEDULE_PATH,
             finals_live.FINALS_RUNTIME_PATH,
+            finals_live.FINALS_MINI_PROGRAM_PREDICTIONS_PATH,
         )
     )
 
@@ -143,10 +144,14 @@ def _finals_revision_inputs(
     reference: dict[str, Any] | None = None,
     runtime: dict[str, Any] | None = None,
     runtime_loaded: bool = False,
+    mini_program_predictions: dict[str, dict[str, Any]] | None = None,
+    predictions_loaded: bool = False,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     reference = reference or finals_schedule.load_finals_schedule()
     if not runtime_loaded:
         runtime = finals_live.load_finals_runtime()
+    if not predictions_loaded:
+        mini_program_predictions = finals_live.load_finals_mini_program_predictions()
     published_dir = service._effective_published_dir()
     manifest = _dict(
         read_versioned_json_if_exists(service._published_manifest_path_for(published_dir))
@@ -159,6 +164,10 @@ def _finals_revision_inputs(
         "snapshot": read_versioned_json_if_exists(
             service._published_current_snapshot_path_for(published_dir)
         ),
+        # Audience votes are presentation-only.  They participate in the
+        # revision so clients refresh, but finals probability construction
+        # never reads this field.
+        "miniProgramPredictions": mini_program_predictions,
     }
     schedule_input = {
         "reference": reference,
@@ -176,13 +185,23 @@ def finals_revisions(
     reference: dict[str, Any] | None = None,
     runtime: dict[str, Any] | None = None,
     runtime_loaded: bool = False,
+    mini_program_predictions: dict[str, dict[str, Any]] | None = None,
+    predictions_loaded: bool = False,
 ) -> dict[str, str]:
-    if reference is None and runtime is None and not runtime_loaded:
+    if (
+        reference is None
+        and runtime is None
+        and not runtime_loaded
+        and mini_program_predictions is None
+        and not predictions_loaded
+    ):
         return _finals_revisions_cached(_revision_input_signatures())
     return _build_finals_revisions(
         reference=reference,
         runtime=runtime,
         runtime_loaded=runtime_loaded,
+        mini_program_predictions=mini_program_predictions,
+        predictions_loaded=predictions_loaded,
     )
 
 
@@ -191,11 +210,15 @@ def _build_finals_revisions(
     reference: dict[str, Any] | None = None,
     runtime: dict[str, Any] | None = None,
     runtime_loaded: bool = False,
+    mini_program_predictions: dict[str, dict[str, Any]] | None = None,
+    predictions_loaded: bool = False,
 ) -> dict[str, str]:
     schedule_input, rating_input = _finals_revision_inputs(
         reference=reference,
         runtime=runtime,
         runtime_loaded=runtime_loaded,
+        mini_program_predictions=mini_program_predictions,
+        predictions_loaded=predictions_loaded,
     )
     schedule_revision = semantic_digest(schedule_input)
     rating_revision = semantic_digest(rating_input)

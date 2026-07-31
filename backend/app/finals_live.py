@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
@@ -18,6 +19,9 @@ from .team_identity import resolve_team_identity
 
 ROOT = Path(__file__).resolve().parents[2]
 FINALS_RUNTIME_PATH = ROOT / "data" / "runtime" / "rmuc_live" / "finals" / "normalized_schedule.json"
+FINALS_MINI_PROGRAM_PREDICTIONS_PATH = (
+    ROOT / "data" / "runtime" / "rmuc_live" / "finals" / "mini_program_predictions.json"
+)
 EVENT_SLUGS = FINAL_EVENT_SLUGS
 EVENT_MATCH_COUNTS = FINAL_EVENT_MATCH_COUNTS
 SOURCE_KINDS = {"official", "synthetic"}
@@ -68,8 +72,35 @@ def load_finals_runtime() -> dict[str, Any] | None:
 load_finals_runtime.cache_clear = _load_runtime_cached.cache_clear  # type: ignore[attr-defined]
 
 
+def load_finals_mini_program_predictions() -> dict[str, dict[str, Any]]:
+    if os.getenv("RMUC_MINI_PROGRAM_ENABLED", "1").strip().lower() in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }:
+        return {}
+    payload = (
+        read_json(FINALS_MINI_PROGRAM_PREDICTIONS_PATH)
+        if FINALS_MINI_PROGRAM_PREDICTIONS_PATH.exists()
+        else None
+    )
+    if not isinstance(payload, dict):
+        return {}
+    predictions = payload.get("predictions")
+    if not isinstance(predictions, dict):
+        return {}
+    return {
+        str(match_id): prediction
+        for match_id, prediction in predictions.items()
+        if isinstance(prediction, dict)
+    }
+
+
 def runtime_artifact_version() -> str:
-    return artifact_version([FINALS_RUNTIME_PATH])
+    return artifact_version(
+        [FINALS_RUNTIME_PATH, FINALS_MINI_PROGRAM_PREDICTIONS_PATH]
+    )
 
 
 def _side_is_present(match: dict[str, Any], side: str) -> bool:
